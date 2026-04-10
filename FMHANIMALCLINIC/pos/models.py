@@ -60,6 +60,9 @@ class Sale(models.Model):
     guest_name = models.CharField(max_length=200, blank=True)
     guest_phone = models.CharField(max_length=20, blank=True)
     guest_email = models.EmailField(blank=True)
+    guest_pet_name = models.CharField(
+        max_length=200, blank=True,
+        help_text='Pet name for walk-in customers')
 
     # Financial totals
     subtotal = models.DecimalField(

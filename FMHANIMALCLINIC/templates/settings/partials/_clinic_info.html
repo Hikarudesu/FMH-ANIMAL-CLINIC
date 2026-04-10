@@ -88,6 +88,32 @@
           <div class="error-text">{{ forms.clinic.license_number.errors.0 }}</div>
         {% endif %}
       </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-check-shield'></i> Policies & Legal Documents
+      </div>
+      
+      <div class="admin-field admin-field-full">
+        <p class="form-hint" style="margin-top: 0; margin-bottom: 8px;">
+          Manage the content of your clinic's Terms of Service and Privacy Policy directly below. If updated, a new active version will be saved automatically.
+        </p>
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label for="{{ forms.clinic.tos_content.id_for_label }}">Terms of Service</label>
+        {{ forms.clinic.tos_content }}
+        {% if forms.clinic.tos_content.errors %}
+          <div class="error-text">{{ forms.clinic.tos_content.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label for="{{ forms.clinic.privacy_policy_content.id_for_label }}">Privacy Policy</label>
+        {{ forms.clinic.privacy_policy_content }}
+        {% if forms.clinic.privacy_policy_content.errors %}
+          <div class="error-text">{{ forms.clinic.privacy_policy_content.errors.0 }}</div>
+        {% endif %}
+      </div>
     </div>
 
     <div class="admin-actions">

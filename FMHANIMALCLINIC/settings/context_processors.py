@@ -109,3 +109,22 @@ def landing_content(request):
         'branches': branches,
         'branches_json': json.dumps(branches_data),
     }
+
+
+def legal_documents(request):
+    """
+    Provide legal documents (TOS, Privacy Policy) to all templates.
+
+    Usage in templates:
+        {{ tos_document.title }}
+        {{ tos_document.content|safe }}
+        {{ privacy_document.title }}
+        {{ privacy_document.content|safe }}
+    """
+    from .models import LegalDocument
+
+    return {
+        'tos_document': LegalDocument.get_tos(),
+        'privacy_document': LegalDocument.get_privacy_policy(),
+    }
+

@@ -113,6 +113,128 @@
     </div>
   </div>
 
+  <!-- ── Security Card (Change Password) ── -->
+  <div class="profile-card">
+    <div class="profile-card-header">
+      <div class="profile-card-title">
+        <div class="profile-card-icon"><i class='bx bx-lock-alt'></i></div>
+        <div>
+          <h2>Security</h2>
+          <p>Manage your password</p>
+        </div>
+      </div>
+      <button type="button" class="profile-edit-btn" id="changePasswordBtn">
+        <i class='bx bx-key'></i> Change Password
+      </button>
+    </div>
+
+    <div id="changePasswordForm" style="display: none; padding: 20px;">
+      
+      <!-- State 1: Current Password or 'Forgot' -->
+      <form id="state1Form" method="POST" action="{% url 'accounts:change_password' %}">
+        {% csrf_token %}
+        <div style="display: flex; flex-direction: column; gap: 16px; max-width: 400px;">
+          <div class="auth-form-group">
+            <label for="currentPassword" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">Current Password</label>
+            <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
+              <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
+              <input type="password" id="currentPassword" name="current_password" placeholder="Enter current password" required
+                     style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+            </div>
+            <div style="margin-top: 6px; text-align: right;">
+              <a href="#" id="toggleOtpFlow" style="font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 500;">Forgot current password?</a>
+            </div>
+          </div>
+          <div class="auth-form-group">
+            <label for="newPassword1" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">New Password</label>
+            <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
+              <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
+              <input type="password" id="newPassword1" name="new_password1" placeholder="Enter new password" required minlength="8"
+                     style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+            </div>
+          </div>
+          <div class="auth-form-group">
+            <label for="newPassword2" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">Confirm New Password</label>
+            <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
+              <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
+              <input type="password" id="newPassword2" name="new_password2" placeholder="Confirm new password" required minlength="8"
+                     style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; margin-top: 8px;">
+            <button type="submit" class="btn-action primary" style="padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              <i class='bx bx-check'></i> Update Password
+            </button>
+            <button type="button" class="btn-action outline" onclick="document.getElementById('changePasswordForm').style.display='none';"
+                    style="padding: 10px 24px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 600; background: transparent;">
+              <i class='bx bx-x'></i> Cancel
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- State 2: Send OTP -->
+      <div id="state2OtpPrompt" style="display: none; flex-direction: column; gap: 16px; max-width: 400px; padding: 15px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
+        <h4 style="margin:0; color:var(--text-1);">Reset via Email</h4>
+        <p style="margin:0; font-size:14px; color:var(--text-2);">Clicking "Send OTP" will email a 6-digit verification code to your registered account address.</p>
+        <div id="otpStatusMsg" style="font-size:13px; color:var(--primary); display:none;">Sending code... please wait.</div>
+        <div style="display: flex; gap: 12px; margin-top: 8px;">
+          <button type="button" id="btnSendOtp" class="btn-action primary" style="padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            <i class='bx bx-envelope'></i> Send OTP
+          </button>
+          <button type="button" id="btnCancelOtpReset" class="btn-action outline" style="padding: 10px 24px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 600; background: transparent;">
+            Cancel
+          </button>
+        </div>
+      </div>
+
+      <!-- State 3: Enter OTP -->
+      <div id="state3VerifyOtp" style="display: none; flex-direction: column; gap: 16px; max-width: 400px; padding: 15px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
+        <h4 style="margin:0; color:var(--text-1);">Enter OTP Code</h4>
+        <p style="margin:0; font-size:14px; color:var(--text-2);">Enter the 6-digit code sent to <strong id="obscuredEmailDisplay"></strong>.</p>
+        <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
+          <i class='bx bx-dialpad' style="color: var(--text-3);"></i>
+          <input type="text" id="inlineOtpInput" placeholder="123456" maxlength="6"
+                 style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none; letter-spacing: 4px; font-weight: bold; text-align: center;">
+        </div>
+        <div id="verifyOtpStatusMsg" style="font-size:13px; color:var(--error); display:none;"></div>
+        <div style="display: flex; gap: 12px; margin-top: 8px;">
+          <button type="button" id="btnVerifyOtp" class="btn-action primary" style="padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            <i class='bx bx-check-shield'></i> Verify
+          </button>
+        </div>
+      </div>
+
+      <!-- State 4: Set New Password -->
+      <div id="state4NewPassword" style="display: none; flex-direction: column; gap: 16px; max-width: 400px; padding: 15px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
+        <h4 style="margin:0; color:var(--text-1);">Set New Password</h4>
+        <div class="auth-form-group">
+          <label style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">New Password</label>
+          <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
+            <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
+            <input type="password" id="inlineNewPass1" placeholder="Enter new password" minlength="8"
+                   style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+          </div>
+        </div>
+        <div class="auth-form-group">
+          <label style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">Confirm New Password</label>
+          <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
+            <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
+            <input type="password" id="inlineNewPass2" placeholder="Confirm new password" minlength="8"
+                   style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+          </div>
+        </div>
+        <div id="resetStatusMsg" style="font-size:13px; color:var(--error); display:none;"></div>
+        <div style="display: flex; gap: 12px; margin-top: 8px;">
+          <button type="button" id="btnSubmitNewPassword" class="btn-action primary" style="padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            <i class='bx bx-check'></i> Save Password
+          </button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
 </div>
 
 <!-- ── Edit Profile Modal ── -->
@@ -232,6 +354,174 @@
       });
     }, { threshold: 0.1 });
     fields.forEach(f => observer.observe(f));
+
+    /* Change password toggle */
+    const cpBtn = document.getElementById('changePasswordBtn');
+    const cpForm = document.getElementById('changePasswordForm');
+    if (cpBtn && cpForm) {
+      cpBtn.addEventListener('click', function() {
+        cpForm.style.display = cpForm.style.display === 'none' ? 'block' : 'none';
+      });
+    }
+
+    /* ═════════════════════════════════════════════════════════════════════════
+       INLINE OTP FORGOT PASSWORD FLOW
+       ═════════════════════════════════════════════════════════════════════════ */
+    const toggleOtpFlow = document.getElementById('toggleOtpFlow');
+    const state1Form = document.getElementById('state1Form');
+    const state2OtpPrompt = document.getElementById('state2OtpPrompt');
+    const btnCancelOtpReset = document.getElementById('btnCancelOtpReset');
+    const btnSendOtp = document.getElementById('btnSendOtp');
+    const otpStatusMsg = document.getElementById('otpStatusMsg');
+    
+    const state3VerifyOtp = document.getElementById('state3VerifyOtp');
+    const inlineOtpInput = document.getElementById('inlineOtpInput');
+    const btnVerifyOtp = document.getElementById('btnVerifyOtp');
+    const verifyOtpStatusMsg = document.getElementById('verifyOtpStatusMsg');
+    const obscuredEmailDisplay = document.getElementById('obscuredEmailDisplay');
+
+    const state4NewPassword = document.getElementById('state4NewPassword');
+    const inlineNewPass1 = document.getElementById('inlineNewPass1');
+    const inlineNewPass2 = document.getElementById('inlineNewPass2');
+    const btnSubmitNewPassword = document.getElementById('btnSubmitNewPassword');
+    const resetStatusMsg = document.getElementById('resetStatusMsg');
+    
+    // Get CSRF Token
+    function getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+
+    if (toggleOtpFlow) {
+        // Step 1 -> Step 2
+        toggleOtpFlow.addEventListener('click', (e) => {
+            e.preventDefault();
+            state1Form.style.display = 'none';
+            state2OtpPrompt.style.display = 'flex';
+        });
+
+        // Cancel resets back to Step 1
+        btnCancelOtpReset.addEventListener('click', () => {
+            state2OtpPrompt.style.display = 'none';
+            state1Form.style.display = 'block';
+        });
+
+        // Step 2 -> Step 3 (Send OTP)
+        btnSendOtp.addEventListener('click', () => {
+            btnSendOtp.disabled = true;
+            otpStatusMsg.style.display = 'block';
+            otpStatusMsg.style.color = 'var(--primary)';
+            otpStatusMsg.innerText = 'Sending code... please wait.';
+            
+            fetch('/accounts/api/profile/send-otp/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    state2OtpPrompt.style.display = 'none';
+                    state3VerifyOtp.style.display = 'flex';
+                    obscuredEmailDisplay.innerText = data.email;
+                } else {
+                    otpStatusMsg.style.color = 'var(--error)';
+                    otpStatusMsg.innerText = data.error || 'Failed to send OTP.';
+                    btnSendOtp.disabled = false;
+                }
+            })
+            .catch(err => {
+                otpStatusMsg.style.color = 'var(--error)';
+                otpStatusMsg.innerText = 'Network error occurred.';
+                btnSendOtp.disabled = false;
+            });
+        });
+
+        // Step 3 -> Step 4 (Verify OTP)
+        btnVerifyOtp.addEventListener('click', () => {
+            const code = inlineOtpInput.value.trim();
+            if(code.length !== 6) {
+                verifyOtpStatusMsg.style.display = 'block';
+                verifyOtpStatusMsg.innerText = 'Please enter the 6-digit code.';
+                return;
+            }
+            
+            btnVerifyOtp.disabled = true;
+            fetch('/accounts/api/profile/verify-otp/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ otp_code: code })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    state3VerifyOtp.style.display = 'none';
+                    state4NewPassword.style.display = 'flex';
+                } else {
+                    verifyOtpStatusMsg.style.display = 'block';
+                    verifyOtpStatusMsg.innerText = data.error || 'Invalid code.';
+                    btnVerifyOtp.disabled = false;
+                }
+            })
+            .catch(err => {
+                verifyOtpStatusMsg.style.display = 'block';
+                verifyOtpStatusMsg.innerText = 'Network error occurred.';
+                btnVerifyOtp.disabled = false;
+            });
+        });
+
+        // Step 4 -> Finish (Reset Password)
+        btnSubmitNewPassword.addEventListener('click', () => {
+            const p1 = inlineNewPass1.value;
+            const p2 = inlineNewPass2.value;
+            
+            if(!p1 || !p2) {
+                resetStatusMsg.style.display = 'block';
+                resetStatusMsg.innerText = 'Please fill out both fields.';
+                return;
+            }
+            if(p1 !== p2) {
+                resetStatusMsg.style.display = 'block';
+                resetStatusMsg.innerText = 'Passwords do not match.';
+                return;
+            }
+            if(p1.length < 8) {
+                resetStatusMsg.style.display = 'block';
+                resetStatusMsg.innerText = 'Password must be at least 8 characters.';
+                return;
+            }
+            
+            btnSubmitNewPassword.disabled = true;
+            fetch('/accounts/api/profile/reset-password/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ password1: p1, password2: p2 })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    window.location.reload(); // Quickest way to show the standard django success message banner
+                } else {
+                    resetStatusMsg.style.display = 'block';
+                    resetStatusMsg.innerText = data.error || 'Failed to update password.';
+                    btnSubmitNewPassword.disabled = false;
+                }
+            })
+            .catch(err => {
+                resetStatusMsg.style.display = 'block';
+                resetStatusMsg.innerText = 'Network error occurred.';
+                btnSubmitNewPassword.disabled = false;
+            });
+        });
+    }
+
   });
 </script>
 {% endblock %}

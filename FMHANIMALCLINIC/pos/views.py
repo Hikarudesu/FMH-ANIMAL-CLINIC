@@ -78,7 +78,14 @@ def checkout(request):
         is_active=True
     ).filter(
         Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
-    ).order_by('first_name', 'last_name')
+    ).order_by('first_name', 'last_name').prefetch_related('pets')
+
+    # Build pets mapping for dynamic dropdown in frontend
+    pets_map = {}
+    for customer in customers:
+        pets_map[customer.id] = [{'id': pet.id, 'name': pet.name} for pet in customer.pets.all()]
+    
+    import json
 
     context = {
         'sale': pending_sale,
@@ -87,6 +94,7 @@ def checkout(request):
         'products': products,
         'medications': medications,
         'customers': customers,
+        'pets_json': json.dumps(pets_map),
         'branches': branches,
         'payment_methods': Payment.Method.choices,
         'is_branch_restricted': True,  # POS is always branch-restricted
@@ -254,7 +262,7 @@ def update_sale_info(request):
         return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
     # Track which fields to save
-    update_fields = ['customer_type', 'guest_name', 'guest_phone', 'guest_email', 'notes']
+    update_fields = ['customer_type', 'guest_name', 'guest_phone', 'guest_email', 'guest_pet_name', 'notes']
 
     # Update customer info
     customer_type = request.POST.get('customer_type', 'WALKIN')
@@ -281,10 +289,12 @@ def update_sale_info(request):
                 pass
     else:
         sale.customer = None
+        sale.pet = None
         sale.guest_name = request.POST.get('guest_name', '')
         sale.guest_phone = request.POST.get('guest_phone', '')
         sale.guest_email = request.POST.get('guest_email', '')
-        update_fields.append('customer')
+        sale.guest_pet_name = request.POST.get('guest_pet_name', '')
+        update_fields.extend(['customer', 'pet'])
 
     # ONLY update discount if discount_percent is explicitly provided in POST
     # This prevents the payment flow from accidentally wiping the discount

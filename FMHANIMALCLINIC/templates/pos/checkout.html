@@ -829,14 +829,19 @@
         <button class="pos-customer-btn active" onclick="setCustomerType('WALKIN')">Walk-in</button>
         <button class="pos-customer-btn" onclick="setCustomerType('REGISTERED')">Registered</button>
       </div>
-      <!-- Walk-in: Text input for name -->
+      <!-- Walk-in: Text inputs for name and pet name -->
       <input type="text" class="pos-customer-input" id="guestName" placeholder="Customer name (optional)">
+      <input type="text" class="pos-customer-input" id="guestPetName" placeholder="Pet name (optional)" style="margin-top: 0;">
       <!-- Registered: Dropdown for pet owners -->
       <select class="pos-customer-input" id="registeredCustomer" style="display: none;">
         <option value="">Select a registered customer...</option>
         {% for customer in customers %}
         <option value="{{ customer.id }}">{{ customer.get_full_name|default:customer.email }} {% if customer.phone_number %}({{ customer.phone_number }}){% endif %}</option>
         {% endfor %}
+      </select>
+      <!-- Registered: Pet dropdown (populated via JS when customer is selected) -->
+      <select class="pos-customer-input" id="registeredPet" style="display: none;">
+        <option value="">Select a pet...</option>
       </select>
     </div>
 
@@ -1191,26 +1196,54 @@ function setPaymentMethod(method) {
   });
 }
 
+const customerPetsMap = JSON.parse('{{ pets_json|escapejs }}' || '{}');
+
 function setCustomerType(type) {
   customerType = type;
   document.querySelectorAll('.pos-customer-btn').forEach(btn => {
     btn.classList.toggle('active', btn.textContent.includes(type === 'WALKIN' ? 'Walk-in' : 'Registered'));
   });
   
-  // Toggle between walk-in input and registered dropdown
+  // Toggle between walk-in inputs and registered dropdowns
   const guestNameInput = document.getElementById('guestName');
+  const guestPetNameInput = document.getElementById('guestPetName');
   const registeredSelect = document.getElementById('registeredCustomer');
+  const registeredPetSelect = document.getElementById('registeredPet');
   
   if (type === 'WALKIN') {
     guestNameInput.style.display = 'block';
+    guestPetNameInput.style.display = 'block';
     registeredSelect.style.display = 'none';
+    registeredPetSelect.style.display = 'none';
     registeredSelect.value = '';
+    registeredPetSelect.innerHTML = '<option value="">Select a pet...</option>';
+    registeredPetSelect.value = '';
   } else {
     guestNameInput.style.display = 'none';
+    guestPetNameInput.style.display = 'none';
     registeredSelect.style.display = 'block';
+    registeredPetSelect.style.display = 'block';
     guestNameInput.value = '';
+    guestPetNameInput.value = '';
   }
 }
+
+// Add event listener to populate pets when customer changes
+document.getElementById('registeredCustomer').addEventListener('change', function() {
+  const registeredPetSelect = document.getElementById('registeredPet');
+  const customerId = this.value;
+  
+  registeredPetSelect.innerHTML = '<option value="">Select a pet...</option>';
+  
+  if (customerId && customerPetsMap[customerId]) {
+    customerPetsMap[customerId].forEach(pet => {
+      const option = document.createElement('option');
+      option.value = pet.id;
+      option.textContent = pet.name;
+      registeredPetSelect.appendChild(option);
+    });
+  }
+});
 
 function processPayment() {
   const amountStr = document.getElementById('paymentAmount').value.replace(/,/g, '');
@@ -1220,15 +1253,20 @@ function processPayment() {
     return;
   }
 
-  // Get customer info based on type
+  // Get customer and pet info based on type
   const guestName = document.getElementById('guestName').value;
+  const guestPetName = document.getElementById('guestPetName').value;
   const registeredCustomerId = document.getElementById('registeredCustomer').value;
+  const registeredPetId = document.getElementById('registeredPet').value;
   
   let bodyParams = `sale_id=${saleId}&customer_type=${customerType}`;
   if (customerType === 'WALKIN') {
-    bodyParams += `&guest_name=${encodeURIComponent(guestName)}`;
+    bodyParams += `&guest_name=${encodeURIComponent(guestName)}&guest_pet_name=${encodeURIComponent(guestPetName)}`;
   } else {
     bodyParams += `&customer_id=${registeredCustomerId}`;
+    if (registeredPetId) {
+      bodyParams += `&pet_id=${registeredPetId}`;
+    }
   }
   
   // Update customer info first

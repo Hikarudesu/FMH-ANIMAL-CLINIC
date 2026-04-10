@@ -159,7 +159,7 @@
             <label class="auth-checkbox">
               <input type="checkbox" name="terms" required>
               <span class="checkmark"></span>
-              I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+              I agree to the <a href="#" onclick="event.preventDefault(); openLegalModal('tosModal');">Terms of Service</a> and <a href="#" onclick="event.preventDefault(); openLegalModal('privacyModal');">Privacy Policy</a>
             </label>
           </div>
 
@@ -177,7 +177,172 @@
   </div>
 </section>
 
+<!-- Terms of Service Modal -->
+<div class="auth-legal-modal" id="tosModal">
+  <div class="auth-legal-modal-content">
+    <button class="auth-legal-modal-close" onclick="document.getElementById('tosModal').style.display='none';" title="Close">&times;</button>
+    <div class="auth-legal-modal-header">
+      <h3>
+        <i class='bx bx-file'></i>
+        {% if tos_document %}{{ tos_document.title }}{% else %}Terms of Service{% endif %}
+      </h3>
+      {% if tos_document %}<small>Version {{ tos_document.version }}</small>{% endif %}
+    </div>
+    <div class="auth-legal-modal-body">
+      {% if tos_document %}
+        {{ tos_document.content|linebreaks }}
+      {% else %}
+        <p class="auth-legal-empty">
+          <i class='bx bx-info-circle'></i><br>
+          Terms of Service content has not been configured yet.<br>
+          Please contact the clinic administrator.
+        </p>
+      {% endif %}
+    </div>
+    <div class="auth-legal-modal-footer">
+      <button class="btn btn-primary" onclick="document.getElementById('tosModal').style.display='none';">
+        I Understand
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Privacy Policy Modal -->
+<div class="auth-legal-modal" id="privacyModal">
+  <div class="auth-legal-modal-content">
+    <button class="auth-legal-modal-close" onclick="document.getElementById('privacyModal').style.display='none';" title="Close">&times;</button>
+    <div class="auth-legal-modal-header">
+      <h3>
+        <i class='bx bx-shield-quarter'></i>
+        {% if privacy_document %}{{ privacy_document.title }}{% else %}Privacy Policy{% endif %}
+      </h3>
+      {% if privacy_document %}<small>Version {{ privacy_document.version }}</small>{% endif %}
+    </div>
+    <div class="auth-legal-modal-body">
+      {% if privacy_document %}
+        {{ privacy_document.content|linebreaks }}
+      {% else %}
+        <p class="auth-legal-empty">
+          <i class='bx bx-info-circle'></i><br>
+          Privacy Policy content has not been configured yet.<br>
+          Please contact the clinic administrator.
+        </p>
+      {% endif %}
+    </div>
+    <div class="auth-legal-modal-footer">
+      <button class="btn btn-primary" onclick="document.getElementById('privacyModal').style.display='none';">
+        I Understand
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Independent styles for auth legal modals */
+.auth-legal-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.6);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.auth-legal-modal-content {
+  background: var(--surface, #ffffff);
+  width: 90%;
+  max-width: 640px;
+  max-height: 85vh;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  position: relative;
+  animation: modalFadeIn 0.3s ease;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.auth-legal-modal-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border, #e0e0e0);
+}
+.auth-legal-modal-header h3 {
+  font-size: 1.25rem; font-weight: 800; color: var(--text-1, #333); margin: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.auth-legal-modal-header h3 i {
+  color: var(--primary, #009688);
+}
+.auth-legal-modal-header small {
+  color: var(--text-3, #999); display: block; margin-top: 4px;
+}
+.auth-legal-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 0.95rem; line-height: 1.7; color: var(--text-2, #555);
+}
+.auth-legal-modal-body h1, .auth-legal-modal-body h2, .auth-legal-modal-body h3 {
+  color: var(--text-1); margin-top: 20px; margin-bottom: 10px;
+}
+.auth-legal-modal-body p {
+  margin-bottom: 12px;
+}
+.auth-legal-empty {
+  text-align: center; color: var(--text-3, #999); padding: 40px 0;
+}
+.auth-legal-empty i {
+  font-size: 2.5rem; display: block; margin-bottom: 8px;
+}
+.auth-legal-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border, #e0e0e0);
+  text-align: right;
+  background: var(--bg, #f9f9f9);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.auth-legal-modal-close {
+  position: absolute; top: 16px; right: 24px;
+  background: none; border: none; font-size: 1.5rem; color: var(--text-3);
+  cursor: pointer; transition: color 0.2s;
+}
+.auth-legal-modal-close:hover {
+  color: var(--danger, #ff5252);
+}
+</style>
+
 <!-- Auth JS -->
 <script src="{% static 'js/accounts/auth.js' %}"></script>
+<script>
+  function openLegalModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  // Close when clicking outside content
+  document.querySelectorAll('.auth-legal-modal').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+      if (e.target === this) {
+        this.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    });
+  });
+
+  // Re-enable scrolling on close buttons
+  document.querySelectorAll('.auth-legal-modal-footer button, .auth-legal-modal-close').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.body.style.overflow = 'auto';
+    });
+  });
+</script>
 
 {% endblock %}

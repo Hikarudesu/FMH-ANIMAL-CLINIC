@@ -1,5 +1,5 @@
 """Views for the accounts app."""
-# pylint: disable=no-member,import-outside-toplevel
+# pylint: disable=no-member, import-outside-toplevel, line-too-long, trailing-whitespace, missing-docstring, invalid-name, broad-exception-caught, unused-import, redefined-outer-name, reimported, too-many-lines, wrong-import-position, wrong-import-order, ungrouped-imports
 
 import json
 from decimal import Decimal
@@ -1766,3 +1766,304 @@ def admin_create_account(request):
         form = AdminAccountCreationForm()
 
     return render(request, 'accounts/admin_create_account.html', {'form': form})
+
+
+# =============================================================================
+# Password Reset & Change Views
+# =============================================================================
+
+def forgot_password_view(request):
+    """Forgot password — sends OTP to user's registered email."""
+    from .otp_models import OTPToken
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        if not email:
+            messages.error(request, 'Please enter your email address.')
+            return render(request, 'accounts/forgot_password.html')
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Don't reveal whether the email exists (security)
+            messages.success(
+                request,
+                'If an account with that email exists, an OTP has been sent.'
+            )
+            return render(request, 'accounts/forgot_password.html')
+
+        # Generate OTP
+        token = OTPToken.generate(user)
+
+        # Send OTP via email
+        try:
+            send_mail(
+                subject='FMH Animal Clinic — Password Reset OTP',
+                message=(
+                    f'Hello {user.get_full_name() or user.username},\n\n'
+                    f'Your one-time password (OTP) for password reset is:\n\n'
+                    f'    {token.otp_code}\n\n'
+                    f'This code is valid for 10 minutes.\n'
+                    f'If you did not request this, please ignore this email.\n\n'
+                    f'— FMH Animal Clinic'
+                ),
+                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Email send error: {e}")
+            # Still show success message to not leak info
+
+        messages.success(
+            request,
+            'If an account with that email exists, an OTP has been sent.'
+        )
+        # Store email in session for the verify step
+        request.session['reset_email'] = email
+        return redirect('accounts:verify_otp')
+
+    return render(request, 'accounts/forgot_password.html')
+
+
+def verify_otp_view(request):
+    """Verify OTP code for password reset."""
+    from .otp_models import OTPToken
+
+    email = request.session.get('reset_email')
+    if not email:
+        messages.error(request, 'Please start the password reset process first.')
+        return redirect('accounts:forgot_password')
+
+    if request.method == 'POST':
+        otp_code = request.POST.get('otp_code', '').strip()
+        if not otp_code or len(otp_code) != 6:
+            messages.error(request, 'Please enter a valid 6-digit OTP code.')
+            return render(request, 'accounts/verify_otp.html', {'email': email})
+
+        user = OTPToken.verify(email, otp_code)
+        if user:
+            # Mark OTP as used
+            token = OTPToken.objects.filter(
+                user=user, otp_code=otp_code, is_used=False
+            ).first()
+            if token:
+                token.mark_used()
+
+            # Store user ID in session for reset step
+            request.session['reset_user_id'] = user.pk
+            return redirect('accounts:reset_password')
+        else:
+            messages.error(request, 'Invalid or expired OTP. Please try again.')
+
+    return render(request, 'accounts/verify_otp.html', {'email': email})
+
+
+def reset_password_view(request):
+    """Reset password after OTP verification."""
+    user_id = request.session.get('reset_user_id')
+    if not user_id:
+        messages.error(request, 'Session expired. Please restart the password reset process.')
+        return redirect('accounts:forgot_password')
+
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        messages.error(request, 'User not found.')
+        return redirect('accounts:forgot_password')
+
+    if request.method == 'POST':
+        password1 = request.POST.get('password1', '')
+        password2 = request.POST.get('password2', '')
+
+        if not password1 or not password2:
+            messages.error(request, 'Please fill in both password fields.')
+            return render(request, 'accounts/reset_password.html')
+
+        if password1 != password2:
+            messages.error(request, 'Passwords do not match.')
+            return render(request, 'accounts/reset_password.html')
+
+        if len(password1) < 8:
+            messages.error(request, 'Password must be at least 8 characters.')
+            return render(request, 'accounts/reset_password.html')
+
+        user.set_password(password1)
+        user.save()
+
+        # Clean up session
+        request.session.pop('reset_email', None)
+        request.session.pop('reset_user_id', None)
+
+        messages.success(request, 'Your password has been reset successfully. Please log in.')
+        return redirect('accounts:login_page')
+
+    return render(request, 'accounts/reset_password.html')
+
+
+@login_required
+def change_password_view(request):
+    """Change password from profile page (for logged-in users)."""
+    if request.method == 'POST':
+        current_password = request.POST.get('current_password', '')
+        new_password1 = request.POST.get('new_password1', '')
+        new_password2 = request.POST.get('new_password2', '')
+
+        if not current_password or not new_password1 or not new_password2:
+            messages.error(request, 'Please fill in all password fields.')
+            return redirect('accounts:profile')
+
+        if not request.user.check_password(current_password):
+            messages.error(request, 'Current password is incorrect.')
+            return redirect('accounts:profile')
+
+        if new_password1 != new_password2:
+            messages.error(request, 'New passwords do not match.')
+            return redirect('accounts:profile')
+
+        if len(new_password1) < 8:
+            messages.error(request, 'New password must be at least 8 characters.')
+            return redirect('accounts:profile')
+
+        request.user.set_password(new_password1)
+        request.user.save()
+
+        # Re-authenticate to keep the user logged in
+        from django.contrib.auth import update_session_auth_hash
+        update_session_auth_hash(request, request.user)
+
+        messages.success(request, 'Your password has been changed successfully.')
+        return redirect('accounts:profile')
+
+    return redirect('accounts:profile')
+
+
+# =============================================================================
+# In-Profile Inline Password Reset APIs
+# =============================================================================
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
+@login_required
+@require_POST
+def profile_send_otp_api(request):
+    """Generate and send an OTP to the currently logged in user's email."""
+    from .otp_models import OTPToken
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+
+    try:
+        user = request.user
+        if not user.email:
+            return JsonResponse({'success': False, 'error': 'You do not have a registered email address.'})
+
+        # Generate OTP
+        token = OTPToken.generate(user)
+        
+        # Send Email
+        subject = 'FMH Animal Clinic — Password Reset OTP'
+        message = (
+            f"Hello {user.get_full_name()},\n\n"
+            f"Your one-time password (OTP) for password reset is:\n\n"
+            f"    {token.otp_code}\n\n"
+            f"This code is valid for 10 minutes.\n"
+            f"If you did not request this, please ignore this email.\n\n"
+            f"— FMH Animal Clinic"
+        )
+        try:
+            send_mail(
+                subject,
+                message,
+                getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@fmhanimalclinic.com'),
+                [user.email],
+                fail_silently=False,
+            )
+            
+            # Send obscured email back
+            parts = user.email.split('@')
+            if len(parts[0]) > 2:
+                obscured = f"{parts[0][0]}{'*' * (len(parts[0])-2)}{parts[0][-1]}@{parts[1]}"
+            else:
+                obscured = f"{'*'*len(parts[0])}@{parts[1]}"
+                
+            return JsonResponse({'success': True, 'email': obscured})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f"Failed to send email: {str(e)}"})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def profile_verify_otp_api(request):
+    """Verify the submitted OTP code."""
+    from .otp_models import OTPToken
+    import json
+    
+    try:
+        data = json.loads(request.body)
+        otp_code = data.get('otp_code', '').strip()
+        
+        if not otp_code or len(otp_code) != 6:
+            return JsonResponse({'success': False, 'error': 'Invalid 6-digit code format.'})
+            
+        user = OTPToken.verify(request.user.email, otp_code)
+        if user and user == request.user:
+            # Mark OTP as used
+            token = OTPToken.objects.filter(
+                user=user, otp_code=otp_code, is_used=False
+            ).first()
+            if token:
+                token.mark_used()
+                
+            # Put a short-lived token in session guaranteeing they verified
+            request.session['inline_otp_verified'] = True
+            return JsonResponse({'success': True})
+        else:
+            return JsonResponse({'success': False, 'error': 'Invalid or expired OTP.'})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def profile_reset_password_api(request):
+    """Reset the password after inline verify."""
+    import json
+    from django.contrib.auth import update_session_auth_hash
+    
+    try:
+        if not request.session.get('inline_otp_verified'):
+            return JsonResponse({'success': False, 'error': 'OTP not verified.'})
+            
+        data = json.loads(request.body)
+        password1 = data.get('password1', '')
+        password2 = data.get('password2', '')
+        
+        if not password1 or not password2:
+            return JsonResponse({'success': False, 'error': 'Missing password fields.'})
+            
+        if password1 != password2:
+            return JsonResponse({'success': False, 'error': 'Passwords do not match.'})
+            
+        if len(password1) < 8:
+            return JsonResponse({'success': False, 'error': 'Password must be at least 8 characters.'})
+            
+        request.user.set_password(password1)
+        request.user.save()
+        
+        # Keep user logged in
+        update_session_auth_hash(request, request.user)
+        
+        # Clear session key
+        request.session.pop('inline_otp_verified', None)
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

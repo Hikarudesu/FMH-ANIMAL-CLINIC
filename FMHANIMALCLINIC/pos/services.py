@@ -15,7 +15,13 @@ def _build_statement_from_sale(sale: Sale) -> CustomerStatement:
     if not owner_name:
         owner_name = sale.customer_display_name
 
-    patient_name = sale.pet.name if sale.pet else 'General Services'
+    # Patient name: registered pet > walk-in pet name > fallback
+    if sale.pet:
+        patient_name = sale.pet.name
+    elif sale.guest_pet_name:
+        patient_name = sale.guest_pet_name
+    else:
+        patient_name = 'General Services'
 
     return CustomerStatement.objects.create(
         patient_name=patient_name[:100],

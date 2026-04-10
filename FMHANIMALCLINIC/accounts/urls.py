@@ -1,3 +1,4 @@
+# pylint: disable=no-member, line-too-long, trailing-whitespace, missing-docstring, invalid-name, import-outside-toplevel
 from django.urls import path
 from . import views
 from . import rbac_views
@@ -8,6 +9,10 @@ urlpatterns = [
     # Authentication URLs (these also have legacy non-namespaced names via redirect)
     path('login/', views.login_view, name='login_page'),
     path('register/', views.register_view, name='register_page'),
+    path('forgot-password/', views.forgot_password_view, name='forgot_password'),
+    path('reset-password/', views.reset_password_view, name='reset_password'),
+    path('change-password/', views.change_password_view, name='change_password'),
+    path('verify-otp/', views.verify_otp_view, name='verify_otp'),
     path('select-branch/', views.select_branch_view, name='select_branch'),
     path('logout/', views.logout_view, name='logout'),
     path('dashboard/', views.user_dashboard_view, name='user_dashboard'),
@@ -33,6 +38,11 @@ urlpatterns = [
     # API Endpoints
     path('api/roles/<int:role_id>/permissions/', rbac_views.get_role_permissions, name='role_permissions_api'),
     path('api/modules/', rbac_views.module_list_api, name='module_list_api'),
+    
+    # In-Profile Password Reset API
+    path('api/profile/send-otp/', views.profile_send_otp_api, name='profile_send_otp_api'),
+    path('api/profile/verify-otp/', views.profile_verify_otp_api, name='profile_verify_otp_api'),
+    path('api/profile/reset-password/', views.profile_reset_password_api, name='profile_reset_password_api'),
 ]
 
 # Legacy URL names for backward compatibility
@@ -48,5 +58,3 @@ legacy_urlpatterns = [
     path('accounts/receptionist-dashboard/', views.receptionist_dashboard_view, name='receptionist_dashboard'),
     path('accounts/profile/', views.profile_view, name='profile'),
 ]
-
-

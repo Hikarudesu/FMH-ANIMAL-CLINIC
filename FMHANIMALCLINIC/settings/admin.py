@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import SystemSetting, ClinicProfile, ReasonForVisit, ClinicalStatus
+from .models import SystemSetting, ClinicProfile, ReasonForVisit, ClinicalStatus, LegalDocument
 
 
 @admin.register(SystemSetting)
@@ -122,3 +122,28 @@ class ClinicalStatusAdmin(admin.ModelAdmin):
 
     color_display.short_description = 'Color'
     color_display.allow_tags = True
+
+
+@admin.register(LegalDocument)
+class LegalDocumentAdmin(admin.ModelAdmin):
+    """Admin for managing legal documents (TOS, Privacy Policy)."""
+
+    list_display = ['title', 'document_type', 'version', 'is_active', 'last_updated']
+    list_filter = ['document_type', 'is_active']
+    search_fields = ['title', 'content']
+    readonly_fields = ['created_at', 'last_updated']
+
+    fieldsets = (
+        (None, {
+            'fields': ('document_type', 'title', 'version', 'is_active')
+        }),
+        ('Content', {
+            'fields': ('content',),
+            'description': 'Enter the full document content. HTML formatting is supported.'
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'last_updated'),
+            'classes': ('collapse',)
+        }),
+    )
+

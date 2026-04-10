@@ -349,3 +349,16 @@ def log_activity(user, action, category, action_type=ActivityLog.ActionType.OTHE
 
 # NOTE: Signal handlers for user_logged_in and post_save(User) are defined
 # in accounts/signals.py to avoid duplicate logging. Do NOT add handlers here.
+
+
+# ── Auto-create PetOwner profile for non-staff users ──────────────────────────
+
+@receiver(post_save, sender='accounts.User')
+def create_pet_owner_profile(sender, instance, created, **kwargs):
+    """Automatically create a PetOwner profile for non-staff users."""
+    if instance.is_superuser:
+        return
+    # Only create for pet owners (no staff role)
+    if instance.is_pet_owner():
+        from accounts.pet_owner_models import PetOwner
+        PetOwner.objects.get_or_create(user=instance)

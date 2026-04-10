@@ -171,7 +171,7 @@ class ClinicProfile(models.Model):
         verbose_name_plural = 'Clinic Profile'
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def save(self, *args, **kwargs):
         """Enforce singleton pattern - only allow pk=1."""
@@ -231,7 +231,7 @@ class SectionContent(models.Model):
         verbose_name_plural = 'Section Contents'
 
     def __str__(self):
-        return self.get_section_type_display()
+        return str(self.get_section_type_display())
 
 
 class HeroStat(models.Model):
@@ -289,7 +289,7 @@ class CoreValue(models.Model):
         verbose_name_plural = 'Core Values'
 
     def __str__(self):
-        return self.title
+        return str(self.title)
 
 
 class Service(models.Model):
@@ -322,7 +322,7 @@ class Service(models.Model):
         verbose_name_plural = 'Services'
 
     def __str__(self):
-        return self.title
+        return str(self.title)
 
 
 class Veterinarian(models.Model):
@@ -397,7 +397,7 @@ class ReasonForVisit(models.Model):
         verbose_name_plural = 'Reasons for Visit'
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     @classmethod
     def get_default(cls):
@@ -454,7 +454,7 @@ class ClinicalStatus(models.Model):
         verbose_name_plural = 'Clinical Statuses'
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     @classmethod
     def get_default(cls):
@@ -469,3 +469,69 @@ class ClinicalStatus(models.Model):
             }
         )
         return default
+
+
+# =============================================================================
+# Legal Document Models
+# =============================================================================
+
+class LegalDocument(models.Model):
+    """
+    Admin-managed legal documents (Terms of Service, Privacy Policy).
+    Each document_type is unique — one entry per type.
+    Content is editable via Django Admin.
+    """
+
+    class DocumentType(models.TextChoices):
+        TERMS_OF_SERVICE = 'TOS', 'Terms of Service'
+        PRIVACY_POLICY = 'PRIVACY', 'Privacy Policy'
+
+    document_type = models.CharField(
+        max_length=10,
+        choices=DocumentType.choices,
+        unique=True,
+        help_text='Type of legal document',
+    )
+    title = models.CharField(
+        max_length=255,
+        help_text='Display title (e.g., "Terms of Service")',
+    )
+    content = models.TextField(
+        help_text='Full document content (supports HTML formatting)',
+    )
+    version = models.CharField(
+        max_length=20,
+        default='1.0',
+        help_text='Document version number',
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Only active documents are shown to users',
+    )
+    last_updated = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Legal Document'
+        verbose_name_plural = 'Legal Documents'
+        ordering = ['document_type']
+
+    def __str__(self):
+        return f'{self.get_document_type_display()} (v{self.version})'
+
+    @classmethod
+    def get_tos(cls):
+        """Get the active Terms of Service document."""
+        return cls.objects.filter(
+            document_type=cls.DocumentType.TERMS_OF_SERVICE,
+            is_active=True,
+        ).first()
+
+    @classmethod
+    def get_privacy_policy(cls):
+        """Get the active Privacy Policy document."""
+        return cls.objects.filter(
+            document_type=cls.DocumentType.PRIVACY_POLICY,
+            is_active=True,
+        ).first()
+

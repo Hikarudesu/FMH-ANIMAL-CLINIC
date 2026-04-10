@@ -1,4 +1,5 @@
 """Forms for settings."""
+# pylint: disable=no-member, line-too-long, trailing-whitespace, missing-docstring, import-outside-toplevel
 
 from django import forms
 from django.db import models
@@ -13,6 +14,19 @@ from .utils import get_setting
 
 class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
     """Form for clinic profile/branding settings."""
+
+    tos_content = forms.CharField(
+        label="Terms of Service",
+        widget=forms.Textarea(attrs={'rows': 10, 'placeholder': 'Enter the Terms of Service content here...'}),
+        required=False,
+        help_text="Full text of your clinic's Terms of Service."
+    )
+    privacy_policy_content = forms.CharField(
+        label="Privacy Policy",
+        widget=forms.Textarea(attrs={'rows': 10, 'placeholder': 'Enter the Privacy Policy content here...'}),
+        required=False,
+        help_text="Full text of your clinic's Privacy Policy."
+    )
 
     class Meta:
         model = ClinicProfile
@@ -36,8 +50,72 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
             'logo': forms.FileInput(attrs={'accept': 'image/*'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import LegalDocument
+        
+        # Load active TOS and Privacy Policy
+        tos = LegalDocument.get_tos()
+        if tos:
+            self.fields['tos_content'].initial = tos.content
+            
+        privacy = LegalDocument.get_privacy_policy()
+        if privacy:
+            self.fields['privacy_policy_content'].initial = privacy.content
+
     def clean_phone(self):
         return validate_philippines_phone(self.cleaned_data.get('phone', ''))
+
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        if commit:
+            from .models import LegalDocument
+            
+            # Save or update TOS
+            tos_content = self.cleaned_data.get('tos_content')
+            if tos_content is not None:
+                tos = LegalDocument.get_tos()
+                if tos:
+                    if tos.content != tos_content:
+                        tos.content = tos_content
+                        # Bump version implicitly or just save
+                        parts = tos.version.split('.')
+                        try:
+                            tos.version = f"{parts[0]}.{int(parts[1]) + 1}" if len(parts) == 2 else f"{float(tos.version) + 0.1:.1f}"
+                        except ValueError:
+                            tos.version = "1.1"
+                        tos.save()
+                elif tos_content.strip():
+                    LegalDocument.objects.create(
+                        document_type=LegalDocument.DocumentType.TERMS_OF_SERVICE,
+                        title="Terms of Service",
+                        content=tos_content,
+                        version="1.0",
+                        is_active=True
+                    )
+
+            # Save or update Privacy Policy
+            privacy_content = self.cleaned_data.get('privacy_policy_content')
+            if privacy_content is not None:
+                privacy = LegalDocument.get_privacy_policy()
+                if privacy:
+                    if privacy.content != privacy_content:
+                        privacy.content = privacy_content
+                        parts = privacy.version.split('.')
+                        try:
+                            privacy.version = f"{parts[0]}.{int(parts[1]) + 1}" if len(parts) == 2 else f"{float(privacy.version) + 0.1:.1f}"
+                        except ValueError:
+                            privacy.version = "1.1"
+                        privacy.save()
+                elif privacy_content.strip():
+                    LegalDocument.objects.create(
+                        document_type=LegalDocument.DocumentType.PRIVACY_POLICY,
+                        title="Privacy Policy",
+                        content=privacy_content,
+                        version="1.0",
+                        is_active=True
+                    )
+        return instance
 
 
 class AppointmentSettingsForm(AdminInputMixin, forms.Form):

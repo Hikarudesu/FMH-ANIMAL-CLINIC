@@ -58,7 +58,7 @@ class CustomerStatement(models.Model):
         'accounts.User',
         on_delete=models.SET_NULL,
         null=True, blank=True,
-        limit_choices_to={'role': 'PET_OWNER'},
+        limit_choices_to={'assigned_role__is_staff_role': False},
         related_name='statements',
         help_text="Link to registered customer account"
     )
