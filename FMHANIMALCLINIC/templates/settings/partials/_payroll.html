@@ -1,0 +1,94 @@
+<!-- Payroll Settings Form -->
+<div class="settings-card">
+  <form method="POST" autocomplete="off">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="payroll">
+
+    <div class="admin-grid">
+      <div class="form-section-title">
+        <i class='bx bx-calendar'></i> Pay Period
+      </div>
+
+      <div class="admin-field">
+        <label for="id_period_type">Payroll Period Type</label>
+        {{ forms.payroll.period_type }}
+        <p class="form-hint">{{ forms.payroll.period_type.help_text }}</p>
+        {% if forms.payroll.period_type.errors %}
+          <div class="error-text">{{ forms.payroll.period_type.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-time-five'></i> Work Hours
+      </div>
+
+      <div class="admin-field">
+        <label for="id_work_hours_per_day">Standard Work Hours</label>
+        {{ forms.payroll.work_hours_per_day }}
+        <p class="form-hint">{{ forms.payroll.work_hours_per_day.help_text }}</p>
+        {% if forms.payroll.work_hours_per_day.errors %}
+          <div class="error-text">{{ forms.payroll.work_hours_per_day.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="id_overtime_threshold">Overtime Threshold</label>
+        {{ forms.payroll.overtime_threshold }}
+        <p class="form-hint">{{ forms.payroll.overtime_threshold.help_text }}</p>
+        {% if forms.payroll.overtime_threshold.errors %}
+          <div class="error-text">{{ forms.payroll.overtime_threshold.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-receipt'></i> Statutory Deductions
+      </div>
+
+      <div class="admin-field">
+        <div class="checkbox-field">
+          {{ forms.payroll.auto_statutory }}
+          <div class="checkbox-content">
+            <label for="id_auto_statutory">Statutory Deductions (Auto-calculate)</label>
+            <p class="form-hint">{{ forms.payroll.auto_statutory.help_text }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-field">
+        <div class="checkbox-field">
+          {{ forms.payroll.enable_sss }}
+          <div class="checkbox-content">
+            <label for="id_enable_sss">Enable SSS Deduction</label>
+            <p class="form-hint">{{ forms.payroll.enable_sss.help_text }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-field">
+        <div class="checkbox-field">
+          {{ forms.payroll.enable_philhealth }}
+          <div class="checkbox-content">
+            <label for="id_enable_philhealth">Enable PhilHealth Deduction</label>
+            <p class="form-hint">{{ forms.payroll.enable_philhealth.help_text }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-field">
+        <div class="checkbox-field">
+          {{ forms.payroll.enable_pagibig }}
+          <div class="checkbox-content">
+            <label for="id_enable_pagibig">Enable Pag-IBIG Deduction</label>
+            <p class="form-hint">{{ forms.payroll.enable_pagibig.help_text }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-actions">
+      <button type="submit" class="btn-submit">
+        <i class='bx bx-save'></i> Save Payroll Settings
+      </button>
+    </div>
+  </form>
+</div>

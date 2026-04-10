@@ -1,0 +1,102 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Deactivate Staff{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <h1>Deactivate Staff Member</h1>
+    <p class="page-subtitle">Review before deactivating {{ member.full_name }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'employees:staff_list' %}" class="btn-action outline"><i class='bx bx-arrow-back'></i> Back to Staff</a>
+  </div>
+</div>
+
+<!-- Staff Info Card -->
+<div class="dashboard-card full-width">
+  <div class="card-header">
+    <h3><i class='bx bx-user'></i> Staff Details</h3>
+  </div>
+  <div class="card-body">
+    <div class="appt-detail-grid">
+      <div class="appt-detail-item">
+        <span class="appt-detail-label">Name</span>
+        <span class="appt-detail-value">{{ member.full_name }}</span>
+      </div>
+      <div class="appt-detail-item">
+        <span class="appt-detail-label">Position</span>
+        <span class="appt-detail-value">{{ member.get_position_display }}</span>
+      </div>
+      <div class="appt-detail-item">
+        <span class="appt-detail-label">Branch</span>
+        <span class="appt-detail-value">{{ member.branch.name|default:"No branch" }}</span>
+      </div>
+      <div class="appt-detail-item">
+        <span class="appt-detail-label">Status</span>
+        <span class="appt-detail-value">
+          {% if member.is_active %}
+            <span class="status-badge confirmed">Active</span>
+          {% else %}
+            <span class="status-badge cancelled">Inactive</span>
+          {% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if future_appointments %}
+<!-- Appointment Warning -->
+<div class="dashboard-alert warning" style="margin-bottom: 16px;">
+  <div class="dashboard-alert-icon">
+    <i class='bx bx-error-circle'></i>
+  </div>
+  <div class="dashboard-alert-content">
+    <strong>{{ future_appointments.count }} Active Future Appointment{{ future_appointments.count|pluralize }}</strong>
+    <p>This staff member has upcoming appointments that need to be handled before deactivation.</p>
+  </div>
+</div>
+{% endif %}
+
+<!-- Deactivation Form -->
+<div class="dashboard-card full-width">
+  <div class="card-header">
+    <h3><i class='bx bx-error-alt'></i> Confirm Deactivation</h3>
+  </div>
+  <div class="card-body">
+    <form method="POST" class="pet-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="deactivate">
+
+      {% if future_appointments and reassign_vets %}
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="reassign_to">Reassign {{ future_appointments.count }} appointment{{ future_appointments.count|pluralize }} to:</label>
+        <select name="reassign_to" id="reassign_to" class="form-control">
+          <option value="">— No reassignment (set to "Any available") —</option>
+          {% for vet in reassign_vets %}
+          <option value="{{ vet.id }}">{{ vet.full_name }}</option>
+          {% endfor %}
+        </select>
+        <span class="form-hint-portal">Choose another vet to take over these appointments, or leave blank to unassign.</span>
+      </div>
+      {% endif %}
+
+      <p style="font-size: 0.85rem; color: var(--text-2); margin-bottom: 16px;">
+        <i class='bx bx-info-circle'></i>
+        Deactivating will hide this staff member from scheduling and booking dropdowns. Their existing records are preserved. This action can be undone by editing the staff member.
+      </p>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-action primary" style="background: var(--accent); box-shadow: 0 4px 12px rgba(230,57,70,0.25);">
+          <i class='bx bx-power-off'></i> Deactivate {{ member.full_name }}
+        </button>
+        <a href="{% url 'employees:staff_list' %}" class="btn-action outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

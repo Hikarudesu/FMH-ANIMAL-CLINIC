@@ -1,0 +1,645 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Edit Appointment — {{ appointment.pet_name }}{% endblock %}
+
+{% block content %}
+
+<!-- Back Button -->
+<a href="{% url 'appointments:admin_list' %}" class="back-pill" style="margin-bottom: 24px; display: inline-flex;">
+  <i class='bx bx-chevron-left'></i>
+  <span>Appointments</span>
+</a>
+
+<form method="POST" class="ae-form ae-layout">
+  {% csrf_token %}
+
+  <!-- Main Column -->
+  <div class="ae-main">
+    
+    <!-- Header Summary Card -->
+    <div class="ae-card" style="padding-bottom: 0;">
+      <div class="ae-header" style="border-bottom: none;">
+        <div class="ae-avatar">
+          {% if appointment.user and appointment.user.profile_picture %}
+            <img src="{{ appointment.user.profile_picture.url }}" alt="{{ appointment.owner_name }}">
+          {% else %}
+            {{ appointment.owner_name|make_list|first|upper }}
+          {% endif %}
+        </div>
+        <div class="ae-header-info">
+          <h1>Edit Appointment</h1>
+          <p>{{ appointment.pet_name }} — {{ appointment.owner_name }}</p>
+        </div>
+        <span class="ae-status ae-status--{{ appointment.status|lower }}">{{ appointment.get_status_display }}</span>
+      </div>
+      
+      {% if form.non_field_errors %}
+      <div class="ae-errors" style="margin-bottom: 24px;">
+        {% for error in form.non_field_errors %}
+        <p><i class='bx bx-error-circle'></i> {{ error }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Owner Information -->
+    <div class="ae-card ae-section">
+      <h2 class="ae-section-title"><i class='bx bx-user'></i> Owner Information</h2>
+      <div class="ae-grid">
+        <div class="ae-group">
+          <label>Owner Name *</label>
+          {{ form.owner_name }}
+        </div>
+        <div class="ae-group">
+          <label>Email</label>
+          {{ form.owner_email }}
+        </div>
+        <div class="ae-group">
+          <label>Phone</label>
+          {{ form.owner_phone }}
+        </div>
+        <div class="ae-group ae-full">
+          <label>Address</label>
+          {{ form.owner_address }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Pet Information -->
+    <div class="ae-card ae-section">
+      <h2 class="ae-section-title"><i class='bx bx-paw'></i> Pet Information</h2>
+
+      <!-- Pet Selector (if user has multiple pets) -->
+      {% if user_pets %}
+      <div class="ae-group ae-full" style="margin-bottom: 20px;">
+        <label>Select Existing Pet (Optional)</label>
+        <select id="petSelector" class="form-control" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.95rem; background: var(--bg);">
+          <option value="">-- Keep Current / Manual Entry --</option>
+          {% for pet in user_pets %}
+          <option value="{{ pet.id }}"
+                  data-name="{{ pet.name }}"
+                  data-species="{{ pet.species }}"
+                  data-breed="{{ pet.breed }}"
+                  data-dob="{{ pet.date_of_birth|date:'Y-m-d'|default:'' }}"
+                  data-sex="{{ pet.sex }}"
+                  data-color="{{ pet.color }}">
+            {{ pet.name }} ({{ pet.species }}{% if pet.breed %} - {{ pet.breed }}{% endif %})
+          </option>
+          {% endfor %}
+        </select>
+        <small style="color: var(--text-3); display: flex; align-items: center; gap: 4px; margin-top: 6px;">
+          <i class='bx bx-info-circle'></i> Select a pet to auto-fill the fields below
+        </small>
+      </div>
+      {% endif %}
+
+      <div class="ae-grid">
+        <div class="ae-group">
+          <label>Pet Name *</label>
+          {{ form.pet_name }}
+        </div>
+        <div class="ae-group">
+          <label>Species</label>
+          {{ form.pet_species }}
+        </div>
+        <div class="ae-group">
+          <label>Breed</label>
+          {{ form.pet_breed }}
+        </div>
+        <div class="ae-group">
+          <label>Date of Birth</label>
+          {{ form.pet_dob }}
+        </div>
+        <div class="ae-group">
+          <label>Sex</label>
+          {{ form.pet_sex }}
+        </div>
+        <div class="ae-group">
+          <label>Color</label>
+          {{ form.pet_color }}
+        </div>
+        <div class="ae-group ae-full">
+          <label>Symptoms</label>
+          {{ form.pet_symptoms }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Appointment Details -->
+    <div class="ae-card ae-section">
+      <h2 class="ae-section-title"><i class='bx bx-calendar'></i> Appointment Details</h2>
+      <div class="ae-grid">
+        <div class="ae-group">
+          <label>Reason *</label>
+          {{ form.reason }}
+        </div>
+        <div class="ae-group">
+          <label>Branch *</label>
+          {{ form.branch }}
+        </div>
+        <div class="ae-group">
+          <label>Veterinarian</label>
+          {{ form.preferred_vet }}
+        </div>
+        <div class="ae-group">
+          <label>Date *</label>
+          {{ form.appointment_date }}
+        </div>
+        <div class="ae-group">
+          <label>Time *</label>
+          {{ form.appointment_time }}
+          <small class="ae-time-hint" id="aeTimeHint" style="color: #666; display: block; margin-top: 0.25rem;"></small>
+        </div>
+        <div class="ae-group">
+          <label>Source</label>
+          {{ form.source }}
+        </div>
+        <div class="ae-group ae-full">
+          <label>Notes</label>
+          {{ form.notes }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Follow-up Schedule (Optional) -->
+    <div class="ae-card ae-section">
+      <h2 class="ae-section-title"><i class='bx bx-revision'></i> Follow-up Visit (Optional)</h2>
+      <div class="ae-followup-toggle">
+        <label class="ae-checkbox">
+          <input type="checkbox" name="follow_up_enabled" id="followUpEnabled">
+          <span>Schedule a follow-up visit for this pet</span>
+        </label>
+      </div>
+      <div id="followUpFields" style="display: none; margin-top: 16px;">
+        <div class="ae-grid">
+          <div class="ae-group">
+            <label>Follow-up Start Date *</label>
+            <input type="date" name="follow_up_date" class="form-control" id="followUpDate">
+          </div>
+          <div class="ae-group">
+            <label>Follow-up End Date (Optional)</label>
+            <input type="date" name="follow_up_end_date" class="form-control" id="followUpEndDate">
+            <small style="color: #666; display: block; margin-top: 0.25rem;">Leave blank for single-day follow-up</small>
+          </div>
+          <div class="ae-group ae-full">
+            <label>Reason for Follow-up</label>
+            <textarea name="follow_up_reason" class="form-control" rows="2" placeholder="e.g., Post-surgery checkup, medication review"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- End ae-main -->
+
+  <!-- Sidebar Column -->
+  <div class="ae-sidebar">
+    
+    <div class="ae-card ae-section">
+      <h2 class="ae-section-title"><i class='bx bx-pulse'></i> Status & Metadata</h2>
+      
+      <div class="ae-group" style="margin-bottom: 20px;">
+        <label>Appointment Status *</label>
+        {{ form.status }}
+      </div>
+
+      <div class="ae-meta" style="flex-direction: column; gap: 16px; border-top: none; padding: 0; background: transparent;">
+        <div class="ae-meta-item">
+          <span class="ae-meta-label">Booked On</span>
+          <span class="ae-meta-value">{{ appointment.created_at|date:"M d, Y · g:i A" }}</span>
+        </div>
+        <div class="ae-meta-item">
+          <span class="ae-meta-label">Returning Client</span>
+          <span class="ae-meta-value">{% if appointment.is_returning_customer %}Yes{% else %}No{% endif %}</span>
+        </div>
+        {% if appointment.user %}
+        <div class="ae-meta-item">
+          <span class="ae-meta-label">Linked Account</span>
+          <span class="ae-meta-value">{{ appointment.user.username }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="ae-card ae-section" style="display: flex; flex-direction: column; gap: 12px; background: var(--bg);">
+      <button type="submit" class="ae-btn-save" style="width: 100%; justify-content: center; font-size: 1rem; padding: 12px;">
+        <i class='bx bx-check'></i> Save Changes
+      </button>
+      <a href="{% url 'appointments:admin_list' %}" class="ae-btn-cancel" style="width: 100%; text-align: center; border-color: transparent; background: rgba(0,0,0,0.05);">Cancel</a>
+    </div>
+
+    <!-- Existing Follow-ups -->
+    {% if follow_ups %}
+    <div class="ae-card ae-section">
+      <h2 class="ae-section-title"><i class='bx bx-history'></i> Existing Follow-ups</h2>
+      <div class="ae-followup-list">
+        {% for followup in follow_ups %}
+        <div class="ae-followup-item {% if followup.is_completed %}completed{% endif %}">
+          <div class="ae-followup-icon">
+            <i class='bx {% if followup.is_completed %}bx-check-circle{% else %}bx-time-five{% endif %}'></i>
+          </div>
+          <div class="ae-followup-content">
+            <div class="ae-followup-date">
+              <strong>{{ followup.follow_up_date|date:"M d, Y" }}</strong>
+              {% if followup.follow_up_end_date and followup.follow_up_end_date != followup.follow_up_date %}
+                <span>to {{ followup.follow_up_end_date|date:"M d, Y" }}</span>
+              {% endif %}
+            </div>
+            {% if followup.reason %}
+            <div class="ae-followup-reason">{{ followup.reason }}</div>
+            {% endif %}
+            <div class="ae-followup-meta">
+              Created by {{ followup.created_by.get_full_name|default:followup.created_by.username }} 
+              on {{ followup.created_at|date:"M d, Y" }}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div> <!-- End ae-sidebar -->
+</form>
+
+<!-- Pet Selector Auto-fill Script -->
+{% if user_pets %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const petSelector = document.getElementById('petSelector');
+  const petNameField = document.querySelector('[name="pet_name"]');
+  const petSpeciesField = document.querySelector('[name="pet_species"]');
+  const petBreedField = document.querySelector('[name="pet_breed"]');
+  const petDobField = document.querySelector('[name="pet_dob"]');
+  const petSexField = document.querySelector('[name="pet_sex"]');
+  const petColorField = document.querySelector('[name="pet_color"]');
+
+  if (petSelector) {
+    petSelector.addEventListener('change', function() {
+      const opt = this.options[this.selectedIndex];
+      if (this.value) {
+        // Fill from selected pet
+        if (petNameField) petNameField.value = opt.dataset.name || '';
+        if (petSpeciesField) petSpeciesField.value = opt.dataset.species || '';
+        if (petBreedField) petBreedField.value = opt.dataset.breed || '';
+        if (petDobField) petDobField.value = opt.dataset.dob || '';
+        if (petSexField) petSexField.value = opt.dataset.sex || '';
+        if (petColorField) petColorField.value = opt.dataset.color || '';
+      }
+      // Note: we don't clear fields if "Keep Current" is selected
+    });
+  }
+});
+</script>
+{% endif %}
+
+<!-- Follow-up Toggle Script -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const followUpEnabled = document.getElementById('followUpEnabled');
+  const followUpFields = document.getElementById('followUpFields');
+  const followUpDate = document.getElementById('followUpDate');
+
+  if (followUpEnabled && followUpFields) {
+    followUpEnabled.addEventListener('change', function() {
+      if (this.checked) {
+        followUpFields.style.display = 'block';
+        if (followUpDate) followUpDate.required = true;
+      } else {
+        followUpFields.style.display = 'none';
+        if (followUpDate) followUpDate.required = false;
+      }
+    });
+  }
+});
+</script>
+
+<!-- Auto-Capitalize Script for Client and Pet Details -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Function to capitalize only the first letter of the text
+  function capitalizeFirstLetter(str) {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  // Fields to auto-capitalize (Client Details and Pet Details)
+  const fieldsToCapitalize = [
+    'owner_name', 'owner_address',
+    'pet_name', 'pet_species', 'pet_breed', 'pet_color'
+  ];
+
+  fieldsToCapitalize.forEach(function(fieldName) {
+    const field = document.querySelector('[name="' + fieldName + '"]');
+    if (field && (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA')) {
+      // Capitalize on input
+      field.addEventListener('input', function() {
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        this.value = capitalizeFirstLetter(this.value);
+        this.setSelectionRange(start, end);
+      });
+    }
+  });
+});
+</script>
+
+<!-- Dynamic Time Slot Loading Script -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const API_VETS = "{% url 'appointments:api_vets' %}";
+  const API_TIMES = "{% url 'appointments:api_times' %}";
+
+  // Current appointment's ID (to exclude from availability check)
+  const appointmentId = "{{ appointment.id }}";
+
+  // Current appointment's time (to always include it as an option)
+  const currentTime = "{{ appointment.appointment_time|time:'H:i' }}";
+  const currentTimeLabel = "{{ appointment.appointment_time|time:'g:i A' }}";
+
+  const branchSelect = document.querySelector('[name="branch"]');
+  const dateInput = document.querySelector('[name="appointment_date"]');
+  const vetSelect = document.querySelector('[name="preferred_vet"]');
+  const timeSelect = document.querySelector('[name="appointment_time"]');
+  const timeHint = document.getElementById('aeTimeHint');
+
+  if (!branchSelect || !vetSelect || !timeSelect || !dateInput) return;
+
+  // Helper to show hints
+  function showTimeHint(msg, color) {
+    if (timeHint) {
+      timeHint.innerHTML = '<i class="bx bx-info-circle"></i> ' + msg;
+      timeHint.style.color = color || '#666';
+    }
+  }
+
+  // Fetch available vets when branch or date changes
+  function fetchVets() {
+    const branchId = branchSelect.value;
+    const dateVal = dateInput.value;
+    const currentVetId = vetSelect.value;
+    const currentVetText = vetSelect.options[vetSelect.selectedIndex]?.textContent || 'Current Vet';
+
+    vetSelect.innerHTML = '<option value="">Loading...</option>';
+
+    if (!branchId) {
+      vetSelect.innerHTML = '<option value="">-- Select branch first --</option>';
+      return;
+    }
+
+    let url = API_VETS + '?branch=' + branchId;
+    if (dateVal) url += '&date=' + dateVal;
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        vetSelect.innerHTML = '<option value="">-- Any Available Vet --</option>';
+        
+        // Show warning if no vets scheduled on the selected date
+        if (dateVal && !data.has_vets) {
+          showTimeHint(
+            '⚠ No vets scheduled for this date. Editing only.',
+            '#e65100'
+          );
+        } else if (dateVal && data.has_vets) {
+          showTimeHint(
+            `${data.vets.length} vet(s) available on this date.`,
+            '#388e3c'
+          );
+        }
+        
+        // Track if current vet is in the list
+        let currentVetFound = false;
+        
+        data.vets.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.textContent = v.name;
+          if (v.id == currentVetId) {
+            opt.selected = true;
+            currentVetFound = true;
+          }
+          vetSelect.appendChild(opt);
+        });
+        
+        // If current vet is not in the list but exists, add it as "Current (Not scheduled)"
+        if (currentVetId && !currentVetFound && currentVetId != '') {
+          const currentVetOption = document.querySelector(`option[value="${currentVetId}"]`);
+          if (!currentVetOption) {
+            // Add it to the dropdown using earlier captured text
+            const opt = document.createElement('option');
+            opt.value = currentVetId;
+            opt.textContent = currentVetText + ' (Current)';
+            opt.selected = true;
+            vetSelect.insertBefore(opt, vetSelect.options[1]);  // Insert after "-- Any Available Vet --"
+          }
+        }
+      })
+      .catch(() => {
+        vetSelect.innerHTML = '<option value="">-- Error loading vets --</option>';
+      });
+  }
+
+  // Fetch and populate available time slots
+  function fetchTimeSlots() {
+    const branchId = branchSelect.value;
+    const vetId = vetSelect.value;
+    const dateVal = dateInput.value;
+
+    timeSelect.innerHTML = '<option value="">Loading times...</option>';
+
+    if (!branchId || !dateVal) {
+      timeSelect.innerHTML = '<option value="">-- Select branch and date first --</option>';
+      showTimeHint('Select a branch and date to load available times.');
+      return;
+    }
+
+    let url = API_TIMES + '?branch=' + branchId + '&date=' + dateVal;
+    if (vetId) url += '&vet=' + vetId;
+    // Pass the current appointment ID to exclude it from the booking check
+    if (appointmentId) url += '&exclude_appointment_id=' + appointmentId;
+
+    showTimeHint('Checking availability...', '#1976d2');
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        timeSelect.innerHTML = '<option value="">-- Select Time --</option>';
+
+        // Track if we've added the current time
+        let currentTimeAdded = false;
+
+        if (data.times.length === 0) {
+          // No slots available, but still add the current time as an option
+          if (currentTime) {
+            const opt = document.createElement('option');
+            opt.value = currentTime;
+            opt.textContent = currentTimeLabel + ' (Current)';
+            opt.selected = true;
+            timeSelect.appendChild(opt);
+            currentTimeAdded = true;
+          }
+          showTimeHint('No slots scheduled for this date.', '#e65100');
+          return;
+        }
+
+        let availableCount = 0;
+        let bookedCount = 0;
+
+        // If NO vet selected, group by AM/PM
+        if (!vetId) {
+          const amSlots = [];
+          const pmSlots = [];
+
+          data.times.forEach(slot => {
+            const [hours] = slot.time.split(':').map(Number);
+            if (slot.available) {
+              if (hours < 12) {
+                amSlots.push(slot);
+              } else {
+                pmSlots.push(slot);
+              }
+              availableCount++;
+            } else {
+              bookedCount++;
+            }
+          });
+
+          // Check if currentTime is AM or PM
+          const [currentHour] = currentTime.split(':').map(Number);
+          const isCurrentAM = currentHour < 12;
+
+          // Add AM option if available
+          if (amSlots.length > 0) {
+            const opt = document.createElement('option');
+            opt.value = 'MORNING';
+            opt.textContent = 'Morning (08:00 AM - 12:00 PM)';
+            if (isCurrentAM && currentTime) {
+              opt.selected = true;
+              currentTimeAdded = true;
+            }
+            timeSelect.appendChild(opt);
+          }
+
+          // Add PM option if available
+          if (pmSlots.length > 0) {
+            const opt = document.createElement('option');
+            opt.value = 'AFTERNOON';
+            opt.textContent = 'Afternoon (01:00 PM - 05:00 PM)';
+            if (!isCurrentAM && currentTime) {
+              opt.selected = true;
+              currentTimeAdded = true;
+            }
+            timeSelect.appendChild(opt);
+          }
+
+          // If current time not added but exists, add it
+          if (currentTime && !currentTimeAdded) {
+            const opt = document.createElement('option');
+            opt.value = currentTime;
+            opt.textContent = currentTimeLabel + ' (Current)';
+            opt.selected = true;
+            timeSelect.insertBefore(opt, timeSelect.options[1]);
+            currentTimeAdded = true;
+          }
+
+          showTimeHint(
+            '<strong>Flexible Timing:</strong> When you select "Morning" or "Afternoon", any available veterinarian will be assigned.',
+            '#388e3c'
+          );
+        } else {
+          // Specific vet selected - show detailed time slots
+          data.times.forEach(slot => {
+            // Check if this is the current appointment's time
+            const isCurrentTime = slot.time === currentTime;
+
+            const opt = document.createElement('option');
+            opt.value = slot.time;
+
+            // Build label
+            let label = slot.label;
+
+            if (isCurrentTime) {
+              label += ' (Current)';
+              opt.selected = true;
+              currentTimeAdded = true;
+              opt.disabled = false;
+              availableCount++;
+            } else if (slot.available) {
+              // Available slot
+              opt.disabled = false;
+              availableCount++;
+            } else {
+              // Booked slot - show but disable it
+              label += ' (Booked)';
+              opt.disabled = true;
+              opt.style.color = '#999';
+              opt.style.fontStyle = 'italic';
+              bookedCount++;
+            }
+
+            opt.textContent = label;
+            timeSelect.appendChild(opt);
+          });
+
+          // If current time wasn't in the returned slots, add it manually
+          if (currentTime && !currentTimeAdded) {
+            const opt = document.createElement('option');
+            opt.value = currentTime;
+            opt.textContent = currentTimeLabel + ' (Current)';
+            opt.selected = true;
+            opt.disabled = false;
+            timeSelect.insertBefore(opt, timeSelect.options[1]);
+            availableCount++;
+          }
+
+          if (availableCount === 0) {
+            showTimeHint('All time slots are booked. Current time is preserved.', '#e65100');
+          } else if (bookedCount > 0) {
+            showTimeHint(`Found ${availableCount} available slot(s). ${bookedCount} slot(s) already booked.`, '#388e3c');
+          } else {
+            showTimeHint(`Found ${availableCount} available time slot(s).`, '#388e3c');
+          }
+        }
+      })
+      .catch(() => {
+        timeSelect.innerHTML = '<option value="">-- Error loading times --</option>';
+        // Still add the current time as a fallback
+        if (currentTime) {
+          const opt = document.createElement('option');
+          opt.value = currentTime;
+          opt.textContent = currentTimeLabel + ' (Current)';
+          opt.selected = true;
+          timeSelect.appendChild(opt);
+        }
+        showTimeHint('Failed to load time slots.', '#d32f2f');
+      });
+  }
+
+  // Bind event listeners
+  branchSelect.addEventListener('change', function() {
+    fetchVets();
+    fetchTimeSlots();
+  });
+
+  // Listen to both 'input' and 'change' to handle both date picker and manual input
+  dateInput.addEventListener('input', function() {
+    fetchVets();
+    fetchTimeSlots();
+  });
+  dateInput.addEventListener('change', function() {
+    fetchVets();
+    fetchTimeSlots();
+  });
+
+  vetSelect.addEventListener('change', function() {
+    fetchTimeSlots();
+  });
+
+  // Initial load of time slots
+  fetchTimeSlots();
+});
+</script>
+
+{% endblock %}

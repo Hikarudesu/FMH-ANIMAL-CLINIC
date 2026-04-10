@@ -1,0 +1,640 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Add Medical Record Entry{% endblock %}
+
+{% block content %}
+<!-- Page Hero -->
+{% include "components/page_hero.html" with title="Add Visit Entry" subtitle="Adds a new visit entry to the pet's existing record card (or creates a new card if none exists)." icon="bxs-file-doc" action_url="records:admin_list" action_label="Back to List" action_icon="bx-arrow-back" %}
+
+<div class="dashboard-card" style="padding: 32px; max-width: 900px; margin: 0 auto; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);">
+    
+    <!-- Crude Card Header Design Simulation -->
+    <div style="border-bottom: 2px solid var(--primary); padding-bottom: 16px; margin-bottom: 24px; position: relative;">
+        <h2 style="color: var(--primary); font-family: monospace; font-size: 18px; letter-spacing: 1px; margin: 0;">
+            VETERINARY MEDICAL RECORD
+        </h2>
+    </div>
+
+    <form method="post" action="{% url 'records:admin_create' %}" style="display: flex; flex-direction: column; gap: 24px;">
+        {% csrf_token %}
+        
+        <style>
+            .section-title {
+                font-size: 14px;
+                font-weight: 700;
+                color: var(--primary);
+                text-transform: uppercase;
+                margin-bottom: 16px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid var(--border);
+                letter-spacing: 0.5px;
+            }
+            .form-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+                margin-bottom: 32px;
+            }
+            .form-group {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .form-label {
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--text-secondary);
+                text-transform: uppercase;
+            }
+            .form-control-custom {
+                width: 100%;
+                padding: 10px 12px;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                background-color: var(--bg);
+                color: var(--text-primary);
+                font-size: 14px;
+                font-family: inherit;
+                transition: all 0.2s;
+            }
+            .form-control-custom:focus {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 3px rgba(44, 122, 123, 0.1);
+                outline: none;
+            }
+            textarea.form-control-custom {
+                min-height: 80px;
+                resize: vertical;
+            }
+            #pet-input-toggle-label {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 13px;
+                color: var(--text-secondary);
+                cursor: pointer;
+                user-select: none;
+                padding: 8px 10px;
+                border-radius: 6px;
+                transition: all 0.2s ease;
+            }
+            #pet-input-toggle-label:hover {
+                background-color: rgba(44, 122, 123, 0.05);
+                color: var(--primary);
+            }
+            /* Custom checkbox styling */
+            #pet-input-manual {
+                appearance: none;
+                width: 18px;
+                height: 18px;
+                border: 2px solid var(--border);
+                border-radius: 4px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                background-color: var(--bg);
+                flex-shrink: 0;
+            }
+            #pet-input-manual:hover {
+                border-color: var(--primary);
+                background-color: rgba(44, 122, 123, 0.05);
+            }
+            #pet-input-manual:checked {
+                background-color: var(--primary);
+                border-color: var(--primary);
+                background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 11-1.06-1.06l7.25-7.25a.75.75 0 011.06 0Z'/%3E%3C/svg%3E");
+                background-size: 100% 100%;
+                background-position: center;
+                background-repeat: no-repeat;
+            }
+            #pet-input-manual:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(44, 122, 123, 0.15);
+            }
+            
+            /* Responsive Form Grid */
+            @media (max-width: 768px) {
+                .form-grid {
+                    grid-template-columns: 1fr !important;
+                    gap: 16px;
+                }
+                .form-control-custom {
+                    padding: 10px 14px;
+                }
+            }
+            
+            @media (max-width: 480px) {
+                .section-title {
+                    font-size: 1rem;
+                }
+                .form-label {
+                    font-size: 0.82rem;
+                }
+                .form-control-custom {
+                    font-size: 0.9rem;
+                }
+            }
+        </style>
+
+        <!-- Owner & Pet Selection (Parallel) -->
+        <div>
+            <h3 class="section-title">Owner & Pet Selection</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                <!-- Left Column: Owner Selection -->
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Client Source</label>
+                        <select name="client_source" id="id_client_source" class="form-control-custom">
+                            <option value="PORTAL">Portal (Registered User)</option>
+                            <option value="WALKIN">Walk-in (Guest)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="owner-portal-group">
+                        <label class="form-label">Select Owner</label>
+                        <select id="ro-owner-select" class="form-control-custom">
+                            <option value="">— Search & Select Owner —</option>
+                        </select>
+                        <input type="hidden" id="selected_user_id" name="selected_user_id" value="" />
+                        <input type="hidden" id="ro-owner-name" name="owner_name" value="" />
+                    </div>
+                    <div class="form-group" id="owner-walkin-group" style="display: none;">
+                        <label class="form-label">Name of Owner</label>
+                        <input type="text" id="ro-owner-name-walkin" name="owner_name_walkin" class="form-control-custom" placeholder="Enter guest owner name" autocomplete="off" />
+                    </div>
+                </div>
+
+                <!-- Right Column: Pet Selection -->
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="form-group" id="pet-select-group">
+                        <label class="form-label">Name of Pet</label>
+                        <select id="ro-pet-select" class="form-control-custom" style="display: none;">
+                            <option value="">— Select Pet —</option>
+                        </select>
+                        <input type="text" id="ro-pet-name" name="pet_name" class="form-control-custom" placeholder="Select owner first or type pet name" required autocomplete="off" />
+                        <input type="hidden" id="selected_pet_id" value="" />
+                    </div>
+                    <div class="form-group" id="pet-input-toggle-group">
+                        <label class="form-label" style="visibility: hidden;">Toggle</label>
+                        <label id="pet-input-toggle-label" style="display: none;">
+                            <input type="checkbox" id="pet-input-manual" />
+                            <span>Type new pet name manually</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div>
+            <h3 class="section-title">Contact Information</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <input type="text" id="ro-owner-address" name="owner_address" class="form-control-custom" placeholder="Enter full address" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contact #</label>
+                    <input type="text" id="ro-owner-contact" name="owner_contact" class="form-control-custom"
+                           placeholder="09XXXXXXXXX" inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11"
+                           oninput="this.value=this.value.replace(/\D/g,'')" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Branch & Veterinarian -->
+        <div>
+            <h3 class="section-title">Branch & Veterinarian</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label class="form-label">Branch / Location</label>
+                    <select name="branch" id="id_branch" class="form-control-custom">
+                        <option value="">— Select Branch —</option>
+                        {% for branch in branches %}
+                        <option value="{{ branch.id }}">{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Attending Veterinarian</label>
+                    <select name="vet" id="id_vet" class="form-control-custom">
+                        <option value="">— Select Veterinarian —</option>
+                        {% for vet in vets %}
+                        <option value="{{ vet.id }}" data-branch="{{ vet.branch_id }}">Dr. {{ vet.first_name }} {{ vet.last_name }}{% if vet.license_number %} (PRC {{ vet.license_number }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="grid-column: 1 / -1; background: #eef5ff; border: 1px solid #c3d9ff; border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #2d5fa6;">
+                    <i class='bx bx-info-circle' style="font-size:16px; margin-top:1px; flex-shrink:0;"></i>
+                    <span><strong>Tip:</strong> Select a <strong>Branch</strong> first — the Veterinarian list will automatically filter to show only vets assigned to that branch.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pet Identification -->
+        <div>
+            <h3 class="section-title">Pet Details</h3>
+            <div class="form-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="form-group">
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" id="ro-pet-age" name="pet_age" class="form-control-custom" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Species</label>
+                    <input type="text" id="ro-pet-species" name="pet_species" class="form-control-custom" placeholder="e.g. Canine" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Breed</label>
+                    <input type="text" id="ro-pet-breed" name="pet_breed" class="form-control-custom" placeholder="e.g. Labrador" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sex</label>
+                    <input type="text" id="ro-pet-sex" name="pet_sex" class="form-control-custom" placeholder="e.g. Male" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Color</label>
+                    <input type="text" id="ro-pet-color" name="pet_color" class="form-control-custom" placeholder="e.g. Brown" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Clinical Tracking -->
+        <div>
+            <h3 class="section-title">Clinical Tracking</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                 <div class="form-group">
+                    <label class="form-label">Date</label>
+                    {{ form.date_recorded }}
+                    {% if form.date_recorded.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.date_recorded.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">FF-UP (Follow-Up Date)</label>
+                    {{ form.ff_up }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Weight (kg)</label>
+                    {{ form.weight }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Temperature (°C)</label>
+                    {{ form.temperature }}
+                </div>
+                
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">Required Clinical Action</label>
+                    {{ form.action_required }}
+                    {% if form.action_required.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.action_required.errors }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">History / Clinical Signs</label>
+                    {{ form.history_clinical_signs }}
+                    {% if form.history_clinical_signs.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.history_clinical_signs.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">TX (Treatment)</label>
+                    {{ form.treatment }}
+                    {% if form.treatment.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.treatment.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">RX (Prescription)</label>
+                    {{ form.rx }}
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            // Ensure Django form fields match custom styling
+            document.querySelectorAll('input, select, textarea').forEach(el => {
+                if (!el.classList.contains('form-control-custom')) {
+                    el.classList.add('form-control-custom');
+                }
+            });
+        </script>
+
+        <div style="margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary" style="background: var(--primary); color: white; padding: 12px 32px; border-radius: var(--radius-sm); font-weight: 600; border: none; font-size: 15px; cursor: pointer; transition: background-color 0.2s;">
+                <i class='bx bx-save'></i> Save Visit Entry
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Scripts for Dynamic Pet Data Loading -->
+{% if pets_json %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const petsData = {{ pets_json|safe }};
+    const vetsData = {{ vets_json|safe }};
+    const petInput = document.getElementById('ro-pet-name');
+    const petSelect = document.getElementById('ro-pet-select');
+    const selectedPetIdField = document.getElementById('selected_pet_id');
+    const petManualToggle = document.getElementById('pet-input-manual');
+    const petToggleLabel = document.getElementById('pet-input-toggle-label');
+    const branchSelect = document.getElementById('id_branch');
+    const vetSelect = document.getElementById('id_vet');
+    const sourceSelect = document.getElementById('id_client_source');
+
+    // ====== Vet Filtering by Branch ======
+    function filterVets(selectedBranchId) {
+        if (!vetSelect) return;
+        const currentVet = vetSelect.value;
+        vetSelect.innerHTML = '<option value="">— Select Veterinarian —</option>';
+        vetsData.forEach(function(vet) {
+            if (!selectedBranchId || String(vet.branch_id) === String(selectedBranchId)) {
+                const opt = document.createElement('option');
+                opt.value = vet.id;
+                opt.dataset.branch = vet.branch_id;
+                opt.textContent = vet.name + (vet.license_number ? ' (PRC ' + vet.license_number + ')' : '');
+                if (String(vet.id) === String(currentVet)) opt.selected = true;
+                vetSelect.appendChild(opt);
+            }
+        });
+    }
+
+    if (branchSelect) {
+        branchSelect.addEventListener('change', function() {
+            filterVets(branchSelect.value);
+        });
+        filterVets(branchSelect.value);
+    }
+
+    // ====== Owner Select / Source Toggle Setup ======
+    const ownerSelect = document.getElementById('ro-owner-select');
+    const ownerNameHidden = document.getElementById('ro-owner-name');
+    const selectedUserIdField = document.getElementById('selected_user_id');
+    const ownerNameWalkin = document.getElementById('ro-owner-name-walkin');
+    const ownerPortalGroup = document.getElementById('owner-portal-group');
+    const ownerWalkinGroup = document.getElementById('owner-walkin-group');
+    const ownerContactInput = document.getElementById('ro-owner-contact');
+    const ownerAddressInput = document.getElementById('ro-owner-address');
+    let allOwners = []; // All loaded portal owners
+    let ownerPetsMap = {}; // Maps owner_id -> [pets]
+
+    // Build owner-to-pets mapping from petsData
+    function buildOwnerPetsMap() {
+        ownerPetsMap = {};
+        Object.keys(petsData).forEach(function(petName) {
+            const pet = petsData[petName];
+            if (pet.owner_id && pet.source === 'PORTAL') {
+                if (!ownerPetsMap[pet.owner_id]) {
+                    ownerPetsMap[pet.owner_id] = [];
+                }
+                ownerPetsMap[pet.owner_id].push({
+                    name: petName,
+                    ...pet
+                });
+            }
+        });
+    }
+    buildOwnerPetsMap();
+
+    // Load all registered owners into the select dropdown
+    function loadPortalOwners() {
+        fetch("{% url 'records:api_search_owners' %}?q=__all__")
+            .then(response => response.json())
+            .then(data => {
+                allOwners = data.owners || [];
+                populateOwnerSelect(allOwners);
+            })
+            .catch(err => console.error('Error loading owners:', err));
+    }
+
+    function populateOwnerSelect(owners) {
+        ownerSelect.innerHTML = '<option value="">— Select Owner —</option>';
+        owners.forEach(function(owner) {
+            const opt = document.createElement('option');
+            opt.value = owner.id;
+            opt.textContent = owner.full_name + (owner.phone_number ? ' (' + owner.phone_number + ')' : '');
+            opt.dataset.name = owner.full_name;
+            opt.dataset.phone = owner.phone_number || '';
+            opt.dataset.address = owner.address || '';
+            ownerSelect.appendChild(opt);
+        });
+    }
+
+    // Populate pet dropdown based on selected owner
+    function populatePetDropdown(ownerId) {
+        petSelect.innerHTML = '<option value="">— Select Pet —</option>';
+        const pets = ownerPetsMap[ownerId] || [];
+
+        if (pets.length > 0) {
+            pets.forEach(function(pet) {
+                const opt = document.createElement('option');
+                opt.value = pet.name;
+                opt.textContent = pet.name + (pet.pet_species ? ' (' + pet.pet_species + ')' : '');
+                opt.dataset.petData = JSON.stringify(pet);
+                petSelect.appendChild(opt);
+            });
+            // Show pet dropdown, hide manual input
+            petSelect.style.display = '';
+            petInput.style.display = 'none';
+            petToggleLabel.style.display = 'flex';
+            petInput.required = false;
+            petManualToggle.checked = false;
+        } else {
+            // No pets for this owner - show manual input
+            petSelect.style.display = 'none';
+            petInput.style.display = '';
+            petToggleLabel.style.display = 'none';
+            petInput.required = true;
+            petInput.placeholder = 'Type new pet name';
+        }
+    }
+
+    // Reset pet selection to manual mode
+    function resetPetToManual() {
+        petSelect.style.display = 'none';
+        petInput.style.display = '';
+        petInput.value = '';
+        petInput.required = true;
+        petInput.placeholder = sourceSelect.value === 'PORTAL' ? 'Select owner first or type pet name' : 'Enter pet name';
+        petToggleLabel.style.display = 'none';
+        selectedPetIdField.value = '';
+        clearPetDetails();
+    }
+
+    // Clear pet detail fields
+    function clearPetDetails() {
+        document.getElementById('ro-pet-age').value = '';
+        document.getElementById('ro-pet-color').value = '';
+        document.getElementById('ro-pet-breed').value = '';
+        document.getElementById('ro-pet-sex').value = '';
+        document.getElementById('ro-pet-species').value = '';
+    }
+
+    // Fill pet details from data
+    function fillPetDetails(petData) {
+        document.getElementById('ro-pet-age').value = petData.date_of_birth || '';
+        document.getElementById('ro-pet-color').value = petData.pet_color || '';
+        document.getElementById('ro-pet-breed').value = petData.pet_breed || '';
+        document.getElementById('ro-pet-sex').value = petData.pet_sex || '';
+        document.getElementById('ro-pet-species').value = petData.pet_species || '';
+
+        // Auto-select branch from pet's last record
+        if (branchSelect && petData.branch_id) {
+            branchSelect.value = petData.branch_id;
+            filterVets(petData.branch_id);
+        }
+    }
+
+    // When an owner is selected from the dropdown
+    ownerSelect.addEventListener('change', function() {
+        const selectedOpt = this.options[this.selectedIndex];
+        if (this.value) {
+            selectedUserIdField.value = this.value;
+            ownerNameHidden.value = selectedOpt.dataset.name || '';
+            ownerContactInput.value = selectedOpt.dataset.phone || '';
+            ownerAddressInput.value = selectedOpt.dataset.address || '';
+            // Populate pet dropdown for this owner
+            populatePetDropdown(this.value);
+        } else {
+            selectedUserIdField.value = '';
+            ownerNameHidden.value = '';
+            ownerContactInput.value = '';
+            ownerAddressInput.value = '';
+            resetPetToManual();
+        }
+    });
+
+    // When a pet is selected from the dropdown
+    petSelect.addEventListener('change', function() {
+        const selectedOpt = this.options[this.selectedIndex];
+        if (this.value && selectedOpt.dataset.petData) {
+            const petData = JSON.parse(selectedOpt.dataset.petData);
+            petInput.value = this.value;
+            fillPetDetails(petData);
+        } else {
+            petInput.value = '';
+            clearPetDetails();
+        }
+    });
+
+    // Manual pet name toggle
+    petManualToggle.addEventListener('change', function() {
+        if (this.checked) {
+            // Show manual input, hide dropdown
+            petSelect.style.display = 'none';
+            petInput.style.display = '';
+            petInput.required = true;
+            petInput.value = '';
+            petInput.placeholder = 'Type new pet name';
+            clearPetDetails();
+        } else {
+            // Show dropdown if owner has pets
+            const ownerId = ownerSelect.value;
+            if (ownerId && ownerPetsMap[ownerId] && ownerPetsMap[ownerId].length > 0) {
+                petSelect.style.display = '';
+                petInput.style.display = 'none';
+                petInput.required = false;
+                petSelect.value = '';
+            }
+        }
+    });
+
+    // When manually typing pet name, auto-fill if matching existing pet
+    petInput.addEventListener('input', function() {
+        const petName = this.value;
+        const data = petsData[petName];
+
+        if (data) {
+            fillPetDetails(data);
+            ownerAddressInput.value = data.owner_address || '';
+            ownerContactInput.value = data.owner_contact || '';
+
+            // Auto-select source and owner if it's a portal pet
+            if (sourceSelect && data.source) {
+                sourceSelect.value = data.source;
+                toggleOwnerFields();
+            }
+
+            if (data.source === 'PORTAL' && data.owner_id) {
+                ownerSelect.value = String(data.owner_id);
+                selectedUserIdField.value = String(data.owner_id);
+                ownerNameHidden.value = data.owner_name || '';
+            } else if (data.source === 'WALKIN') {
+                ownerNameWalkin.value = data.owner_name || '';
+            }
+        }
+    });
+
+    // Toggle between Portal (select) and Walk-in (free text) owner fields
+    function toggleOwnerFields() {
+        if (sourceSelect.value === 'PORTAL') {
+            ownerPortalGroup.style.display = '';
+            ownerWalkinGroup.style.display = 'none';
+            ownerNameWalkin.removeAttribute('name');
+            ownerNameHidden.setAttribute('name', 'owner_name');
+            selectedUserIdField.setAttribute('name', 'selected_user_id');
+            // Reset pet selection
+            if (!ownerSelect.value) {
+                resetPetToManual();
+            }
+        } else {
+            ownerPortalGroup.style.display = 'none';
+            ownerWalkinGroup.style.display = '';
+            ownerNameWalkin.setAttribute('name', 'owner_name');
+            ownerNameHidden.removeAttribute('name');
+            selectedUserIdField.removeAttribute('name');
+            selectedUserIdField.value = '';
+            // Clear portal selection
+            ownerSelect.value = '';
+            ownerNameHidden.value = '';
+            // For walk-in, always show manual pet input
+            petSelect.style.display = 'none';
+            petInput.style.display = '';
+            petInput.required = true;
+            petInput.placeholder = 'Enter pet name';
+            petToggleLabel.style.display = 'none';
+        }
+    }
+
+    sourceSelect.addEventListener('change', function() {
+        toggleOwnerFields();
+        // Clear fields when switching source
+        ownerContactInput.value = '';
+        ownerAddressInput.value = '';
+        petInput.value = '';
+        clearPetDetails();
+    });
+
+    toggleOwnerFields(); // Set initial state
+    loadPortalOwners(); // Load owners on page load
+
+    // Auto-Capitalize for Client and Pet Details (first letter only)
+    (function initAutoCapitalize() {
+      function capitalizeFirstLetter(str) {
+        if (!str) return str;
+        return str.charAt(0).toUpperCase() + str.slice(1);
+      }
+
+      // Fields to auto-capitalize (Owner and Pet Details)
+      const fieldsToCapitalize = [
+        'owner_name', 'owner_name_walkin', 'owner_address',
+        'pet_name', 'pet_species', 'pet_breed', 'pet_color', 'pet_sex'
+      ];
+
+      fieldsToCapitalize.forEach(function(fieldName) {
+        const field = document.querySelector('[name="' + fieldName + '"]');
+        if (field && (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA')) {
+          field.addEventListener('input', function() {
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = capitalizeFirstLetter(this.value);
+            this.setSelectionRange(start, end);
+          });
+        }
+      });
+    })();
+});
+</script>
+{% endif %}
+{% endblock %}

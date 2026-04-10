@@ -1,0 +1,548 @@
+{% extends 'base/portal_admin.html' %}
+{% load currency_filters %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<style>
+  /* ─── Analytics Page Styles ─── */
+  .analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .analytics-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-1); }
+  .analytics-header p { margin: 4px 0 0; font-size: 0.9rem; color: var(--text-3); }
+
+  .filter-bar-analytics {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-bar-analytics select,
+  .filter-bar-analytics .period-btn {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text-1);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-bar-analytics select:focus { outline: none; border-color: var(--primary); }
+  .period-btn-group { display: flex; gap: 0; }
+  .period-btn-group .period-btn {
+    border-radius: 0;
+    border-right-width: 0;
+    font-weight: 600;
+  }
+  .period-btn-group .period-btn:first-child { border-radius: 8px 0 0 8px; }
+  .period-btn-group .period-btn:last-child { border-radius: 0 8px 8px 0; border-right-width: 1px; }
+  .period-btn-group .period-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  /* Metric cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  .metric-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.1);
+  }
+  .metric-card .metric-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+  }
+  .metric-card .metric-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+  }
+  .metric-card .metric-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-1);
+    letter-spacing: -0.5px;
+  }
+  .metric-card .metric-sub {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 6px;
+  }
+  .metric-card .metric-accent {
+    display: none;
+  }
+
+  /* Chart section */
+  .chart-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 28px;
+  }
+  .chart-section h3 {
+    margin: 0 0 6px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  .chart-section .chart-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-3);
+    margin-bottom: 20px;
+  }
+  .chart-container {
+    position: relative;
+    width: 100%;
+    max-height: 340px;
+  }
+  .chart-container canvas {
+    width: 100% !important;
+    max-height: 340px;
+  }
+
+  /* Client stats row */
+  .client-stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .client-stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .client-stat-card .stat-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .client-stat-card .stat-label { font-size: 0.85rem; color: var(--text-3); font-weight: 500; }
+  .client-stat-card .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--text-1); }
+
+  /* Chart legend */
+  .chart-legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 12px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-2);
+    font-weight: 500;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+</style>
+
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-bar-chart-alt-2'></i> Analytics Dashboard</h1>
+      <p>{{ period_label }} {% if selected_branch %}— Filtered by branch{% endif %}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar" style="margin-bottom: 28px;">
+  <form method="GET" class="filter-bar-analytics" id="analyticsFilterForm" style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <i class='bx bx-filter-alt'></i>
+      <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-2);">Filters</span>
+      <select name="branch" class="filter-select sd-convert" onchange="this.form.submit()" style="min-width: 200px; margin-left: 8px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-1); transition: border-color 0.2s;">
+        <option value="">All Branches</option>
+        {% for b in branches %}
+          <option value="{{ b.id }}" {% if selected_branch == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div class="period-btn-group">
+        <button type="submit" name="period" value="daily"
+                class="period-btn {% if selected_period == 'daily' %}active{% endif %}">Daily</button>
+        <button type="submit" name="period" value="weekly"
+                class="period-btn {% if selected_period == 'weekly' %}active{% endif %}">Weekly</button>
+        <button type="submit" name="period" value="monthly"
+                class="period-btn {% if selected_period == 'monthly' %}active{% endif %}">Monthly</button>
+      </div>
+
+      <a href="{% url 'reports:export_analytics_excel' %}?branch={{ selected_branch }}&period={{ selected_period }}" 
+         class="period-btn" style="background: #10b981; color: white; border-color: #10b981; border-radius: 8px; text-decoration: none; display: inline-flex; justify-content: center; align-items: center; gap: 6px;">
+        <i class='bx bx-export'></i> Export to Excel
+      </a>
+    </div>
+  </form>
+</div>
+
+<!-- Metrics Grid -->
+<div class="metrics-grid">
+  <!-- Total Patients -->
+  <div class="metric-card">
+    <div class="metric-accent" style="background: linear-gradient(90deg, #7c3aed, #a78bfa);"></div>
+    <div class="metric-icon" style="background: rgba(124,58,237,0.1); color: #7c3aed;">
+      <i class='bx bxs-dog'></i>
+    </div>
+    <div class="metric-label">Total Patients</div>
+    <div class="metric-value">{{ total_patients|default:"0" }}</div>
+    <div class="metric-sub">{{ new_patients_period }} new this period</div>
+  </div>
+
+  <!-- Gross Sales -->
+  <div class="metric-card">
+    <div class="metric-accent" style="background: linear-gradient(90deg, #059669, #34d399);"></div>
+    <div class="metric-icon" style="background: rgba(5,150,105,0.1); color: #059669;">
+      <i class='bx bx-trending-up'></i>
+    </div>
+    <div class="metric-label">Gross Sales</div>
+    <div class="metric-value">₱{{ gross_sales|peso }}</div>
+    <div class="metric-sub">{{ transaction_count }} transaction{{ transaction_count|pluralize }}</div>
+  </div>
+
+  <!-- Net Sales -->
+  <div class="metric-card">
+    <div class="metric-accent" style="background: linear-gradient(90deg, #2563eb, #60a5fa);"></div>
+    <div class="metric-icon" style="background: rgba(37,99,235,0.1); color: #2563eb;">
+      <i class='bx bx-dollar-circle'></i>
+    </div>
+    <div class="metric-label">Net Sales</div>
+    <div class="metric-value">₱{{ net_sales|peso }}</div>
+    <div class="metric-sub">₱{{ total_discount|peso }} in discounts</div>
+  </div>
+
+  <!-- Avg Transaction (bonus metric) -->
+  <div class="metric-card">
+    <div class="metric-accent" style="background: linear-gradient(90deg, #d97706, #fbbf24);"></div>
+    <div class="metric-icon" style="background: rgba(217,119,6,0.1); color: #d97706;">
+      <i class='bx bx-receipt'></i>
+    </div>
+    <div class="metric-label">Avg. Transaction</div>
+    <div class="metric-value">
+      {% if transaction_count > 0 %}
+        ₱{{ net_sales|divisibleby:transaction_count|default_if_none:"0.00" }}
+      {% else %}
+        ₱0.00
+      {% endif %}
+    </div>
+    <div class="metric-sub">Per completed sale</div>
+  </div>
+</div>
+
+<!-- New vs Returning Clients -->
+<div class="client-stats-row">
+  <div class="client-stat-card">
+    <div class="stat-icon" style="background: rgba(16,185,129,0.1); color: #10b981;">
+      <i class='bx bx-user-plus'></i>
+    </div>
+    <div>
+      <div class="stat-label">New Clients (this period)</div>
+      <div class="stat-value">{{ new_clients }}</div>
+    </div>
+  </div>
+  <div class="client-stat-card">
+    <div class="stat-icon" style="background: rgba(99,102,241,0.1); color: #6366f1;">
+      <i class='bx bx-refresh'></i>
+    </div>
+    <div>
+      <div class="stat-label">Returning Clients (this period)</div>
+      <div class="stat-value">{{ returning_clients }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart: Monthly New vs Returning -->
+<div class="chart-section">
+  <h3><i class='bx bx-group' style="color: var(--primary);"></i> New vs Returning Clients</h3>
+  <p class="chart-subtitle">12-month trend of new and returning client visits</p>
+  <div class="chart-container">
+    <canvas id="clientsChart"></canvas>
+  </div>
+  <div class="chart-legend">
+    <div class="legend-item"><div class="legend-dot" style="background: #10b981;"></div> New Clients</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #6366f1;"></div> Returning Clients</div>
+  </div>
+</div>
+
+<!-- Sales Charts (Side by Side) -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 28px;">
+  <!-- Gross Sales Chart -->
+  <div class="chart-section" style="margin-bottom: 0;">
+    <h3><i class='bx bx-trending-up' style="color: #059669;"></i> Gross Sales Trend</h3>
+    <p class="chart-subtitle">12-month gross sales performance</p>
+    <div class="chart-container">
+      <canvas id="grossSalesChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Net Sales Chart -->
+  <div class="chart-section" style="margin-bottom: 0;">
+    <h3><i class='bx bx-dollar-circle' style="color: #2563eb;"></i> Net Sales Trend</h3>
+    <p class="chart-subtitle">12-month net sales performance</p>
+    <div class="chart-container">
+      <canvas id="netSalesChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const monthsData = {{ months_data|safe }};
+  const canvas = document.getElementById('clientsChart');
+  if (!canvas || !monthsData.length) return;
+
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  function draw() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const W = rect.width;
+    const H = 320;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.scale(dpr, dpr);
+
+    ctx.clearRect(0, 0, W, H);
+
+    const pad = { top: 20, right: 20, bottom: 40, left: 50 };
+    const cW = W - pad.left - pad.right;
+    const cH = H - pad.top - pad.bottom;
+    const n = monthsData.length;
+    const barGroupWidth = cW / n;
+    const barW = Math.min(barGroupWidth * 0.3, 24);
+    const gap = 4;
+
+    // Max value
+    let maxVal = 1;
+    monthsData.forEach(function(d) {
+      maxVal = Math.max(maxVal, d.new, d.returning);
+    });
+    maxVal = Math.ceil(maxVal * 1.15);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = 1;
+    const gridSteps = 5;
+    for (let i = 0; i <= gridSteps; i++) {
+      const y = pad.top + cH - (cH * i / gridSteps);
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(W - pad.right, y);
+      ctx.stroke();
+
+      // Y-axis labels
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(Math.round(maxVal * i / gridSteps), pad.left - 8, y + 4);
+    }
+
+    // Bars
+    monthsData.forEach(function(d, i) {
+      const x = pad.left + barGroupWidth * i + barGroupWidth / 2;
+
+      // New clients bar
+      const h1 = (d.new / maxVal) * cH;
+      const x1 = x - barW - gap / 2;
+      const y1 = pad.top + cH - h1;
+      ctx.fillStyle = '#10b981';
+      roundRect(ctx, x1, y1, barW, h1, 4);
+
+      // Returning clients bar
+      const h2 = (d.returning / maxVal) * cH;
+      const x2 = x + gap / 2;
+      const y2 = pad.top + cH - h2;
+      ctx.fillStyle = '#6366f1';
+      roundRect(ctx, x2, y2, barW, h2, 4);
+
+      // Month label
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.month, x, H - pad.bottom + 18);
+    });
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    if (h < 1) return;
+    r = Math.min(r, h / 2, w / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x, y + h);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  draw();
+  window.addEventListener('resize', draw);
+
+  // Line Chart drawing logic for Sales Charts
+  function drawLineChart(canvasId, dataKey, colorStr, fillColorStr) {
+    const chartCanvas = document.getElementById(canvasId);
+    if (!chartCanvas || !monthsData.length) return;
+    const chartCtx = chartCanvas.getContext('2d');
+    
+    function renderLineChart() {
+      const rect = chartCanvas.parentElement.getBoundingClientRect();
+      const W = rect.width;
+      const H = 320;
+      chartCanvas.width = W * dpr;
+      chartCanvas.height = H * dpr;
+      chartCanvas.style.width = W + 'px';
+      chartCanvas.style.height = H + 'px';
+      chartCtx.scale(dpr, dpr);
+      chartCtx.clearRect(0, 0, W, H);
+
+      const pad = { top: 30, right: 20, bottom: 40, left: 60 };
+      const cW = W - pad.left - pad.right;
+      const cH = H - pad.top - pad.bottom;
+      
+      let localMaxVal = 1;
+      monthsData.forEach(d => { localMaxVal = Math.max(localMaxVal, d[dataKey]); });
+      localMaxVal = Math.ceil(localMaxVal * 1.15); // 15% headroom
+
+      // Grid lines & Y axis
+      chartCtx.strokeStyle = 'rgba(0,0,0,0.06)';
+      chartCtx.lineWidth = 1;
+      const gridSteps = 5;
+      for (let i = 0; i <= gridSteps; i++) {
+        const y = pad.top + cH - (cH * i / gridSteps);
+        chartCtx.beginPath();
+        chartCtx.moveTo(pad.left, y);
+        chartCtx.lineTo(W - pad.right, y);
+        chartCtx.stroke();
+
+        chartCtx.fillStyle = '#9ca3af';
+        chartCtx.font = '11px Inter, sans-serif';
+        chartCtx.textAlign = 'right';
+        
+        let val = Math.round(localMaxVal * i / gridSteps);
+        // Format as k/M for space
+        let valStr = val >= 1000000 ? (val/1000000).toFixed(1) + 'M' : val >= 1000 ? (val/1000).toFixed(1) + 'k' : val;
+        chartCtx.fillText('₱' + valStr, pad.left - 8, y + 4);
+      }
+
+      const stepX = cW / Math.max(1, monthsData.length - 1);
+      
+      if (localMaxVal > 1) { // Only draw shapes if we have data > 0
+        // Draw Area Fill
+        chartCtx.beginPath();
+        chartCtx.moveTo(pad.left, pad.top + cH);
+        monthsData.forEach((d, i) => {
+          const x = pad.left + i * stepX;
+          const y = pad.top + cH - (d[dataKey] / localMaxVal) * cH;
+          chartCtx.lineTo(x, y);
+        });
+        chartCtx.lineTo(pad.left + (monthsData.length - 1) * stepX, pad.top + cH);
+        chartCtx.closePath();
+        
+        const gradient = chartCtx.createLinearGradient(0, pad.top, 0, pad.top + cH);
+        gradient.addColorStop(0, fillColorStr);
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        chartCtx.fillStyle = gradient;
+        chartCtx.fill();
+
+        // Draw Line
+        chartCtx.beginPath();
+        monthsData.forEach((d, i) => {
+          const x = pad.left + i * stepX;
+          const y = pad.top + cH - (d[dataKey] / localMaxVal) * cH;
+          if (i === 0) chartCtx.moveTo(x, y);
+          else chartCtx.lineTo(x, y);
+        });
+        chartCtx.strokeStyle = colorStr;
+        chartCtx.lineWidth = 3;
+        chartCtx.stroke();
+
+        // Draw Points
+        monthsData.forEach((d, i) => {
+          const x = pad.left + i * stepX;
+          const y = pad.top + cH - (d[dataKey] / localMaxVal) * cH;
+          
+          chartCtx.beginPath();
+          chartCtx.arc(x, y, 4, 0, Math.PI * 2);
+          chartCtx.fillStyle = '#fff';
+          chartCtx.fill();
+          chartCtx.lineWidth = 2;
+          chartCtx.strokeStyle = colorStr;
+          chartCtx.stroke();
+        });
+      }
+
+      // X axis labels
+      monthsData.forEach((d, i) => {
+        const x = pad.left + i * stepX;
+        chartCtx.fillStyle = '#6b7280';
+        chartCtx.font = '11px Inter, sans-serif';
+        chartCtx.textAlign = 'center';
+        chartCtx.fillText(d.month, x, H - pad.bottom + 18);
+      });
+    }
+    
+    renderLineChart();
+    window.addEventListener('resize', renderLineChart);
+  }
+
+  drawLineChart('grossSalesChart', 'gross', '#059669', 'rgba(5,150,105,0.2)');
+  drawLineChart('netSalesChart', 'net', '#2563eb', 'rgba(37,99,235,0.2)');
+})();
+</script>
+{% endblock %}

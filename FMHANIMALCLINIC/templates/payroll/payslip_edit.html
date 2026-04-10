@@ -1,0 +1,182 @@
+{% extends 'payroll/base.html' %}
+{% load currency_filters %}
+
+{% block title %}Edit Payslip - {{ payslip.employee.full_name }}{% endblock %}
+
+{% block payroll_content %}
+<style>
+  .edit-header { margin-bottom: 24px; }
+  .edit-header h2 { margin: 0; color: var(--text-1); font-size: 1.3rem; font-weight: 700; }
+  .form-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-2); font-size: 0.9rem; }
+  .form-group input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-family: inherit; }
+  .form-group input:focus { outline: none; border-color: var(--primary); }
+  .form-section { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .form-section h4 { margin: 0 0 16px; color: var(--text-1); font-weight: 700; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .btn { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; }
+  .btn:hover { opacity: 0.9; }
+  .summary { background: var(--bg); padding: 16px; border-radius: var(--radius-sm); margin-top: 20px; }
+  .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row strong { color: var(--text-1); }
+  .released-warning { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
+  .released-warning i { font-size: 1.5rem; color: #ef4444; }
+  .released-warning-text { color: #b91c1c; font-weight: 500; }
+  .released-warning-text strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
+  .released-warning-text small { font-size: 0.8rem; opacity: 0.9; }
+</style>
+
+<div class="edit-header">
+  <h2><i class='bx bx-edit' style="color: var(--primary);"></i> Edit Payslip - {{ payslip.employee.full_name }}</h2>
+</div>
+
+{% if is_released %}
+<div class="released-warning">
+  <i class='bx bx-error-circle'></i>
+  <div class="released-warning-text">
+    <strong>Editing Released Payslip</strong>
+    <small>This payslip has already been released. Changes will be logged for audit purposes.</small>
+  </div>
+</div>
+{% endif %}
+
+<form method="post" class="form-container">
+  {% csrf_token %}
+  
+  <!-- Allowances Section -->
+  <div class="form-section">
+    <h4>Allowances</h4>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Overtime Hours</label>
+        <input type="number" name="overtime_hours" value="{{ payslip.overtime_hours|default:0 }}" step="0.5">
+      </div>
+      <div class="form-group">
+        <label>Overtime Pay (₱)</label>
+        <input type="number" name="overtime_pay" value="{{ payslip.overtime_pay|default:0 }}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Holiday Pay (₱)</label>
+        <input type="number" name="holiday_pay" value="{{ payslip.holiday_pay|default:0 }}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Bonus (₱)</label>
+        <input type="number" name="bonus" value="{{ payslip.bonus|default:0 }}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Allowance (₱)</label>
+        <input type="number" name="allowance" value="{{ payslip.allowance|default:0 }}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Staff Allowance (₱)</label>
+        <input type="number" name="staff_allowance" value="{{ payslip.staff_allowance|default:2000 }}" step="0.01">
+        <small style="color: var(--text-3); font-size: 0.75rem;">Split: ₱1,000 on 15th + ₱1,000 on 30th</small>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Deductions Section -->
+  <div class="form-section">
+    <h4>Deductions</h4>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Tax (₱)</label>
+        <input type="number" name="tax" value="{{ payslip.tax|default:0 }}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Cash Advance (₱)</label>
+        <input type="number" name="cash_advance" value="{{ payslip.cash_advance|default:0 }}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Late Deduction (₱)</label>
+        <input type="number" name="late_deduction" value="{{ payslip.late_deduction|default:0 }}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Absent Deduction (₱)</label>
+        <input type="number" name="absent_deduction" value="{{ payslip.absent_deduction|default:0 }}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Other Deductions (₱)</label>
+        <input type="number" name="other_deductions" value="{{ payslip.other_deductions|default:0 }}" step="0.01">
+      </div>
+    </div>
+  </div>
+  
+  {% if PAYROLL_AUTO_STATUTORY %}
+  <!-- Clinic-Paid Benefits (Read-only) - Only shown when auto-statutory is enabled -->
+  <div class="form-section">
+    <h4 style="color: #2563eb;"><i class='bx bx-shield-quarter' style="margin-right: 4px;"></i>Clinic-Paid Benefits</h4>
+    <p style="margin: 0 0 12px; font-size: 0.8rem; color: var(--text-3);">These contributions are paid by the clinic and are NOT deducted from the employee's salary.</p>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>SSS (₱) — Clinic-Paid</label>
+        <input type="number" value="{{ payslip.clinic_sss|default:0 }}" step="0.01" disabled style="opacity: 0.7;">
+      </div>
+      <div class="form-group">
+        <label>PhilHealth (₱) — Clinic-Paid</label>
+        <input type="number" value="{{ payslip.clinic_philhealth|default:0 }}" step="0.01" disabled style="opacity: 0.7;">
+      </div>
+      <div class="form-group">
+        <label>PAG-IBIG (₱) — Clinic-Paid</label>
+        <input type="number" value="{{ payslip.clinic_pagibig|default:0 }}" step="0.01" disabled style="opacity: 0.7;">
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- Attendance Section -->
+  <div class="form-section">
+    <h4>Attendance</h4>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Days Worked</label>
+        <input type="number" name="days_worked" value="{{ payslip.days_worked|default:22 }}">
+      </div>
+      <div class="form-group">
+        <label>Days Absent</label>
+        <input type="number" name="days_absent" value="{{ payslip.days_absent|default:0 }}">
+      </div>
+    </div>
+  </div>
+  
+  <!-- Notes Section -->
+  <div class="form-section">
+    <h4>Notes</h4>
+    <textarea name="notes" style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-family: inherit; min-height: 80px;">{{ payslip.notes }}</textarea>
+  </div>
+  
+  <!-- Summary -->
+  <div class="summary">
+    <div class="summary-row">
+      <span>Base Salary</span>
+      <strong>₱{{ payslip.base_salary|peso }}</strong>
+    </div>
+    <div class="summary-row">
+      <span>Gross Pay (incl. allowances)</span>
+      <strong>₱{{ payslip.gross_pay|peso }}</strong>
+    </div>
+    <div class="summary-row">
+      <span>Total Deductions</span>
+      <strong>₱{{ payslip.total_deductions|peso }}</strong>
+    </div>
+    <div class="summary-row" style="border-bottom: none; margin-top: 8px; padding-top: 12px; border-top: 2px solid var(--border);">
+      <span style="font-weight: 700;">Net Pay</span>
+      <strong style="color: #4CAF50; font-size: 1.1rem;">₱{{ payslip.net_pay|peso }}</strong>
+    </div>
+    {% if PAYROLL_AUTO_STATUTORY %}
+    <div class="summary-row" style="color: #2563eb; font-size: 0.85rem;">
+      <span>Clinic-Paid Benefits (SSS + PhilHealth + PAG-IBIG)</span>
+      <strong>₱{{ payslip.total_clinic_contributions|peso }}</strong>
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- Action Buttons -->
+  <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+    <a href="{% url 'payroll:payslips' period.id %}" class="btn" style="background: var(--text-3);">Cancel</a>
+    <button type="submit" class="btn"><i class='bx bx-save'></i> Save Changes</button>
+  </div>
+</form>
+{% endblock %}

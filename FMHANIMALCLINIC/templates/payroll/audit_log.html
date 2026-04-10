@@ -1,0 +1,657 @@
+{% extends 'payroll/base.html' %}
+{% load static %}
+
+{% block title %}Audit Log - Payroll{% endblock %}
+
+{% block payroll_content %}
+<style>
+  /* ═══════════════════════════════════════════════════════════════
+     AUDIT LOG - Enterprise SaaS Security & Compliance View
+     ═══════════════════════════════════════════════════════════════ */
+  
+  .audit-page {
+    padding: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  
+  /* Page Header */
+  .audit-header {
+    margin-bottom: 32px;
+  }
+  
+  .audit-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .audit-title i {
+    color: var(--primary);
+    font-size: 1.5rem;
+  }
+  
+  .audit-subtitle {
+    color: var(--text-3);
+    font-size: 0.95rem;
+  }
+  
+  /* Filter Section */
+  .filter-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  
+  .filter-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+  
+  .filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  
+  .filter-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-2);
+    margin-bottom: 6px;
+  }
+  
+  .filter-group input,
+  .filter-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: var(--bg);
+    color: var(--text-1);
+    transition: all 0.2s;
+  }
+  
+  .filter-group input:focus,
+  .filter-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.1);
+  }
+  
+  .filter-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  
+  .btn-filter {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+  
+  .btn-filter.primary {
+    background: var(--primary);
+    color: white;
+  }
+  
+  .btn-filter.primary:hover {
+    background: #00796b;
+  }
+  
+  .btn-filter.secondary {
+    background: var(--bg);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+  }
+  
+  .btn-filter.secondary:hover {
+    background: var(--border);
+  }
+  
+  /* Stats Row */
+  .audit-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+  
+  .stat-icon.total { background: rgba(0, 150, 136, 0.1); color: var(--primary); }
+  .stat-icon.edits { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+  .stat-icon.sends { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .stat-icon.salary { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  
+  .stat-info h4 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .stat-info p {
+    font-size: 0.85rem;
+    color: var(--text-3);
+  }
+  
+  /* Audit Table */
+  .audit-table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  
+  .table-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .table-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .table-count {
+    font-size: 0.85rem;
+    color: var(--text-3);
+  }
+  
+  .audit-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .audit-table th {
+    background: var(--bg);
+    padding: 14px 20px;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-3);
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .audit-table td {
+    padding: 16px 20px;
+    font-size: 0.9rem;
+    color: var(--text-1);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  
+  .audit-table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .audit-table tr:hover td {
+    background: rgba(0, 150, 136, 0.02);
+    cursor: pointer;
+  }
+  
+  .clickable-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  /* Action Type Badges */
+  .action-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  
+  .action-badge.period-created {
+    background: rgba(79, 70, 229, 0.1);
+    color: #4f46e5;
+  }
+  
+  .action-badge.payslip-edited {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+  
+  .action-badge.payslip-released {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .action-badge.salary-updated {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+  
+  .action-badge.bulk-release {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+  }
+  
+  /* User Info Cell */
+  .user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.8rem;
+  }
+  
+  .user-name {
+    font-weight: 500;
+    color: var(--text-1);
+  }
+  
+  /* Timestamp */
+  .timestamp {
+    font-size: 0.85rem;
+    color: var(--text-2);
+  }
+  
+  .timestamp-date {
+    font-weight: 500;
+    color: var(--text-1);
+  }
+  
+  .timestamp-time {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+  
+  /* IP Address */
+  .ip-address {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 0.85rem;
+    color: var(--text-3);
+    background: var(--bg);
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  
+  /* Details Cell */
+  .details-cell {
+    max-width: 300px;
+  }
+  
+  .details-text {
+    font-size: 0.85rem;
+    color: var(--text-2);
+    line-height: 1.4;
+  }
+  
+  .details-meta {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    margin-top: 4px;
+  }
+  
+  /* Empty State */
+  .empty-state {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--text-3);
+  }
+  
+  .empty-state i {
+    font-size: 3rem;
+    opacity: 0.3;
+    margin-bottom: 16px;
+  }
+  
+  .empty-state h3 {
+    font-size: 1.1rem;
+    color: var(--text-2);
+    margin-bottom: 8px;
+  }
+  
+  /* Pagination */
+  .table-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .page-info {
+    font-size: 0.85rem;
+    color: var(--text-3);
+  }
+  
+  .pagination {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .pagination a,
+  .pagination span {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--text-2);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  
+  .pagination a:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+  
+  .pagination .current {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+  
+  .pagination .disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .audit-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 768px) {
+    .audit-page { padding: 16px; }
+    .audit-stats { grid-template-columns: 1fr; }
+    .filter-grid { grid-template-columns: 1fr; }
+    .audit-table { display: block; overflow-x: auto; }
+  }
+</style>
+
+<div class="audit-page">
+  <!-- Page Header -->
+  <div class="audit-header">
+    <h1 class="audit-title">
+      <i class='bx bx-shield-quarter'></i>
+      Audit Log
+    </h1>
+    <p class="audit-subtitle">Track all payroll activities, changes, and user actions for compliance and security.</p>
+  </div>
+  
+  <!-- Filter Section -->
+  <div class="filter-card">
+    <div class="filter-header">
+      <i class='bx bx-filter-alt'></i> Filter Audit Records
+    </div>
+    <form method="GET" action="{% url 'payroll:audit_log' %}">
+      <div class="filter-grid">
+        <div class="filter-group">
+          <label for="action_type">Action Type</label>
+          <select name="action_type" id="action_type" class="sd-convert">
+            <option value="">All Actions</option>
+            <option value="PERIOD_CREATED" {% if request.GET.action_type == 'PERIOD_CREATED' %}selected{% endif %}>Period Created</option>
+            <option value="PAYSLIP_EDITED" {% if request.GET.action_type == 'PAYSLIP_EDITED' %}selected{% endif %}>Payslip Edited</option>
+            <option value="PAYSLIP_RELEASED" {% if request.GET.action_type == 'PAYSLIP_RELEASED' %}selected{% endif %}>Payslip Released</option>
+            <option value="VET_SALARY_UPDATED" {% if request.GET.action_type == 'VET_SALARY_UPDATED' %}selected{% endif %}>Salary Updated</option>
+            <option value="BULK_RELEASE" {% if request.GET.action_type == 'BULK_RELEASE' %}selected{% endif %}>Bulk Release</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="user">User</label>
+          <select name="user" id="user" class="sd-convert">
+            <option value="">All Users</option>
+            {% for u in users %}
+            <option value="{{ u.id }}" {% if request.GET.user == u.id|stringformat:'i' %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="date_from">Date From</label>
+          <input type="date" name="date_from" id="date_from" value="{{ request.GET.date_from }}">
+        </div>
+        <div class="filter-group">
+          <label for="date_to">Date To</label>
+          <input type="date" name="date_to" id="date_to" value="{{ request.GET.date_to }}">
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn-filter primary">
+          <i class='bx bx-search'></i> Apply Filters
+        </button>
+        <a href="{% url 'payroll:audit_log' %}" class="btn-filter secondary">
+          <i class='bx bx-reset'></i> Reset
+        </a>
+      </div>
+    </form>
+  </div>
+  
+  <!-- Stats Row -->
+  <div class="audit-stats">
+    <div class="stat-card">
+      <div class="stat-icon total">
+        <i class='bx bx-history'></i>
+      </div>
+      <div class="stat-info">
+        <h4>{{ stats.total }}</h4>
+        <p>Total Records</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon edits">
+        <i class='bx bx-edit'></i>
+      </div>
+      <div class="stat-info">
+        <h4>{{ stats.edits }}</h4>
+        <p>Payslip Edits</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon sends">
+        <i class='bx bx-send'></i>
+      </div>
+      <div class="stat-info">
+        <h4>{{ stats.releases }}</h4>
+        <p>Payslips Released</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon salary">
+        <i class='bx bx-dollar-circle'></i>
+      </div>
+      <div class="stat-info">
+        <h4>{{ stats.salary_changes }}</h4>
+        <p>Salary Changes</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Audit Table -->
+  <div class="audit-table-card">
+    <div class="table-header">
+      <span class="table-title">Activity History</span>
+      <span class="table-count">{{ logs.paginator.count }} record{{ logs.paginator.count|pluralize }}</span>
+    </div>
+    
+    {% if logs %}
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Action</th>
+          <th>Performed By</th>
+          <th>Details</th>
+          <th>IP Address</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr class="clickable-row" onclick="window.location.href='{% url 'payroll:audit_log_detail' log.id %}'">
+          <td>
+            <div class="timestamp">
+              <div class="timestamp-date">{{ log.created_at|date:"M d, Y" }}</div>
+              <div class="timestamp-time">{{ log.created_at|time:"h:i A" }}</div>
+            </div>
+          </td>
+          <td>
+            <span class="action-badge 
+              {% if log.action_type == 'PERIOD_CREATED' %}period-created
+              {% elif log.action_type == 'PAYSLIP_EDITED' %}payslip-edited
+              {% elif log.action_type == 'PAYSLIP_RELEASED' %}payslip-released
+              {% elif log.action_type == 'VET_SALARY_UPDATED' %}salary-updated
+              {% elif log.action_type == 'BULK_RELEASE' %}bulk-release
+              {% endif %}">
+              {% if log.action_type == 'PERIOD_CREATED' %}
+                <i class='bx bx-calendar-plus'></i> Period Created
+              {% elif log.action_type == 'PAYSLIP_EDITED' %}
+                <i class='bx bx-edit'></i> Payslip Edited
+              {% elif log.action_type == 'PAYSLIP_RELEASED' %}
+                <i class='bx bx-check-circle'></i> Payslip Released
+              {% elif log.action_type == 'VET_SALARY_UPDATED' %}
+                <i class='bx bx-dollar'></i> Salary Updated
+              {% elif log.action_type == 'BULK_RELEASE' %}
+                <i class='bx bx-send'></i> Bulk Release
+              {% else %}
+                <i class='bx bx-info-circle'></i> {{ log.get_action_type_display }}
+              {% endif %}
+            </span>
+          </td>
+          <td>
+            <div class="user-cell">
+              <div class="user-avatar">
+                {{ log.user.first_name|slice:":1"|upper }}{{ log.user.last_name|slice:":1"|upper }}
+              </div>
+              <span class="user-name">{{ log.user.get_full_name|default:log.user.username }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="details-cell">
+              <div class="details-text">
+                {% if log.staff_member %}
+                  Staff: <strong>{{ log.staff_member.full_name }}</strong>
+                {% endif %}
+                {% if log.payslip %}
+                  {% if log.staff_member %}<br>{% endif %}
+                  Payslip: #{{ log.payslip.id }}
+                {% endif %}
+                {% if log.payroll_period %}
+                  {% if log.staff_member or log.payslip %}<br>{% endif %}
+                  Period: {{ log.payroll_period.period_display }}
+                {% endif %}
+              </div>
+              {% if log.description %}
+              <div class="details-meta">{{ log.description }}</div>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="ip-address">{{ log.ip_address|default:"N/A" }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    {% if logs.has_other_pages %}
+    <div class="table-footer">
+      <span class="page-info">
+        Showing {{ logs.start_index }}-{{ logs.end_index }} of {{ logs.paginator.count }}
+      </span>
+      <div class="pagination">
+        {% if logs.has_previous %}
+          <a href="?page={{ logs.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+            <i class='bx bx-chevron-left'></i>
+          </a>
+        {% else %}
+          <span class="disabled"><i class='bx bx-chevron-left'></i></span>
+        {% endif %}
+        
+        {% for num in logs.paginator.page_range %}
+          {% if logs.number == num %}
+            <span class="current">{{ num }}</span>
+          {% elif num > logs.number|add:'-3' and num < logs.number|add:'3' %}
+            <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+        
+        {% if logs.has_next %}
+          <a href="?page={{ logs.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+            <i class='bx bx-chevron-right'></i>
+          </a>
+        {% else %}
+          <span class="disabled"><i class='bx bx-chevron-right'></i></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-state">
+      <i class='bx bx-shield-quarter'></i>
+      <h3>No Audit Records Found</h3>
+      <p>Audit records will appear here as payroll activities occur.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

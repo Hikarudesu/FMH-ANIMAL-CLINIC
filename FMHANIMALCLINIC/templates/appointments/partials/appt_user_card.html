@@ -1,0 +1,26 @@
+<div class="dashboard-card full-width" style="margin-bottom: 12px;">
+  <div class="card-body">
+    <div class="appt-user-card" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+      <div class="appt-user-info" style="display: flex; gap: 1rem;">
+        <div class="appt-user-icon" style="background: var(--bg-hover); padding: 12px; border-radius: 8px; color: var(--primary); display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex-shrink: 0;">
+          <i class='bx bx-calendar-event' style="font-size: 1.5rem;"></i>
+        </div>
+        <div>
+          <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-1);">{{ appt.pet_name }} <span style="font-size: 0.9rem; color: var(--text-2); font-weight: 400;">{% if appt.pet_breed %}· {{ appt.pet_breed }}{% endif %}</span></h3>
+          <div class="appt-user-meta" style="color: var(--text-2); font-size: 0.9rem; margin-top: 4px;">
+            <i class='bx bx-building-house'></i> {{ appt.branch.name }}<br>
+            <i class='bx bx-calendar'></i> {{ appt.appointment_date|date:"F j, Y" }} at {{ appt.appointment_time_display }}
+          </div>
+          {% if appt.notes %}
+          <div style="font-size: 0.9rem; color: var(--text-2); margin-top: 8px; background: var(--bg-hover); padding: 8px 12px; border-radius: 6px; border-left: 3px solid var(--primary);">
+            <strong>Vet Notes:</strong> {{ appt.notes }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <div style="text-align: right; flex-shrink: 0;">
+        <span class="status-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+      </div>
+    </div>
+  </div>
+</div>

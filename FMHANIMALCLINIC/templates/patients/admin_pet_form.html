@@ -1,0 +1,751 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}{{ action }} Patient{% endblock %}
+
+{% block content %}
+<style>
+  .apf-page { max-width: 740px; margin: 0 auto; }
+
+  /* Source toggle pills */
+  .apf-source-toggle {
+    display: flex; gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    margin-bottom: 0;
+  }
+  .apf-source-toggle.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .apf-source-btn {
+    flex: 1; padding: 12px 16px; border: none;
+    background: var(--bg); color: var(--text-secondary);
+    font-size: 0.85rem; font-weight: 500; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; transition: all 0.2s;
+  }
+  .apf-source-btn:not(:last-child) { border-right: 1px solid var(--border); }
+  .apf-source-btn.active { background: var(--primary); color: #fff; font-weight: 600; }
+  .apf-source-btn i { font-size: 1.1rem; }
+  .apf-source-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  /* Walk-in notice */
+  .apf-walkin-notice {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 16px; border-radius: 8px;
+    background: #fff8e1; border: 1px solid #ffe082;
+    color: #f57f17; font-size: 0.82rem; margin-bottom: 16px;
+  }
+  .apf-walkin-notice i { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+
+  /* Owner panels */
+  .apf-owner-panel { display: none; }
+  .apf-owner-panel.visible { display: block; }
+
+  /* ── rest inherited / same as before ── */
+  .apf-breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 16px;
+  }
+  .apf-breadcrumb a { color: var(--primary); text-decoration: none; }
+  .apf-breadcrumb a:hover { text-decoration: underline; }
+
+  .apf-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 12px);
+    overflow: hidden;
+  }
+  .apf-card-header {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary), #00796b);
+    padding: 32px 28px;
+    color: #fff;
+    overflow: hidden;
+  }
+  .apf-card-header::before {
+    content: '';
+    position: absolute; top: -50%; right: -20%;
+    width: 200px; height: 200px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+  }
+  .apf-header-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; margin-bottom: 12px;
+  }
+  .apf-card-header h1 { font-size: 1.3rem; margin: 0 0 4px 0; font-weight: 700; }
+  .apf-card-header p { font-size: 0.85rem; opacity: 0.85; margin: 0; }
+
+  .apf-form-body { padding: 28px; }
+
+  /* Section dividers */
+  .apf-section {
+    margin-bottom: 28px;
+  }
+  .apf-section-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    margin-bottom: 16px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .apf-section-title i { font-size: 1rem; color: var(--primary); }
+
+  /* Field grid */
+  .apf-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 640px) {
+    .apf-grid { grid-template-columns: 1fr; }
+  }
+  .apf-field-full { grid-column: 1 / -1; }
+
+  /* Field container */
+  .apf-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .apf-field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+  }
+  .apf-field label .req { color: #ef5350; margin-left: 2px; }
+  .apf-field input,
+  .apf-field select,
+  .apf-field textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+  }
+  .apf-field input:disabled,
+  .apf-field select:disabled,
+  .apf-field textarea:disabled {
+    background: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  .apf-field input:focus,
+  .apf-field select:focus,
+  .apf-field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0,150,136,0.12);
+  }
+  .apf-field .apf-field-error {
+    font-size: 0.75rem;
+    color: #ef5350;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .apf-field.has-error input,
+  .apf-field.has-error select {
+    border-color: #ef5350;
+  }
+
+  /* Photo upload Modern Redesign */
+  .apf-photo-upload-modern {
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: all 0.3s ease;
+  }
+  .apf-photo-upload-modern:hover {
+    background: rgba(0, 150, 136, 0.02);
+    border-color: var(--primary);
+  }
+  .apf-photo-upload-modern.has-error {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.02);
+  }
+  .apf-photo-label-modern {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .apf-photo-box-modern {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .apf-photo-preview-modern {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: white;
+  }
+  .apf-photo-preview-modern img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .apf-photo-placeholder-modern {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: rgba(0, 150, 136, 0.08);
+    border: 2px dashed rgba(0, 150, 136, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--primary);
+    font-size: 2.5rem;
+  }
+  .apf-photo-actions-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .apf-photo-title-modern {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .apf-photo-actions-modern small {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .apf-photo-buttons-modern {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .apf-btn-upload {
+    padding: 0.6rem 1.2rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s ease;
+  }
+  .apf-btn-upload:hover {
+    background: #008577;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.3);
+  }
+  .apf-btn-remove {
+    padding: 0.6rem 1.2rem;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s ease;
+  }
+  .apf-btn-remove:hover {
+    background: rgba(239, 68, 68, 0.2);
+    transform: translateY(-2px);
+  }
+  @media (max-width: 480px) {
+    .apf-photo-box-modern {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  /* Error banner */
+  .apf-error-banner {
+    background: #ffebee; border: 1px solid #ef9a9a; border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 20px;
+    color: #c62828; font-size: 0.85rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Actions */
+  .apf-actions {
+    display: flex; gap: 12px; padding-top: 20px;
+    border-top: 1px solid var(--border); margin-top: 8px;
+  }
+  .apf-submit-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 24px; border: none; border-radius: 8px;
+    background: var(--primary); color: #fff;
+    font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; transition: opacity 0.2s;
+  }
+  .apf-submit-btn:hover { opacity: 0.9; }
+  .apf-cancel-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border: 1px solid var(--border); border-radius: 8px;
+    background: transparent; color: var(--text-primary);
+    font-size: 0.9rem; text-decoration: none; font-weight: 500;
+    transition: background 0.2s;
+  }
+  .apf-cancel-btn:hover { background: var(--bg); }
+
+  /* Modern Active Status Toggle */
+  .apf-active-toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+  }
+  .apf-active-toggle-wrapper:hover {
+    border-color: var(--primary);
+    background: rgba(0, 150, 136, 0.02);
+  }
+
+  .apf-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 54px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .apf-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .apf-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.35s ease;
+    border-radius: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+  }
+  .apf-toggle-slider:before {
+    content: '';
+    position: absolute;
+    height: 26px;
+    width: 26px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.35s ease;
+    border-radius: 50%;
+  }
+  input:checked + .apf-toggle-slider {
+    background-color: var(--primary);
+  }
+  input:checked + .apf-toggle-slider:before {
+    transform: translateX(22px);
+  }
+
+  .apf-toggle-label-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+  .apf-toggle-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .apf-toggle-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+  }
+  .apf-toggle-icon {
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+  }
+  .apf-toggle-icon.inactive {
+    color: #999;
+  }
+  .apf-toggle-icon.active {
+    color: var(--primary);
+  }
+</style>
+
+<div class="apf-page">
+
+  <!-- Breadcrumb -->
+  <div class="apf-breadcrumb">
+    <a href="{% url 'patients:admin_list' %}"><i class='bx bxs-dog'></i> Patients</a>
+    <i class='bx bx-chevron-right'></i>
+    {% if pet %}
+      <a href="{% url 'patients:admin_detail' pet.pk %}">{{ pet.name }}</a>
+      <i class='bx bx-chevron-right'></i>
+      <span>Edit</span>
+    {% else %}
+      <span>Add Patient</span>
+    {% endif %}
+  </div>
+
+  <div class="apf-card">
+
+    <!-- Header -->
+    <div class="apf-card-header">
+      <div class="apf-header-icon">
+        {% if action == 'Register' %}<i class='bx bx-plus-circle'></i>
+        {% else %}<i class='bx bx-edit-alt'></i>{% endif %}
+      </div>
+      <h1>{{ action }} Patient</h1>
+      <p>{% if action == 'Register' %}Register a new patient — linked to a portal account or as a walk-in guest{% else %}Update {{ pet.name }}'s information{% endif %}</p>
+    </div>
+
+    <!-- Form Body -->
+    <form method="POST" class="apf-form-body" autocomplete="off" enctype="multipart/form-data" id="apfForm">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="apf-error-banner">
+        <i class='bx bx-error-circle'></i> {{ form.non_field_errors.as_text }}
+      </div>
+      {% endif %}
+
+      <!-- ── Source Toggle ── -->
+      <div class="apf-section">
+        <div class="apf-section-title"><i class='bx bx-toggle-right'></i> Patient Type</div>
+        {# Hidden select submits the value #}
+        <div style="display:none;">{{ form.source }}</div>
+        <div class="apf-source-toggle">
+          <button type="button" class="apf-source-btn" id="btn-portal" onclick="setSource('PORTAL')">
+            <i class='bx bx-user-circle'></i> Registered Portal User
+          </button>
+          <button type="button" class="apf-source-btn" id="btn-walkin" onclick="setSource('WALKIN')">
+            <i class='bx bx-walk'></i> Walk-in Guest (No Account)
+          </button>
+        </div>
+        {% if pet %}
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; display: flex; align-items: center; gap: 6px;">
+          <i class='bx bx-lock-alt'></i>
+          <span>{{ form.source.help_text }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ── Portal Owner Section ── -->
+      <div class="apf-section apf-owner-panel" id="panel-portal">
+        <div class="apf-section-title"><i class='bx bxs-user-detail'></i> Registered Owner</div>
+        <div class="apf-grid">
+          <div class="apf-field apf-field-full {% if form.owner.errors %}has-error{% endif %}">
+            <label for="{{ form.owner.id_for_label }}">Portal Account <span class="req">*</span></label>
+            {{ form.owner }}
+            {% if form.owner.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.owner.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Walk-in Guest Owner Section ── -->
+      <div class="apf-section apf-owner-panel" id="panel-walkin">
+        <div class="apf-section-title"><i class='bx bx-id-card'></i> Guest Owner Information</div>
+        <div class="apf-walkin-notice">
+          <i class='bx bx-info-circle'></i>
+          <span>This patient has no portal account. Fill in their contact details below. They can be linked to an account later.</span>
+        </div>
+        <div class="apf-grid">
+          <div class="apf-field {% if form.guest_owner_name.errors %}has-error{% endif %}">
+            <label for="{{ form.guest_owner_name.id_for_label }}">Owner Name <span class="req">*</span></label>
+            {{ form.guest_owner_name }}
+            {% if form.guest_owner_name.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_name.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.guest_owner_phone.errors %}has-error{% endif %}">
+            <label for="{{ form.guest_owner_phone.id_for_label }}">Phone Number</label>
+            {{ form.guest_owner_phone }}
+            {% if form.guest_owner_phone.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_phone.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.guest_owner_email.errors %}has-error{% endif %}">
+            <label for="{{ form.guest_owner_email.id_for_label }}">Email Address</label>
+            {{ form.guest_owner_email }}
+            {% if form.guest_owner_email.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_email.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.guest_owner_address.errors %}has-error{% endif %}">
+            <label for="{{ form.guest_owner_address.id_for_label }}">Address</label>
+            {{ form.guest_owner_address }}
+            {% if form.guest_owner_address.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_address.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Photo Section ── -->
+      <div class="apf-section">
+        <div class="apf-photo-upload-modern {% if form.photo.errors %}has-error{% endif %}">
+          <label class="apf-photo-label-modern">Patient Photo <span style="font-weight: 400; color: var(--text-secondary); font-size: 0.8rem; margin-left: 5px;">(Optional)</span></label>
+          <div class="apf-photo-box-modern">
+            <div class="apf-photo-preview-modern" id="photoPreviewBox" style="{% if not pet.photo %}display: none;{% endif %}">
+              <img src="{% if pet.photo %}{{ pet.photo.url }}{% endif %}" alt="Patient Photo" id="chosenPhoto">
+            </div>
+
+            <div class="apf-photo-placeholder-modern" id="photoPlaceholderBox" style="{% if pet.photo %}display: none;{% endif %}">
+              <i class='bx bx-camera'></i>
+            </div>
+
+            <div class="apf-photo-actions-modern">
+              <span class="apf-photo-title-modern">Upload a photo</span>
+              <small>Supported formats: .png, .jpeg (Max 10MB)</small>
+              <div class="apf-photo-buttons-modern">
+                <button type="button" class="apf-btn-upload" onclick="document.getElementById('{{ form.photo.id_for_label }}').click();">
+                  <i class='bx bx-upload'></i> Choose Photo
+                </button>
+                <button type="button" class="apf-btn-remove" id="removePhotoBtn" style="{% if not pet.photo %}display: none;{% endif %}" onclick="removePhotoAction()">
+                  <i class='bx bx-trash'></i> Remove
+                </button>
+              </div>
+            </div>
+
+            <!-- Hidden original Django widget -->
+            <div class="apf-hidden-photo-input" style="opacity: 0; position: absolute; z-index: -1;">
+              {{ form.photo }}
+            </div>
+          </div>
+          {% if form.photo.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.photo.errors.0 }}</span>{% endif %}
+        </div>
+      </div>
+
+      <!-- ── Pet Information Section ── -->
+      <div class="apf-section">
+        <div class="apf-section-title"><i class='bx bxs-dog'></i> Pet Information</div>
+        <div class="apf-grid">
+          <div class="apf-field {% if form.name.errors %}has-error{% endif %}">
+            <label for="{{ form.name.id_for_label }}">Pet Name <span class="req">*</span></label>
+            {{ form.name }}
+            {% if form.name.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.name.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.species.errors %}has-error{% endif %}">
+            <label for="{{ form.species.id_for_label }}">Species <span class="req">*</span></label>
+            {{ form.species }}
+            {% if form.species.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.species.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.breed.errors %}has-error{% endif %}">
+            <label for="{{ form.breed.id_for_label }}">Breed</label>
+            {{ form.breed }}
+            {% if form.breed.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.breed.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.sex.errors %}has-error{% endif %}">
+            <label for="{{ form.sex.id_for_label }}">Sex <span class="req">*</span></label>
+            {{ form.sex }}
+            {% if form.sex.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.sex.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.date_of_birth.errors %}has-error{% endif %}">
+            <label for="{{ form.date_of_birth.id_for_label }}">Date of Birth</label>
+            {{ form.date_of_birth }}
+            {% if form.date_of_birth.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.date_of_birth.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.color.errors %}has-error{% endif %}">
+            <label for="{{ form.color.id_for_label }}">Color</label>
+            {{ form.color }}
+            {% if form.color.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.color.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Clinical & Active Status Section ── -->
+      <div class="apf-section">
+        <div class="apf-section-title"><i class='bx bx-pulse'></i> Status settings</div>
+        <div class="apf-grid">
+          <div class="apf-field {% if form.clinical_status.errors %}has-error{% endif %}">
+            <label for="{{ form.clinical_status.id_for_label }}">Clinical Status</label>
+            {{ form.clinical_status }}
+            {% if form.clinical_status.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.clinical_status.errors.0 }}</span>{% endif %}
+          </div>
+          
+          <div class="apf-field {% if form.is_active.errors %}has-error{% endif %}">
+            <label for="{{ form.is_active.id_for_label }}">Active Profile</label>
+            <div class="apf-active-toggle-wrapper">
+              <label class="apf-toggle-switch">
+                {{ form.is_active }}
+                <span class="apf-toggle-slider"></span>
+              </label>
+              <div class="apf-toggle-label-content">
+                <div class="apf-toggle-title">
+                  <i class='bx bxs-circle apf-toggle-icon inactive' id="activeStatusIcon"></i>
+                  <span id="activeStatusText">Inactive</span>
+                </div>
+                <span class="apf-toggle-desc">This pet {% if form.is_active.value %}will appear{% else %}won't appear{% endif %} in appointment booking list</span>
+              </div>
+            </div>
+            {% if form.is_active.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.is_active.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Actions ── -->
+      <div class="apf-actions">
+        <button type="submit" class="apf-submit-btn">
+          <i class='bx {% if action == "Register" %}bx-plus{% else %}bx-check{% endif %}'></i> {{ action }} Patient
+        </button>
+        <a href="{% if pet %}{% url 'patients:admin_detail' pet.pk %}{% else %}{% url 'patients:admin_list' %}{% endif %}" class="apf-cancel-btn">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const selectEl = document.getElementById('id_source');
+  const isDisabled = selectEl && selectEl.disabled;
+
+  function setSource(val) {
+    // Prevent changes if field is disabled (editing existing pet)
+    if (isDisabled) return;
+
+    if (selectEl) selectEl.value = val;
+    document.getElementById('btn-portal').classList.toggle('active', val === 'PORTAL');
+    document.getElementById('btn-walkin').classList.toggle('active', val === 'WALKIN');
+    document.getElementById('panel-portal').classList.toggle('visible', val === 'PORTAL');
+    document.getElementById('panel-walkin').classList.toggle('visible', val === 'WALKIN');
+  }
+
+  // Initialise on page load — respects existing value (fresh form or re-display after error)
+  (function() {
+    const initial = (selectEl && selectEl.value) ? selectEl.value : 'PORTAL';
+    setSource(initial);
+
+    // If field is disabled, disable toggle buttons and show locked state
+    if (isDisabled) {
+      const toggleContainer = document.querySelector('.apf-source-toggle');
+      const toggleButtons = document.querySelectorAll('.apf-source-btn');
+
+      if (toggleContainer) {
+        toggleContainer.classList.add('disabled');
+      }
+
+      toggleButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.cursor = 'not-allowed';
+      });
+
+      // Ensure the correct panel is always visible based on current source
+      document.getElementById('btn-portal').classList.toggle('active', initial === 'PORTAL');
+      document.getElementById('btn-walkin').classList.toggle('active', initial === 'WALKIN');
+      document.getElementById('panel-portal').classList.toggle('visible', initial === 'PORTAL');
+      document.getElementById('panel-walkin').classList.toggle('visible', initial === 'WALKIN');
+    }
+  })();
+
+  // Live photo preview
+  const photoInput = document.getElementById('{{ form.photo.id_for_label }}');
+  const photoPreviewBox = document.getElementById('photoPreviewBox');
+  const chosenPhoto = document.getElementById('chosenPhoto');
+  const photoPlaceholderBox = document.getElementById('photoPlaceholderBox');
+  const removePhotoBtn = document.getElementById('removePhotoBtn');
+
+  if (photoInput) {
+    photoInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          chosenPhoto.src = e.target.result;
+          photoPreviewBox.style.display = 'block';
+          photoPlaceholderBox.style.display = 'none';
+          removePhotoBtn.style.display = 'inline-flex';
+        };
+        reader.readAsDataURL(this.files[0]);
+      }
+    });
+  }
+
+  // Remove photo
+  function removePhotoAction() {
+    if (photoInput) {
+      photoInput.value = '';
+
+      const clearCheckbox = document.querySelector('input[name="{{ form.photo.name }}-clear"]');
+      if (clearCheckbox) {
+        clearCheckbox.checked = true;
+      }
+
+      chosenPhoto.src = '';
+      photoPreviewBox.style.display = 'none';
+      photoPlaceholderBox.style.display = 'flex';
+      removePhotoBtn.style.display = 'none';
+    }
+  }
+
+  // Modern Active Status Toggle
+  (function initActiveToggle() {
+    const activeCheckbox = document.getElementById('{{ form.is_active.id_for_label }}');
+    const activeStatusIcon = document.getElementById('activeStatusIcon');
+    const activeStatusText = document.getElementById('activeStatusText');
+
+    function updateToggleStatus() {
+      const isChecked = activeCheckbox.checked;
+      activeStatusIcon.classList.toggle('active', isChecked);
+      activeStatusIcon.classList.toggle('inactive', !isChecked);
+      activeStatusIcon.classList.toggle('bxs-check-circle', isChecked);
+      activeStatusIcon.classList.toggle('bxs-circle', !isChecked);
+      activeStatusText.textContent = isChecked ? 'Active' : 'Inactive';
+    }
+
+    if (activeCheckbox) {
+      activeCheckbox.addEventListener('change', updateToggleStatus);
+      updateToggleStatus(); // Initialize on page load
+    }
+  })();
+
+  // Auto-Capitalize for Client and Pet Details (first letter only)
+  (function initAutoCapitalize() {
+    function capitalizeFirstLetter(str) {
+      if (!str) return str;
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Fields to auto-capitalize (Guest Owner and Pet Details)
+    const fieldsToCapitalize = [
+      'guest_owner_name', 'guest_owner_address',
+      'name', 'breed', 'color'
+    ];
+
+    fieldsToCapitalize.forEach(function(fieldName) {
+      const field = document.querySelector('[name="' + fieldName + '"]');
+      if (field && (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA')) {
+        field.addEventListener('input', function() {
+          const start = this.selectionStart;
+          const end = this.selectionEnd;
+          this.value = capitalizeFirstLetter(this.value);
+          this.setSelectionRange(start, end);
+        });
+      }
+    });
+  })();
+</script>
+
+{% endblock %}

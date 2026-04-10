@@ -1,0 +1,60 @@
+<!-- System Settings Form -->
+<div class="settings-card">
+  <form method="POST" autocomplete="off">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="system">
+
+    <div class="admin-grid">
+      <div class="form-section-title">
+        <i class='bx bx-calendar'></i> Date & Time Format
+      </div>
+
+      <div class="admin-field">
+        <label for="id_date_format">Date Format</label>
+        {{ forms.system.date_format }}
+        <p class="form-hint">{{ forms.system.date_format.help_text }}</p>
+        {% if forms.system.date_format.errors %}
+          <div class="error-text">{{ forms.system.date_format.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="id_time_format">Time Format</label>
+        {{ forms.system.time_format }}
+        <p class="form-hint">{{ forms.system.time_format.help_text }}</p>
+        {% if forms.system.time_format.errors %}
+          <div class="error-text">{{ forms.system.time_format.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-wrench'></i> Maintenance Mode
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <div class="checkbox-field">
+          {{ forms.system.maintenance_mode }}
+          <div class="checkbox-content">
+            <label for="id_maintenance_mode">Enable Maintenance Mode</label>
+            <p class="form-hint">{{ forms.system.maintenance_mode.help_text }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label for="id_maintenance_message">Maintenance Message</label>
+        {{ forms.system.maintenance_message }}
+        <p class="form-hint">{{ forms.system.maintenance_message.help_text }}</p>
+        {% if forms.system.maintenance_message.errors %}
+          <div class="error-text">{{ forms.system.maintenance_message.errors.0 }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="admin-actions">
+      <button type="submit" class="btn-submit">
+        <i class='bx bx-save'></i> Save System Settings
+      </button>
+    </div>
+  </form>
+</div>

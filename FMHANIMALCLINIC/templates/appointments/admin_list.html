@@ -1,0 +1,1336 @@
+{% extends 'base/portal_admin.html' %}
+{% load static record_filters %}
+
+{% block title %}Appointments{% endblock %}
+
+{% block content %}
+
+<style>
+  /* ══════ MINIMALIST PET MANUAL TOGGLE ══════ */
+  .pet-manual-toggle-wrapper {
+    display: flex;
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+
+  .pet-manual-toggle-wrapper:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+  }
+
+  .pet-manual-toggle-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pet-manual-toggle-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .toggle-icon-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .toggle-icon-circle i {
+    font-size: 18px;
+    color: #6b7280;
+    transition: color 0.2s ease;
+  }
+
+  .toggle-text-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .toggle-main-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #111827;
+    transition: color 0.2s ease;
+  }
+
+  .toggle-sub-text {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    line-height: 1.3;
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: #e5e7eb;
+    border-radius: 12px;
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: #ffffff;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Checked State */
+  .pet-manual-toggle-input:checked ~ .pet-manual-toggle-content .toggle-switch {
+    background: #10b981;
+  }
+
+  .pet-manual-toggle-input:checked ~ .pet-manual-toggle-content .toggle-switch .toggle-slider {
+    transform: translateX(20px);
+  }
+
+  .pet-manual-toggle-input:checked ~ .pet-manual-toggle-content .toggle-icon-circle {
+    background: #d1fae5;
+  }
+
+  .pet-manual-toggle-input:checked ~ .pet-manual-toggle-content .toggle-icon-circle i {
+    color: #059669;
+  }
+
+  .pet-manual-toggle-input:checked ~ .pet-manual-toggle-content .toggle-main-text {
+    color: #059669;
+  }
+
+  /* Active State */
+  .pet-manual-toggle-wrapper:active {
+    transform: scale(0.99);
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .pet-manual-toggle-wrapper {
+      padding: 10px 12px;
+    }
+
+    .pet-manual-toggle-content {
+      gap: 10px;
+    }
+
+    .toggle-icon-circle {
+      width: 32px;
+      height: 32px;
+    }
+
+    .toggle-icon-circle i {
+      font-size: 16px;
+    }
+
+    .toggle-main-text {
+      font-size: 0.8125rem;
+    }
+
+    .toggle-sub-text {
+      font-size: 0.6875rem;
+    }
+
+    .toggle-switch {
+      width: 40px;
+      height: 22px;
+    }
+
+    .toggle-slider {
+      width: 18px;
+      height: 18px;
+    }
+
+    .pet-manual-toggle-input:checked ~ .pet-manual-toggle-content .toggle-switch .toggle-slider {
+      transform: translateX(18px);
+    }
+  }
+</style>
+
+<!-- ══════ APPOINTMENTS HERO ══════ -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-calendar-event'></i> Appointments</h1>
+      {% if is_branch_restricted and user_branch %}
+      <p>Manage appointments for {{ user_branch.name }}</p>
+      {% else %}
+      <p>Manage all appointment bookings across branches</p>
+      {% endif %}
+    </div>
+    <div class="page-hero-actions">
+      {% if can_create %}
+      <button class="page-hero-btn" id="quickCreateBtn">
+        <i class='bx bx-plus-circle'></i> Quick Create
+      </button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ══════ TAB BAR ══════ -->
+<div class="c-tab-bar">
+  <div class="c-tab-bar__glow"></div>
+  <div class="c-tab-bar__indicator"></div>
+  <button class="c-tab-btn{% if current_view == 'table' or not current_view %} active{% endif %}"
+          data-tab="table" type="button"
+          onclick="window.location.href='{% url 'appointments:admin_list' %}?view=table{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_branch %}&branch={{ selected_branch }}{% endif %}{% if selected_vet %}&vet={{ selected_vet }}{% endif %}{% if selected_source %}&source={{ selected_source }}{% endif %}'">
+    <i class='bx bx-table c-tab-btn__icon'></i> <span class="c-tab-btn__label">Table</span>
+  </button>
+  <button class="c-tab-btn{% if current_view == 'daily' %} active{% endif %}"
+          data-tab="daily" type="button"
+          onclick="window.location.href='{% url 'appointments:admin_list' %}?view=daily{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_branch %}&branch={{ selected_branch }}{% endif %}{% if selected_vet %}&vet={{ selected_vet }}{% endif %}{% if selected_source %}&source={{ selected_source }}{% endif %}'">
+    <i class='bx bx-calendar-event c-tab-btn__icon'></i> <span class="c-tab-btn__label">Daily</span>
+  </button>
+  <button class="c-tab-btn{% if current_view == 'weekly' %} active{% endif %}"
+          data-tab="weekly" type="button"
+          onclick="window.location.href='{% url 'appointments:admin_list' %}?view=weekly{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_branch %}&branch={{ selected_branch }}{% endif %}{% if selected_vet %}&vet={{ selected_vet }}{% endif %}{% if selected_source %}&source={{ selected_source }}{% endif %}'">
+    <i class='bx bx-calendar-week c-tab-btn__icon'></i> <span class="c-tab-btn__label">Weekly</span>
+  </button>
+  <button class="c-tab-btn{% if current_view == 'monthly' %} active{% endif %}"
+          data-tab="monthly" type="button"
+          onclick="window.location.href='{% url 'appointments:admin_list' %}?view=monthly{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_branch %}&branch={{ selected_branch }}{% endif %}{% if selected_vet %}&vet={{ selected_vet }}{% endif %}{% if selected_source %}&source={{ selected_source }}{% endif %}'">
+    <i class='bx bx-calendar c-tab-btn__icon'></i> <span class="c-tab-btn__label">Monthly</span>
+  </button>
+</div>
+
+<!-- ══════ SEARCH & FILTER BAR ══════ -->
+<div class="c-filter-bar" id="apptFilterBar">
+  <div class="c-filter-bar__glow"></div>
+  <form method="GET" id="apptFilterForm" class="c-filter-bar__form" autocomplete="off">
+    <input type="hidden" name="view" value="{{ current_view|default:'table' }}">
+
+    <!-- Search Input -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input type="text" name="q" placeholder="Search by owner, pet, or email..."
+             value="{{ q }}" id="apptSearch"
+             class="c-filter-bar__search-input" autocomplete="off">
+      <div class="search-dropdown" id="apptSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut"><span>⌘</span><span>K</span></div>
+    </div>
+
+    <!-- Filter Dropdowns Row -->
+    <div class="c-filter-bar__filters">
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_status %} active{% endif %}">
+          <i class='bx bx-loader-circle c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_status %}<span class="prefix">Status:</span> {{ selected_status }}{% else %}All Status{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="status" onchange="this.form.submit()">
+          <option value="">All Status</option>
+          {% for value, label in statuses %}
+          <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if not is_branch_restricted %}
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_branch %} active{% endif %}">
+          <i class='bx bx-building-house c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_branch %}<span class="prefix">Branch:</span> {% for branch in branches %}{% if branch.id|stringformat:"d" == selected_branch %}{{ branch.name }}{% endif %}{% endfor %}{% else %}All Branches{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="branch" onchange="this.form.submit()">
+          <option value="">All Branches</option>
+          {% for branch in branches %}
+          <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"d" %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_vet %} active{% endif %}">
+          <i class='bx bx-user-check c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_vet %}<span class="prefix">Vet:</span> {% for vet in vets %}{% if vet.id|stringformat:"d" == selected_vet %}{{ vet.full_name }}{% endif %}{% endfor %}{% else %}All Vets{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="vet" onchange="this.form.submit()">
+          <option value="">All Vets</option>
+          {% for vet in vets %}
+          <option value="{{ vet.id }}" {% if selected_vet == vet.id|stringformat:"d" %}selected{% endif %}>{{ vet.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_source %} active{% endif %}">
+          <i class='bx bx-globe c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_source %}<span class="prefix">Source:</span> {{ selected_source }}{% else %}All Sources{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="source" onchange="this.form.submit()">
+          <option value="">All Sources</option>
+          {% for value, label in sources %}
+          <option value="{{ value }}" {% if selected_source == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if q or selected_status or selected_branch or selected_vet or selected_source %}
+      <a href="{% url 'appointments:admin_list' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- TABLE / ACCORDION VIEW -->
+<div id="tableView">
+{% if appointments %}
+<div class="admin-table-card">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th style="text-align: center;">Owner / Pet</th>
+        <th style="text-align: center;">Branch</th>
+        <th style="text-align: center;">Vet</th>
+        <th style="text-align: center;">Date & Time</th>
+        <th style="text-align: center;">Source</th>
+        <th style="text-align: center;">Status</th>
+        <th style="text-align: center;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for appt in appointments %}
+      <tr class="accordion-row searchable-row" data-id="{{ appt.pk }}"
+          data-owner="{{ appt.owner_name }}"
+          data-pet="{{ appt.pet_name }}"
+          data-branch="{{ appt.branch.name }}"
+          data-vet="{{ appt.preferred_vet.full_name|default:'Any available' }}"
+          data-details-id="details-{{ appt.pk }}">
+        <td style="text-align: center;">
+          <div class="cell-stack" style="align-items: center;">
+            <span class="cell-primary">{{ appt.owner_name }}</span>
+            <span class="cell-secondary">{{ appt.pet_name }}{% if appt.pet_breed %} ({{ appt.pet_breed }}){% endif %}</span>
+          </div>
+        </td>
+        <td style="text-align: center;">{{ appt.branch.name }}</td>
+        <td style="text-align: center;">{{ appt.preferred_vet.full_name|default:"Any available" }}</td>
+        <td style="text-align: center;">
+          <div class="cell-stack" style="align-items: center;">
+            <span class="cell-primary">{{ appt.appointment_date|date:"M d, Y" }}</span>
+            <span class="cell-secondary">{{ appt.appointment_time_display }}</span>
+          </div>
+        </td>
+        <td style="text-align: center;"><span class="admin-badge source-{{ appt.source|lower }}">{{ appt.get_source_display }}</span></td>
+        <td style="text-align: center;"><span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span></td>
+        <td style="text-align: center;">
+          <div class="actions-cell">
+            {% if can_edit %}
+            <a href="{% url 'appointments:admin_edit' appt.pk %}" class="action-btn" title="Edit"><i class='bx bx-edit-alt'></i></a>
+            {% endif %}
+            {% if can_delete %}
+            <form method="POST" action="{% url 'appointments:admin_delete' appt.pk %}" style="display:inline;" onsubmit="return confirm('Delete this appointment?');">
+              {% csrf_token %}
+              <button type="submit" class="action-btn danger" title="Delete"><i class='bx bx-trash'></i></button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      <!-- Expandable Details Row -->
+      <tr class="accordion-details" id="details-{{ appt.pk }}" style="display: none;">
+        <td colspan="7" style="padding: 0; background: var(--bg);">
+          <div style="padding: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
+            <div>
+              <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;"><i class='bx bx-id-card'></i> Contact Information</h4>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Name:</strong> {{ appt.owner_name }}</p>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Phone:</strong> {{ appt.owner_phone|default:"-" }}</p>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Email:</strong> {{ appt.owner_email|default:"-" }}</p>
+              <p style="margin-bottom: 0; font-size: 0.875rem;"><strong>Address:</strong> {{ appt.owner_address|default:"-" }}</p>
+            </div>
+            <div>
+              <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;"><i class='bx bxs-dog'></i> Pet Information</h4>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Name:</strong> {{ appt.pet_name }}</p>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Species:</strong> {{ appt.pet_species|default:"-" }}</p>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Breed:</strong> {{ appt.pet_breed|default:"-" }}</p>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Date of Birth:</strong> {{ appt.pet_dob|format_date_str|default:"-" }}</p>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Sex:</strong> {{ appt.pet_sex|default:"-" }}</p>
+              <p style="margin-bottom: 0; font-size: 0.875rem;"><strong>Color:</strong> {{ appt.pet_color|default:"-" }}</p>
+            </div>
+            <div>
+              <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;"><i class='bx bx-file'></i> Appointment Details</h4>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Created:</strong> {{ appt.created_at|date:"M d, Y, g:i A" }}</p>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Reason:</strong> {{ appt.get_reason_display|default:"-" }}</p>
+              <p style="margin-bottom: 0; font-size: 0.875rem;"><strong>Returning Client:</strong> {% if appt.is_returning_customer %}Yes{% else %}No{% endif %}</p>
+              {% if appt.pet_symptoms %}
+              <div style="margin-top: 12px; background: var(--surface); padding: 12px; border-radius: 8px; border-left: 3px solid var(--accent);">
+                <strong style="font-size: 0.8rem;">Symptoms:</strong>
+                <p style="margin: 6px 0 0; color: var(--text-2); font-size: 0.875rem;">{{ appt.pet_symptoms|linebreaksbr }}</p>
+              </div>
+              {% endif %}
+              {% if appt.notes %}
+              <div style="margin-top: 12px; background: var(--surface); padding: 12px; border-radius: 8px; border-left: 3px solid var(--primary);">
+                <strong style="font-size: 0.8rem;">Notes:</strong>
+                <p style="margin: 6px 0 0; color: var(--text-2); font-size: 0.875rem;">{{ appt.notes|linebreaksbr }}</p>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% if can_edit %}
+          <div style="padding: 0 24px 16px; text-align: right;">
+            <a href="{% url 'appointments:admin_edit' appt.pk %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--primary); color: #fff; font-size: 0.82rem; font-weight: 500; border-radius: 8px; text-decoration: none; transition: all 0.2s ease;">
+              <i class='bx bx-edit-alt'></i> View / Edit Full Details
+            </a>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Modern Pagination Section -->
+  {% include "components/modern_pagination.html" %}
+</div>
+
+<script>
+document.querySelectorAll('.accordion-row').forEach(row => {
+  row.style.cursor = 'pointer';
+  row.addEventListener('click', function(e) {
+    if (e.target.closest('.actions-cell')) return;
+    const id = this.dataset.id;
+    const details = document.getElementById('details-' + id);
+    document.querySelectorAll('.accordion-details').forEach(d => {
+      if (d !== details) d.style.display = 'none';
+    });
+    details.style.display = details.style.display === 'none' ? 'table-row' : 'none';
+  });
+});
+</script>
+{% else %}
+<div class="admin-table-card">
+  <div class="admin-empty-state">
+    <i class='bx bx-calendar-x'></i>
+    <h3>No appointments found</h3>
+    <p>Appointments will appear here when clients book through the website or portal. Use "Quick Create" to add walk-ins.</p>
+  </div>
+</div>
+{% endif %}
+</div>
+
+<!-- CALENDAR VIEW (Daily / Weekly / Monthly) -->
+<div id="calendarView" style="display: none;">
+  <div class="filter-bar" style="margin-bottom: 0;">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" id="calPrev"><i class='bx bx-chevron-left'></i></button>
+      <span class="cal-month-label" id="calLabel">Loading...</span>
+      <button class="cal-nav-btn" id="calNext"><i class='bx bx-chevron-right'></i></button>
+    </div>
+    <div class="filter-actions">
+      <button class="filter-btn clear" id="calToday"><i class='bx bx-calendar'></i> Today</button>
+    </div>
+  </div>
+  <div class="dashboard-card full-width" style="margin-top: 14px;">
+    <div class="card-body" style="padding: 12px;">
+      <div id="calendarContent"></div>
+    </div>
+  </div>
+  <!-- See More Detail Container -->
+  <div id="calendarDetailsContainer" class="dashboard-card full-width" style="display:none; margin-top: 14px;">
+  </div>
+</div>
+
+{% if can_create %}
+<!-- QUICK CREATE MODAL -->
+<div class="schedule-modal-overlay" id="quickCreateModal">
+  <div class="qc-modal">
+    <div class="qc-header">
+      <div class="qc-header-title">
+        <div class="qc-icon"><i class='bx bx-calendar-plus'></i></div>
+        <div>
+          <h3>Quick Appointment</h3>
+          <p>Manual booking for walk-ins or calls</p>
+        </div>
+      </div>
+      <button class="qc-close" id="closeQuickCreate"><i class='bx bx-x'></i></button>
+    </div>
+    
+    <form method="POST" action="{% url 'appointments:admin_quick_create' %}">
+      {% csrf_token %}
+      {{ quick_form.selected_user_id }}
+      {{ quick_form.selected_pet_id }}
+      <div class="qc-body">
+        <div class="qc-section-title">Client Source</div>
+        <div class="qc-grid">
+          <div class="qc-group qc-full">
+            <label>Client Type *</label>
+            <select id="qc-client-source" class="qc-input">
+              <option value="PORTAL">Portal (Registered User)</option>
+              <option value="WALKIN">Walk-in (Guest)</option>
+            </select>
+            <input type="hidden" name="source" id="qc-source-hidden" value="PORTAL">
+          </div>
+        </div>
+
+        <div class="qc-section-title mt-3">Client Details</div>
+        <div class="qc-grid">
+          <!-- Portal Mode: Owner Select Dropdown -->
+          <div class="qc-group qc-full" id="qc-owner-portal-group">
+            <label>Select Owner *</label>
+            <select id="ownerSelect" class="qc-input">
+              <option value="">— Select Owner —</option>
+            </select>
+          </div>
+          <!-- Owner Name Field - auto-filled in Portal, manual in Walk-in -->
+          <div class="qc-group qc-full" id="qc-owner-name-group" style="display: none;">
+            <label>Owner Name *</label>
+            {{ quick_form.owner_name }}
+          </div>
+          <div class="qc-group">
+            <label>Phone</label>
+            {{ quick_form.owner_phone }}
+          </div>
+          <div class="qc-group">
+            <label>Email</label>
+            {{ quick_form.owner_email }}
+          </div>
+          <div class="qc-group qc-full">
+            <label>Address</label>
+            {{ quick_form.owner_address }}
+          </div>
+        </div>
+
+        <div class="qc-section-title mt-3">Pet Details</div>
+        <div class="qc-grid">
+          <!-- Portal Mode: Pet Select Dropdown -->
+          <div class="qc-group qc-full" id="qc-pet-portal-group">
+            <label>Select Pet</label>
+            <select id="petSelect" class="qc-input" disabled>
+              <option value="">— Select owner first —</option>
+            </select>
+            <label id="qc-pet-manual-toggle-label" class="pet-manual-toggle-wrapper" style="display: none;">
+              <input type="checkbox" id="qc-pet-manual-toggle" class="pet-manual-toggle-input">
+              <div class="pet-manual-toggle-content">
+                <div class="toggle-icon-circle">
+                  <i class='bx bx-edit-alt'></i>
+                </div>
+                <div class="toggle-text-content">
+                  <span class="toggle-main-text">Add New Pet</span>
+                  <span class="toggle-sub-text">Type pet name manually instead of selecting</span>
+                </div>
+                <div class="toggle-switch">
+                  <span class="toggle-slider"></span>
+                </div>
+              </div>
+            </label>
+          </div>
+          <!-- Pet Name Field (shown for walk-in OR when manual toggle is checked) -->
+          <div class="qc-group" id="qc-pet-name-group">
+            <label>Pet Name *</label>
+            {{ quick_form.pet_name }}
+          </div>
+          <div class="qc-group">
+            <label>Species</label>
+            {{ quick_form.pet_species }}
+          </div>
+          <div class="qc-group">
+            <label>Breed</label>
+            {{ quick_form.pet_breed }}
+          </div>
+          <div class="qc-group">
+            <label>D.O.B / Age</label>
+            {{ quick_form.pet_dob }}
+          </div>
+          <div class="qc-group">
+            <label>Sex</label>
+            {{ quick_form.pet_sex }}
+          </div>
+          <div class="qc-group">
+            <label>Color</label>
+            {{ quick_form.pet_color }}
+          </div>
+          <div class="qc-group qc-full">
+            <label>Reason for Visit *</label>
+            {{ quick_form.reason }}
+          </div>
+        </div>
+
+        <div class="qc-section-title mt-3">Schedule</div>
+        <div class="qc-grid">
+          <div class="qc-group">
+            <label>Branch *</label>
+            {{ quick_form.branch }}
+          </div>
+          <div class="qc-group">
+            <label>Date *</label>
+            {{ quick_form.appointment_date }}
+          </div>
+          <div class="qc-group">
+            <label>Veterinarian</label>
+            {{ quick_form.preferred_vet }}
+          </div>
+          <div class="qc-group">
+            <label>Time *</label>
+            <select name="appointment_time" id="id_quick_appointment_time" class="qc-input" required>
+              <option value="">-- Select branch and date first --</option>
+            </select>
+            <span class="form-hint" id="quickTimeHint" style="font-size: 0.72rem; color: var(--text-3); margin-top: 4px; display: block;"></span>
+          </div>
+          <div class="qc-group qc-full">
+            <label>Status</label>
+            {{ quick_form.status }}
+          </div>
+          <div class="qc-group qc-full">
+            <label>Notes</label>
+            {{ quick_form.notes }}
+          </div>
+        </div>
+
+        <div class="qc-section-title mt-3">Follow-up (Optional)</div>
+        <div class="qc-grid">
+          <div class="qc-group qc-full">
+            <label class="qc-checkbox">
+              <input type="checkbox" name="follow_up_enabled" id="quickFollowUpEnabled">
+              <span>Schedule a follow-up visit</span>
+            </label>
+          </div>
+          <div id="quickFollowUpFields" style="display: none;">
+            <div class="qc-group">
+              <label>Follow-up Start Date</label>
+              <input type="date" name="follow_up_date" class="qc-input" id="quickFollowUpDate">
+            </div>
+            <div class="qc-group">
+              <label>Follow-up End Date (Optional)</label>
+              <input type="date" name="follow_up_end_date" class="qc-input" id="quickFollowUpEndDate">
+            </div>
+            <div class="qc-group qc-full">
+              <label>Reason for Follow-up</label>
+              <textarea name="follow_up_reason" class="qc-input" rows="2" placeholder="e.g., Post-surgery checkup"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="qc-footer">
+        <button type="button" class="qc-btn-cancel" id="cancelQuickCreate">Cancel</button>
+        <button type="submit" class="qc-btn-save">Book Appointment</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- APPOINTMENT DETAIL MODAL (AJAX CALENDAR) -->
+<div class="schedule-modal-overlay" id="appointmentDetailModal">
+  <div class="dm-modal md-modern">
+    <button class="dm-close" id="closeDetailModal"><i class='bx bx-x'></i></button>
+
+    <!-- Modern Header with Pet & Owner -->
+    <div class="dm-header-modern">
+      <div class="dm-header-avatar" id="detailOwnerAvatar">C</div>
+      <div class="dm-header-content">
+        <div class="dm-header-title">
+          <h2 id="detailOwnerName">Owner Name</h2>
+          <p id="detailPetInfo" class="dm-pet-subtitle">
+            <i class='bx bxs-dog'></i>
+            <span id="detailPetNameText">Pet Name</span>
+            <span class="dm-clinical-badge" id="detailPetClinicalStatus" style="display: none;"></span>
+          </p>
+        </div>
+        <div class="dm-header-badges">
+          <span class="dm-status-badge" id="detailStatusBadge">Status</span>
+          <span class="dm-source-badge" id="detailSourceBadgeMod" style="display: none;">Source</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clinical Alert Banner (if needed) -->
+    <div id="detailClinicalAlert" style="display: none; margin: 0; padding: 14px 18px; background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%); border-left: 4px solid #ff9800; color: #e65100; font-size: 0.85rem; display: flex; align-items: center; gap: 10px;">
+      <i class='bx bx-info-circle' style="font-size: 1.2rem; flex-shrink: 0;"></i>
+      <span id="detailClinicalAlertText"></span>
+    </div>
+
+    <!-- Appointment Scheduling Info Bar - Modern Layout -->
+    <div class="dm-bar-modern">
+      <div class="dm-bar-item-modern">
+        <div class="bar-icon"><i class='bx bx-time-five'></i></div>
+        <div>
+          <span class="bar-label">Time</span>
+          <strong id="detailTime">—</strong>
+        </div>
+      </div>
+      <div class="dm-bar-item-modern">
+        <div class="bar-icon"><i class='bx bx-calendar'></i></div>
+        <div>
+          <span class="bar-label">Date</span>
+          <strong id="detailDate">—</strong>
+        </div>
+      </div>
+      <div class="dm-bar-item-modern">
+        <div class="bar-icon"><i class='bx bx-user-check'></i></div>
+        <div>
+          <span class="bar-label">Veterinarian</span>
+          <strong id="detailVetName">—</strong>
+        </div>
+      </div>
+      <div class="dm-bar-item-modern">
+        <div class="bar-icon"><i class='bx bx-building'></i></div>
+        <div>
+          <span class="bar-label">Branch</span>
+          <strong id="detailBranchBar">—</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modern Card Layout: Three Columns -->
+    <div class="dm-content-modern">
+      <!-- Card 1: Appointment Details -->
+      <div class="dm-card-modern">
+        <div class="card-header-modern">
+          <i class='bx bx-calendar-event'></i>
+          <h3>Appointment Details</h3>
+        </div>
+        <div class="card-content">
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Reason</span>
+            <span class="dm-value-modern" id="detailReason">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Status</span>
+            <span class="dm-value-modern"><span class="dm-source" id="detailSourceBadge">—</span></span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Booked On</span>
+            <span class="dm-value-modern" id="detailCreatedAt">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Source</span>
+            <span class="dm-value-modern" id="detailSourceDisplay">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Owner & Pet Contact Info -->
+      <div class="dm-card-modern">
+        <div class="card-header-modern">
+          <i class='bx bx-id-card'></i>
+          <h3>Contact Information</h3>
+        </div>
+        <div class="card-content">
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Owner Name</span>
+            <span class="dm-value-modern" id="detailOwnerNameDetail">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Phone</span>
+            <span class="dm-value-modern" id="detailPhone" style="word-break: break-word;">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Email</span>
+            <span class="dm-value-modern" id="detailEmail" style="word-break: break-word;">—</span>
+          </div>
+          <div id="detailMedicalRecordsLink" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <a href="#" id="detailMedicalRecordsBtn" class="link-action">
+              <i class='bx bx-file'></i> View Medical Records
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Pet Information -->
+      <div class="dm-card-modern">
+        <div class="card-header-modern">
+          <i class='bx bxs-dog'></i>
+          <h3>Pet Details</h3>
+        </div>
+        <div class="card-content">
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Pet Name</span>
+            <span class="dm-value-modern" id="detailPetName">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Species</span>
+            <span class="dm-value-modern" id="detailSpecies">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Breed</span>
+            <span class="dm-value-modern" id="detailBreed">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Date of Birth</span>
+            <span class="dm-value-modern" id="detailDOB">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Sex</span>
+            <span class="dm-value-modern" id="detailSex">—</span>
+          </div>
+          <div class="dm-row-modern">
+            <span class="dm-label-modern">Color</span>
+            <span class="dm-value-modern" id="detailColor">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Section - Modern -->
+    <div class="dm-notes-modern" id="detailNotesContainer" style="display: none;">
+      <div class="notes-header">
+        <i class='bx bx-message-rounded-dots'></i>
+        <span>Appointment Notes</span>
+      </div>
+      <p id="detailNotes" class="notes-content"></p>
+    </div>
+
+    <!-- Footer - Modern with Action Buttons -->
+    <div class="dm-footer-modern">
+      {% if can_delete %}
+      <button class="dm-btn-secondary" id="detailCancelBtn" style="display: none;">
+        <i class='bx bx-x'></i> Cancel Appointment
+      </button>
+      {% endif %}
+      {% if can_edit %}
+      <a href="#" class="dm-btn-primary" id="detailEditBtn">
+        <i class='bx bx-edit-alt'></i> Edit Appointment
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+/* Enhanced DM Modal Styling */
+.dm-clinical-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.70rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.dm-clinical-badge.healthy { background: #e8f5e9; color: #2e7d32; }
+.dm-clinical-badge.monitor { background: #fff3e0; color: #e65100; }
+.dm-clinical-badge.treatment { background: #e3f2fd; color: #1565c0; }
+.dm-clinical-badge.surgery { background: #fce4ec; color: #c62828; }
+.dm-clinical-badge.diagnostics { background: #f3e5f5; color: #6a1b9a; }
+.dm-clinical-badge.critical { background: #ffebee; color: #b71c1c; }
+
+/* Calendar Pagination Styles */
+.calendar-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-top: 2px solid var(--border);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.calendar-pagination .pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-pagination .pagination-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #666);
+}
+
+.calendar-pagination .pagination-text strong {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.calendar-pagination .pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.calendar-pagination .pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: white;
+  border: 1.5px solid var(--border);
+  color: var(--text-primary, #333);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.calendar-pagination .pagination-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,150,136,0.25);
+}
+
+.calendar-pagination .pagination-btn-disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.calendar-pagination .pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 8px;
+}
+
+.calendar-pagination .pagination-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: white;
+  border: 1.5px solid transparent;
+  color: var(--text-primary, #333);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+}
+
+.calendar-pagination .pagination-page:hover {
+  background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.calendar-pagination .pagination-page.active {
+  background: linear-gradient(135deg, var(--primary) 0%, #00796b 100%);
+  border-color: var(--primary);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,150,136,0.3);
+  transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+  .calendar-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .calendar-pagination .pagination-info {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .calendar-pagination .pagination-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .calendar-pagination .pagination-pages {
+    order: -1;
+    margin: 0 0 12px 0;
+    justify-content: center;
+  }
+}
+</style>
+
+
+<script>
+const CALENDAR_API = "{% url 'appointments:admin_calendar_api' %}";
+const API_VETS = "{% url 'appointments:api_vets' %}";
+const API_TIMES = "{% url 'appointments:api_times' %}";
+</script>
+<script src="{% static 'js/appointments/admin_calendar.js' %}"></script>
+
+<!-- Quick Create Dynamic Time Loading Script -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const branchSelect = document.getElementById('id_branch');
+  const dateInput = document.getElementById('id_appointment_date');
+  const vetSelect = document.getElementById('id_preferred_vet');
+  const timeSelect = document.getElementById('id_quick_appointment_time');
+  const timeHint = document.getElementById('quickTimeHint');
+
+  if (!branchSelect || !dateInput || !vetSelect || !timeSelect) return;
+
+  // Helper to show hints
+  function showTimeHint(msg, color) {
+    if (timeHint) {
+      timeHint.innerHTML = '<i class="bx bx-info-circle"></i> ' + msg;
+      timeHint.style.color = color || '#666';
+    }
+  }
+
+  // Fetch available vets when branch or date changes
+  function fetchVets() {
+    const branchId = branchSelect.value;
+    const dateVal = dateInput.value;
+
+    vetSelect.innerHTML = '<option value="">Loading...</option>';
+
+    if (!branchId) {
+      vetSelect.innerHTML = '<option value="">-- Any Available Vet --</option>';
+      return;
+    }
+
+    let url = API_VETS + '?branch=' + branchId;
+    if (dateVal) url += '&date=' + dateVal;
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        vetSelect.innerHTML = '<option value="">-- Any Available Vet --</option>';
+
+        if (dateVal && !data.has_vets) {
+          showTimeHint(
+            '⚠ No vets scheduled for this date',
+            '#e65100'
+          );
+        } else if (dateVal && data.has_vets) {
+          showTimeHint(
+            `${data.vets.length} vet(s) available on this date.`,
+            '#388e3c'
+          );
+        }
+
+        data.vets.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.textContent = v.name;
+          vetSelect.appendChild(opt);
+        });
+      })
+      .catch(() => {
+        vetSelect.innerHTML = '<option value="">-- Error loading vets --</option>';
+      });
+  }
+
+  // Fetch and populate available time slots
+  function fetchTimeSlots() {
+    const branchId = branchSelect.value;
+    const vetId = vetSelect.value;
+    const dateVal = dateInput.value;
+
+    timeSelect.innerHTML = '<option value="">Loading times...</option>';
+
+    if (!branchId || !dateVal) {
+      timeSelect.innerHTML = '<option value="">-- Select branch and date first --</option>';
+      showTimeHint('Select a branch and date to load available times.');
+      return;
+    }
+
+    let url = API_TIMES + '?branch=' + branchId + '&date=' + dateVal;
+    if (vetId) url += '&vet=' + vetId;
+
+    showTimeHint('Checking availability...', '#1976d2');
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        timeSelect.innerHTML = '<option value="">-- Select Time --</option>';
+
+        if (data.times.length === 0) {
+          timeSelect.innerHTML = '<option value="">-- No available slots --</option>';
+          if (vetId) {
+            showTimeHint(
+              'No available slots for this vet on this date. Try another date or vet.',
+              '#e65100'
+            );
+          } else {
+            showTimeHint(
+              'No scheduled vets on this date. Please select another date.',
+              '#e65100'
+            );
+          }
+          return;
+        }
+
+        let availableCount = 0;
+        let bookedCount = 0;
+
+        // If NO vet selected, group by AM/PM
+        if (!vetId) {
+          const amSlots = [];
+          const pmSlots = [];
+
+          data.times.forEach(slot => {
+            const [hours] = slot.time.split(':').map(Number);
+            if (slot.available) {
+              if (hours < 12) {
+                amSlots.push(slot);
+              } else {
+                pmSlots.push(slot);
+              }
+              availableCount++;
+            } else {
+              bookedCount++;
+            }
+          });
+
+          if (availableCount === 0) {
+            timeSelect.innerHTML = '<option value="">-- All slots booked --</option>';
+            showTimeHint(
+              'All time slots are booked for this selection. Try another date or vet.',
+              '#e65100'
+            );
+            return;
+          }
+
+          // Add AM option if available
+          if (amSlots.length > 0) {
+            const opt = document.createElement('option');
+            opt.value = 'MORNING';
+            opt.textContent = 'Morning (08:00 AM - 12:00 PM)';
+            timeSelect.appendChild(opt);
+          }
+
+          // Add PM option if available
+          if (pmSlots.length > 0) {
+            const opt = document.createElement('option');
+            opt.value = 'AFTERNOON';
+            opt.textContent = 'Afternoon (01:00 PM - 05:00 PM)';
+            timeSelect.appendChild(opt);
+          }
+
+          showTimeHint(
+            '<strong>Flexible Timing:</strong> When you select "Morning" or "Afternoon", any available veterinarian will be assigned.',
+            '#388e3c'
+          );
+        } else {
+          // Specific vet selected - show detailed time slots
+          data.times.forEach(slot => {
+            const opt = document.createElement('option');
+            opt.value = slot.time;
+
+            let label = slot.label;
+            if (slot.shift_type) {
+              label += ` (${slot.shift_type})`;
+            }
+
+            if (slot.available) {
+              opt.disabled = false;
+              availableCount++;
+            } else {
+              label += ' (Booked)';
+              opt.disabled = true;
+              opt.style.color = '#999';
+              opt.style.fontStyle = 'italic';
+              bookedCount++;
+            }
+
+            opt.textContent = label;
+            timeSelect.appendChild(opt);
+          });
+
+          if (availableCount === 0) {
+            timeSelect.innerHTML = '<option value="">-- All slots booked --</option>';
+            showTimeHint(
+              'All time slots are booked for this selection. Try another date or vet.',
+              '#e65100'
+            );
+          } else {
+            if (bookedCount > 0) {
+              showTimeHint(
+                `Found ${availableCount} available slot(s). ${bookedCount} slot(s) already booked.`,
+                '#388e3c'
+              );
+            } else {
+              showTimeHint(
+                `Found ${availableCount} available time slot(s).`,
+                '#388e3c'
+              );
+            }
+          }
+        }
+      })
+      .catch(() => {
+        timeSelect.innerHTML = '<option value="">-- Error loading times --</option>';
+        showTimeHint('Failed to load time slots. Please try again.', '#e65100');
+      });
+  }
+
+  // Bind event listeners
+  branchSelect.addEventListener('change', function() {
+    fetchVets();
+    timeSelect.innerHTML = '<option value="">-- Select branch and date first --</option>';
+    showTimeHint('Select a branch and date to load available times.');
+  });
+
+  dateInput.addEventListener('change', function() {
+    fetchVets();
+    if (dateInput.value && branchSelect.value) {
+      fetchTimeSlots();
+    }
+  });
+
+  vetSelect.addEventListener('change', function() {
+    if (dateInput.value && branchSelect.value) {
+      fetchTimeSlots();
+    }
+  });
+
+  // Auto-initialize if branch is pre-filled
+  if (branchSelect.value) {
+    fetchVets();
+  }
+});
+</script>
+
+<script>
+// ══════ APPOINTMENTS SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+(function initApptSearch() {
+  const searchInput = document.getElementById('apptSearch');
+  const dropdown   = document.getElementById('apptSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  // Collect data from data-* attributes on each searchable row
+  function buildData() {
+    const list = [];
+    document.querySelectorAll('tr.searchable-row').forEach(row => {
+      const editLink = row.querySelector('a[href*="edit"]');
+      list.push({
+        owner : row.dataset.owner  || '',
+        pet   : row.dataset.pet    || '',
+        branch: row.dataset.branch || '',
+        vet   : row.dataset.vet    || '',
+        href  : editLink ? editLink.getAttribute('href') : '#',
+        row   : row,
+        detailsId: row.dataset.detailsId || ''
+      });
+    });
+    return list;
+  }
+
+  let appts = buildData();
+
+  function esc(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No appointments found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map((a, idx) => `
+        <div class="search-dropdown-item" data-index="${idx}">
+          <i class='bx bx-calendar-event'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(a.owner, q)}</div>
+            <div class="item-sub">${highlight(a.pet, q)} &bull; ${a.branch || '—'}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].owner;
+          filterRows(results[idx].owner.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    appts.forEach(a => {
+      const ol = a.owner.toLowerCase(); const pl = a.pet.toLowerCase();
+      const bl = a.branch.toLowerCase(); const vl = a.vet.toLowerCase();
+      const matches = !q || ol.includes(q) || pl.includes(q) || bl.includes(q) || vl.includes(q);
+      a.row.style.display = matches ? '' : 'none';
+      if (!matches && a.detailsId) {
+        const detailRow = document.getElementById(a.detailsId);
+        if (detailRow) detailRow.style.display = 'none';
+      }
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = appts.filter(a =>
+      a.owner.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q) ||
+      a.branch.toLowerCase().includes(q) || a.vet.toLowerCase().includes(q));
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx + 1) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx - 1 + items.length) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (idx >= 0) {
+        items[idx]?.click();
+      }
+      hideDropdown();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+}());
+</script>
+
+{% endblock %}

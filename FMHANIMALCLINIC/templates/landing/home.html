@@ -1,0 +1,243 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- ============================================
+     HERO SECTION
+     ============================================ -->
+<section class="hero" id="home">
+  <div class="container">
+
+    <!-- Left: Text -->
+    <div class="hero-text">
+
+      <h1>
+          <span class="line"><span class="line-inner">FMH ANIMAL CLINIC </span></span>
+          <span class="line"><span class="line-inner">Powered by <span class="highlight serif">AI Diagnostics</span></span></span>
+      </h1>
+
+      <p>{% if hero_content %}{{ hero_content.description }}{% else %}A centralized multi-branch veterinary system offering faster appointments, organized medical records, and AI-assisted diagnostic insights for your beloved pets.{% endif %}</p>
+
+      <div class="hero-buttons">
+        <a href="{% url 'appointments:public_book' %}" class="btn btn-red btn-lg">
+          <i class='bx bx-calendar-check'></i> Book Appointment
+        </a>
+        <a href="{% url 'services_page' %}" class="btn btn-outline btn-lg">
+          <i class='bx bx-info-circle'></i> Learn More
+        </a>
+      </div>
+
+      <div class="hero-stats">
+        {% for stat in hero_stats %}
+        <div class="hero-stat">
+          <h3>{{ stat.value }}</h3>
+          <p>{{ stat.label }}</p>
+        </div>
+        {% empty %}
+        <div class="hero-stat">
+          <h3>3</h3>
+          <p>Clinic Branches</p>
+        </div>
+        <div class="hero-stat">
+          <h3>AI</h3>
+          <p>Diagnostic Support</p>
+        </div>
+        <div class="hero-stat">
+          <h3>24/7</h3>
+          <p>Online Booking</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Right: Image Shape -->
+    <div class="hero-image">
+      <div class="hero-image-shape">
+        <img src="{% static 'image/fmh-qs.png' %}" alt="Pet at FMH Animal Clinic" class="hero-shape-img" loading="lazy">
+      </div>
+
+      <!-- Floating Elements -->
+      <div class="float-element float-el-1">
+        <img src="{% static 'image/fmh-main.jpg' %}" alt="AI Diagnostics" class="float-img" loading="lazy">
+      </div>
+      <div class="float-element float-el-2">
+        <img src="{% static 'image/fmh-molino.png' %}" alt="Pet Care" class="float-img" loading="lazy">
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================
+     QUICK ACCESS SECTION 
+     ============================================ -->
+<section class="quick-access" id="quick-access">
+  <div class="container">
+    <h2 class="section-title fade-in">Explore <span class="teal-text">FMH Clinic</span></h2>
+    <p class="section-subtitle fade-in">Quick access to everything you need for your pet's care journey.</p>
+    
+    <div class="quick-grid">
+      <!-- Box 1: Services -->
+      <a href="{% url 'services_page' %}" class="quick-box quick-services fade-in">
+        <img src="{% static 'image/quick.png' %}" alt="Services" class="quick-bg-img" loading="lazy">
+        <div class="quick-content">
+          <h3>Our Services</h3>
+          <p>Explore our comprehensive veterinary services from consultations to surgeries.</p>
+        </div>
+        <div class="quick-arrow"><i class='bx bx-right-arrow-alt'></i></div>
+      </a>
+
+      <!-- Box 2: About Us -->
+      <a href="{% url 'aboutus_page' %}" class="quick-box quick-about fade-in">
+        <img src="{% static 'image/quick4.png' %}" alt="About Us" class="quick-bg-img" loading="lazy">
+        <div class="quick-content">
+          <h3>About Us</h3>
+          <p>Learn why pet owners trust FMH Clinic for veterinary care.</p>
+        </div>
+        <div class="quick-arrow"><i class='bx bx-right-arrow-alt'></i></div>
+      </a>
+
+      <!-- Box 3: Contact -->
+      <a href="{% url 'contact_page' %}" class="quick-box quick-contact fade-in">
+        <img src="{% static 'image/quick2.png' %}" alt="Contact" class="quick-bg-img" loading="lazy">
+        <div class="quick-content">
+          <h3>Contact Us</h3>
+          <p>Get in touch with us for appointments, inquiries, or clinic visits.</p>
+        </div>
+        <div class="quick-arrow"><i class='bx bx-right-arrow-alt'></i></div>
+      </a>
+
+      <!-- Box 4: Login/Register -->
+      <a href="#" class="quick-box quick-auth fade-in">
+        <img src="{% static 'image/quick3.png' %}" alt="Sign Up" class="quick-bg-img" loading="lazy">
+        <div class="quick-content">
+          <h3>Sign up now!</h3>
+          <p>Access your pet's records, appointments, and digital product catalog</p>
+        </div>
+        <div class="quick-arrow"><i class='bx bx-right-arrow-alt'></i></div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================
+     GOALS & BENEFITS SECTION
+     ============================================ -->
+<section class="split-section-wrapper bg-light" id="goals-benefits">
+  
+  <!-- Goals (Text Left, Image Right) -->
+  <div class="container split-container" style="padding-top: 6rem; padding-bottom: 3rem;">
+    <div class="split-content fade-in">
+      <h2 class="section-title">Our <span class="teal-text">Mission</span></h2>
+      <p class="section-description">{% if mission_content %}{{ mission_content.description }}{% else %}We pet care professionals who work as as a team to helps many people and their pets in our community to have the best hunan-animal bonding possible by offering optimal health, excellent veterinary care, and stress-free environment.{% endif %}</p>
+    </div>
+    <div class="split-image fade-in">
+      <img src="{% static 'image/goals.png' %}" alt="Our Clinic Goals" loading="lazy" class="modern-radius shadow-lg">
+    </div>
+  </div>
+
+  <!-- Benefits (Image Left, Text Right) -->
+  <div class="container split-container reverse-mobile" style="padding-top: 3rem; padding-bottom: 6rem;">
+    <div class="split-image fade-in">
+      <img src="{% static 'image/benefits.png' %}" alt="Clinic Benefits" loading="lazy" class="modern-radius shadow-lg">
+    </div>
+    <div class="split-content fade-in">
+      <h2 class="section-title">Our<span class="teal-text"> Vision</span></h2>
+      <p class="section-description">{% if vision_content %}{{ vision_content.description }}{% else %}Our Vision is to provide the highest level of pet care, through medical innovation, continued education, and advancements in animal heathcare.
+        We will strengthen communication with our clients, and set a precedence of treating them and their pets responsibly, ethically, and individually in family environment, all while inspiring a culture of trust and conpasssion. Through our community involvement and support, we will promote and nurture the joy of the pet-human bond.
+      {% endif %}</p>
+      
+    </div>
+  </div>
+
+  <!-- Pet Healthcare (Text Left, Image Right) -->
+  <div class="container split-container" style="padding-top: 3rem; padding-bottom: 6rem;">
+    <div class="split-content fade-in">
+      <h2 class="section-title">Core <span class="teal-text"> Values</span></h2>
+      {% if core_values_intro %}
+      <p class="section-description">{{ core_values_intro.description }}</p>
+      {% else %}
+      <p class="section-description">At FMH Animal Clinic, our values drive everything we do. We believe in compassion, integrity, commitment, and quality of life. These principles guide our team as we provide exceptional care to your beloved pets and build lasting relationships with our community. We are dedicated to maintaining the highest standards of veterinary excellence while treating every patient and pet owner with respect, empathy, and genuine care.</p>
+      {% endif %}
+    </div>
+    <div class="split-image fade-in">
+      <img src="{% static 'image/health.png' %}" alt="Pet Healthcare" loading="lazy" class="modern-radius shadow-lg">
+    </div>
+  </div>
+
+</section>
+
+
+<!-- ============================================
+     SATISFIED CUSTOMERS — CAROUSEL SLIDER
+     ============================================ -->
+<section class="satisfied-customers" id="satisfied-customers">
+  <div class="container">
+    <h2 class="section-title fade-in">Satisfied <span class="teal-text">Customers</span></h2>
+    <p class="section-subtitle fade-in">Hear from the pet owners who trust us with their beloved companions every day.</p>
+  </div>
+  
+  <div class="carousel-wrapper">
+    <!-- Navigation Button Left -->
+    <button class="carousel-btn carousel-prev" id="carouselPrevBtn" aria-label="Previous customer review">
+      <i class='bx bx-chevron-left'></i>
+    </button>
+
+    <!-- Carousel Container -->
+    <div class="carousel-container">
+      <div class="carousel-track" id="carouselTrack">
+        <div class="carousel-card">
+          <img src="{% static 'image/customer1.png' %}" alt="Satisfied Customer 1">
+        </div>
+        <div class="carousel-card">
+          <img src="{% static 'image/customer2.png' %}" alt="Satisfied Customer 2">
+        </div>
+        <div class="carousel-card">
+          <img src="{% static 'image/customer3.png' %}" alt="Satisfied Customer 3">
+        </div>
+        <div class="carousel-card">
+          <img src="{% static 'image/customer4.png' %}" alt="Satisfied Customer 4">
+        </div>
+        <div class="carousel-card">
+          <img src="{% static 'image/customer5.png' %}" alt="Satisfied Customer 5">
+        </div>
+        <div class="carousel-card">
+          <img src="{% static 'image/customer6.png' %}" alt="Satisfied Customer 6">
+        </div>
+        <div class="carousel-card">
+          <img src="{% static 'image/customer7.png' %}" alt="Satisfied Customer 7">
+        </div>
+        <div class="carousel-card">
+          <img src="{% static 'image/customer8.png' %}" alt="Satisfied Customer 8">
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Button Right -->
+    <button class="carousel-btn carousel-next" id="carouselNextBtn" aria-label="Next customer review">
+      <i class='bx bx-chevron-right'></i>
+    </button>
+  </div>
+</section>
+
+<!-- ============================================
+     BOOK APPOINTMENT — SIMPLIFIED CTA SECTION
+     ============================================ -->
+<section class="appointment" id="appointment">
+  <!-- Decorative Paw Prints -->
+  <span class="paw-decor paw-1">🐾</span>
+  <span class="paw-decor paw-2">🐾</span>
+  <span class="paw-decor paw-3">🐾</span>
+  <span class="paw-decor paw-4">🐾</span>
+  <span class="paw-decor paw-5">🐾</span>
+
+  <div class="container">
+    <div class="appointment-content fade-in">
+      <h2>One System. Three Branches. Complete Care.</h2>
+      <p class="tagline">FMH Animal Clinic unifies veterinary excellence across all locations — powered by AI diagnostics, centralized records, and seamless online scheduling.</p>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

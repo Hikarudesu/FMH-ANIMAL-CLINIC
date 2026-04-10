@@ -1,0 +1,100 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Delete Patient — {{ pet.name }}{% endblock %}
+
+{% block content %}
+<style>
+  .delete-container {
+    max-width: 550px;
+    margin: 60px auto 0;
+    text-align: center;
+  }
+  .delete-card {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px 32px;
+  }
+  .delete-icon-ring {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(255, 77, 77, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+  }
+  .delete-icon-ring i {
+    font-size: 36px;
+    color: #ff4d4d;
+  }
+  .delete-card h2 {
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .delete-card p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+  .delete-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+  }
+  .btn-delete {
+    padding: 10px 24px;
+    background-color: #ff4d4d;
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s;
+  }
+  .btn-delete:hover {
+    opacity: 0.9;
+  }
+  .btn-cancel {
+    padding: 10px 24px;
+    background-color: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+  }
+  .btn-cancel:hover {
+    background-color: var(--surface-hover);
+  }
+</style>
+
+<div class="delete-container">
+  <div class="delete-card">
+    <div class="delete-icon-ring">
+      <i class='bx bx-error-circle'></i>
+    </div>
+    <h2>Remove <strong>{{ pet.name }}</strong>?</h2>
+    <p>This action cannot be undone. All data associated with this pet — including medical records — will be permanently deleted.</p>
+    <form method="POST" class="delete-actions">
+      {% csrf_token %}
+      <button type="submit" class="btn-delete">
+        <i class='bx bx-trash'></i> Yes, Remove {{ pet.name }}
+      </button>
+      <a href="{% url 'patients:admin_list' %}" class="btn-cancel">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,1717 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Receptionist Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+{% url 'appointments:admin_list' as appt_url %}
+{% url 'pos:checkout' as pos_url %}
+{% include "components/page_hero.html" with title="Front Desk" icon="bx-desktop" subtitle=branch_name action_url=appt_url action_label="New Appointment" action_icon="bx-calendar-plus" action_url_2=pos_url action_label_2="New Sale" action_icon_2="bx-cart-add" %}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODERN RECEPTIONIST DASHBOARD -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<style>
+/* ═══════════════════════════════════════════════ */
+/* SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In)   */
+/* ═══════════════════════════════════════════════ */
+
+@keyframes expandWidth {
+  from { width: 0; }
+  to { width: var(--target-width, 100%); }
+}
+
+.portal-content {
+  overflow-x: hidden;
+}
+
+.dash-fade {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.33, 1, 0.68, 1),
+              transform 0.7s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.dash-fade.from-left {
+  transform: translateX(-24px);
+}
+.dash-fade.from-right {
+  transform: translateX(24px);
+}
+
+.dash-fade.visible {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.dash-fade.stagger-1 { transition-delay: 0.06s; }
+.dash-fade.stagger-2 { transition-delay: 0.12s; }
+.dash-fade.stagger-3 { transition-delay: 0.18s; }
+.dash-fade.stagger-4 { transition-delay: 0.24s; }
+.dash-fade.stagger-5 { transition-delay: 0.30s; }
+.dash-fade.stagger-6 { transition-delay: 0.36s; }
+
+/* ═══════════════════════════════════════════════ */
+/* HERO STATS ROW */
+/* ═══════════════════════════════════════════════ */
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 1200px) {
+  .hero-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .hero-stats { grid-template-columns: 1fr; }
+}
+
+.hero-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-stat-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary);
+}
+
+.hero-stat-card:hover::before {
+  opacity: 1;
+}
+
+.hero-stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-stat-icon i {
+  font-size: 26px;
+  color: white;
+}
+
+.hero-stat-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+.hero-stat-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+.hero-stat-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+.hero-stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+.hero-stat-icon.emerald { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+.hero-stat-icon.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+
+.hero-stat-card:hover .hero-stat-icon {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+.hero-stat-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hero-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.hero-stat-label {
+  font-size: 13px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.hero-stat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.meta-item.success { color: #10b981; }
+.meta-item.warning { color: #f59e0b; }
+.meta-item.danger { color: #ef4444; }
+
+.meta-item i { font-size: 14px; }
+
+/* ═══════════════════════════════════════════════ */
+/* ACTION TASKS BANNER */
+/* ═══════════════════════════════════════════════ */
+
+.tasks-banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  box-shadow: var(--shadow-card);
+}
+
+.tasks-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.tasks-banner-title i {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.tasks-banner-items {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.task-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(0, 150, 136, 0.08);
+  border: 1px solid rgba(0, 150, 136, 0.2);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.task-pill:hover {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 150, 136, 0.3);
+}
+
+.task-pill i {
+  font-size: 16px;
+}
+
+.task-pill .count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.task-pill.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+.task-pill.warning:hover {
+  background: #f59e0b;
+}
+
+.task-pill.danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.task-pill.danger:hover {
+  background: #ef4444;
+}
+
+/* ═══════════════════════════════════════════════ */
+/* CHARTS SECTION */
+/* ═══════════════════════════════════════════════ */
+
+.charts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.charts-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 24px;
+}
+
+.charts-row:nth-child(odd) {
+  grid-template-columns: 1fr 1.5fr;
+}
+
+.charts-row.equal {
+  grid-template-columns: 1fr 1fr;
+}
+
+.charts-row.three-col {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 1024px) {
+  .charts-row,
+  .charts-row:nth-child(odd),
+  .charts-row.equal { grid-template-columns: 1fr; }
+  .charts-row.three-col { grid-template-columns: 1fr; }
+}
+
+.chart-card-modern {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: var(--shadow-card);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-card-modern:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
+  border-color: transparent;
+}
+
+.chart-card-modern.large {
+  grid-column: span 2;
+}
+
+@media (max-width: 1024px) {
+  .chart-card-modern.large { grid-column: span 1; }
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.chart-title i {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.chart-title span {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.chart-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-badge.teal { background: rgba(0, 150, 136, 0.1); color: #009688; }
+.chart-badge.blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.chart-badge.purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.chart-badge.orange { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.chart-badge.emerald { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+
+.chart-card-modern:hover .chart-badge {
+  transform: scale(1.05);
+}
+
+.chart-body {
+  padding: 24px;
+  height: 280px;
+  position: relative;
+}
+
+.chart-body.tall {
+  height: 320px;
+}
+
+.chart-body.short {
+  height: 220px;
+}
+
+/* Empty State for Charts */
+.chart-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.chart-empty-state i {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.chart-empty-state span {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════ */
+/* SCHEDULE TABLE MODERN */
+/* ═══════════════════════════════════════════════ */
+
+.schedule-section {
+  margin-bottom: 28px;
+}
+
+.schedule-card,
+.stock-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.schedule-card:hover,
+.stock-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
+  border-color: transparent;
+}
+
+.schedule-header {
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.schedule-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.schedule-title i {
+  font-size: 22px;
+  color: var(--primary);
+}
+
+.schedule-title span {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.schedule-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.schedule-link:hover {
+  gap: 10px;
+}
+
+.schedule-table-wrapper {
+  overflow-x: auto;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.schedule-table th {
+  padding: 14px 20px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-3);
+  background: rgba(0, 150, 136, 0.04);
+  border-bottom: 1px solid var(--border);
+}
+
+.schedule-table td {
+  padding: 16px 20px;
+  font-size: 13px;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.3s ease;
+}
+
+.schedule-table tr:hover td {
+  background: rgba(0, 150, 136, 0.03);
+}
+
+.schedule-table tr:last-child td {
+  border-bottom: none;
+}
+
+.schedule-time {
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.schedule-patient {
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.schedule-owner {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.schedule-reason {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-pill.pending { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.status-pill.confirmed { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.status-pill.completed { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.status-pill.cancelled { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.status-pill.checked_in { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+.status-pill.in_progress { background: rgba(0, 150, 136, 0.12); color: #009688; }
+.status-pill.no_show { background: rgba(107, 114, 128, 0.12); color: #6b7280; }
+
+.empty-schedule {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-schedule i {
+  font-size: 48px;
+  color: var(--text-4);
+  margin-bottom: 12px;
+}
+
+.empty-schedule p {
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+/* ═══════════════════════════════════════════════ */
+/* PRODUCT LIST STYLES */
+/* ═══════════════════════════════════════════════ */
+
+.product-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.product-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(0, 150, 136, 0.03);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.product-item:hover {
+  background: rgba(0, 150, 136, 0.06);
+}
+
+.product-rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.product-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-qty {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.product-sales {
+  font-size: 14px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+/* Low stock warning */
+.low-stock-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 12px;
+}
+
+.low-stock-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.low-stock-icon i {
+  font-size: 18px;
+  color: #ef4444;
+}
+
+.low-stock-info {
+  flex: 1;
+}
+
+.low-stock-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.low-stock-qty {
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════ */
+/* RECENT SALES LIST */
+/* ═══════════════════════════════════════════════ */
+
+.sales-list-modern {
+  display: flex;
+  flex-direction: column;
+}
+
+.sale-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.3s ease;
+}
+
+.sale-row:last-child {
+  border-bottom: none;
+}
+
+.sale-row:hover {
+  padding-left: 8px;
+}
+
+.sale-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(0, 150, 136, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sale-icon i {
+  font-size: 18px;
+  color: var(--primary);
+}
+
+.sale-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sale-customer {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sale-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.sale-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: #10b981;
+  white-space: nowrap;
+}
+
+.sale-amount.refunded {
+  color: #ef4444;
+}
+
+/* ═══════════════════════════════════════════════ */
+/* QUICK ACTIONS */
+/* ═══════════════════════════════════════════════ */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 1024px) {
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .quick-actions { grid-template-columns: 1fr; }
+}
+
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  text-decoration: none;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-card);
+}
+
+.quick-action-btn:hover {
+  transform: translateY(-6px);
+  border-color: var(--primary);
+  box-shadow: 0 12px 32px rgba(0, 150, 136, 0.15);
+}
+
+.quick-action-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-action-btn:hover .quick-action-icon {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+.quick-action-icon i {
+  font-size: 24px;
+  color: white;
+}
+
+.quick-action-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+.quick-action-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+.quick-action-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+.quick-action-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+
+.quick-action-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: center;
+}
+</style>
+
+<!-- HERO STATS ROW -->
+<div class="hero-stats">
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon teal">
+      <i class='bx bx-calendar-check'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ today_count }}</span>
+      <span class="hero-stat-label">Today's Appointments</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item success"><i class='bx bx-check'></i> {{ today_confirmed }} confirmed</span>
+        <span class="meta-item warning"><i class='bx bx-time'></i> {{ today_pending }} pending</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon emerald">
+      <i class='bx bx-money'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">₱{{ todays_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-label">Today's Revenue</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item {% if revenue_diff_pct >= 0 %}success{% else %}danger{% endif %}">
+          <i class='bx bx-trending-{% if revenue_diff_pct >= 0 %}up{% else %}down{% endif %}'></i> {% if revenue_diff_pct >= 0 %}+{% endif %}{{ revenue_diff_pct|floatformat:1 }}% vs yesterday
+        </span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon blue">
+      <i class='bx bx-cart'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ todays_sales_count }}</span>
+      <span class="hero-stat-label">Sales Today</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">₱{{ weekly_revenue|floatformat:0 }} this week</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon {% if low_stock_count > 0 %}red{% else %}purple{% endif %}">
+      <i class='bx bx-package'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ low_stock_count }}</span>
+      <span class="hero-stat-label">Low Stock Items</span>
+      <div class="hero-stat-meta">
+        {% if low_stock_count > 0 %}
+        <span class="meta-item danger"><i class='bx bx-error'></i> Needs restock</span>
+        {% else %}
+        <span class="meta-item success"><i class='bx bx-check'></i> Stock OK</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ACTION TASKS BANNER -->
+{% if pending_appointments > 0 or low_stock_count > 0 %}
+<div class="tasks-banner">
+  <div class="tasks-banner-title">
+    <i class='bx bx-bell bx-tada'></i>
+    <span>Tasks Requiring Attention</span>
+  </div>
+  <div class="tasks-banner-items">
+    {% if pending_appointments > 0 %}
+    <a href="{% url 'appointments:admin_list' %}?status=PENDING" class="task-pill warning">
+      <i class='bx bx-calendar-exclamation'></i>
+      Pending Appointments
+      <span class="count">{{ pending_appointments }}</span>
+    </a>
+    {% endif %}
+    {% if low_stock_count > 0 %}
+    <a href="{% url 'inventory:management' %}" class="task-pill danger">
+      <i class='bx bx-package'></i>
+      Low Stock Alert
+      <span class="count">{{ low_stock_count }}</span>
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- QUICK ACTIONS -->
+<div class="quick-actions">
+  <a href="{% url 'appointments:admin_list' %}" class="quick-action-btn">
+    <div class="quick-action-icon teal">
+      <i class='bx bx-calendar-plus'></i>
+    </div>
+    <span class="quick-action-label">New Appointment</span>
+  </a>
+  <a href="{% url 'pos:checkout' %}" class="quick-action-btn">
+    <div class="quick-action-icon blue">
+      <i class='bx bx-cart-add'></i>
+    </div>
+    <span class="quick-action-label">New Sale</span>
+  </a>
+  <a href="{% url 'patients:admin_list' %}" class="quick-action-btn">
+    <div class="quick-action-icon purple">
+      <i class='bx bxs-dog'></i>
+    </div>
+    <span class="quick-action-label">View Patients</span>
+  </a>
+</div>
+
+<!-- MAIN CHARTS SECTION -->
+<div class="charts-section">
+  
+  <!-- ROW 1: Weekly Revenue Trend (Line Chart) - Full Width -->
+  <div class="charts-row">
+    <div class="chart-card-modern large">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-line-chart'></i>
+          <span>{{ branch_name }} Revenue Trend</span>
+        </div>
+        <div class="chart-badge emerald">Last 7 Days</div>
+      </div>
+      <div class="chart-body tall">
+        <canvas id="weeklyRevenueChart"></canvas>
+        <div id="weeklyRevenueEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-line-chart'></i>
+          <span>No revenue data for this period</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ROW 2: Appointment Status (Area) & Top Products (Vertical Bar) -->
+  <div class="charts-row">
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-area'></i>
+          <span>Appointment Status</span>
+        </div>
+        <div class="chart-badge blue">This Week</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="appointmentStatusChart"></canvas>
+        <div id="appointmentStatusEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-calendar-x'></i>
+          <span>No appointments this week</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-bar-chart'></i>
+          <span>Top Selling Products</span>
+        </div>
+        <div class="chart-badge orange">This Week</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="topProductsChart"></canvas>
+        <div id="topProductsEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-trophy'></i>
+          <span>No product sales this week</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ROW 3: Category Sales (Doughnut) & Appointment Source (Pie) -->
+  <div class="charts-row">
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-category'></i>
+          <span>Sales by Category</span>
+        </div>
+        <div class="chart-badge purple">This Week</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="categorySalesChart"></canvas>
+        <div id="categorySalesEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-category'></i>
+          <span>No category data this week</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-globe'></i>
+          <span>Booking Source</span>
+        </div>
+        <div class="chart-badge teal">This Week</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="appointmentSourceChart"></canvas>
+        <div id="appointmentSourceEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-globe'></i>
+          <span>No appointments this week</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TODAY'S SCHEDULE & LOW STOCK -->
+<div class="charts-row">
+  <!-- Today's Schedule -->
+  <div class="schedule-card">
+    <div class="schedule-header">
+      <div class="schedule-title">
+        <i class='bx bx-calendar'></i>
+        <span>Today's Schedule</span>
+      </div>
+      <a href="{% url 'appointments:admin_list' %}" class="schedule-link">
+        View All <i class='bx bx-right-arrow-alt'></i>
+      </a>
+    </div>
+    <div class="schedule-table-wrapper">
+      {% if todays_appointments %}
+      <table class="schedule-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Patient</th>
+            <th>Reason</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for appointment in todays_appointments|slice:":6" %}
+          <tr>
+            <td class="schedule-time">{{ appointment.appointment_time_display }}</td>
+            <td>
+              <div class="schedule-patient">{{ appointment.pet.name }}</div>
+              <div class="schedule-owner">{{ appointment.pet.owner.get_full_name }}</div>
+            </td>
+            <td class="schedule-reason">{{ appointment.reason|truncatewords:3 }}</td>
+            <td>
+              <span class="status-pill {{ appointment.status|lower }}">{{ appointment.get_status_display }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-schedule">
+        <i class='bx bx-calendar-x'></i>
+        <p>No appointments scheduled for today</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  
+  <!-- Low Stock Products -->
+  <div class="stock-card">
+    <div class="chart-header">
+      <div class="chart-title">
+        <i class='bx bx-error-circle' style="color: #ef4444;"></i>
+        <span>Low Stock Alert</span>
+      </div>
+      <a href="{% url 'inventory:management' %}" class="schedule-link">
+        View Inventory <i class='bx bx-right-arrow-alt'></i>
+      </a>
+    </div>
+    <div class="chart-body" style="height: auto; padding-top: 16px;">
+      {% if low_stock_products %}
+      <div class="product-list">
+        {% for product in low_stock_products %}
+        <div class="low-stock-item">
+          <div class="low-stock-icon">
+            <i class='bx bx-package'></i>
+          </div>
+          <div class="low-stock-info">
+            <div class="low-stock-name">{{ product.name }}</div>
+            <div class="low-stock-qty">{{ product.stock_quantity }} left (min: {{ product.min_stock_level }})</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-schedule">
+        <i class='bx bx-check-circle' style="color: #10b981;"></i>
+        <p>All products are well stocked</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- RECENT SALES -->
+<div class="charts-row" style="margin-top: 20px;">
+  <div class="recent-sales-card chart-card-modern large">
+    <div class="chart-header">
+      <div class="chart-title">
+        <i class='bx bx-shopping-bag'></i>
+        <span>Recent Sales</span>
+      </div>
+      <a href="{% url 'pos:sales_list' %}" class="schedule-link">
+        View All <i class='bx bx-right-arrow-alt'></i>
+      </a>
+    </div>
+    <div class="chart-body" style="height: auto; padding-top: 0;">
+      {% if recent_sales %}
+      <div class="sales-list-modern">
+        {% for sale in recent_sales %}
+        <div class="sale-row">
+          <div class="sale-icon">
+            <i class='bx {% if sale.status == "REFUNDED" %}bx-undo{% else %}bx-receipt{% endif %}'></i>
+          </div>
+          <div class="sale-info">
+            <div class="sale-customer">
+              {% if sale.customer %}{{ sale.customer.get_full_name }}{% else %}{{ sale.guest_name|default:"Walk-in Customer" }}{% endif %}
+            </div>
+            <div class="sale-meta">{{ sale.transaction_id }} · {{ sale.created_at|date:"M j, g:i A" }}</div>
+          </div>
+          <div class="sale-amount {% if sale.status == 'REFUNDED' %}refunded{% endif %}">
+            {% if sale.status == 'REFUNDED' %}-{% endif %}₱{{ sale.total|floatformat:2 }}
+          </div>
+          <span class="status-pill {{ sale.status|lower }}">{{ sale.get_status_display }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-schedule">
+        <i class='bx bx-shopping-bag'></i>
+        <p>No recent sales</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In System - matches admin portal)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  function initDashboardAnimations() {
+    // Hero stat cards — staggered fade up
+    document.querySelectorAll('.hero-stat-card').forEach((card, i) => {
+      card.classList.add('dash-fade', `stagger-${i + 1}`);
+    });
+    
+    // Tasks banner
+    const tasksBanner = document.querySelector('.tasks-banner');
+    if (tasksBanner) tasksBanner.classList.add('dash-fade');
+    
+    // Quick action buttons
+    document.querySelectorAll('.quick-action-btn').forEach((btn, i) => {
+      btn.classList.add('dash-fade', `stagger-${i + 1}`);
+    });
+    
+    // Chart cards — alternate left/right per row
+    document.querySelectorAll('.charts-section .charts-row').forEach(row => {
+      const cards = row.querySelectorAll('.chart-card-modern');
+      cards.forEach((card, i) => {
+        card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
+        if (i > 0) card.classList.add('stagger-2');
+      });
+    });
+    
+    // Schedule and stock cards
+    document.querySelectorAll('.schedule-card, .stock-card').forEach((card, i) => {
+      card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
+    });
+    
+    // Recent sales card
+    const recentSales = document.querySelector('.recent-sales-card');
+    if (recentSales) recentSales.classList.add('dash-fade');
+  }
+  
+  // Add animation classes
+  initDashboardAnimations();
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // START ANIMATIONS WITH CHART REPLAY
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  function startDashAnimations() {
+    const allFades = Array.from(document.querySelectorAll('.dash-fade'));
+    
+    function isInView(el) {
+      const r = el.getBoundingClientRect();
+      return r.top < window.innerHeight && r.bottom > 0;
+    }
+    
+    function getStaggerMs(el) {
+      return Math.round((parseFloat(getComputedStyle(el).transitionDelay) || 0) * 1000);
+    }
+    
+    function revealEl(el, extraDelay) {
+      const stagger = getStaggerMs(el);
+      const total = extraDelay + stagger;
+      setTimeout(() => el.classList.add('visible'), total);
+      // Replay chart animations when card becomes visible
+      el.querySelectorAll('canvas').forEach(canvas => {
+        const chart = Chart.getChart(canvas);
+        if (chart) setTimeout(() => { chart.reset(); chart.update(); }, total + 350);
+      });
+    }
+    
+    // Pass 1 — Elements already in viewport
+    const inView = allFades.filter(isInView);
+    const offScreen = allFades.filter(el => !isInView(el));
+    
+    inView.forEach(el => revealEl(el, 80));
+    
+    // Pass 2 — Off-screen elements: IntersectionObserver
+    if (offScreen.length) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            revealEl(entry.target, 0);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { root: null, threshold: 0.05, rootMargin: '0px' });
+      offScreen.forEach(el => observer.observe(el));
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART.JS CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // Global Chart Defaults
+  Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  Chart.defaults.color = 'var(--text-3, #94a3b8)';
+
+  const commonTooltip = {
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    titleColor: '#fff',
+    bodyColor: '#e2e8f0',
+    titleFont: { size: 13, weight: '700' },
+    bodyFont: { size: 12 },
+    padding: 14,
+    cornerRadius: 12,
+    displayColors: true,
+    boxPadding: 6
+  };
+
+  // Helper to show empty state
+  function showEmptyState(chartId, emptyId) {
+    const canvas = document.getElementById(chartId);
+    const empty = document.getElementById(emptyId);
+    if (canvas) canvas.style.display = 'none';
+    if (empty) empty.style.display = 'flex';
+  }
+
+  // Graceful fallback when Chart.js CDN is unavailable
+  if (typeof Chart === 'undefined') {
+    [
+      ['weeklyRevenueChart', 'weeklyRevenueEmpty'],
+      ['appointmentStatusChart', 'appointmentStatusEmpty'],
+      ['topProductsChart', 'topProductsEmpty'],
+      ['categorySalesChart', 'categorySalesEmpty'],
+      ['appointmentSourceChart', 'appointmentSourceEmpty']
+    ].forEach(([chartId, emptyId]) => showEmptyState(chartId, emptyId));
+    startDashAnimations();
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 1. WEEKLY REVENUE LINE CHART
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const weeklyRevenueCtx = document.getElementById('weeklyRevenueChart');
+  if (weeklyRevenueCtx) {
+    const weeklyData = {{ weekly_revenue_data|safe }};
+    const hasData = weeklyData && weeklyData.some(d => d.revenue > 0);
+    
+    if (hasData) {
+      new Chart(weeklyRevenueCtx, {
+        type: 'line',
+        data: {
+          labels: weeklyData.map(d => d.date),
+          datasets: [{
+            label: 'Revenue',
+            data: weeklyData.map(d => d.revenue),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 2000,
+            easing: 'easeInOutQuart'
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: ctx => `₱${ctx.raw.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 12, weight: '600' }, color: '#64748b' }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: {
+                font: { size: 11 },
+                color: '#94a3b8',
+                callback: val => '₱' + (val >= 1000 ? (val/1000).toFixed(0) + 'K' : val)
+              }
+            }
+          }
+        }
+      });
+    } else {
+      showEmptyState('weeklyRevenueChart', 'weeklyRevenueEmpty');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 2. APPOINTMENT STATUS DISTRIBUTION (Doughnut Chart)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const appointmentStatusCtx = document.getElementById('appointmentStatusChart');
+  if (appointmentStatusCtx) {
+    const statusData = {{ appointment_status_data|safe }};
+    const hasData = statusData && statusData.length > 0;
+    
+    const statusColors = {
+      'PENDING': '#f59e0b',
+      'CONFIRMED': '#3b82f6',
+      'COMPLETED': '#10b981',
+      'CANCELLED': '#ef4444',
+      'NO_SHOW': '#6b7280'
+    };
+    
+    const statusLabels = {
+      'PENDING': 'Pending',
+      'CONFIRMED': 'Confirmed',
+      'COMPLETED': 'Completed',
+      'CANCELLED': 'Cancelled',
+      'NO_SHOW': 'No Show'
+    };
+    
+    if (hasData) {
+      const total = statusData.reduce((sum, s) => sum + s.count, 0);
+      
+      // Create gradient fills for area chart
+      const createGradient = (ctx, color) => {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+        gradient.addColorStop(0, color + 'cc');
+        gradient.addColorStop(1, color + '10');
+        return gradient;
+      };
+      
+      new Chart(appointmentStatusCtx, {
+        type: 'line',
+        data: {
+          labels: statusData.map(s => statusLabels[s.status] || s.status),
+          datasets: [{
+            label: 'Appointments',
+            data: statusData.map(s => s.count),
+            fill: true,
+            backgroundColor: createGradient(appointmentStatusCtx.getContext('2d'), '#3b82f6'),
+            borderColor: '#3b82f6',
+            borderWidth: 3,
+            tension: 0.4,
+            pointBackgroundColor: statusData.map(s => statusColors[s.status] || '#94a3b8'),
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+            pointHoverBorderWidth: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 2000,
+            easing: 'easeOutQuart'
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: ctx => {
+                  const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                  return `${ctx.raw} appointments (${pct}%)`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: { 
+                font: { size: 11 }, 
+                color: '#94a3b8',
+                stepSize: 1
+              }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { 
+                font: { size: 11, weight: '600' }, 
+                color: '#64748b'
+              }
+            }
+          }
+        }
+      });
+    } else {
+      showEmptyState('appointmentStatusChart', 'appointmentStatusEmpty');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 3. TOP PRODUCTS VERTICAL BAR CHART
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const topProductsCtx = document.getElementById('topProductsChart');
+  if (topProductsCtx) {
+    const productsData = {{ top_products|safe }};
+    const hasData = productsData && productsData.length > 0;
+    
+    const productColors = ['#f59e0b', '#fb923c', '#fbbf24', '#fcd34d', '#fde68a'];
+    
+    if (hasData) {
+      new Chart(topProductsCtx, {
+        type: 'bar',
+        data: {
+          labels: productsData.map(p => p.product__name ? p.product__name.substring(0, 12) : 'Unknown'),
+          datasets: [{
+            label: 'Units Sold',
+            data: productsData.map(p => p.total_qty),
+            backgroundColor: productColors.slice(0, productsData.length),
+            borderRadius: 8,
+            borderSkipped: false,
+            barThickness: 36
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 1800,
+            easing: 'easeOutQuart',
+            delay: (ctx) => ctx.dataIndex * 150
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: ctx => {
+                  const data = productsData[ctx.dataIndex];
+                  return [`${ctx.raw} units`, `₱${data.total_sales.toLocaleString()} sales`];
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: { 
+                font: { size: 11 }, 
+                color: '#94a3b8',
+                stepSize: 1
+              }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { 
+                font: { size: 10, weight: '600' }, 
+                color: '#64748b',
+                maxRotation: 45,
+                minRotation: 0
+              }
+            }
+          }
+        }
+      });
+    } else {
+      showEmptyState('topProductsChart', 'topProductsEmpty');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 4. CATEGORY SALES DOUGHNUT CHART
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const categorySalesCtx = document.getElementById('categorySalesChart');
+  if (categorySalesCtx) {
+    const categoryData = {{ category_sales|safe }};
+    const hasData = categoryData && categoryData.length > 0;
+    
+    const categoryColors = {
+      'SERVICE': '#8b5cf6',
+      'PRODUCT': '#3b82f6',
+      'MEDICATION': '#10b981'
+    };
+    
+    const categoryLabels = {
+      'SERVICE': 'Services',
+      'PRODUCT': 'Products',
+      'MEDICATION': 'Medications'
+    };
+    
+    if (hasData) {
+      const total = categoryData.reduce((sum, c) => sum + c.total, 0);
+      
+      new Chart(categorySalesCtx, {
+        type: 'doughnut',
+        data: {
+          labels: categoryData.map(c => categoryLabels[c.type] || c.type),
+          datasets: [{
+            data: categoryData.map(c => c.total),
+            backgroundColor: categoryData.map(c => categoryColors[c.type] || '#94a3b8'),
+            borderColor: '#ffffff',
+            borderWidth: 3,
+            hoverOffset: 10
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '60%',
+          animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 2000,
+            easing: 'easeInOutQuart'
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: {
+                padding: 16,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                font: { size: 11, weight: '600' },
+                color: '#64748b',
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  return data.labels.map((label, i) => {
+                    const value = data.datasets[0].data[i];
+                    const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                    return {
+                      text: `${label}: ₱${value.toLocaleString()} (${pct}%)`,
+                      fillStyle: data.datasets[0].backgroundColor[i],
+                      strokeStyle: data.datasets[0].backgroundColor[i],
+                      lineWidth: 0,
+                      pointStyle: 'circle',
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
+              }
+            },
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: ctx => {
+                  const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                  return `₱${ctx.raw.toLocaleString()} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    } else {
+      showEmptyState('categorySalesChart', 'categorySalesEmpty');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 5. APPOINTMENT SOURCE PIE CHART (Walk-in vs Online Booking)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const appointmentSourceCtx = document.getElementById('appointmentSourceChart');
+  if (appointmentSourceCtx) {
+    const sourceData = {{ appointment_source_data|safe }};
+    const hasData = sourceData && sourceData.some(s => s.count > 0);
+    
+    const sourceColors = {
+      'Walk-in': '#f59e0b',
+      'Online Booking': '#3b82f6'
+    };
+    
+    if (hasData) {
+      const total = sourceData.reduce((sum, s) => sum + s.count, 0);
+      
+      new Chart(appointmentSourceCtx, {
+        type: 'pie',
+        data: {
+          labels: sourceData.map(s => s.source),
+          datasets: [{
+            data: sourceData.map(s => s.count),
+            backgroundColor: sourceData.map(s => sourceColors[s.source] || '#94a3b8'),
+            borderColor: '#ffffff',
+            borderWidth: 3,
+            hoverOffset: 12
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 2000,
+            easing: 'easeInOutQuart'
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                font: { size: 12, weight: '600' },
+                color: '#64748b',
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  return data.labels.map((label, i) => {
+                    const value = data.datasets[0].data[i];
+                    const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                    return {
+                      text: `${label}: ${value} (${pct}%)`,
+                      fillStyle: sourceColors[label] || '#94a3b8',
+                      strokeStyle: sourceColors[label] || '#94a3b8',
+                      lineWidth: 0,
+                      pointStyle: 'circle',
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
+              }
+            },
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: ctx => {
+                  const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                  return `${ctx.raw} appointments (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    } else {
+      showEmptyState('appointmentSourceChart', 'appointmentSourceEmpty');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // START ANIMATIONS AFTER CHARTS ARE READY
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  startDashAnimations();
+
+}); // End DOMContentLoaded
+</script>
+
+{% endblock %}

@@ -1,0 +1,79 @@
+<!-- Notification Settings Form -->
+<div class="settings-card">
+  <form method="POST" autocomplete="off">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="notifications">
+
+    <div class="admin-grid">
+      <div class="form-section-title">
+        <i class='bx bx-envelope'></i> Email Settings
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <div class="checkbox-field">
+          {{ forms.notifications.email_enabled }}
+          <div class="checkbox-content">
+            <label for="id_email_enabled">Enable Email Notifications</label>
+            <p class="form-hint">{{ forms.notifications.email_enabled.help_text }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-field">
+        <label for="id_from_email">From Email Address</label>
+        {{ forms.notifications.from_email }}
+        <p class="form-hint">{{ forms.notifications.from_email.help_text }}</p>
+        {% if forms.notifications.from_email.errors %}
+          <div class="error-text">{{ forms.notifications.from_email.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="id_sender_name">Sender Display Name</label>
+        {{ forms.notifications.sender_name }}
+        <p class="form-hint">{{ forms.notifications.sender_name.help_text }}</p>
+        {% if forms.notifications.sender_name.errors %}
+          <div class="error-text">{{ forms.notifications.sender_name.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-message'></i> SMS Settings
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <div class="checkbox-field">
+          {{ forms.notifications.sms_enabled }}
+          <div class="checkbox-content">
+            <label for="id_sms_enabled">Enable SMS Notifications</label>
+            <p class="form-hint">{{ forms.notifications.sms_enabled.help_text }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-field">
+        <label for="id_sms_provider">SMS Provider</label>
+        {{ forms.notifications.sms_provider }}
+        <p class="form-hint">{{ forms.notifications.sms_provider.help_text }}</p>
+        {% if forms.notifications.sms_provider.errors %}
+          <div class="error-text">{{ forms.notifications.sms_provider.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="id_sms_api_key">SMS API Key</label>
+        {{ forms.notifications.sms_api_key }}
+        <p class="form-hint">Leave blank to keep current key. Enter a new key to update.</p>
+        {% if forms.notifications.sms_api_key.errors %}
+          <div class="error-text">{{ forms.notifications.sms_api_key.errors.0 }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="admin-actions">
+      <button type="submit" class="btn-submit">
+        <i class='bx bx-save'></i> Save Notification Settings
+      </button>
+    </div>
+  </form>
+</div>

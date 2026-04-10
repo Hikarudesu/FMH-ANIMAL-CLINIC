@@ -1,0 +1,183 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- ============================================
+     REGISTER PAGE
+     ============================================ -->
+<section class="auth-page auth-register">
+  <!-- Background Decorations -->
+  <div class="auth-bg-shapes">
+    <div class="auth-shape auth-shape-1"></div>
+    <div class="auth-shape auth-shape-2"></div>
+    <div class="auth-shape auth-shape-3"></div>
+  </div>
+
+  <div class="auth-container">
+    <!-- Left Side: Branding -->
+    <div class="auth-branding">
+      <!-- Scattered static paw prints -->
+      <span class="auth-paw-scatter" style="top:5%;left:10%;font-size:9rem;opacity:0.18;transform:rotate(25deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:18%;left:65%;font-size:7rem;opacity:0.15;transform:rotate(-35deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:36%;left:4%;font-size:10rem;opacity:0.14;transform:rotate(50deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:50%;left:68%;font-size:8rem;opacity:0.18;transform:rotate(-15deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:63%;left:25%;font-size:7rem;opacity:0.16;transform:rotate(40deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:76%;left:52%;font-size:11rem;opacity:0.13;transform:rotate(-50deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:87%;left:8%;font-size:8rem;opacity:0.19;transform:rotate(20deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:40%;left:42%;font-size:9rem;opacity:0.12;transform:rotate(-70deg);">🐾</span>
+
+      <div class="auth-branding-content">
+        <a href="{% url 'landing_page' %}" class="auth-logo">
+          <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo" class="auth-logo-img">
+          <span>FMHSYNC</span>
+        </a>
+        
+        <a href="{% url 'landing_page' %}" class="auth-home-btn"><i class='bx bx-arrow-back'></i> Return Home</a>
+        
+        <h1>Join FMH Clinic</h1>
+        <p>Create your account and give your pets access to next-generation veterinary care powered by AI technology.</p>
+        
+        <div class="auth-features">
+          <div class="auth-feature">
+            <i class='bx bx-shield-plus'></i>
+            <span>Secure Pet Profiles</span>
+          </div>
+          <div class="auth-feature">
+            <i class='bx bx-bell'></i>
+            <span>Appointment Reminders</span>
+          </div>
+          <div class="auth-feature">
+            <i class='bx bx-history'></i>
+            <span>Health History Access</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Side: Register Form -->
+    <div class="auth-form-section">
+      <div class="auth-form-wrapper">
+        <div class="auth-form-header">
+          <h2>Create Account</h2>
+          <p>Fill in your details to get started</p>
+        </div>
+
+
+
+        <form id="registerForm" class="auth-form" method="POST" action="{% url 'register_page' %}" novalidate>
+          {% csrf_token %}
+          
+          <div class="auth-form-row">
+            <div class="auth-form-group">
+              <label for="firstName">First Name</label>
+              <div class="auth-input-wrapper">
+                <i class='bx bx-user'></i>
+                <input type="text" id="firstName" name="first_name" placeholder="First name" required autocomplete="given-name" value="{{ form.first_name.value|default:'' }}">
+              </div>
+              {% if form.first_name.errors %}<span class="auth-error">{{ form.first_name.errors.0 }}</span>{% endif %}
+            </div>
+
+            <div class="auth-form-group">
+              <label for="lastName">Last Name</label>
+              <div class="auth-input-wrapper">
+                <i class='bx bx-user'></i>
+                <input type="text" id="lastName" name="last_name" placeholder="Last name" required autocomplete="family-name" value="{{ form.last_name.value|default:'' }}">
+              </div>
+              {% if form.last_name.errors %}<span class="auth-error">{{ form.last_name.errors.0 }}</span>{% endif %}
+            </div>
+          </div>
+
+          <div class="auth-form-group">
+            <label for="username">Username</label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-user-circle'></i>
+              <input type="text" id="username" name="username" placeholder="Create a username" required autocomplete="username" value="{{ form.username.value|default:'' }}">
+            </div>
+            {% if form.username.errors %}<span class="auth-error">{{ form.username.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="regEmail">Email Address</label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-envelope'></i>
+              <input type="email" id="regEmail" name="email" placeholder="Enter your email" required autocomplete="email" value="{{ form.email.value|default:'' }}">
+            </div>
+            {% if form.email.errors %}<span class="auth-error">{{ form.email.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="phone">Phone Number</label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-phone'></i>
+              <input type="tel" id="phone" name="phone_number" placeholder="09XXXXXXXXX"
+                     inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11"
+                     oninput="this.value=this.value.replace(/\D/g,'')"
+                     autocomplete="tel" value="{{ form.phone_number.value|default:'' }}">
+            </div>
+            {% if form.phone_number.errors %}<span class="auth-error">{{ form.phone_number.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="address">Complete Address</label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-map'></i>
+              <input id="address" name="address" placeholder="Enter your Address" required rows="2" value="{{ form.address.value|default:'' }}">
+            </div>
+            {% if form.address.errors %}<span class="auth-error">{{ form.address.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="regPassword">Password</label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-lock-alt'></i>
+              <input type="password" id="regPassword" name="password1" placeholder="Create a password" required autocomplete="new-password">
+              <button type="button" class="password-toggle" data-target="regPassword" aria-label="Toggle password visibility">
+                <i class='bx bx-hide'></i>
+              </button>
+            </div>
+            <div class="password-strength">
+              <div class="strength-bar"><span></span></div>
+              <span class="strength-text">Password strength</span>
+            </div>
+            {% if form.password1.errors %}<span class="auth-error">{{ form.password1.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="confirmPassword">Confirm Password</label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-lock-alt'></i>
+              <input type="password" id="confirmPassword" name="password2" placeholder="Confirm your password" required autocomplete="new-password">
+              <button type="button" class="password-toggle" data-target="confirmPassword" aria-label="Toggle password visibility">
+                <i class='bx bx-hide'></i>
+              </button>
+            </div>
+            {% if form.password2.errors %}<span class="auth-error">{{ form.password2.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-options">
+            <label class="auth-checkbox">
+              <input type="checkbox" name="terms" required>
+              <span class="checkmark"></span>
+              I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg auth-submit">
+            <span>Create Account</span>
+            <i class='bx bx-right-arrow-alt'></i>
+          </button>
+        </form>
+
+        <div class="auth-footer">
+          <p>Already have an account? <a href="{% url 'login_page' %}">Sign In</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Auth JS -->
+<script src="{% static 'js/accounts/auth.js' %}"></script>
+
+{% endblock %}

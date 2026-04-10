@@ -1,0 +1,317 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Branch Management{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-building-house'></i> Branch Management</h1>
+      <p>Manage clinic locations and their operations</p>
+    </div>
+    <div class="page-hero-actions">
+      <a href="{% url 'branches:add' %}" class="page-hero-btn">
+        <i class='bx bx-plus-circle'></i> Add Branch
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+{% include "components/filter_bar.html" with form_action="/branches/" form_id="branchFilterForm" filters=filters active_filters=active_filters clear_url="/branches/" show_clear=show_clear %}
+
+{% if branches %}
+<!-- Branch Table -->
+<div class="admin-table-card full-width">
+  <div class="table-responsive" style="padding: 0;">
+    <table class="admin-table staff-table">
+      <thead>
+        <tr>
+          <th style="text-align: center;">Branch Info</th>
+          <th style="text-align: center;">Location</th>
+          <th style="text-align: center;">Contact</th>
+          <th style="text-align: center;">Status</th>
+          <th style="text-align: center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for branch in branches %}
+        <tr class="searchable-row"
+            data-name="{{ branch.name }}"
+            data-city="{{ branch.city|default:'' }}"
+            data-code="{{ branch.branch_code|default:'' }}">
+          <td style="text-align: center;">
+            <div class="staff-name-cell" style="justify-content: center;">
+              <div style="text-align: left;">
+                <strong>{{ branch.name }}</strong>
+                <span class="staff-email">Code: {{ branch.branch_code|default:"N/A" }}</span>
+              </div>
+            </div>
+          </td>
+          <td style="text-align: center;">
+            <div style="font-size: 0.9rem; color: var(--text-color);">{{ branch.address }}</div>
+            <div class="text-muted" style="font-size: 0.8rem;">{{ branch.city }}, {{ branch.state }} {{ branch.zip_code }}</div>
+          </td>
+          <td style="text-align: center;">
+            <div style="font-size: 0.9rem;"><i class='bx bx-phone'></i> {{ branch.phone_number }}</div>
+            <div class="text-muted" style="font-size: 0.8rem;">{{ branch.email|default:"No email" }}</div>
+          </td>
+          <td style="text-align: center;">
+            {% if branch.is_active %}
+              <span class="admin-badge active">Active</span>
+            {% else %}
+              <span class="admin-badge pending">Inactive</span>
+            {% endif %}
+          </td>
+          <td style="text-align: center;">
+            <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
+              <a href="{% url 'branches:edit' branch.pk %}" class="action-btn" title="Edit">
+                <i class='bx bx-edit-alt'></i>
+              </a>
+              <a href="{% url 'branches:delete' branch.pk %}" class="action-btn danger" title="Delete">
+                <i class='bx bx-trash'></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div class="dashboard-card full-width">
+  <div class="card-body">
+    <div class="empty-state-large">
+      <div class="empty-state-icon">
+        <i class='bx bx-building-house'></i>
+      </div>
+      <h3>No branches found</h3>
+      <p>Click the "Add Branch" button above to register a new clinic location.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+  /* Search Dropdown */
+  .search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 9999 !important;
+    display: none;
+    animation: dropdownIn 0.2s cubic-bezier(0.23, 1, 0.32, 1) both;
+    margin-top: 8px;
+  }
+
+  .search-dropdown.active {
+    display: block;
+  }
+
+  @keyframes dropdownIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .search-dropdown-item {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-dropdown-item:last-child {
+    border-bottom: none;
+  }
+
+  .search-dropdown-item:hover,
+  .search-dropdown-item.active {
+    background: rgba(0, 150, 136, 0.06);
+  }
+
+  .search-dropdown-item i {
+    font-size: 1.2rem;
+    color: var(--primary);
+    width: 24px;
+    text-align: center;
+  }
+
+  .search-dropdown-item .item-info {
+    flex: 1;
+  }
+
+  .search-dropdown-item .item-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+
+  .search-dropdown-item .item-sub {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+
+  .search-dropdown-highlight {
+    background: rgba(0, 150, 136, 0.15);
+    color: var(--primary);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .search-dropdown-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .search-dropdown-empty i {
+    font-size: 1.5rem;
+    opacity: 0.5;
+  }
+
+  [data-theme="dark"] .search-dropdown {
+    background: var(--surface);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+</style>
+
+<script>
+// ══════ BRANCH SEARCH AUTOCOMPLETE ══════
+(function initBranchSearch() {
+  const searchInput = document.getElementById('branchSearch');
+  const dropdown    = document.getElementById('branchSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
+      name   : row.dataset.name   || '',
+      city   : row.dataset.city   || '',
+      code   : row.dataset.code   || '',
+      row    : row
+    }));
+  }
+
+  let branches = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No branches found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map((b, idx) => `
+        <div class="search-dropdown-item" data-index="${idx}">
+          <i class='bx bx-building'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(b.name, q)}</div>
+            <div class="item-sub">${highlight(b.city, q)} &bull; Code: ${b.code || '—'}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].name;
+          filterRows(results[idx].name.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    branches.forEach(b => {
+      const nl = b.name.toLowerCase(); const cl = b.city.toLowerCase(); const codl = b.code.toLowerCase();
+      const matches = !q || nl.includes(q) || cl.includes(q) || codl.includes(q);
+      b.row.style.display = matches ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = branches.filter(b =>
+      b.name.toLowerCase().includes(q) ||
+      b.city.toLowerCase().includes(q) ||
+      b.code.toLowerCase().includes(q)
+    );
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx + 1) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx - 1 + items.length) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (idx >= 0) {
+        items[idx]?.click();
+      }
+      hideDropdown();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+
+  // ⌘K keyboard shortcut
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+    }
+  });
+}());
+</script>
+
+{% endblock %}

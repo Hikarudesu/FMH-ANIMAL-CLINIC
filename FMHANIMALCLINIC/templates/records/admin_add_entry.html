@@ -1,0 +1,143 @@
+{% extends 'base/portal_admin.html' %}
+{% load i18n %}
+
+{% block title %}Add Visit Entry — {{ record.pet.name }}{% endblock %}
+
+{% block content %}
+<!-- Page Hero -->
+{% url 'records:admin_detail' record.pk as back_url %}
+{% blocktrans with petname=record.pet.name asvar add_entry_subtitle %}Adding a new visit row to <strong>{{ petname }}</strong>'s medical record card.{% endblocktrans %}
+{% include "components/page_hero.html" with title="Add Visit Entry" subtitle=add_entry_subtitle icon="bxs-plus-circle" action_url=back_url action_label="Back to Record" action_icon="bx-arrow-back" %}
+
+<div class="dashboard-card" style="padding: 32px; max-width: 900px; margin: 0 auto; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);">
+
+    <div style="border-bottom: 2px solid var(--primary); padding-bottom: 16px; margin-bottom: 24px;">
+        <h2 style="color: var(--primary); font-family: monospace; font-size: 18px; letter-spacing: 1px; margin: 0;">
+            NEW VISIT ENTRY — {{ record.pet.name|upper }}
+        </h2>
+        <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">
+            Owner: {% if record.pet.owner %}{{ record.pet.owner.get_full_name }}{% else %}{{ record.pet.guest_owner_name|default:"—" }}{% endif %}
+            &nbsp;|&nbsp; Branch: {{ record.branch.name|default:"—" }}
+        </p>
+    </div>
+
+    <style>
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; }
+        .form-control-custom { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background-color: var(--bg); color: var(--text-primary); font-size: 14px; font-family: inherit; transition: all 0.2s; box-sizing: border-box; }
+        .form-control-custom:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(44,122,123,0.1); outline: none; }
+        textarea.form-control-custom { min-height: 80px; resize: vertical; }
+        
+        @media (max-width: 768px) {
+            .dashboard-card { padding: 24px 20px !important; }
+            .form-grid { gap: 12px; }
+        }
+        @media (max-width: 576px) {
+            .dashboard-card { padding: 18px 16px !important; border-radius: var(--radius) !important; }
+            .form-grid { grid-template-columns: 1fr !important; gap: 12px; }
+            .form-label { font-size: 11px; }
+            .form-control-custom { padding: 10px; font-size: 14px; }
+        }
+    </style>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                {{ form.date_recorded }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">FF-UP (Follow-Up Date)</label>
+                {{ form.ff_up }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Weight (kg)</label>
+                {{ form.weight }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Temperature (°C)</label>
+                {{ form.temperature }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Branch / Location</label>
+                <select name="branch_id" id="ae_branch" class="form-control-custom">
+                    <option value="">— Select Branch —</option>
+                    {% for branch in branches %}
+                    <option value="{{ branch.id }}" {% if record.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Attending Veterinarian</label>
+                {{ form.vet }}
+            </div>
+        </div>
+
+        <script>
+        (function(){
+            const vetsData = {{ vets_json|safe }};
+            const branchSel = document.getElementById('ae_branch');
+            const vetSel    = document.getElementById('id_vet');
+
+            function filterVets(branchId) {
+                const cur = vetSel.value;
+                vetSel.innerHTML = '<option value="">— Select Vet —</option>';
+                vetsData.forEach(function(v) {
+                    if (!branchId || String(v.branch_id) === String(branchId)) {
+                        const o = document.createElement('option');
+                        o.value = v.id;
+                        o.textContent = v.name + (v.license_number ? ' (PRC ' + v.license_number + ')' : '');
+                        if (String(v.id) === String(cur)) o.selected = true;
+                        vetSel.appendChild(o);
+                    }
+                });
+            }
+
+            branchSel.addEventListener('change', function(){ filterVets(branchSel.value); });
+
+            // Initialize on page load with the selected branch (if any)
+            filterVets(branchSel.value);
+        })();
+        </script>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label">Required Clinical Action</label>
+            {{ form.action_required }}
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label">History / Clinical Signs</label>
+            {{ form.history_clinical_signs }}
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label">Treatment (Tx)</label>
+            {{ form.treatment }}
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label">Prescription (Rx)</label>
+            {{ form.rx }}
+        </div>
+
+        {% for error in form.non_field_errors %}
+        <div style="color: var(--accent); font-size: 13px; margin-bottom: 12px;">{{ error }}</div>
+        {% endfor %}
+
+        <script>
+            document.querySelectorAll('input, select, textarea').forEach(el => {
+                if (!el.classList.contains('form-control-custom')) el.classList.add('form-control-custom');
+            });
+        </script>
+
+        <div style="padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary"
+                    style="background: var(--primary); color: white; padding: 12px 32px;
+                           border-radius: var(--radius-sm); font-weight: 600; border: none;
+                           font-size: 15px; cursor: pointer;">
+                <i class='bx bx-plus'></i> Add Entry to Record
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

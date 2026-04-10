@@ -1,0 +1,1029 @@
+<!-- Content Management Tab -->
+<style>
+  /* Content Sub-tabs */
+  .content-subtabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    padding: 0 32px;
+  }
+  .content-subtab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-2);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .content-subtab:hover {
+    border-color: var(--primary);
+    color: var(--text-1);
+    background: var(--surface);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.1);
+  }
+  .content-subtab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(0, 150, 136, 0.3);
+  }
+  .content-subtab i {
+    font-size: 18px;
+  }
+
+  /* Content Panels */
+  .content-panel {
+    display: none;
+    padding: 0 32px 32px 32px;
+  }
+  .content-panel.active {
+    display: block;
+  }
+
+  /* Admin fields within content panels (outside of admin-grid) */
+  .content-panel .admin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .content-panel .admin-field label {
+    color: var(--text-1);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .content-panel .admin-input {
+    width: 100%;
+    padding: 12px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-1);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .content-panel .admin-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.12);
+  }
+  .content-panel textarea.admin-input {
+    resize: vertical;
+    min-height: 100px;
+  }
+  .content-panel .admin-field-full {
+    width: 100%;
+  }
+
+  /* Items List */
+  .items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .item-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.25s ease;
+  }
+  .item-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 16px rgba(0, 150, 136, 0.08);
+    transform: translateY(-2px);
+  }
+  .item-icon {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--primary) 0%, #00796b 100%);
+    color: #fff;
+    border-radius: 12px;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.2);
+  }
+  .item-content {
+    flex: 1;
+  }
+  .item-content h4 {
+    color: var(--text-1);
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+  }
+  .item-content p {
+    color: var(--text-2);
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.5;
+  }
+  .item-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .btn-edit, .btn-delete {
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+  .btn-edit:hover {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+  }
+  .btn-delete:hover {
+    border-color: #ff4d4d;
+    background: #ff4d4d;
+    color: #fff;
+  }
+
+  /* Services Grid */
+  .items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .service-item-card {
+    padding: 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.25s ease;
+  }
+  .service-item-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(0, 150, 136, 0.12);
+    transform: translateY(-4px);
+  }
+  .service-thumb {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+  .service-thumb-placeholder {
+    width: 100%;
+    height: 140px;
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--bg) 100%);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: var(--primary);
+  }
+  .service-item-content h4 {
+    color: var(--text-1);
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .service-item-content h4 i {
+    color: var(--primary);
+  }
+  .service-item-content p {
+    color: var(--text-2);
+    font-size: 13px;
+    margin: 0 0 12px 0;
+    line-height: 1.6;
+  }
+  .order-badge, .inactive-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 6px;
+    margin-right: 6px;
+    font-weight: 600;
+  }
+  .order-badge {
+    background: var(--surface);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+  }
+  .inactive-badge {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  /* Vet Photo */
+  .vet-photo {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.15);
+  }
+  .vet-photo-placeholder {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--bg) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    color: var(--primary);
+    border: 3px solid var(--border);
+  }
+  .vet-title-text {
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* Branch Map Status */
+  .map-status {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+  .map-status.success {
+    color: #2e7d32;
+  }
+  .map-status.warning {
+    color: #f57c00;
+  }
+
+  /* Add Button */
+  .btn-add-item {
+    margin-left: auto;
+    padding: 10px 20px;
+    background: var(--primary);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25);
+  }
+  .btn-add-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 150, 136, 0.35);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.active {
+    display: flex;
+  }
+  .modal-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 540px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+  }
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border);
+  }
+  .modal-header h3 {
+    color: var(--text-1);
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: color 0.2s;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-close:hover {
+    color: var(--danger);
+  }
+  .empty-message {
+    text-align: center;
+    padding: 48px 32px;
+    color: var(--text-3);
+    font-size: 14px;
+    background: var(--bg);
+    border-radius: 12px;
+    border: 2px dashed var(--border);
+  }
+
+  /* Form checkbox label for modals */
+  .form-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-1);
+  }
+  .form-checkbox-label input[type="checkbox"] {
+    accent-color: var(--primary);
+  }
+
+  /* Button cancel for modals */
+  .btn-cancel {
+    padding: 10px 24px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-1);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn-cancel:hover {
+    background: var(--surface);
+    border-color: var(--primary);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .content-subtabs {
+      padding: 0 24px;
+      margin-bottom: 20px;
+      gap: 8px;
+    }
+    .content-subtab {
+      padding: 10px 16px;
+      font-size: 13px;
+    }
+    .content-subtab i {
+      font-size: 16px;
+    }
+    .content-panel {
+      padding: 0 24px 24px 24px;
+    }
+    .items-list {
+      gap: 12px;
+    }
+    .item-card {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 16px;
+      gap: 16px;
+    }
+    .item-icon {
+      width: 48px;
+      height: 48px;
+      font-size: 20px;
+    }
+    .item-content h4 {
+      font-size: 15px;
+    }
+    .item-content p {
+      font-size: 13px;
+    }
+    .item-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+    .items-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .service-thumb,
+    .service-thumb-placeholder {
+      height: 120px;
+    }
+    .vet-photo,
+    .vet-photo-placeholder {
+      width: 60px;
+      height: 60px;
+      font-size: 28px;
+    }
+    .modal-content {
+      padding: 24px;
+      max-width: calc(100% - 32px);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .content-subtabs {
+      padding: 0 20px;
+      margin-bottom: 16px;
+      gap: 6px;
+    }
+    .content-subtab {
+      padding: 8px 12px;
+      font-size: 12px;
+      gap: 6px;
+    }
+    .content-panel {
+      padding: 0 20px 20px 20px;
+    }
+    .item-card {
+      padding: 14px;
+    }
+    .btn-edit,
+    .btn-delete {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+    .modal-content {
+      padding: 20px;
+      border-radius: 12px;
+    }
+    .modal-header h3 {
+      font-size: 18px;
+    }
+    .empty-message {
+      padding: 32px 20px;
+      font-size: 13px;
+    }
+  }
+</style>
+
+<div class="settings-card">
+  <div class="admin-grid" style="padding-bottom: 0;">
+    <div class="form-section-title">
+      <i class='bx bx-edit'></i> Content Management
+    </div>
+
+    <div class="admin-field admin-field-full" style="margin-bottom: 4px;">
+      <p class="form-hint" style="margin-top: -8px;">Manage homepage content including hero section, services, team members, and more</p>
+    </div>
+  </div>
+
+  <!-- Sub-navigation -->
+  <div class="content-subtabs">
+    <button class="content-subtab active" onclick="showContentPanel('hero', this)">
+      <i class='bx bx-home'></i> Hero
+    </button>
+    <button class="content-subtab" onclick="showContentPanel('mission', this)">
+      <i class='bx bx-target-lock'></i> Mission & Vision
+    </button>
+    <button class="content-subtab" onclick="showContentPanel('services', this)">
+      <i class='bx bx-briefcase'></i> Services
+    </button>
+    <button class="content-subtab" onclick="showContentPanel('vets', this)">
+      <i class='bx bx-user-circle'></i> Veterinarians
+    </button>
+    <button class="content-subtab" onclick="showContentPanel('branches', this)">
+      <i class='bx bx-map'></i> Branches
+    </button>
+  </div>
+
+  <!-- HERO SECTION -->
+  <div id="hero-panel" class="content-panel active">
+    <form method="POST" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="content">
+      <input type="hidden" name="sub_form" value="hero">
+
+      <div class="admin-field admin-field-full">
+        <label>Main Title</label>
+        {{ forms.content.hero.title }}
+        <p class="form-hint">The main headline (e.g., "FMH ANIMAL CLINIC")</p>
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label>Subtitle</label>
+        {{ forms.content.hero.subtitle }}
+        <p class="form-hint">Highlighted subtitle (e.g., "Powered by AI Diagnostics")</p>
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label>Description</label>
+        {{ forms.content.hero.description }}
+      </div>
+
+      <div class="admin-actions" style="margin: 24px 0 0 0; border-top: none; padding-top: 0;">
+        <button type="submit" class="btn-submit">
+          <i class='bx bx-save'></i> Save Hero Content
+        </button>
+      </div>
+    </form>
+
+    <!-- Hero Stats -->
+    <div style="margin-top: 32px; padding-top: 24px; border-top: 2px solid var(--border);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+        <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0; display: flex; align-items: center; gap: 8px;">
+          <i class='bx bx-bar-chart-alt-2' style="color: var(--primary); font-size: 1.3rem;"></i>
+          Hero Statistics
+        </h4>
+        <button type="button" class="btn-add-item" onclick="openModal('hero_stat')">
+          <i class='bx bx-plus'></i> Add Stat
+        </button>
+      </div>
+
+    <div class="items-list">
+      {% for stat in forms.content.hero_stats %}
+      <div class="item-card">
+        <div class="item-icon">{{ stat.value }}</div>
+        <div class="item-content">
+          <h4>{{ stat.label }}</h4>
+          <p>Order: {{ stat.order }} {% if not stat.is_active %}<span class="inactive-badge">Inactive</span>{% endif %}</p>
+        </div>
+        <div class="item-actions">
+          <button type="button" class="btn-edit" onclick="editItem('hero_stat', {{ stat.pk }}, '{{ stat.value }}', '{{ stat.label }}', {{ stat.order }}, {{ stat.is_active|yesno:'true,false' }})">
+            <i class='bx bx-edit'></i>
+          </button>
+          <form method="POST" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="content">
+            <input type="hidden" name="sub_form" value="delete_hero_stat">
+            <input type="hidden" name="item_id" value="{{ stat.pk }}">
+            <button type="submit" class="btn-delete" onclick="return confirm('Delete this statistic?')">
+              <i class='bx bx-trash'></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% empty %}
+      <p class="empty-message">No hero statistics added yet.</p>
+      {% endfor %}
+    </div>
+    </div>
+  </div>
+
+  <!-- MISSION & VISION SECTION -->
+  <div id="mission-panel" class="content-panel">
+    <form method="POST" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="content">
+      <input type="hidden" name="sub_form" value="mission_vision">
+
+      <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+        <i class='bx bx-target-lock' style="color: var(--primary); font-size: 1.3rem;"></i>
+        Mission
+      </h4>
+
+      <div class="admin-field admin-field-full">
+        <label>Mission Title</label>
+        {{ forms.content.mission_vision.mission_title }}
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label>Mission Description</label>
+        {{ forms.content.mission_vision.mission_description }}
+      </div>
+
+      <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 28px 0 16px 0; display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+        <i class='bx bx-show' style="color: var(--primary); font-size: 1.3rem;"></i>
+        Vision
+      </h4>
+
+      <div class="admin-field admin-field-full">
+        <label>Vision Title</label>
+        {{ forms.content.mission_vision.vision_title }}
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label>Vision Description</label>
+        {{ forms.content.mission_vision.vision_description }}
+      </div>
+
+      <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 28px 0 16px 0; display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+        <i class='bx bx-heart' style="color: var(--primary); font-size: 1.3rem;"></i>
+        Core Values Introduction
+      </h4>
+
+      <div class="admin-field admin-field-full">
+        <label>Core Values Title (Optional)</label>
+        {{ forms.content.mission_vision.core_values_title }}
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label>Core Values Description</label>
+        {{ forms.content.mission_vision.core_values_description }}
+        <small style="color: var(--text-3); font-size: 12px; margin-top: 4px;">This intro text appears before the individual core values on the home page.</small>
+      </div>
+
+      <div class="admin-actions" style="margin: 24px 0 0 0; border-top: none; padding-top: 0;">
+        <button type="submit" class="btn-submit">
+          <i class='bx bx-save'></i> Save Mission, Vision & Core Values
+        </button>
+      </div>
+    </form>
+  </div>
+
+
+  <!-- SERVICES SECTION -->
+  <div id="services-panel" class="content-panel">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+      <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0; display: flex; align-items: center; gap: 8px;">
+        <i class='bx bx-briefcase' style="color: var(--primary); font-size: 1.3rem;"></i>
+        Services
+      </h4>
+      <button type="button" class="btn-add-item" onclick="openModal('service')">
+        <i class='bx bx-plus'></i> Add Service
+      </button>
+    </div>
+
+    <div class="items-grid">
+      {% for service in forms.content.services %}
+      <div class="service-item-card">
+        {% if service.image %}
+        <img src="{{ service.image.url }}" alt="{{ service.title }}" class="service-thumb">
+        {% else %}
+        <div class="service-thumb-placeholder"><i class='bx {{ service.icon }}'></i></div>
+        {% endif %}
+        <div class="service-item-content">
+          <h4><i class='bx {{ service.icon }}'></i> {{ service.title }}</h4>
+          <p>{{ service.description|truncatewords:12 }}</p>
+          <span class="order-badge">Order: {{ service.order }}</span>
+          {% if not service.is_active %}<span class="inactive-badge">Inactive</span>{% endif %}
+        </div>
+        <div class="item-actions" style="margin-top: 12px;">
+          <button type="button" class="btn-edit" onclick="editService({{ service.pk }}, '{{ service.title|escapejs }}', '{{ service.description|escapejs }}', '{{ service.icon }}', {{ service.order }}, {{ service.is_active|yesno:'true,false' }})">
+            <i class='bx bx-edit'></i>
+          </button>
+          <form method="POST" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="content">
+            <input type="hidden" name="sub_form" value="delete_service">
+            <input type="hidden" name="item_id" value="{{ service.pk }}">
+            <button type="submit" class="btn-delete" onclick="return confirm('Delete this service?')">
+              <i class='bx bx-trash'></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% empty %}
+      <p class="empty-message">No services added yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- VETERINARIANS SECTION -->
+  <div id="vets-panel" class="content-panel">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+      <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0; display: flex; align-items: center; gap: 8px;">
+        <i class='bx bx-user-circle' style="color: var(--primary); font-size: 1.3rem;"></i>
+        Veterinarians
+      </h4>
+      <button type="button" class="btn-add-item" onclick="openModal('veterinarian')">
+        <i class='bx bx-plus'></i> Add Veterinarian
+      </button>
+    </div>
+
+    <div class="items-list">
+      {% for vet in forms.content.veterinarians %}
+      <div class="item-card">
+        {% if vet.photo %}
+        <img src="{{ vet.photo.url }}" alt="{{ vet.name }}" class="vet-photo">
+        {% else %}
+        <div class="vet-photo-placeholder"><i class='bx bx-user-circle'></i></div>
+        {% endif %}
+        <div class="item-content">
+          <h4>Dr. {{ vet.name }}</h4>
+          <p class="vet-title-text">{{ vet.title }}</p>
+          <p>{{ vet.bio|truncatewords:15 }}</p>
+          <span class="order-badge">Order: {{ vet.order }}</span>
+          {% if not vet.is_active %}<span class="inactive-badge">Inactive</span>{% endif %}
+        </div>
+        <div class="item-actions">
+          <button type="button" class="btn-edit" onclick="editVet({{ vet.pk }}, '{{ vet.name|escapejs }}', '{{ vet.title|escapejs }}', '{{ vet.bio|escapejs }}', {{ vet.order }}, {{ vet.is_active|yesno:'true,false' }})">
+            <i class='bx bx-edit'></i>
+          </button>
+          <form method="POST" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="content">
+            <input type="hidden" name="sub_form" value="delete_veterinarian">
+            <input type="hidden" name="item_id" value="{{ vet.pk }}">
+            <button type="submit" class="btn-delete" onclick="return confirm('Delete this veterinarian?')">
+              <i class='bx bx-trash'></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% empty %}
+      <p class="empty-message">No veterinarians added yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- BRANCHES SECTION -->
+  <div id="branches-panel" class="content-panel">
+    <div style="margin-bottom: 16px;">
+      <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+        <i class='bx bx-map' style="color: var(--primary); font-size: 1.3rem;"></i>
+        Branch Locations (Contact Page Map)
+      </h4>
+      <p class="form-hint" style="margin-top: 12px;">Branch information for the contact page. To add map URLs and social links, edit each branch in Staff Management > Branches.</p>
+    </div>
+
+    <div class="items-list">
+      {% for branch in forms.content.branches %}
+      <div class="item-card">
+        <div class="item-icon"><i class='bx bx-buildings'></i></div>
+        <div class="item-content">
+          <h4>{{ branch.name }}</h4>
+          <p>{{ branch.address }}, {{ branch.city }}, {{ branch.state }}</p>
+          <p><strong>Phone:</strong> {{ branch.phone_number }}</p>
+          {% if branch.google_maps_embed_url %}
+          <span class="map-status success"><i class='bx bx-check'></i> Map configured</span>
+          {% else %}
+          <span class="map-status warning"><i class='bx bx-error'></i> Map URL not set</span>
+          {% endif %}
+        </div>
+        <div class="item-actions">
+          <a href="{% url 'branches:edit' branch.pk %}" class="btn-edit">
+            <i class='bx bx-edit'></i> Edit
+          </a>
+        </div>
+      </div>
+      {% empty %}
+      <p class="empty-message">No active branches found. Add branches in Staff Management > Branches.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<!-- Hero Stat Modal -->
+<div id="hero_stat-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="hero_stat-modal-title">Add Hero Statistic</h3>
+      <button type="button" class="modal-close" onclick="closeModal('hero_stat')">&times;</button>
+    </div>
+    <form method="POST" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="content">
+      <input type="hidden" name="sub_form" value="hero_stat">
+      <input type="hidden" name="item_id" id="hero_stat-id" value="">
+
+      <div class="admin-field">
+        <label>Value</label>
+        <input type="text" name="value" id="hero_stat-value" class="admin-input" placeholder="e.g., 3, AI, 24/7" required>
+      </div>
+
+      <div class="admin-field">
+        <label>Label</label>
+        <input type="text" name="label" id="hero_stat-label" class="admin-input" placeholder="e.g., Clinic Branches" required>
+      </div>
+
+      <div class="admin-field">
+        <label>Order</label>
+        <input type="number" name="order" id="hero_stat-order" class="admin-input" value="0" style="width: 100px;">
+      </div>
+
+      <div class="admin-field">
+        <label class="form-checkbox-label">
+          <input type="checkbox" name="is_active" id="hero_stat-active" class="admin-checkbox" checked>
+          <span>Active</span>
+        </label>
+      </div>
+
+      <div class="admin-actions">
+        <button type="button" class="btn-cancel" onclick="closeModal('hero_stat')">Cancel</button>
+        <button type="submit" class="btn-submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Service Modal -->
+<div id="service-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="service-modal-title">Add Service</h3>
+      <button type="button" class="modal-close" onclick="closeModal('service')">&times;</button>
+    </div>
+    <form method="POST" enctype="multipart/form-data" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="content">
+      <input type="hidden" name="sub_form" value="service">
+      <input type="hidden" name="item_id" id="service-id" value="">
+
+      <div class="admin-field">
+        <label>Title</label>
+        <input type="text" name="title" id="service-title" class="admin-input" required>
+      </div>
+
+      <div class="admin-field">
+        <label>Description</label>
+        <textarea name="description" id="service-description" class="admin-input" rows="3" required></textarea>
+      </div>
+
+      <div class="admin-field">
+        <label>Icon (Boxicons class)</label>
+        <input type="text" name="icon" id="service-icon" class="admin-input" value="bx-plus-medical">
+      </div>
+
+      <div class="admin-field">
+        <label>Image</label>
+        <input type="file" name="image" id="service-image" class="admin-input" accept="image/png,image/jpeg">
+        <p class="form-hint">Supported formats: .png, .jpeg (Max 10MB)</p>
+      </div>
+
+      <div class="admin-field">
+        <label>Order</label>
+        <input type="number" name="order" id="service-order" class="admin-input" value="0" style="width: 100px;">
+      </div>
+
+      <div class="admin-field">
+        <label class="form-checkbox-label">
+          <input type="checkbox" name="is_active" id="service-active" class="admin-checkbox" checked>
+          <span>Active</span>
+        </label>
+      </div>
+
+      <div class="admin-actions">
+        <button type="button" class="btn-cancel" onclick="closeModal('service')">Cancel</button>
+        <button type="submit" class="btn-submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Veterinarian Modal -->
+<div id="veterinarian-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="veterinarian-modal-title">Add Veterinarian</h3>
+      <button type="button" class="modal-close" onclick="closeModal('veterinarian')">&times;</button>
+    </div>
+    <form method="POST" enctype="multipart/form-data" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="content">
+      <input type="hidden" name="sub_form" value="veterinarian">
+      <input type="hidden" name="item_id" id="veterinarian-id" value="">
+
+      <div class="admin-field">
+        <label>Name (without "Dr.")</label>
+        <input type="text" name="name" id="veterinarian-name" class="admin-input" required>
+      </div>
+
+      <div class="admin-field">
+        <label>Title</label>
+        <input type="text" name="title" id="veterinarian-title" class="admin-input" placeholder="e.g., Senior Veterinarian" required>
+      </div>
+
+      <div class="admin-field">
+        <label>Bio</label>
+        <textarea name="bio" id="veterinarian-bio" class="admin-input" rows="3" required></textarea>
+      </div>
+
+      <div class="admin-field">
+        <label>Photo</label>
+        <input type="file" name="photo" id="veterinarian-photo" class="admin-input" accept="image/png,image/jpeg">
+        <p class="form-hint">Supported formats: .png, .jpeg (Max 10MB)</p>
+      </div>
+
+      <div class="admin-field">
+        <label>Order</label>
+        <input type="number" name="order" id="veterinarian-order" class="admin-input" value="0" style="width: 100px;">
+      </div>
+
+      <div class="admin-field">
+        <label class="form-checkbox-label">
+          <input type="checkbox" name="is_active" id="veterinarian-active" class="admin-checkbox" checked>
+          <span>Active</span>
+        </label>
+      </div>
+
+      <div class="admin-actions">
+        <button type="button" class="btn-cancel" onclick="closeModal('veterinarian')">Cancel</button>
+        <button type="submit" class="btn-submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Panel switching
+  function showContentPanel(panel, buttonElement) {
+    // Hide all panels
+    document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.content-subtab').forEach(t => t.classList.remove('active'));
+
+    // Show selected panel
+    const panelEl = document.getElementById(panel + '-panel');
+    if (panelEl) {
+      panelEl.classList.add('active');
+    }
+
+    // Mark button as active
+    if (buttonElement) {
+      buttonElement.classList.add('active');
+    }
+  }
+
+  // Modal functions
+  function openModal(type) {
+    document.getElementById(type + '-modal').classList.add('active');
+    document.getElementById(type + '-modal-title').textContent = 'Add ' + type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    document.getElementById(type + '-id').value = '';
+    // Reset form
+    document.getElementById(type + '-modal').querySelector('form').reset();
+    if (document.getElementById(type + '-active')) {
+      document.getElementById(type + '-active').checked = true;
+    }
+  }
+
+  function closeModal(type) {
+    document.getElementById(type + '-modal').classList.remove('active');
+  }
+
+  // Edit functions
+  function editItem(type, id, value, label, order, active) {
+    openModal(type);
+    document.getElementById(type + '-modal-title').textContent = 'Edit Hero Statistic';
+    document.getElementById(type + '-id').value = id;
+    document.getElementById(type + '-value').value = value;
+    document.getElementById(type + '-label').value = label;
+    document.getElementById(type + '-order').value = order;
+    document.getElementById(type + '-active').checked = active;
+  }
+
+
+  function editService(id, title, description, icon, order, active) {
+    openModal('service');
+    document.getElementById('service-modal-title').textContent = 'Edit Service';
+    document.getElementById('service-id').value = id;
+    document.getElementById('service-title').value = title;
+    document.getElementById('service-description').value = description;
+    document.getElementById('service-icon').value = icon;
+    document.getElementById('service-order').value = order;
+    document.getElementById('service-active').checked = active;
+  }
+
+  function editVet(id, name, title, bio, order, active) {
+    openModal('veterinarian');
+    document.getElementById('veterinarian-modal-title').textContent = 'Edit Veterinarian';
+    document.getElementById('veterinarian-id').value = id;
+    document.getElementById('veterinarian-name').value = name;
+    document.getElementById('veterinarian-title').value = title;
+    document.getElementById('veterinarian-bio').value = bio;
+    document.getElementById('veterinarian-order').value = order;
+    document.getElementById('veterinarian-active').checked = active;
+  }
+
+  // Close modal on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.remove('active');
+      }
+    });
+  });
+</script>

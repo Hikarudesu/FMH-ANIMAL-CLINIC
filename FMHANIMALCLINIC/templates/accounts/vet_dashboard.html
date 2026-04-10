@@ -1,0 +1,2359 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+{% load currency_filters %}
+
+{% block title %}{{ dashboard_title|default:"Veterinarian Dashboard" }}{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+{% url 'appointments:admin_list' as appt_url %}
+{% url 'patients:admin_list' as patient_url %}
+{% include "components/page_hero.html" with title=dashboard_title|default:"Veterinarian Dashboard" icon="bx-plus-medical" subtitle="Manage your patients, appointments, and schedule" action_url=appt_url action_label="View Appointments" action_icon="bx-calendar-plus" action_url_2=patient_url action_label_2="View Patients" action_icon_2="bxs-dog" %}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODERN VET DASHBOARD - REDESIGNED TO MATCH ADMIN/USER PORTAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<!-- HERO STATS ROW -->
+<div class="hero-stats">
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon teal">
+      <i class='bx bx-calendar-check'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ today_count }}</span>
+      <span class="hero-stat-label">Today's Appointments</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item"><i class='bx bx-time'></i> scheduled today</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon blue">
+      <i class='bx bxs-dog'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ assigned_patients }}</span>
+      <span class="hero-stat-label">Assigned Patients</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">+{{ new_patients_this_month }} this month</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon emerald">
+      <i class='bx bx-check-circle'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ completed_consultations }}</span>
+      <span class="hero-stat-label">Completed Consultations</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item success"><i class='bx bx-trending-up'></i> {{ avg_daily_consultations|floatformat:1 }} avg/day</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon purple">
+      <i class='bx bx-file'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ medical_records_count }}</span>
+      <span class="hero-stat-label">Medical Records</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">{{ medical_records_this_month }} this month</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ALERT BANNER (Follow-ups) -->
+{% if follow_up_count > 0 %}
+<div class="alert-banner-modern">
+  <div class="alert-icon">
+    <i class='bx bx-bell bx-tada'></i>
+  </div>
+  <div class="alert-content">
+    <h4>Pending Follow-ups</h4>
+    <div class="alert-items">
+      <span class="alert-item">
+        <i class='bx bx-plus-medical'></i>
+        <span>{{ follow_up_count }} patients need follow-up</span>
+      </span>
+    </div>
+  </div>
+  <i class='bx bx-x alert-close' onclick="this.parentElement.style.display='none'"></i>
+</div>
+{% endif %}
+
+<!-- MAIN CHARTS GRID -->
+<div class="charts-section">
+  
+  <!-- ROW 1: Weekly Workload & Appointment Types -->
+  <div class="charts-row">
+    <div class="chart-card-modern large">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>Weekly Workload</span>
+        </div>
+        <div class="chart-badge purple">This Week</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="weeklyWorkloadChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-pie-chart-alt-2'></i>
+          <span>Appointment Types</span>
+        </div>
+        <div class="chart-badge teal">This Month</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="appointmentTypesChart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ROW 2: Patient Health Status & Monthly Performance -->
+  <div class="charts-row">
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-heart-circle'></i>
+          <span>Patient Status</span>
+        </div>
+        <div class="chart-badge emerald">Current</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="patientHealthChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="chart-card-modern large">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-line-chart'></i>
+          <span>Monthly Performance</span>
+        </div>
+        <div class="chart-badge orange">Last 6 Months</div>
+      </div>
+      <p class="chart-description">Compares consultations completed vs patients seen each month</p>
+      <div class="chart-body">
+        <canvas id="monthlyPerformanceChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK INSIGHTS GRID -->
+<div class="insights-section">
+  <div class="section-title">
+    <i class='bx bx-bulb'></i>
+    <span>Clinical Insights</span>
+  </div>
+  
+  <div class="insights-grid">
+    <!-- Patient Flow -->
+    <div class="insight-card">
+      <div class="insight-header">
+        <i class='bx bx-user-voice'></i>
+        <span>Patient Flow</span>
+      </div>
+      <div class="insight-metrics">
+        <div class="metric-item">
+          <span class="metric-value success">{{ new_patients_this_month }}</span>
+          <span class="metric-label">New</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value blue">{{ returning_patients_this_month }}</span>
+          <span class="metric-label">Returning</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value purple">{{ avg_daily_consultations|floatformat:1 }}</span>
+          <span class="metric-label">Avg/Day</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Clinical Activity -->
+    <div class="insight-card">
+      <div class="insight-header">
+        <i class='bx bx-plus-medical'></i>
+        <span>Clinical Activity</span>
+      </div>
+      <div class="clinical-metrics">
+        <div class="clinical-row">
+          <span class="clinical-icon surgery"><i class='bx bx-cut'></i></span>
+          <span class="clinical-label">Surgeries</span>
+          <span class="clinical-value">{{ surgeries_this_month }}</span>
+        </div>
+        <div class="clinical-row">
+          <span class="clinical-icon emergency"><i class='bx bx-error-circle'></i></span>
+          <span class="clinical-label">Emergency</span>
+          <span class="clinical-value">{{ emergency_cases }}</span>
+        </div>
+        <div class="clinical-row">
+          <span class="clinical-icon vaccination"><i class='bx bx-injection'></i></span>
+          <span class="clinical-label">Vaccinations</span>
+          <span class="clinical-value">{{ vaccinations_count }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Workload Summary -->
+    <div class="insight-card">
+      <div class="insight-header">
+        <i class='bx bx-stats'></i>
+        <span>Monthly Summary</span>
+      </div>
+      <div class="insight-metrics">
+        <div class="metric-item">
+          <span class="metric-value orange">{{ medical_records_this_month }}</span>
+          <span class="metric-label">Records</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value blue">{{ upcoming_count }}</span>
+          <span class="metric-label">Upcoming</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value purple">{{ follow_up_count }}</span>
+          <span class="metric-label">Follow-ups</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TODAY'S SCHEDULE & APPOINTMENTS -->
+<div class="schedule-section">
+  <div class="section-title">
+    <i class='bx bx-calendar'></i>
+    <span>Today's Appointments</span>
+    <a href="{% url 'appointments:admin_list' %}" class="section-link">View All <i class='bx bx-right-arrow-alt'></i></a>
+  </div>
+  
+  <div class="schedule-table-wrapper">
+    {% if todays_appointments %}
+    <table class="schedule-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Patient</th>
+          <th>Owner</th>
+          <th>Reason</th>
+          <th>Branch</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for appt in todays_appointments %}
+        <tr>
+          <td>
+            <span class="time-badge">{{ appt.appointment_time_display }}</span>
+          </td>
+          <td>
+            <div class="patient-info">
+              <i class='bx bxs-dog'></i>
+              <span>{{ appt.pet_name }}</span>
+            </div>
+          </td>
+          <td>{{ appt.owner_name }}</td>
+          <td><span class="reason-tag">{{ appt.get_reason_display }}</span></td>
+          <td><span class="branch-tag">{{ appt.branch.name }}</span></td>
+          <td><span class="status-pill {{ appt.status|lower }}">{{ appt.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-schedule">
+      <i class='bx bx-calendar-check'></i>
+      <h4>No appointments today</h4>
+      <p>Your schedule is clear for today. Enjoy your break!</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- THIS WEEK'S SCHEDULE SECTION -->
+<div class="schedule-section">
+  <div class="section-title">
+    <i class='bx bx-calendar-week'></i>
+    <span>This Week's Schedule</span>
+    <a href="{% url 'employees:schedule' %}" class="section-link">Full Schedule <i class='bx bx-right-arrow-alt'></i></a>
+  </div>
+  
+  <div class="schedule-table-wrapper">
+    {% if this_week_schedule %}
+    <table class="schedule-table">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Date</th>
+          <th>Start Time</th>
+          <th>End Time</th>
+          <th>Branch</th>
+          <th>Shift</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for schedule in this_week_schedule %}
+        <tr>
+          <td>
+            <span class="day-name {% if schedule.date|is_today %}today{% endif %}">
+              {{ schedule.date|date:"l" }}
+              {% if schedule.date|is_today %}<span class="today-indicator">Today</span>{% endif %}
+            </span>
+          </td>
+          <td>
+            <span class="date-badge">{{ schedule.date|date:"M j, Y" }}</span>
+          </td>
+          <td>
+            <span class="time-badge">{{ schedule.start_time|time:"g:i A" }}</span>
+          </td>
+          <td>
+            <span class="time-badge">{{ schedule.end_time|time:"g:i A" }}</span>
+          </td>
+          <td><span class="branch-tag">{{ schedule.branch.name }}</span></td>
+          <td><span class="shift-pill {{ schedule.shift_type|lower }}">{{ schedule.get_shift_type_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-schedule">
+      <i class='bx bx-calendar-x'></i>
+      <h4>No schedule this week</h4>
+      <p>Your schedule for this week has not been set yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- UPCOMING APPOINTMENTS SECTION - Modern Timeline Design -->
+<div class="upcoming-modern">
+  <div class="section-title">
+    <i class='bx bx-calendar-event'></i>
+    <span>Upcoming Appointments</span>
+    <span class="section-badge">{{ upcoming_count }} in next 7 days</span>
+  </div>
+  
+  {% if upcoming_appointments %}
+  <div class="upcoming-timeline">
+    {% for appt in upcoming_appointments %}
+    <div class="upcoming-timeline-item">
+      <div class="timeline-date-block">
+        <span class="timeline-day">{{ appt.appointment_date|date:"d" }}</span>
+        <span class="timeline-month">{{ appt.appointment_date|date:"M" }}</span>
+        <span class="timeline-weekday">{{ appt.appointment_date|date:"D" }}</span>
+      </div>
+      <div class="timeline-connector">
+        <div class="timeline-dot"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-card">
+          <div class="timeline-header">
+            <div class="patient-avatar">
+              <i class='bx bxs-dog'></i>
+            </div>
+            <div class="patient-details">
+              <span class="patient-name">{{ appt.pet_name }}</span>
+              <span class="owner-name"><i class='bx bx-user'></i> {{ appt.owner_name }}</span>
+            </div>
+            <span class="timeline-time">
+              <i class='bx bx-time'></i> {{ appt.appointment_time_display }}
+            </span>
+          </div>
+          <div class="timeline-footer">
+            <span class="branch-tag small">{{ appt.branch.name }}</span>
+            <span class="reason-tag small">{{ appt.get_reason_display }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-modern-card">
+    <div class="empty-icon success">
+      <i class='bx bx-check-circle'></i>
+    </div>
+    <h4>All caught up!</h4>
+    <p>No upcoming appointments scheduled for the next 7 days.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- PENDING FOLLOW-UPS SECTION -->
+{% if follow_ups %}
+<div class="followups-section">
+  <div class="section-title">
+    <i class='bx bx-plus-medical'></i>
+    <span>Pending Follow-ups</span>
+    <span class="section-badge warning">{{ follow_up_count }} pending</span>
+  </div>
+  
+  <div class="followups-list">
+    {% for followup in follow_ups %}
+    <div class="followup-item">
+      <div class="followup-icon">
+        <i class='bx bx-plus-medical'></i>
+      </div>
+      <div class="followup-content">
+        <div class="followup-title">
+          <strong>{{ followup.appointment.pet_name }}</strong>
+          <span class="followup-reason">{{ followup.title }}</span>
+        </div>
+        <div class="followup-meta">
+          <span><i class='bx bx-calendar'></i> Due: {{ followup.follow_up_date|date:"M j, Y" }}</span>
+          <span><i class='bx bx-user'></i> {{ followup.appointment.owner_name }}</span>
+        </div>
+      </div>
+      <div class="followup-due">
+        {% if followup.follow_up_date|is_today %}
+        <span class="due-badge today">Today</span>
+        {% elif followup.follow_up_date < today %}
+        <span class="due-badge overdue">Overdue</span>
+        {% else %}
+        <span class="due-badge upcoming">In {{ followup.follow_up_date|timeuntil }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODERN VET DASHBOARD STYLES -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<style>
+  /* ═══════════════════════════════════════════════ */
+  /* ROOT VARIABLES & ANIMATIONS */
+  /* ═══════════════════════════════════════════════ */
+  
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  
+  /* ═══════════════════════════════════════════════ */
+  /* SCROLL-TRIGGERED ANIMATIONS */
+  /* ═══════════════════════════════════════════════ */
+  
+  .portal-content {
+    overflow-x: hidden;
+  }
+  
+  .dash-fade {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s cubic-bezier(0.33, 1, 0.68, 1),
+                transform 0.7s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  .dash-fade.from-left {
+    transform: translateX(-24px);
+  }
+  .dash-fade.from-right {
+    transform: translateX(24px);
+  }
+
+  .dash-fade.visible {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  .dash-fade.stagger-1 { transition-delay: 0.06s; }
+  .dash-fade.stagger-2 { transition-delay: 0.12s; }
+  .dash-fade.stagger-3 { transition-delay: 0.18s; }
+  .dash-fade.stagger-4 { transition-delay: 0.24s; }
+  .dash-fade.stagger-5 { transition-delay: 0.30s; }
+  .dash-fade.stagger-6 { transition-delay: 0.36s; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* HERO STATS ROW */
+  /* ═══════════════════════════════════════════════ */
+  
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  
+  @media (max-width: 1200px) {
+    .hero-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 640px) {
+    .hero-stats { grid-template-columns: 1fr; }
+  }
+  
+  .hero-stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hero-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    opacity: 0;
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hero-stat-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary);
+  }
+  
+  .hero-stat-card:hover::before {
+    opacity: 1;
+  }
+  
+  .hero-stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hero-stat-icon i {
+    font-size: 26px;
+    color: white;
+  }
+  
+  .hero-stat-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+  .hero-stat-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+  .hero-stat-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+  .hero-stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  .hero-stat-icon.emerald { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+  .hero-stat-icon.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+  
+  .hero-stat-card:hover .hero-stat-icon {
+    transform: scale(1.15) rotate(-8deg);
+  }
+  
+  .hero-stat-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .hero-stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-1);
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+  
+  .hero-stat-label {
+    font-size: 13px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+  
+  .hero-stat-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  
+  .meta-item.success { color: #10b981; }
+  .meta-item.warning { color: #f59e0b; }
+  .meta-item.danger { color: #ef4444; }
+  
+  .meta-item i { font-size: 14px; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* ALERT BANNER MODERN */
+  /* ═══════════════════════════════════════════════ */
+  
+  .alert-banner-modern {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #fcd34d;
+    border-radius: 16px;
+    padding: 18px 24px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    position: relative;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .alert-icon {
+    width: 48px;
+    height: 48px;
+    background: #f59e0b;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .alert-icon i {
+    font-size: 24px;
+    color: white;
+  }
+  
+  .alert-content { flex: 1; }
+  
+  .alert-content h4 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #78350f;
+  }
+  
+  .alert-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  
+  .alert-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+  }
+  
+  .alert-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 20px;
+    color: #92400e;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .alert-close:hover { opacity: 1; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* CHARTS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .charts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 24px;
+  }
+  
+  .charts-row:nth-child(2) {
+    grid-template-columns: 1fr 1.5fr;
+  }
+  
+  @media (max-width: 992px) {
+    .charts-row,
+    .charts-row:nth-child(2) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .chart-card-modern {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .chart-card-modern:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
+    border-color: var(--primary);
+  }
+  
+  .chart-card-modern.full {
+    grid-column: 1 / -1;
+  }
+  
+  .chart-card-modern.large {
+    flex: 1.5;
+  }
+  
+  .chart-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .chart-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+  
+  .chart-title i {
+    font-size: 20px;
+    color: var(--primary);
+  }
+  
+  .chart-title span {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .chart-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .chart-badge.purple {
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+  }
+  
+  .chart-badge.teal {
+    background: rgba(0, 150, 136, 0.1);
+    color: #009688;
+  }
+  
+  .chart-badge.orange {
+    background: rgba(249, 115, 22, 0.1);
+    color: #f97316;
+  }
+  
+  .chart-badge.emerald {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .chart-card-modern:hover .chart-badge {
+    transform: scale(1.05);
+  }
+  
+  .chart-description {
+    padding: 0 24px;
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--text-3);
+    font-style: italic;
+  }
+  
+  .chart-body {
+    padding: 24px;
+    height: 280px;
+    position: relative;
+  }
+  
+  .chart-body.tall { height: 320px; }
+  .chart-body.wide { height: 260px; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* INSIGHTS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .insights-section {
+    margin-bottom: 32px;
+  }
+  
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .section-title i {
+    font-size: 22px;
+    color: var(--primary);
+  }
+  
+  .section-title span {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .section-link {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    transition: gap 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .section-link:hover { gap: 8px; }
+  
+  .section-badge {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(0, 150, 136, 0.1);
+    color: #009688;
+  }
+  
+  .section-badge.warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+  
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  
+  @media (max-width: 1100px) {
+    .insights-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 700px) {
+    .insights-grid { grid-template-columns: 1fr; }
+  }
+  
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 24px;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .insight-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary);
+  }
+  
+  .insight-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .insight-header i {
+    font-size: 20px;
+    color: var(--primary);
+  }
+  
+  .insight-header span {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .insight-metrics {
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+  }
+  
+  .metric-item {
+    flex: 1;
+    text-align: center;
+    padding: 14px 8px;
+    background: var(--bg);
+    border-radius: 12px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .metric-item:hover {
+    transform: translateY(-2px);
+  }
+  
+  .metric-value {
+    display: block;
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 4px;
+    letter-spacing: -1px;
+  }
+  
+  .metric-value.success { color: #10b981; }
+  .metric-value.blue { color: #3b82f6; }
+  .metric-value.purple { color: #8b5cf6; }
+  .metric-value.orange { color: #f59e0b; }
+  
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Clinical Metrics Specific Styles */
+  .clinical-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .clinical-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border-radius: 12px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .clinical-row:hover {
+    transform: translateX(4px);
+    background: rgba(0, 150, 136, 0.05);
+  }
+  
+  .clinical-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .clinical-icon i {
+    font-size: 18px;
+    color: white;
+  }
+  
+  .clinical-icon.surgery { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+  .clinical-icon.emergency { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+  .clinical-icon.vaccination { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  
+  .clinical-label {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .clinical-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--primary);
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* SCHEDULE SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .schedule-section,
+  .week-schedule-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 28px;
+  }
+  
+  .schedule-section > .section-title,
+  .week-schedule-section > .section-title {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  
+  .schedule-table-wrapper {
+    padding: 0;
+    overflow-x: auto;
+  }
+  
+  .schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .schedule-table th,
+  .schedule-table td {
+    padding: 16px 24px;
+    text-align: left;
+    font-size: 13px;
+  }
+  
+  .schedule-table thead {
+    background: var(--bg);
+  }
+  
+  .schedule-table th {
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  
+  .schedule-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.3s ease;
+  }
+  
+  .schedule-table tbody tr:hover {
+    background: rgba(0, 150, 136, 0.03);
+  }
+  
+  .schedule-table tbody tr:last-child {
+    border-bottom: none;
+  }
+  
+  .time-badge {
+    display: inline-flex;
+    padding: 6px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-weight: 600;
+    color: var(--text-1);
+    font-size: 12px;
+  }
+  
+  .patient-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .patient-info i {
+    font-size: 18px;
+    color: var(--primary);
+  }
+  
+  .branch-tag {
+    display: inline-flex;
+    padding: 4px 10px;
+    background: rgba(0, 150, 136, 0.1);
+    color: #009688;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .branch-tag.small {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+  
+  .reason-tag {
+    display: inline-flex;
+    padding: 4px 10px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .reason-tag.small {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+  
+  .status-pill {
+    display: inline-flex;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+  .status-pill.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .status-pill.confirmed { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .status-pill.completed { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+  .status-pill.cancelled { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+  .status-pill.no_show { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+  
+  /* Schedule-specific styles */
+  .day-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .day-name.today {
+    color: var(--primary);
+    font-weight: 700;
+  }
+  
+  .today-indicator {
+    display: inline-flex;
+    padding: 2px 8px;
+    background: linear-gradient(135deg, #009688 0%, #00796b 100%);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 10px;
+  }
+  
+  .date-badge {
+    display: inline-flex;
+    padding: 6px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  
+  .shift-pill {
+    display: inline-flex;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+  .shift-pill.regular { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+  .shift-pill.morning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .shift-pill.afternoon { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .shift-pill.night { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+  .shift-pill.emergency { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+  
+  .empty-schedule,
+  .empty-upcoming {
+    padding: 60px 24px;
+    text-align: center;
+  }
+  
+  .empty-schedule i,
+  .empty-upcoming i {
+    font-size: 48px;
+    color: var(--text-3);
+    margin-bottom: 16px;
+    display: block;
+  }
+  
+  .empty-schedule h4,
+  .empty-upcoming h4 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .empty-schedule p,
+  .empty-upcoming p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* UPCOMING APPOINTMENTS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .upcoming-section {
+    margin-bottom: 28px;
+  }
+  
+  .upcoming-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  
+  .upcoming-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    gap: 16px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .upcoming-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary);
+  }
+  
+  .upcoming-date {
+    width: 56px;
+    height: 64px;
+    background: linear-gradient(135deg, #009688 0%, #00796b 100%);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .upcoming-date .day {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    line-height: 1;
+  }
+  
+  .upcoming-date .month {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+  }
+  
+  .upcoming-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .upcoming-patient {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .upcoming-patient i {
+    font-size: 18px;
+    color: var(--primary);
+  }
+  
+  .upcoming-patient span {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .upcoming-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  
+  .upcoming-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  
+  .upcoming-meta i {
+    font-size: 14px;
+  }
+  
+  .upcoming-footer {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* FOLLOW-UPS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .followups-section {
+    margin-bottom: 28px;
+  }
+  
+  .followups-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .followup-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .followup-item:hover {
+    transform: translateX(4px);
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  }
+  
+  .followup-icon {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .followup-icon i {
+    font-size: 20px;
+    color: white;
+  }
+  
+  .followup-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .followup-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  
+  .followup-title strong {
+    font-size: 14px;
+    color: var(--text-1);
+  }
+  
+  .followup-reason {
+    font-size: 12px;
+    color: var(--text-3);
+    padding: 2px 8px;
+    background: var(--bg);
+    border-radius: 4px;
+  }
+  
+  .followup-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  
+  .followup-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  
+  .followup-meta i {
+    font-size: 14px;
+  }
+  
+  .followup-due {
+    flex-shrink: 0;
+  }
+  
+  .due-badge {
+    display: inline-flex;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+  .due-badge.today {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+  
+  .due-badge.overdue {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+  
+  .due-badge.upcoming {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* MODERN UPCOMING TIMELINE */
+  /* ═══════════════════════════════════════════════ */
+  
+  .upcoming-modern {
+    margin-bottom: 32px;
+  }
+  
+  .upcoming-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .upcoming-timeline-item {
+    display: flex;
+    align-items: stretch;
+    min-height: 100px;
+  }
+  
+  .timeline-date-block {
+    width: 70px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 8px;
+    background: linear-gradient(135deg, #009688 0%, #00796b 100%);
+    border-radius: 12px;
+    margin-right: 0;
+  }
+  
+  .timeline-day {
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    line-height: 1;
+  }
+  
+  .timeline-month {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  
+  .timeline-weekday {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    margin-top: 4px;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+  }
+  
+  .timeline-connector {
+    width: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  
+  .timeline-dot {
+    width: 14px;
+    height: 14px;
+    background: var(--primary);
+    border: 3px solid var(--surface);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.2);
+    margin-top: 20px;
+    z-index: 1;
+  }
+  
+  .timeline-line {
+    width: 2px;
+    flex: 1;
+    background: linear-gradient(180deg, var(--primary) 0%, var(--border) 100%);
+    margin-top: -2px;
+  }
+  
+  .upcoming-timeline-item:last-child .timeline-line {
+    display: none;
+  }
+  
+  .timeline-content {
+    flex: 1;
+    padding: 8px 0 20px 0;
+  }
+  
+  .timeline-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .timeline-card:hover {
+    transform: translateX(8px);
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(0, 150, 136, 0.1);
+  }
+  
+  .timeline-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  
+  .patient-avatar {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, rgba(0, 150, 136, 0.1) 0%, rgba(0, 150, 136, 0.05) 100%);
+    border: 2px solid rgba(0, 150, 136, 0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .patient-avatar i {
+    font-size: 22px;
+    color: var(--primary);
+  }
+  
+  .patient-details {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .patient-name {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+    margin-bottom: 2px;
+  }
+  
+  .owner-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  
+  .owner-name i {
+    font-size: 14px;
+  }
+  
+  .timeline-time {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--bg);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .timeline-time i {
+    font-size: 16px;
+    color: var(--primary);
+  }
+  
+  .timeline-footer {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* EMPTY STATE MODERN */
+  /* ═══════════════════════════════════════════════ */
+  
+  .empty-modern-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 60px 40px;
+    text-align: center;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.1) 0%, rgba(100, 116, 139, 0.05) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .empty-icon i {
+    font-size: 36px;
+    color: #64748b;
+  }
+  
+  .empty-icon.success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+  }
+  
+  .empty-icon.success i {
+    color: #10b981;
+  }
+  
+  .empty-modern-card h4 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .empty-modern-card p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-3);
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* RESPONSIVE STYLES */
+  /* ═══════════════════════════════════════════════ */
+  
+  @media (max-width: 768px) {
+    .upcoming-timeline-item {
+      flex-wrap: wrap;
+    }
+    
+    .timeline-date-block {
+      width: 60px;
+      padding: 12px 6px;
+    }
+    
+    .timeline-day {
+      font-size: 22px;
+    }
+    
+    .timeline-connector {
+      width: 30px;
+    }
+    
+    .timeline-card {
+      padding: 14px 16px;
+    }
+    
+    .timeline-header {
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .timeline-time {
+      width: 100%;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    
+    .schedule-table-wrapper {
+      overflow-x: auto;
+    }
+    
+    .schedule-table {
+      min-width: 600px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .timeline-date-block {
+      width: 50px;
+    }
+    
+    .timeline-day {
+      font-size: 20px;
+    }
+    
+    .timeline-month {
+      font-size: 10px;
+    }
+    
+    .timeline-weekday {
+      display: none;
+    }
+    
+    .timeline-connector {
+      width: 24px;
+    }
+    
+    .timeline-dot {
+      width: 10px;
+      height: 10px;
+    }
+    
+    .patient-avatar {
+      width: 36px;
+      height: 36px;
+    }
+    
+    .patient-avatar i {
+      font-size: 18px;
+    }
+    
+    .patient-name {
+      font-size: 14px;
+    }
+    
+    .empty-modern-card {
+      padding: 40px 24px;
+    }
+    
+    .empty-icon {
+      width: 60px;
+      height: 60px;
+    }
+    
+    .empty-icon i {
+      font-size: 28px;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* DARK MODE ADJUSTMENTS */
+  /* ═══════════════════════════════════════════════ */
+  
+  [data-theme="dark"] .alert-banner-modern {
+    background: linear-gradient(135deg, #422006 0%, #713f12 100%);
+    border-color: #a16207;
+  }
+  
+  [data-theme="dark"] .alert-content h4 { color: #fef3c7; }
+  [data-theme="dark"] .alert-item { color: #fde68a; background: rgba(0,0,0,0.2); }
+  [data-theme="dark"] .alert-close { color: #fde68a; }
+  
+  [data-theme="dark"] .timeline-card {
+    background: var(--surface);
+  }
+  
+  [data-theme="dark"] .empty-modern-card {
+    background: var(--surface);
+  }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // SCROLL-TRIGGERED ANIMATIONS
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  function initDashboardAnimations() {
+    // Hero stat cards — staggered fade up
+    document.querySelectorAll('.hero-stat-card').forEach((card, i) => {
+      card.classList.add('dash-fade', `stagger-${i + 1}`);
+    });
+    
+    // Alert banner
+    const alert = document.querySelector('.alert-banner-modern');
+    if (alert) alert.classList.add('dash-fade');
+    
+    // Chart cards — alternate left/right per row
+    document.querySelectorAll('.charts-row').forEach(row => {
+      const cards = row.querySelectorAll('.chart-card-modern');
+      cards.forEach((card, i) => {
+        card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
+        if (i > 0) card.classList.add('stagger-2');
+      });
+    });
+    
+    // Section titles
+    document.querySelectorAll('.insights-section > .section-title').forEach(el => {
+      el.classList.add('dash-fade', 'from-left');
+    });
+    document.querySelectorAll('.schedule-section > .section-title').forEach(el => {
+      el.classList.add('dash-fade', 'from-left');
+    });
+    document.querySelectorAll('.week-schedule-section > .section-title').forEach(el => {
+      el.classList.add('dash-fade', 'from-left');
+    });
+    document.querySelectorAll('.upcoming-section > .section-title').forEach(el => {
+      el.classList.add('dash-fade', 'from-left');
+    });
+    document.querySelectorAll('.followups-section > .section-title').forEach(el => {
+      el.classList.add('dash-fade', 'from-left');
+    });
+    
+    // Insight cards — staggered
+    document.querySelectorAll('.insight-card').forEach((card, i) => {
+      card.classList.add('dash-fade', `stagger-${i + 1}`);
+    });
+    
+    // Schedule sections
+    document.querySelectorAll('.schedule-section').forEach(el => {
+      el.classList.add('dash-fade');
+    });
+    
+    // Table rows
+    document.querySelectorAll('.schedule-table tbody tr').forEach((row, i) => {
+      row.classList.add('dash-fade', `stagger-${Math.min(i + 1, 6)}`);
+    });
+    
+    // Upcoming timeline items (new modern design)
+    document.querySelectorAll('.upcoming-modern').forEach(el => {
+      el.classList.add('dash-fade');
+    });
+    
+    document.querySelectorAll('.upcoming-timeline-item').forEach((item, i) => {
+      item.classList.add('dash-fade', 'from-right', `stagger-${Math.min(i + 1, 6)}`);
+    });
+    
+    // Followup items
+    document.querySelectorAll('.followup-item').forEach((item, i) => {
+      item.classList.add('dash-fade', 'from-right', `stagger-${Math.min(i + 1, 6)}`);
+    });
+    
+    // Empty state cards
+    document.querySelectorAll('.empty-modern-card, .empty-schedule').forEach(el => {
+      el.classList.add('dash-fade');
+    });
+  }
+
+  // Initialize animations
+  initDashboardAnimations();
+  
+  function startDashAnimations() {
+    const allFades = Array.from(document.querySelectorAll('.dash-fade'));
+    
+    function isInView(el) {
+      const r = el.getBoundingClientRect();
+      return r.top < window.innerHeight && r.bottom > 0;
+    }
+    
+    function getStaggerMs(el) {
+      return Math.round((parseFloat(getComputedStyle(el).transitionDelay) || 0) * 1000);
+    }
+    
+    function revealEl(el, extraDelay) {
+      const stagger = getStaggerMs(el);
+      const total = extraDelay + stagger;
+      setTimeout(() => el.classList.add('visible'), total);
+      el.querySelectorAll('canvas').forEach(canvas => {
+        const chart = Chart.getChart(canvas);
+        if (chart) setTimeout(() => { chart.reset(); chart.update(); }, total + 350);
+      });
+    }
+    
+    const inView = allFades.filter(isInView);
+    const offScreen = allFades.filter(el => !isInView(el));
+    
+    inView.forEach(el => revealEl(el, 80));
+    
+    if (offScreen.length) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            revealEl(entry.target, 0);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { root: null, threshold: 0.05, rootMargin: '0px' });
+      offScreen.forEach(el => observer.observe(el));
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART.JS CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  Chart.defaults.color = 'var(--text-3, #94a3b8)';
+  
+  const commonTooltip = {
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    titleColor: '#f8fafc',
+    bodyColor: '#cbd5e1',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    padding: 12,
+    boxPadding: 6,
+    usePointStyle: true,
+    cornerRadius: 12,
+    titleFont: { size: 14, weight: '600' },
+    bodyFont: { size: 13 },
+    displayColors: true
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 1: WEEKLY WORKLOAD (Bar Chart - This Week)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const weeklyWorkloadCtx = document.getElementById('weeklyWorkloadChart');
+  if (weeklyWorkloadCtx) {
+    // Generate this week's days labels
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - dayOfWeek);
+    
+    const weekDays = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // Real workload data from backend
+    const workloadData = {{ weekly_workload|safe }};
+    
+    for (let i = 0; i < 7; i++) {
+      weekDays.push(dayNames[i]);
+    }
+    
+    const gradient = weeklyWorkloadCtx.getContext('2d').createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, '#009688');
+    gradient.addColorStop(1, '#00bcd4');
+
+    new Chart(weeklyWorkloadCtx, {
+      type: 'bar',
+      data: {
+        labels: weekDays,
+        datasets: [{
+          label: 'Appointments',
+          data: workloadData,
+          backgroundColor: function(context) {
+            const index = context.dataIndex;
+            if (index === dayOfWeek) {
+              return '#009688';
+            }
+            return 'rgba(0, 150, 136, 0.5)';
+          },
+          borderRadius: 8,
+          borderSkipped: false,
+          barThickness: 36,
+          maxBarThickness: 44
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              title: function(items) {
+                const i = items[0].dataIndex;
+                if (i === dayOfWeek) return items[0].label + ' (Today)';
+                return items[0].label;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { 
+              font: { size: 12, weight: '600' },
+              callback: function(value, index) {
+                return index === dayOfWeek ? '🟢 ' + dayNames[index] : dayNames[index];
+              }
+            }
+          },
+          y: { 
+            beginAtZero: true, 
+            grid: { color: 'rgba(0, 0, 0, 0.05)', drawBorder: false, borderDash: [5, 5] },
+            ticks: { 
+              font: { size: 11 },
+              precision: 0
+            } 
+          }
+        },
+        animation: {
+          duration: 1500,
+          easing: 'easeInOutCubic',
+          delay(ctx) {
+            return ctx.type === 'data' ? ctx.dataIndex * 120 : 0;
+          }
+        }
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 2: APPOINTMENT TYPES (Doughnut)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const appointmentTypesCtx = document.getElementById('appointmentTypesChart');
+  if (appointmentTypesCtx) {
+    const appointmentData = [
+      { label: 'Check-up', value: {{ completed_consultations|default:0 }}, color: '#10b981' },
+      { label: 'Vaccination', value: {{ vaccinations_count|default:0 }}, color: '#f59e0b' },
+      { label: 'Surgery', value: {{ surgeries_this_month|default:0 }}, color: '#8b5cf6' },
+      { label: 'Emergency', value: {{ emergency_cases|default:0 }}, color: '#ef4444' },
+      { label: 'Follow-up', value: {{ follow_up_count|default:0 }}, color: '#3b82f6' }
+    ].filter(item => item.value > 0);
+    
+    const totalAppointments = appointmentData.reduce((sum, item) => sum + item.value, 0);
+    
+    // Center text plugin
+    const centerTextPlugin = {
+      id: 'appointmentCenterText',
+      beforeDraw: function(chart) {
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+        ctx.save();
+        const centerX = (chartArea.left + chartArea.right) / 2;
+        const centerY = (chartArea.top + chartArea.bottom) / 2;
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        ctx.font = 'bold 28px Inter, sans-serif';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-1') || '#1e293b';
+        ctx.fillText(totalAppointments.toString(), centerX, centerY - 8);
+        
+        ctx.font = '500 12px Inter, sans-serif';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-3') || '#94a3b8';
+        ctx.fillText('This Month', centerX, centerY + 16);
+        ctx.restore();
+      }
+    };
+    
+    new Chart(appointmentTypesCtx, {
+      type: 'doughnut',
+      plugins: [centerTextPlugin],
+      data: {
+        labels: appointmentData.map(item => item.label),
+        datasets: [{
+          data: appointmentData.map(item => item.value),
+          backgroundColor: appointmentData.map(item => item.color),
+          borderColor: 'rgba(255, 255, 255, 0.8)',
+          borderWidth: 3,
+          hoverOffset: 12,
+          borderRadius: 6,
+          spacing: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle',
+              padding: 16,
+              font: { size: 11, weight: '600' },
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => ({
+                  text: `${label} (${data.datasets[0].data[i]})`,
+                  fillStyle: data.datasets[0].backgroundColor[i],
+                  strokeStyle: data.datasets[0].backgroundColor[i],
+                  lineWidth: 0,
+                  pointStyle: 'circle',
+                  hidden: false,
+                  index: i
+                }));
+              }
+            }
+          },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                const percent = totalAppointments > 0 ? ((context.raw / totalAppointments) * 100).toFixed(1) : 0;
+                return `${context.label}: ${context.raw} (${percent}%)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 1500,
+          easing: 'easeInOutCubic'
+        }
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 3: PATIENT HEALTH STATUS (Doughnut)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const patientHealthCtx = document.getElementById('patientHealthChart');
+  if (patientHealthCtx) {
+    const healthData = [
+      {% for status in patient_status_distribution %}
+      { label: '{{ status.status }}', value: {{ status.count }} },
+      {% endfor %}
+    ];
+    
+    const healthColors = {
+      'HEALTHY': '#10b981',
+      'UNDER_TREATMENT': '#f59e0b',
+      'RECOVERING': '#3b82f6',
+      'CRITICAL': '#ef4444',
+      'DECEASED': '#64748b'
+    };
+    
+    const totalPatients = healthData.reduce((sum, item) => sum + item.value, 0);
+    
+    // Center text plugin for health chart
+    const healthCenterPlugin = {
+      id: 'healthCenterText',
+      beforeDraw: function(chart) {
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+        ctx.save();
+        const centerX = (chartArea.left + chartArea.right) / 2;
+        const centerY = (chartArea.top + chartArea.bottom) / 2;
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        ctx.font = 'bold 28px Inter, sans-serif';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-1') || '#1e293b';
+        ctx.fillText(totalPatients.toString(), centerX, centerY - 8);
+        
+        ctx.font = '500 12px Inter, sans-serif';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-3') || '#94a3b8';
+        ctx.fillText('Patients', centerX, centerY + 16);
+        ctx.restore();
+      }
+    };
+    
+    new Chart(patientHealthCtx, {
+      type: 'doughnut',
+      plugins: [healthCenterPlugin],
+      data: {
+        labels: healthData.map(item => item.label.replace('_', ' ')),
+        datasets: [{
+          data: healthData.map(item => item.value),
+          backgroundColor: healthData.map(item => healthColors[item.label] || '#94a3b8'),
+          borderColor: 'rgba(255, 255, 255, 0.8)',
+          borderWidth: 3,
+          hoverOffset: 12,
+          borderRadius: 6,
+          spacing: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle',
+              padding: 14,
+              font: { size: 10, weight: '600' }
+            }
+          },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                const percent = totalPatients > 0 ? ((context.raw / totalPatients) * 100).toFixed(1) : 0;
+                return `${context.label}: ${context.raw} (${percent}%)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 1500,
+          easing: 'easeInOutCubic'
+        }
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 4: MONTHLY PERFORMANCE (Line Chart)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const monthlyPerformanceCtx = document.getElementById('monthlyPerformanceChart');
+  if (monthlyPerformanceCtx) {
+    // Real data from backend
+    const months = {{ monthly_labels|safe }};
+    const consultationsData = {{ monthly_consultations|safe }};
+    const patientsData = {{ monthly_patients|safe }};
+    
+    const consultGradient = monthlyPerformanceCtx.getContext('2d').createLinearGradient(0, 0, 0, 280);
+    consultGradient.addColorStop(0, 'rgba(0, 150, 136, 0.3)');
+    consultGradient.addColorStop(1, 'rgba(0, 150, 136, 0.0)');
+    
+    const patientGradient = monthlyPerformanceCtx.getContext('2d').createLinearGradient(0, 0, 0, 280);
+    patientGradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+    patientGradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+    new Chart(monthlyPerformanceCtx, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [{
+          label: 'Consultations',
+          data: consultationsData,
+          borderColor: '#009688',
+          backgroundColor: consultGradient,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          pointBackgroundColor: '#009688',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }, {
+          label: 'Patients',
+          data: patientsData,
+          borderColor: '#3b82f6',
+          backgroundColor: patientGradient,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          pointBackgroundColor: '#3b82f6',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { 
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle',
+              padding: 20,
+              font: { size: 11, weight: '600' }
+            }
+          },
+          tooltip: commonTooltip
+        },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { font: { size: 12, weight: '500' } }
+          },
+          y: { 
+            beginAtZero: true, 
+            grid: { color: 'rgba(0, 0, 0, 0.05)', drawBorder: false, borderDash: [5, 5] },
+            ticks: { 
+              font: { size: 11 },
+              precision: 0
+            } 
+          }
+        },
+        animation: {
+          duration: 1800,
+          easing: 'easeInOutCubic',
+          delay(ctx) {
+            return ctx.type === 'data' ? ctx.dataIndex * 100 : 0;
+          }
+        }
+      }
+    });
+  }
+
+  // Start all animations after charts are ready
+  setTimeout(startDashAnimations, 100);
+});
+</script>
+
+{% endblock %}

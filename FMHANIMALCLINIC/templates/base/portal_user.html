@@ -1,0 +1,292 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Dashboard{% endblock %} — FMHSYNC</title>
+  <link rel="icon" type="image/png" href="{% static 'image/fmh-logo.png' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/base/messages.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base/searchable-dropdown.css' %}">
+  <link rel="stylesheet" href="{% static 'css/accounts/portal_shared.css' %}">
+  <link rel="stylesheet" href="{% static 'css/accounts/portal_user.css' %}">
+  <link rel="stylesheet" href="{% static 'css/accounts/dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'css/components/tab_bar.css' %}">
+  <link rel="stylesheet" href="{% static 'css/components/filter_bar.css' %}">
+  <link rel="stylesheet" href="{% static 'css/components/modern_pagination.css' %}">
+</head>
+<body class="user-portal">
+
+<!-- Global Toast Messages -->
+{% if messages %}
+<div class="portal-messages" id="portalMessages">
+  {% for message in messages %}
+  <div class="portal-message {{ message.tags }}">
+    {% if 'success' in message.tags %}<i class='bx bx-check-circle'></i>
+    {% elif 'error' in message.tags or 'danger' in message.tags %}<i class='bx bx-error-circle'></i>
+    {% elif 'warning' in message.tags %}<i class='bx bx-error-alt'></i>
+    {% else %}<i class='bx bx-info-circle'></i>{% endif %}
+    
+    <div>
+      <strong>
+        {% if 'success' in message.tags %}Success
+        {% elif 'error' in message.tags or 'danger' in message.tags %}Error
+        {% elif 'warning' in message.tags %}Warning
+        {% else %}Information{% endif %}
+      </strong>
+      <span>{{ message }}</span>
+    </div>
+
+    <button class="portal-message-close" onclick="this.parentElement.remove()"><i class='bx bx-x'></i></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+<div class="portal-wrapper" id="portalWrapper">
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- ====== TOP NAVBAR (transparent, bubble type) ====== -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+          <i class='bx bx-menu'></i>
+        </button>
+    </div>
+
+    <div class="topbar-right">
+
+      <a href="{% url 'landing_page' %}" class="topbar-icon-btn" title="Home">
+        <i class='bx bx-home-alt'></i>
+      </a>
+      <div class="topbar-notif-container" style="position: relative;">
+        <button class="topbar-icon-btn" id="notifDropdownBtn" title="Notifications">
+          <i class='bx bx-bell'></i>
+          {% if unread_notifications_count > 0 %}
+          <span class="notif-dot"></span>
+          {% endif %}
+        </button>
+
+        <!-- Notification Dropdown Menu -->
+        <div class="topbar-dropdown notif-dropdown" id="notifDropdown">
+          <div class="dropdown-header">
+            <strong><i class='bx bx-bell'></i> Recent Notifications</strong>
+          </div>
+          <div class="dropdown-divider"></div>
+          <div class="notif-list">
+            {% if recent_notifications %}
+              {% for notif in recent_notifications %}
+              <div class="notif-item">
+                <div class="notif-icon">
+                  <i class='bx bx-info-circle'></i>
+                </div>
+                <div class="notif-content">
+                  <div class="notif-title-row">
+                    <span class="notif-title">{{ notif.title }}</span>
+                    <span class="notif-time">{{ notif.created_at|timesince }} ago</span>
+                  </div>
+                  <span class="notif-msg">{{ notif.message|truncatechars:50 }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="notif-empty">No unread notifications</div>
+            {% endif %}
+          </div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-footer">
+            <a href="{% url 'notifications:notification_list' %}" class="dropdown-item" style="justify-content: center; color: var(--primary);">View All</a>
+          </div>
+        </div>
+      </div>
+      <button class="topbar-icon-btn" id="themeToggleBtn" title="Theme">
+        <i class='bx bx-sun'></i>
+      </button>
+      <div class="topbar-profile-container">
+        <div class="topbar-profile" id="profileDropdownBtn" title="{{ user.get_full_name|default:user.username }}">
+          <div class="topbar-avatar">
+            {% if user.profile_picture %}
+              <img src="{{ user.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            {% elif user.first_name %}
+              {{ user.first_name|make_list|first|upper }}
+            {% elif user.username %}
+              {{ user.username|make_list|first|upper }}
+            {% else %}
+              <i class='bx bxs-user'></i>
+            {% endif %}
+          </div>
+          <span class="topbar-name">
+            {{ user.get_full_name|default:user.username }}
+          </span>
+          <i class='bx bx-chevron-down topbar-chevron'></i>
+        </div>
+        
+        <!-- Profile Dropdown Menu -->
+        <div class="topbar-dropdown" id="profileDropdown">
+          <div class="dropdown-header">
+            <div class="topbar-avatar large">
+              {% if user.profile_picture %}
+                <img src="{{ user.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              {% elif user.first_name %}
+                {{ user.first_name|make_list|first|upper }}
+              {% elif user.username %}
+                {{ user.username|make_list|first|upper }}
+              {% else %}
+                <i class='bx bxs-user'></i>
+              {% endif %}
+            </div>
+            <div class="dropdown-user-info">
+              <strong>
+                {{ user.get_full_name|default:user.username }}
+              </strong>
+              <span>{{ user.email }}</span>
+              <span class="role-badge">{{ user.get_display_role }}</span>
+            </div>
+          </div>
+          <div class="dropdown-divider"></div>
+          <a href="{% url 'profile' %}" class="dropdown-item">
+            <i class='bx bx-user'></i> My Profile
+          </a>
+          <a href="#" class="dropdown-item">
+            <i class='bx bx-cog'></i> Settings
+          </a>
+          <div class="dropdown-divider"></div>
+          <form action="{% url 'logout' %}" method="post" class="dropdown-logout-form">
+            {% csrf_token %}
+            <button type="submit" class="dropdown-item text-danger">
+              <i class='bx bx-log-out'></i> Log Out
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ====== LEFT SIDEBAR ====== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a href="{% url 'user_dashboard' %}" class="sidebar-logo">
+        <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo">
+        <span>FMHSYNC</span>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="{% url 'user_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'user_dashboard' %}active{% endif %}">
+        <i class='bx bx-grid-alt'></i><span>Dashboard</span>
+      </a>
+      <a href="{% url 'patients:my_pets' %}" class="sidebar-link {% if 'patients' in request.resolver_match.app_name %}active{% endif %}">
+        <i class='bx bxs-dog'></i>
+        <span style="flex-grow: 1;">Pets</span>
+        {% if user_pets_count %}
+        <span class="badge" style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: auto;">{{ user_pets_count }}</span>
+        {% endif %}
+      </a>
+      <a href="{% url 'appointments:my_appointments' %}" class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}">
+        <i class='bx bx-calendar-check'></i><span>Appointments</span>
+      </a>
+      <a href="{% url 'inventory:catalog' %}" class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}">
+        <i class='bx bx-cart'></i><span>Digital Catalog</span>
+      </a>
+      <a href="{% url 'billing:my_statements' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_statements' or request.resolver_match.url_name == 'my_statement_detail' %}active{% endif %}">
+        <i class='bx bx-receipt'></i><span>Statement of Account</span>
+      </a>
+      <a href="{% url 'notifications:notification_list' %}" class="sidebar-link {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}">
+        <i class='bx bx-bell'></i><span>Notification</span>
+      </a>
+      <a href="{% url 'profile' %}" class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+        <i class='bx bx-user'></i><span>My Profile</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="{% url 'logout' %}" class="sidebar-link">
+        <i class='bx bx-log-out'></i><span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ====== CONTENT ====== -->
+  <main class="portal-content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<!-- Portal JS -->
+<script src="{% static 'js/accounts/portal.js' %}"></script>
+<!-- Searchable Dropdown -->
+<script src="{% static 'js/base/searchable-dropdown.js' %}"></script>
+<!-- Global Messages JS -->
+<script src="{% static 'js/base/messages.js' %}"></script>
+<!-- Component: Tab Bar -->
+<script src="{% static 'js/components/tab_bar.js' %}"></script>
+<!-- Component: Filter Bar -->
+<script src="{% static 'js/components/filter_bar.js' %}"></script>
+
+<!-- Dashboard Auto-Refresh: Keeps all portals synchronized -->
+<script>
+(function() {
+  // Auto-refresh dashboard pages every 60 seconds to sync data across portals
+  const isDashboardPage = window.location.pathname.includes('dashboard');
+  const REFRESH_INTERVAL = 60000; // 60 seconds
+  let lastActivity = Date.now();
+  let refreshTimer = null;
+  
+  // Track user activity to avoid refreshing during active use
+  function updateActivity() {
+    lastActivity = Date.now();
+  }
+  
+  // Check if user has been idle for at least 30 seconds before refreshing
+  function shouldRefresh() {
+    const idleTime = Date.now() - lastActivity;
+    return idleTime >= 30000; // 30 seconds idle
+  }
+  
+  // Refresh dashboard data without full page reload (if AJAX endpoint available)
+  // Falls back to soft page reload for complete sync
+  function refreshDashboard() {
+    if (!shouldRefresh()) {
+      // User is active, skip this refresh cycle
+      return;
+    }
+    
+    // Show subtle refresh indicator
+    const indicator = document.createElement('div');
+    indicator.id = 'sync-indicator';
+    indicator.innerHTML = '<i class="bx bx-refresh bx-spin"></i> Syncing...';
+    indicator.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--primary,#009688);color:white;padding:8px 16px;border-radius:20px;font-size:12px;z-index:9999;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+    document.body.appendChild(indicator);
+    
+    // Reload page to get fresh data from all sources
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  }
+  
+  // Only enable auto-refresh on dashboard pages
+  if (isDashboardPage) {
+    // Track user activity
+    ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(event => {
+      document.addEventListener(event, updateActivity, { passive: true });
+    });
+    
+    // Start refresh timer
+    refreshTimer = setInterval(refreshDashboard, REFRESH_INTERVAL);
+    
+    // Also refresh when tab becomes visible (user returns to tab)
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        const timeSinceActivity = Date.now() - lastActivity;
+        // If user has been away for more than 2 minutes, refresh immediately
+        if (timeSinceActivity > 120000) {
+          refreshDashboard();
+        }
+      }
+    });
+    
+    console.log('[FMH-SYNC] Dashboard auto-refresh enabled (60s interval)');
+  }
+})();
+</script>
+</body>
+</html>

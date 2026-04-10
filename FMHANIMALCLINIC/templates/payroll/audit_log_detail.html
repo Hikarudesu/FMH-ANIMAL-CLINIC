@@ -1,0 +1,411 @@
+{% extends 'payroll/base.html' %}
+{% load static %}
+
+{% block title %}Audit Log Detail - Payroll{% endblock %}
+
+{% block payroll_content %}
+<style>
+  .detail-container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  
+  .detail-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .detail-title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .detail-title i {
+    font-size: 2rem;
+    color: var(--primary);
+  }
+  
+  .detail-title h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-1);
+    font-weight: 700;
+  }
+  
+  .back-link {
+    padding: 10px 16px;
+    background: var(--bg);
+    color: var(--text-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .back-link:hover {
+    background: var(--surface);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  
+  .detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  
+  .detail-card h2 {
+    margin: 0 0 16px 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .detail-card h2 i {
+    color: var(--primary);
+  }
+  
+  .detail-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+  
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+  
+  .detail-label {
+    font-weight: 600;
+    color: var(--text-2);
+    font-size: 0.9rem;
+  }
+  
+  .detail-value {
+    color: var(--text-1);
+    font-size: 0.95rem;
+    word-break: break-all;
+  }
+  
+  .action-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    width: fit-content;
+  }
+  
+  .action-badge.period-created {
+    background: rgba(79, 70, 229, 0.1);
+    color: #4f46e5;
+  }
+  
+  .action-badge.payslip-edited {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+  
+  .action-badge.payslip-released {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .action-badge.salary-updated {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+  
+  .action-badge.bulk-release {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+  }
+  
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  
+  .user-details strong {
+    display: block;
+    color: var(--text-1);
+  }
+  
+  .user-details small {
+    display: block;
+    color: var(--text-3);
+    font-size: 0.85rem;
+    margin-top: 2px;
+  }
+  
+  .metadata-item {
+    background: var(--bg);
+    border-left: 4px solid var(--primary);
+    padding: 12px;
+    border-radius: 4px;
+    margin: 8px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--text-1);
+  }
+  
+  .related-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .related-item {
+    background: var(--bg);
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 4px solid var(--primary);
+  }
+  
+  .related-item-label {
+    font-weight: 600;
+    color: var(--text-2);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .related-item-value {
+    color: var(--text-1);
+    margin-top: 4px;
+  }
+  
+  .related-item-link {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 6px 12px;
+    background: var(--primary);
+    color: white;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: opacity 0.2s;
+  }
+  
+  .related-item-link:hover {
+    opacity: 0.9;
+  }
+  
+  .timestamp-large {
+    font-size: 1.1rem;
+    color: var(--primary);
+    font-weight: 600;
+  }
+</style>
+
+<div class="detail-container">
+  <!-- Header -->
+  <div class="detail-header">
+    <div class="detail-title">
+      <i class='bx bx-shield-quarter'></i>
+      <div>
+        <h1>Audit Log Details</h1>
+      </div>
+    </div>
+    <a href="{% url 'payroll:audit_log' %}" class="back-link">
+      <i class='bx bx-left-arrow-alt'></i> Back to Audit Log
+    </a>
+  </div>
+  
+  <!-- Action Information -->
+  <div class="detail-card">
+    <h2>
+      <i class='bx bx-info-circle'></i>
+      Action Details
+    </h2>
+    
+    <div class="detail-row">
+      <div class="detail-label">Action Type:</div>
+      <div class="detail-value">
+        <span class="action-badge 
+          {% if log.action_type == 'PERIOD_CREATED' %}period-created
+          {% elif log.action_type == 'PAYSLIP_EDITED' %}payslip-edited
+          {% elif log.action_type == 'PAYSLIP_RELEASED' %}payslip-released
+          {% elif log.action_type == 'VET_SALARY_UPDATED' %}salary-updated
+          {% elif log.action_type == 'BULK_RELEASE' %}bulk-release
+          {% endif %}">
+          {% if log.action_type == 'PERIOD_CREATED' %}
+            <i class='bx bx-calendar-plus'></i> Period Created
+          {% elif log.action_type == 'PAYSLIP_EDITED' %}
+            <i class='bx bx-edit'></i> Payslip Edited
+          {% elif log.action_type == 'PAYSLIP_RELEASED' %}
+            <i class='bx bx-check-circle'></i> Payslip Released
+          {% elif log.action_type == 'VET_SALARY_UPDATED' %}
+            <i class='bx bx-dollar'></i> Salary Updated
+          {% elif log.action_type == 'BULK_RELEASE' %}
+            <i class='bx bx-send'></i> Bulk Release
+          {% elif log.action_type == 'PERIOD_GENERATED' %}
+            <i class='bx bx-cog'></i> Payslips Generated
+          {% elif log.action_type == 'PERIOD_RELEASED' %}
+            <i class='bx bx-check-double'></i> Payroll Released
+          {% else %}
+            <i class='bx bx-info-circle'></i> {{ log.get_action_type_display }}
+          {% endif %}
+        </span>
+      </div>
+    </div>
+    
+    <div class="detail-row">
+      <div class="detail-label">Timestamp:</div>
+      <div class="detail-value">
+        <span class="timestamp-large">{{ log.created_at|date:"M d, Y • h:i A" }}</span>
+      </div>
+    </div>
+    
+    <div class="detail-row">
+      <div class="detail-label">Description:</div>
+      <div class="detail-value">{{ log.description }}</div>
+    </div>
+  </div>
+  
+  <!-- User Information -->
+  <div class="detail-card">
+    <h2>
+      <i class='bx bx-user'></i>
+      Performed By
+    </h2>
+    
+    <div class="detail-row">
+      <div class="detail-label">User:</div>
+      <div class="detail-value">
+        <div class="user-info">
+          <div class="user-avatar">
+            {{ log.user.first_name|slice:":1"|upper }}{{ log.user.last_name|slice:":1"|upper }}
+          </div>
+          <div class="user-details">
+            <strong>{{ log.user.get_full_name|default:log.user.username }}</strong>
+            <small>{{ log.user.email }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="detail-row">
+      <div class="detail-label">IP Address:</div>
+      <div class="detail-value">
+        {% if log.ip_address %}
+          <span style="font-family: monospace; background: var(--bg); padding: 4px 8px; border-radius: 4px;">{{ log.ip_address }}</span>
+        {% else %}
+          <span style="color: var(--text-3);">Not recorded</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <!-- Related Records -->
+  {% if log.staff_member or log.payslip or log.payroll_period %}
+  <div class="detail-card">
+    <h2>
+      <i class='bx bx-link'></i>
+      Related Records
+    </h2>
+    
+    <div class="related-items">
+      {% if log.staff_member %}
+      <div class="related-item">
+        <div class="related-item-label">Staff Member</div>
+        <div class="related-item-value">
+          {{ log.staff_member.full_name }}
+          <a href="{% url 'payroll:vet_detail' log.staff_member.id %}" class="related-item-link">
+            <i class='bx bx-external-link-alt'></i> View Details
+          </a>
+        </div>
+      </div>
+      {% endif %}
+      
+      {% if log.payslip %}
+      <div class="related-item">
+        <div class="related-item-label">Payslip</div>
+        <div class="related-item-value">
+          Payslip #{{ log.payslip.id }} - {{ log.payslip.employee.full_name }}
+          <br>
+          <small style="color: var(--text-3);">{{ log.payslip.payroll_period.period_display }}</small>
+          <a href="{% url 'payroll:payslip_edit' log.payslip.id %}" class="related-item-link">
+            <i class='bx bx-external-link-alt'></i> View Payslip
+          </a>
+        </div>
+      </div>
+      {% endif %}
+      
+      {% if log.payroll_period %}
+      <div class="related-item">
+        <div class="related-item-label">Payroll Period</div>
+        <div class="related-item-value">
+          {{ log.payroll_period.period_display }}
+          <br>
+          <small style="color: var(--text-3);">Status: <strong>{{ log.payroll_period.status }}</strong></small>
+          <a href="{% url 'payroll:payslips' log.payroll_period.id %}" class="related-item-link">
+            <i class='bx bx-external-link-alt'></i> View Payslips
+          </a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- Metadata -->
+  {% if log.metadata %}
+  <div class="detail-card">
+    <h2>
+      <i class='bx bx-code'></i>
+      Additional Information
+    </h2>
+    
+    <div style="background: var(--bg); padding: 16px; border-radius: 6px; border-left: 4px solid var(--primary); overflow-x: auto;">
+      {% if log.metadata %}
+        {% for key, value in log.metadata.items %}
+        <div class="detail-row" style="padding: 8px 0;">
+          <div class="detail-label">{{ key|title }}:</div>
+          <div class="detail-value">{{ value }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <span style="color: var(--text-3);">No additional data recorded</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

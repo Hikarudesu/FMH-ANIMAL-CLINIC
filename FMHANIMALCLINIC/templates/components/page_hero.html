@@ -1,0 +1,41 @@
+{% comment %}
+Page Hero Component - Unified hero section with themed background icons
+Usage: 
+  {% include "components/page_hero.html" with title="Patients" icon="bxs-dog" %}
+  {% include "components/page_hero.html" with title="Activity Logs" icon="bx-history" action_button_label="Clear Logs" action_button_icon="bx-trash" action_button_onclick="openClearModal()" action_button_class="danger" %}
+{% endcomment %}
+
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1>
+        {% if icon %}<i class='bx {{ icon }}'></i>{% endif %}
+        {{ title }}
+      </h1>
+      {% if subtitle %}<p>{{ subtitle|safe }}</p>{% endif %}
+    </div>
+    {% if action_url or action_url_2 or action_button or action_button_label %}
+    <div class="page-hero-actions">
+      {% if action_url %}
+        <a href="{{ action_url }}" class="page-hero-btn">
+          {% if action_icon %}<i class='bx {{ action_icon }}'></i>{% endif %}
+          {{ action_label|default:"Action" }}
+        </a>
+      {% endif %}
+      {% if action_url_2 %}
+        <a href="{{ action_url_2 }}" class="page-hero-btn">
+          {% if action_icon_2 %}<i class='bx {{ action_icon_2 }}'></i>{% endif %}
+          {{ action_label_2|default:"Action" }}
+        </a>
+      {% endif %}
+      {% if action_button_label %}
+        <button type="button" class="page-hero-btn {% if action_button_class %}{{ action_button_class }}{% endif %}" {% if action_button_onclick %}onclick="{{ action_button_onclick }}"{% endif %}>
+          {% if action_button_icon %}<i class='bx {{ action_button_icon }}'></i>{% endif %}
+          {{ action_button_label }}
+        </button>
+      {% endif %}
+      {% if action_button %}{{ action_button }}{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>

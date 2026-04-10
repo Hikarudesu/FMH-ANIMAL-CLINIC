@@ -1,0 +1,498 @@
+{% extends 'base/portal_admin.html' %}
+{% load permission_tags %}
+
+{% block title %}Roles & Permissions{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-shield-quarter'></i> Roles & Permissions</h1>
+      <p>Define access levels and manage user permissions</p>
+    </div>
+    <div class="page-hero-actions">
+      {% if user|has_module_permission:'staff:EDIT' %}
+      <a href="{% url 'accounts:user_role_list' %}" class="page-hero-btn">
+        <i class='bx bx-user-check'></i> Assign Roles
+      </a>
+      {% endif %}
+      {% if user|has_module_permission:'roles:CREATE' %}
+      <a href="{% url 'accounts:role_create' %}" class="page-hero-btn">
+        <i class='bx bx-plus'></i> New Role
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="c-filter-bar" id="roleFilterBar">
+  <div class="c-filter-bar__glow"></div>
+
+  <form method="GET" id="roleFilterForm" class="c-filter-bar__form" autocomplete="off">
+    <!-- Search Section -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input
+        type="text"
+        name="q"
+        value="{{ search_value }}"
+        placeholder="Search by name or code..."
+        id="roleSearch"
+        class="c-filter-bar__search-input"
+        autocomplete="off"
+      >
+      <div class="search-dropdown" id="roleSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut">
+        <span>⌘</span><span>K</span>
+      </div>
+    </div>
+
+    <!-- Clear Button -->
+    <div class="c-filter-bar__filters">
+      {% if show_clear %}
+      <a href="{% url 'accounts:role_list' %}" class="c-filter-bar__clear" title="Clear Filters">
+        <i class='bx bx-x'></i>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<style>
+  /* Search dropdown styles for roles */
+  .search-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 1000 !important;
+    display: none;
+    animation: dropdownIn 0.2s cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  .search-dropdown.active {
+    display: block;
+  }
+
+  @keyframes dropdownIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .search-dropdown-item {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-dropdown-item:last-child {
+    border-bottom: none;
+  }
+
+  .search-dropdown-item:hover,
+  .search-dropdown-item.active {
+    background: rgba(0, 150, 136, 0.06);
+  }
+
+  .search-dropdown-item i:first-child {
+    font-size: 1.2rem;
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+
+  .item-info {
+    flex: 1;
+  }
+
+  .item-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+
+  .item-sub {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+
+  .search-dropdown-highlight {
+    background: rgba(0, 150, 136, 0.15);
+    color: var(--primary);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .search-dropdown-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .search-dropdown-empty i {
+    font-size: 1.5rem;
+    opacity: 0.5;
+  }
+
+  [data-theme="dark"] .search-dropdown {
+    background: var(--surface);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+</style>
+
+{% if roles %}
+<!-- Roles Table -->
+<div class="admin-table-card">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Role</th>
+        <th style="text-align: center;">Level</th>
+        <th style="text-align: center;">Type</th>
+        <th style="text-align: center;">Permissions</th>
+        <th style="text-align: center;">Users</th>
+        <th style="text-align: center;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for role in roles %}
+      <tr class="searchable-row" data-name="{{ role.name }}" data-code="{{ role.code }}">
+        <td>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="role-icon">
+              <i class='bx {% if role.code == 'superadmin' or role.code == 'admin' %}bx-crown{% elif role.code == 'branch_admin' %}bx-building{% elif role.code == 'veterinarian' %}bx-plus-medical{% elif role.code == 'receptionist' %}bx-phone{% elif role.code == 'vet_assistant' %}bx-user{% elif role.code == 'user' %}bx-heart{% else %}bx-shield-quarter{% endif %}'></i>
+            </div>
+            <div>
+              <strong style="display: block;">{{ role.name }}</strong>
+              <code style="font-size: 11px; color: var(--text-3);">{{ role.code }}</code>
+            </div>
+            {% if role.is_system_role %}
+            <span class="system-lock" title="System role">
+              <i class='bx bx-lock-alt'></i>
+            </span>
+            {% endif %}
+          </div>
+        </td>
+        <td style="text-align: center;">
+          <span class="level-num">{{ role.hierarchy_level }}</span>
+        </td>
+        <td style="text-align: center;">
+          {% if role.is_staff_role %}
+          <span class="type-badge staff">Staff</span>
+          {% else %}
+          <span class="type-badge user">User</span>
+          {% endif %}
+        </td>
+        <td style="text-align: center;">
+          <span class="perm-count">{{ role.module_permissions.count }}</span>
+        </td>
+        <td style="text-align: center;">
+          <span class="user-count {% if role.user_count > 0 %}active{% endif %}">{{ role.user_count }}</span>
+        </td>
+        <td style="text-align: center;">
+          <div class="rec-action-grid" style="margin: 0 auto; width: max-content;">
+            <a href="{% url 'accounts:role_detail' role.pk %}" class="action-btn" title="View">
+              <i class='bx bx-show'></i>
+            </a>
+            {% if user|has_module_permission:'roles:EDIT' %}
+              {% if not role.is_system_role or user.is_superuser %}
+              <a href="{% url 'accounts:role_edit' role.pk %}" class="action-btn" title="Edit">
+                <i class='bx bx-edit-alt'></i>
+              </a>
+              {% endif %}
+            {% endif %}
+            {% if user|has_module_permission:'roles:DELETE' %}
+              {% if not role.is_system_role or user.is_superuser %}
+              <form action="{% url 'accounts:role_delete' role.pk %}" method="POST" style="display: inline;"
+                    onsubmit="return confirm('{% if role.user_count > 0 %}This role has {{ role.user_count }} user(s) assigned. {% endif %}Delete this role?');">
+                {% csrf_token %}
+                <button type="submit" class="action-btn danger" title="Delete"
+                        {% if role.user_count > 0 and not user.is_superuser %}disabled{% endif %}>
+                  <i class='bx bx-trash'></i>
+                </button>
+              </form>
+              {% endif %}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+{% else %}
+<!-- Empty State -->
+<div class="dashboard-card full-width">
+  <div class="card-body">
+    <div class="empty-state-large">
+      <div class="empty-state-icon">
+        <i class='bx bx-shield-quarter'></i>
+      </div>
+      <h3>No roles configured</h3>
+      <p>Create roles to control staff access levels.</p>
+      {% if user|has_module_permission:'roles:CREATE' %}
+      <a href="{% url 'accounts:role_create' %}" class="btn-action primary" style="margin-top: 16px;">
+        <i class='bx bx-plus'></i> Create Role
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+  .role-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 16px;
+  }
+  [data-theme="dark"] .role-icon {
+    background: rgba(0, 150, 136, 0.15);
+  }
+
+  .system-lock {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: var(--border);
+    color: var(--text-3);
+    border-radius: 50%;
+    font-size: 11px;
+  }
+
+  .level-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+
+  .type-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .type-badge.staff {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+  }
+  .type-badge.user {
+    background: var(--bg);
+    color: var(--text-3);
+    border: 1px solid var(--border);
+  }
+  [data-theme="dark"] .type-badge.staff {
+    background: rgba(0, 150, 136, 0.15);
+    color: var(--primary);
+  }
+
+  .access-text {
+    font-size: 12px;
+    color: var(--text-2);
+  }
+  .access-text.restricted {
+    color: var(--text-3);
+  }
+
+  .perm-count, .user-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  .user-count.active {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+    color: var(--primary-dark);
+  }
+  [data-theme="dark"] .user-count.active {
+    background: rgba(0, 150, 136, 0.15);
+    border-color: rgba(0, 150, 136, 0.3);
+    color: var(--primary);
+  }
+
+  /* Hierarchy Reference */
+  .hierarchy-ref {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .hierarchy-ref-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .hierarchy-ref-level {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--primary);
+  }
+</style>
+
+<script>
+// ══════ ROLE SEARCH AUTOCOMPLETE ══════
+(function initRoleSearch() {
+  const searchInput = document.getElementById('roleSearch');
+  const dropdown    = document.getElementById('roleSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
+      name   : row.dataset.name    || '',
+      code   : row.dataset.code    || '',
+      row    : row
+    }));
+  }
+
+  let roles = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No roles found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map((r, idx) => `
+        <div class="search-dropdown-item" data-index="${idx}">
+          <i class='bx bx-shield-quarter'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(r.name, q)}</div>
+            <div class="item-sub">${highlight(r.code, q)}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].name;
+          filterRows(results[idx].name.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    roles.forEach(r => {
+      const nl = r.name.toLowerCase();
+      const cl = r.code.toLowerCase();
+      const matches = !q || nl.includes(q) || cl.includes(q);
+      r.row.style.display = matches ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = roles.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      r.code.toLowerCase().includes(q));
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx + 1) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx - 1 + items.length) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'Enter' && idx >= 0) {
+      e.preventDefault(); items[idx]?.click();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+}());
+</script>
+
+{% endblock %}

@@ -1,0 +1,323 @@
+{% extends 'base/portal_user.html' %}
+
+{% block title %}Statement of Account{% endblock %}
+
+{% block content %}
+<div class="dashboard-shell">
+  <style>
+    .soa-hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      padding: 24px 26px;
+      margin-bottom: 18px;
+      background: linear-gradient(135deg, var(--primary) 0%, #00695c 100%);
+      color: #fff;
+      box-shadow: 0 12px 28px rgba(0, 77, 64, 0.2);
+    }
+
+    .soa-hero::before,
+    .soa-hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
+
+    .soa-hero::before {
+      width: 180px;
+      height: 180px;
+      right: -40px;
+      top: -65px;
+    }
+
+    .soa-hero::after {
+      width: 140px;
+      height: 140px;
+      left: -45px;
+      bottom: -70px;
+    }
+
+    .soa-hero-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .soa-hero h1 {
+      margin: 0 0 4px;
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .soa-hero p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 0.95rem;
+    }
+
+    .soa-subhead {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .soa-muted {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .soa-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .soa-card {
+      background: var(--card-bg, #fff);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    .soa-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--primary);
+    }
+
+    .soa-card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px dashed var(--border-color);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbfb 100%);
+    }
+
+    .soa-number {
+      font-weight: 800;
+      color: var(--text-primary);
+      margin: 0;
+      line-height: 1.25;
+    }
+
+    .soa-date {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      display: block;
+    }
+
+    .soa-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      background: rgba(0, 150, 136, 0.12);
+      color: var(--primary-dark, #00796b);
+      white-space: nowrap;
+    }
+
+    .soa-summary {
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 14px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .soa-summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px dashed var(--border-color);
+      padding-bottom: 7px;
+      font-size: 13px;
+    }
+
+    .soa-summary-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .soa-summary .label {
+      color: var(--text-secondary);
+    }
+
+    .soa-summary .value {
+      font-weight: 700;
+      color: var(--text-primary);
+      text-align: right;
+    }
+
+    .soa-summary .value.balance {
+      color: var(--primary-dark, #00796b);
+      font-size: 14px;
+    }
+
+    .soa-actions {
+      padding: 10px 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: #fff;
+      justify-content: space-between;
+    }
+
+    .soa-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 8px 12px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      transition: all 0.18s ease;
+      color: var(--text-primary);
+      background: var(--card-bg, #fff);
+    }
+
+    .soa-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .soa-btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .soa-btn-primary:hover {
+      background: var(--primary-dark, #00796b);
+      border-color: var(--primary-dark, #00796b);
+      color: #fff;
+    }
+
+    .soa-empty {
+      background: var(--card-bg, #fff);
+      border: 1px dashed var(--border-color);
+      border-radius: 14px;
+      padding: 22px;
+      text-align: center;
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    @media (max-width: 520px) {
+      .soa-hero {
+        padding: 20px 18px;
+      }
+
+      .soa-hero h1 {
+        font-size: 1.45rem;
+      }
+
+      .soa-card-top,
+      .soa-summary,
+      .soa-actions {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+    }
+  </style>
+
+  <section class="soa-hero">
+    <div class="soa-hero-content">
+      <div>
+        <h1><i class='bx bx-receipt'></i> Statement of Account</h1>
+        <p>View released statements and print official copies anytime.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="card" style="padding: 16px;">
+    <div class="soa-subhead">
+      <strong style="font-size: 1rem;">My Statements</strong>
+      <span class="soa-muted">Released statements only</span>
+    </div>
+    <div style="margin-top:12px;">
+      {% if statements %}
+      <div class="soa-grid">
+        {% for statement in statements %}
+        <article class="soa-card">
+          <div class="soa-card-top">
+            <div>
+              <p class="soa-number">{{ statement.statement_number }}</p>
+              <span class="soa-date">{{ statement.date|date:"F j, Y" }}</span>
+            </div>
+            <span class="soa-status">{{ statement.get_status_display }}</span>
+          </div>
+
+          <aside class="soa-summary">
+            <div class="soa-summary-row">
+              <span class="label">Pet</span>
+              <span class="value">{{ statement.patient_name|default:"-" }}</span>
+            </div>
+            <div class="soa-summary-row">
+              <span class="label">Owner</span>
+              <span class="value">{{ statement.owner_name|default:"-" }}</span>
+            </div>
+            <div class="soa-summary-row">
+              <span class="label">Branch</span>
+              <span class="value">{{ statement.branch.name|default:"-" }}</span>
+            </div>
+            <div class="soa-summary-row">
+              <span class="label">Total</span>
+              <span class="value">₱{{ statement.total_amount|floatformat:2 }}</span>
+            </div>
+            <div class="soa-summary-row">
+              <span class="label">Deposit</span>
+              <span class="value">₱{{ statement.deposit|floatformat:2 }}</span>
+            </div>
+            <div class="soa-summary-row">
+              <span class="label">Balance</span>
+              <span class="value balance">₱{{ statement.balance|floatformat:2 }}</span>
+            </div>
+          </aside>
+
+          <div class="soa-actions">
+            <a href="{% url 'billing:my_statement_detail' statement.pk %}" class="soa-btn soa-btn-primary">
+              <i class='bx bx-show-alt'></i> View
+            </a>
+            <a href="{% url 'billing:my_statement_detail' statement.pk %}?format=print" target="_blank" class="soa-btn">
+              <i class='bx bx-printer'></i> Print
+            </a>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="soa-empty">
+        <i class='bx bx-receipt' style="font-size: 2rem; color: var(--primary); display: block; margin-bottom: 8px;"></i>
+        No released statements yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

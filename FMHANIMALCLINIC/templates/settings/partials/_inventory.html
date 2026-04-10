@@ -1,0 +1,74 @@
+<!-- Inventory Settings Form -->
+<div class="settings-card">
+  <form method="POST" autocomplete="off">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="inventory">
+
+    <div class="admin-grid">
+      <div class="form-section-title">
+        <i class='bx bx-error-circle'></i> Stock Thresholds
+      </div>
+
+      <div class="admin-field">
+        <label for="id_low_stock_threshold">Low Stock Warning Level</label>
+        {{ forms.inventory.low_stock_threshold }}
+        <p class="form-hint">{{ forms.inventory.low_stock_threshold.help_text }}</p>
+        {% if forms.inventory.low_stock_threshold.errors %}
+          <div class="error-text">{{ forms.inventory.low_stock_threshold.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="id_critical_threshold">Critical Stock Alert Level</label>
+        {{ forms.inventory.critical_threshold }}
+        <p class="form-hint">{{ forms.inventory.critical_threshold.help_text }}</p>
+        {% if forms.inventory.critical_threshold.errors %}
+          <div class="error-text">{{ forms.inventory.critical_threshold.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-calendar-x'></i> Expiry Management
+      </div>
+
+      <div class="admin-field">
+        <label for="id_expiry_warning_days">Expiry Warning Days</label>
+        {{ forms.inventory.expiry_warning_days }}
+        <p class="form-hint">{{ forms.inventory.expiry_warning_days.help_text }}</p>
+        {% if forms.inventory.expiry_warning_days.errors %}
+          <div class="error-text">{{ forms.inventory.expiry_warning_days.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-toggle-right'></i> Stock Options
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <div class="checkbox-field">
+          {{ forms.inventory.enable_alerts }}
+          <div class="checkbox-content">
+            <label for="id_enable_alerts">Enable Stock Alerts</label>
+            <p class="form-hint">{{ forms.inventory.enable_alerts.help_text }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <div class="checkbox-field">
+          {{ forms.inventory.allow_negative }}
+          <div class="checkbox-content">
+            <label for="id_allow_negative">Allow Negative Stock</label>
+            <p class="form-hint">{{ forms.inventory.allow_negative.help_text }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-actions">
+      <button type="submit" class="btn-submit">
+        <i class='bx bx-save'></i> Save Inventory Settings
+      </button>
+    </div>
+  </form>
+</div>

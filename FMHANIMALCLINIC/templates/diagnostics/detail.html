@@ -1,0 +1,756 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}AI Diagnosis Result - {{ diagnosis.pet.name }}{% endblock %}
+
+{% block content %}
+
+<style>
+  .detail-container {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 24px;
+    margin-top: 24px;
+  }
+  @media (max-width: 1100px) {
+    .detail-container { grid-template-columns: 1fr; }
+  }
+
+  /* Main Result Card */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  /* Header */
+  .result-header {
+    padding: 24px;
+    background: var(--primary-gradient);
+    color: #fff;
+  }
+  .result-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .result-pet {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .result-pet-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+  .result-pet-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .result-pet-meta {
+    font-size: 0.85rem;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
+  .result-date {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    text-align: right;
+  }
+
+  /* Body Sections */
+  .result-body { padding: 24px; }
+  .result-section { margin-bottom: 24px; }
+  .result-section:last-child { margin-bottom: 0; }
+  .result-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-section-title i {
+    color: var(--primary);
+    font-size: 1.1rem;
+  }
+
+  /* Selectable Condition Cards */
+  .condition-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .condition-card:hover { border-color: var(--primary); }
+  .condition-card.selected {
+    background: rgba(99, 90, 255, 0.08);
+    border-color: var(--primary);
+  }
+  .condition-card.primary-condition {
+    background: linear-gradient(135deg, rgba(99,90,255,0.08) 0%, rgba(99,90,255,0.04) 100%);
+  }
+  .condition-card input[type="radio"] {
+    margin-top: 4px;
+    accent-color: var(--primary);
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .condition-card-content { flex: 1; }
+  .condition-card-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .condition-card-reasoning {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .condition-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
+
+  /* Selectable Test Items */
+  .test-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+  }
+  .test-item:hover { border-color: var(--primary); }
+  .test-item.selected {
+    background: rgba(0, 150, 136, 0.08);
+    border-color: #009688;
+  }
+  .test-item input[type="checkbox"] {
+    margin-top: 2px;
+    accent-color: #009688;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .test-item label { flex: 1; cursor: pointer; line-height: 1.4; }
+
+  /* Warning Signs */
+  .warning-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .warning-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #fff8e1;
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: #5d4037;
+  }
+  .warning-list li i { color: #ff9800; font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
+
+  /* Summary */
+  .result-summary {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border: 1px solid #a5d6a7;
+    border-radius: var(--radius-md);
+    padding: 16px;
+    font-size: 0.9rem;
+    color: #2e7d32;
+    line-height: 1.6;
+  }
+
+  /* Sidebar */
+  .detail-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .sidebar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .sidebar-card-header {
+    padding: 14px 18px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sidebar-card-header i { color: var(--primary); }
+  .sidebar-card-body { padding: 18px; }
+
+  /* Rx Textarea */
+  .rx-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s;
+  }
+  .rx-textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99,90,255,0.12);
+  }
+  .rx-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .rx-required {
+    color: #d32f2f;
+    margin-left: 2px;
+  }
+
+  /* Review Status */
+  .review-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+    background: #e8f5e9;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+  }
+  .review-status i { font-size: 1.5rem; color: #2e7d32; }
+  .review-status-text { flex: 1; }
+  .review-status-label { font-weight: 700; color: #1b5e20; font-size: 0.95rem; }
+  .review-status-meta { font-size: 0.8rem; color: #558b2f; margin-top: 2px; }
+
+  /* Submit Button */
+  .submit-btn {
+    width: 100%;
+    padding: 14px 20px;
+    background: var(--primary-gradient);
+    border: none;
+    border-radius: var(--radius-md);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.25s;
+    margin-top: 16px;
+  }
+  .submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99,90,255,0.3);
+  }
+  .submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Linked Record Badge */
+  .linked-record-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #e3f2fd;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: #1565c0;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .linked-record-badge:hover { background: #bbdefb; }
+  .linked-record-badge i { font-size: 1rem; }
+
+  /* Reviewed Data Display */
+  .reviewed-data-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .reviewed-data-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .reviewed-data-value {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    background: var(--bg);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Actions */
+  .detail-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .detail-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .detail-action-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  /* Disclaimer */
+  .diag-disclaimer {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-size: 0.8rem;
+    color: #795548;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .diag-disclaimer i { color: #f57f17; font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+  /* Related diagnoses */
+  .related-diag-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+  }
+  .related-diag-item:last-child { border-bottom: none; }
+  .related-diag-item:hover { opacity: 0.8; }
+  .related-diag-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  /* Form group */
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+
+  /* Validation errors */
+  .validation-error {
+    color: #d32f2f;
+    font-size: 0.8rem;
+    margin-top: 6px;
+    display: none;
+  }
+  .validation-error.show { display: block; }
+
+  .delete-action-btn {
+    background: transparent;
+    border: 1px solid var(--danger, #dc3545);
+    color: var(--danger, #dc3545);
+    padding: 10px 18px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .delete-action-btn:hover {
+    background: var(--danger, #dc3545);
+    color: #fff;
+  }
+</style>
+
+<!-- Actions Bar -->
+<div class="detail-actions">
+  <a href="{% url 'diagnostics:dashboard' %}" class="detail-action-btn">
+    <i class="bx bx-arrow-back"></i> Back to Dashboard
+  </a>
+  <a href="{% url 'diagnostics:run_diagnosis' diagnosis.pet.pk %}" class="detail-action-btn">
+    <i class="bx bx-refresh"></i> Run New Diagnosis
+  </a>
+  {% if can_delete %}
+  <form method="post" action="{% url 'diagnostics:delete' diagnosis.pk %}" style="display: inline; margin-left: auto;" onsubmit="return confirm('Delete this AI diagnosis? {% if diagnosis.is_reviewed and diagnosis.linked_record_entry %}The linked medical record will be preserved.{% endif %}');">
+    {% csrf_token %}
+    <button type="submit" class="delete-action-btn">
+      <i class="bx bx-trash"></i> Delete Diagnosis
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% if not diagnosis.is_reviewed %}
+<form method="post" action="{% url 'diagnostics:mark_reviewed' diagnosis.pk %}" id="reviewForm">
+  {% csrf_token %}
+{% endif %}
+
+<div class="detail-container">
+  <!-- Main Result -->
+  <div class="result-card">
+    <div class="result-header">
+      <div class="result-header-top">
+        <div class="result-pet">
+          <div class="result-pet-avatar" {% if diagnosis.pet.photo %}style="background: transparent;"{% endif %}>
+            {% if diagnosis.pet.photo %}
+              <img src="{{ diagnosis.pet.photo.url }}" alt="{{ diagnosis.pet.name }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            {% else %}
+              {{ diagnosis.pet.name|make_list|first|upper }}
+            {% endif %}
+          </div>
+          <div>
+            <div class="result-pet-name">{{ diagnosis.pet.name }}</div>
+            <div class="result-pet-meta">{{ diagnosis.pet.species }} &middot; {{ diagnosis.pet.breed }}</div>
+          </div>
+        </div>
+        <div class="result-date">
+          <div><i class="bx bx-calendar"></i> {{ diagnosis.created_at|date:"M j, Y" }}</div>
+          <div><i class="bx bx-time"></i> {{ diagnosis.created_at|time:"g:i A" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-body">
+      <!-- Section 1: Select Diagnosis Condition -->
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-target-lock"></i>
+          Select Diagnosis
+          {% if not diagnosis.is_reviewed %}<span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">Choose one condition</span>{% endif %}
+        </div>
+
+        {% for cond in all_conditions %}
+        <div class="condition-card {% if cond.is_primary %}primary-condition{% endif %} {% if diagnosis.is_reviewed and diagnosis.selected_condition == cond.condition %}selected{% endif %}"
+             {% if not diagnosis.is_reviewed %}onclick="selectCondition(this, '{{ cond.condition|escapejs }}')"{% endif %}>
+          {% if not diagnosis.is_reviewed %}
+          <input type="radio" name="selected_condition" value="{{ cond.condition }}" id="cond_{{ forloop.counter }}" {% if forloop.first %}checked{% endif %}>
+          {% endif %}
+          <div class="condition-card-content">
+            <div class="condition-card-name">
+              {{ cond.condition }}
+              {% if cond.is_primary %}<span class="condition-badge">Primary</span>{% endif %}
+            </div>
+            <div class="condition-card-reasoning">{{ cond.reasoning }}</div>
+          </div>
+        </div>
+        {% endfor %}
+
+        {% if diagnosis.is_reviewed and diagnosis.diagnosis_notes %}
+        <div style="margin-top: 15px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md);">
+          <strong style="font-size: 0.85rem; color: var(--text-primary);">Diagnosis Notes:</strong>
+          <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-secondary);">{{ diagnosis.diagnosis_notes|linebreaksbr }}</p>
+        </div>
+        {% elif not diagnosis.is_reviewed %}
+        <div style="margin-top: 15px;">
+          <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
+            Diagnosis Notes (Optional)
+          </label>
+          <textarea name="diagnosis_notes" class="rx-textarea" style="min-height: 80px;" placeholder="Add extra details about the diagnosis..."></textarea>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Section 2: Select Recommended Tests -->
+      {% if diagnosis.recommended_tests %}
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-test-tube"></i>
+          Recommended Tests
+          {% if not diagnosis.is_reviewed %}<span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">Select tests to include</span>{% endif %}
+        </div>
+
+        {% for test in diagnosis.recommended_tests %}
+        <div class="test-item {% if diagnosis.is_reviewed and test in diagnosis.selected_tests %}selected{% endif %}"
+             {% if not diagnosis.is_reviewed %}onclick="toggleTest(this)"{% endif %}>
+          {% if not diagnosis.is_reviewed %}
+          <input type="checkbox" name="selected_tests" value="{{ test }}" id="test_{{ forloop.counter }}">
+          {% else %}
+          <i class="bx {% if test in diagnosis.selected_tests %}bx-check-circle{% else %}bx-circle{% endif %}" style="color: {% if test in diagnosis.selected_tests %}#009688{% else %}var(--text-secondary){% endif %};"></i>
+          {% endif %}
+          <label for="test_{{ forloop.counter }}">{{ test }}</label>
+        </div>
+        {% endfor %}
+
+        {% if diagnosis.is_reviewed and diagnosis.test_notes %}
+        <div style="margin-top: 15px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md);">
+          <strong style="font-size: 0.85rem; color: var(--text-primary);">Test Notes:</strong>
+          <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-secondary);">{{ diagnosis.test_notes|linebreaksbr }}</p>
+        </div>
+        {% elif not diagnosis.is_reviewed %}
+        <div style="margin-top: 15px;">
+          <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
+            Test Notes (Optional)
+          </label>
+          <textarea name="test_notes" class="rx-textarea" style="min-height: 80px;" placeholder="Add extra details about the tests..."></textarea>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Section 3: Warning Signs -->
+      {% if diagnosis.warning_signs %}
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-error-circle"></i>
+          Warning Signs to Monitor
+        </div>
+        <ul class="warning-list">
+          {% for sign in diagnosis.warning_signs %}
+          <li><i class="bx bx-error"></i> {{ sign }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <!-- Section 4: Summary -->
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-message-square-detail"></i>
+          AI Assessment Summary
+        </div>
+        <div class="result-summary">
+          {{ diagnosis.summary }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="detail-sidebar">
+    <!-- Review Panel -->
+    <div class="sidebar-card">
+      <div class="sidebar-card-header">
+        <i class="bx bx-check-shield"></i>
+        Veterinarian Review
+      </div>
+      <div class="sidebar-card-body">
+        {% if diagnosis.is_reviewed %}
+        <!-- Reviewed State -->
+        <div class="review-status">
+          <i class="bx bx-check-circle"></i>
+          <div class="review-status-text">
+            <div class="review-status-label">Reviewed & Recorded</div>
+            <div class="review-status-meta">
+              {% if diagnosis.reviewed_by %}by Dr. {{ diagnosis.reviewed_by.first_name }} {{ diagnosis.reviewed_by.last_name }}{% endif %}
+              on {{ diagnosis.reviewed_at|date:"M j, Y g:i A" }}
+            </div>
+          </div>
+        </div>
+
+        {% if diagnosis.linked_record_entry %}
+        <a href="{% url 'records:admin_detail' diagnosis.linked_record_entry.record.pk %}" class="linked-record-badge">
+          <i class="bx bx-link"></i>
+          View Medical Record
+        </a>
+        {% endif %}
+
+        <div class="reviewed-data-section">
+          <div class="reviewed-data-label">Selected Diagnosis:</div>
+          <div class="reviewed-data-value">{{ diagnosis.selected_condition }}</div>
+        </div>
+
+        {% if diagnosis.selected_tests %}
+        <div class="reviewed-data-section">
+          <div class="reviewed-data-label">Selected Tests:</div>
+          <div class="reviewed-data-value">
+            {% for test in diagnosis.selected_tests %}
+            &bull; {{ test }}{% if not forloop.last %}<br>{% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="reviewed-data-section">
+          <div class="reviewed-data-label">Prescription (Rx):</div>
+          <div class="reviewed-data-value" style="white-space: pre-line;">{{ diagnosis.vet_prescription }}</div>
+        </div>
+
+        {% else %}
+        <!-- Review Form -->
+        <div class="form-group">
+          <label class="rx-label">
+            <i class="bx bx-capsule" style="margin-right:4px;"></i>
+            Prescription (Rx)<span class="rx-required">*</span>
+          </label>
+          <textarea 
+            name="vet_prescription" 
+            class="rx-textarea" 
+            id="rxInput"
+            placeholder="Enter prescription details...
+
+Example:
+- Amoxicillin 250mg, 1 tablet BID x 7 days
+- Metacam 0.5mg/kg, once daily x 5 days
+- Probiotics: 1 capsule daily with food"
+            required></textarea>
+          <div class="validation-error" id="rxError">Prescription is required before marking as reviewed.</div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <i class="bx bx-check-double"></i>
+          Mark as Reviewed & Create Visit
+        </button>
+
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:12px;text-align:center;">
+          This will create a new medical record entry for {{ diagnosis.pet.name }}.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Related Diagnoses -->
+    {% if related_diagnoses %}
+    <div class="sidebar-card">
+      <div class="sidebar-card-header">
+        <i class="bx bx-history"></i>
+        Other Diagnoses for {{ diagnosis.pet.name }}
+      </div>
+      <div class="sidebar-card-body">
+        {% for rel in related_diagnoses %}
+        <a href="{% url 'diagnostics:detail' rel.pk %}" class="related-diag-item">
+          <div class="related-diag-badge">
+            <i class="bx bx-brain"></i>
+          </div>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:0.85rem;">{{ rel.primary_condition|truncatechars:25 }}</div>
+            <div style="font-size:0.75rem;color:var(--text-secondary);">
+              {{ rel.created_at|date:"M j, Y" }}
+              {% if rel.is_reviewed %}<span style="color:#2e7d32;"> &bull; Reviewed</span>{% endif %}
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Disclaimer -->
+    <div class="diag-disclaimer">
+      <i class="bx bx-info-circle"></i>
+      <div>
+        This AI diagnosis is for decision-support only and must be confirmed by a licensed veterinarian before any treatment.
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if not diagnosis.is_reviewed %}
+</form>
+{% endif %}
+
+<script>
+// Select condition card
+function selectCondition(card, value) {
+  document.querySelectorAll('.condition-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  card.querySelector('input[type="radio"]').checked = true;
+}
+
+// Toggle test selection
+function toggleTest(item) {
+  const checkbox = item.querySelector('input[type="checkbox"]');
+  checkbox.checked = !checkbox.checked;
+  item.classList.toggle('selected', checkbox.checked);
+}
+
+// Form validation
+document.getElementById('reviewForm')?.addEventListener('submit', function(e) {
+  const rx = document.getElementById('rxInput').value.trim();
+  const rxError = document.getElementById('rxError');
+  
+  if (!rx) {
+    e.preventDefault();
+    rxError.classList.add('show');
+    document.getElementById('rxInput').focus();
+    return false;
+  }
+  
+  rxError.classList.remove('show');
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('submitBtn').innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Processing...';
+});
+
+// Clear error on input
+document.getElementById('rxInput')?.addEventListener('input', function() {
+  document.getElementById('rxError').classList.remove('show');
+});
+
+// Initialize first condition as selected
+document.addEventListener('DOMContentLoaded', function() {
+  const firstCondition = document.querySelector('.condition-card');
+  if (firstCondition && !document.querySelector('.condition-card.selected')) {
+    firstCondition.classList.add('selected');
+  }
+});
+</script>
+
+{% endblock %}

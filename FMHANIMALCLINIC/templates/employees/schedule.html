@@ -1,0 +1,451 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Schedule Calendar{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-calendar'></i> Schedule</h1>
+      <p>{% if is_admin %}View and manage vet availability across branches{% else %}View and manage your schedule{% endif %}</p>
+    </div>
+    <div class="page-hero-actions">
+      {% if is_admin %}
+      <button class="page-hero-btn" id="clearAllBtn">
+        <i class='bx bx-trash-alt'></i>
+        <span>Clear All</span>
+      </button>
+      <button class="page-hero-btn" id="recurringBtn"><i class='bx bx-revision'></i> Manage Recurring</button>
+      {% endif %}
+      <button class="page-hero-btn" id="addScheduleBtn"><i class='bx bx-plus-circle'></i> Add Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar Controls -->
+<div class="filter-bar">
+  {% if is_admin %}
+  <select class="filter-select sd-convert" id="branchFilter">
+    <option value="">All Branches</option>
+    {% for branch in branches %}
+    <option value="{{ branch.id }}">{{ branch.name }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+
+  <div class="cal-nav">
+    <button class="cal-nav-btn" id="prevMonth"><i class='bx bx-chevron-left'></i></button>
+    <span class="cal-month-label" id="monthLabel">Loading...</span>
+    <button class="cal-nav-btn" id="nextMonth"><i class='bx bx-chevron-right'></i></button>
+  </div>
+
+  <div class="filter-actions">
+    <button class="filter-btn clear" id="todayBtn"><i class='bx bx-calendar'></i> Today</button>
+  </div>
+</div>
+
+<!-- Calendar Grid -->
+<div class="dashboard-card full-width">
+  <div class="card-body" style="padding: 12px; overflow-x: auto;">
+    <div class="cal-weekdays">
+      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
+
+<!-- Day Detail Panel -->
+<div class="dashboard-card full-width" id="dayDetailPanel" style="display:none; margin-top:14px;">
+  <div class="card-header">
+    <h3><i class='bx bxs-calendar-event'></i> <span id="dayDetailTitle">Schedule Details</span></h3>
+    <button class="card-action" id="closeDayDetail" style="cursor:pointer; background:none; border:none; font-family:inherit;">Close</button>
+  </div>
+  <div class="card-body" id="dayDetailBody"></div>
+</div>
+
+<!-- ADD SCHEDULE MODAL -->
+<div class="schedule-modal-overlay" id="scheduleModal">
+  <div class="qc-modal">
+    <div class="qc-header">
+      <div class="qc-header-title">
+        <div class="qc-icon"><i class='bx bx-calendar-plus'></i></div>
+        <div>
+          <h3>Add Schedule</h3>
+          <p>{% if is_admin %}Assign staff availability{% else %}Update your schedule{% endif %}</p>
+        </div>
+      </div>
+      <button class="qc-close" id="closeModal"><i class='bx bx-x'></i></button>
+    </div>
+    <form method="POST" action="{% url 'employees:schedule_add' %}" class="pet-form" novalidate>
+      {% csrf_token %}
+      <div class="qc-body">
+        <!-- Recurring Toggle -->
+          <div class="qc-group qc-full" style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(0, 150, 136, 0.08) 0%, rgba(0, 150, 136, 0.04) 100%); padding: 14px 16px; border-radius: 12px; margin-bottom: 24px; border: 1.5px solid var(--border);">
+          <div>
+            <strong style="display: block; font-size: 0.92rem;">Repeat Weekly?</strong>
+              <span style="font-size: 0.8rem; color: var(--text-2);">Create a recurring template</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" name="is_recurring" id="id_is_recurring">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <!-- Staff Section -->
+        {% if is_admin %}
+        <div class="qc-section-title">Staff Assignment</div>
+        <div class="qc-grid">
+          <div class="qc-group">
+            <label for="{{ form.branch.id_for_label }}">Branch</label>
+            {{ form.branch }}
+          </div>
+          <div class="qc-group">
+            <label for="{{ form.staff.id_for_label }}">Staff Member</label>
+            {{ form.staff }}
+          </div>
+        </div>
+        {% else %}
+        <div style="background: var(--primary-light); padding: 12px; border-radius: 8px; color: var(--primary-dark); margin-bottom: 20px;">
+          <i class='bx bx-info-circle'></i>
+          <strong>Scheduling for:</strong> {{ user_staff.full_name }} at {{ request.user.branch.name|default:"Default Branch" }}
+        </div>
+        {% endif %}
+
+        <!-- Schedule Section -->
+        <div class="qc-section-title">Schedule Details</div>
+        <div class="qc-grid">
+          <div class="qc-group" id="singleDateGroup">
+            <label for="{{ form.date.id_for_label }}">Date</label>
+            {{ form.date }}
+          </div>
+
+          <!-- Recurring Fields (Hidden Initially) -->
+          <div class="qc-group recurring-group" style="display: none; grid-column: 1 / -1;">
+            <label>Days of Week</label>
+            <div class="day-checkboxes">
+              {{ recurring_form.days_of_week }}
+            </div>
+          </div>
+          <div class="qc-group recurring-group" style="display: none;">
+            <label>Effective From</label>
+            {{ recurring_form.effective_from }}
+          </div>
+          <div class="qc-group recurring-group" style="display: none;">
+            <label>Effective Until</label>
+            {{ recurring_form.effective_until }}
+          </div>
+
+          <div class="qc-group">
+            <label for="{{ form.shift_type.id_for_label }}">Shift Type</label>
+            {{ form.shift_type }}
+          </div>
+          <div class="qc-group">
+            <label for="{{ form.start_time.id_for_label }}">Start Time</label>
+            {{ form.start_time }}
+          </div>
+          <div class="qc-group">
+            <label for="{{ form.end_time.id_for_label }}">End Time</label>
+            {{ form.end_time }}
+          </div>
+
+          <div class="qc-full-checkbox">
+            <label class="toggle-switch" for="id_is_available">
+              <input type="checkbox" name="is_available" id="id_is_available" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Available for Appointments</span>
+          </div>
+        </div>
+
+        <!-- Notes Section -->
+        <div class="qc-section-title">Additional Info</div>
+        <div class="qc-group qc-full">
+          <label for="{{ form.notes.id_for_label }}">Notes</label>
+          {{ form.notes }}
+        </div>
+      </div>
+
+      <div class="qc-footer">
+        <button type="button" class="qc-btn-cancel" id="cancelModal">Cancel</button>
+        <button type="submit" class="qc-btn-save"><i class='bx bx-check'></i> Add Schedule</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- RECURRING SCHEDULE MODAL -->
+<div class="schedule-modal-overlay" id="recurringModal">
+  <div class="schedule-modal" style="max-width: 700px;">
+    <div class="schedule-modal-header">
+      <h3><i class='bx bx-revision'></i> Manage Recurring Schedule Templates</h3>
+      <button class="schedule-modal-close" id="closeRecurringModal"><i class='bx bx-x'></i></button>
+    </div>
+    <div class="schedule-modal-body">
+      <!-- Info Banner -->
+      <div style="background: var(--primary-light); padding: 12px; border-radius: 8px; margin-bottom: 16px; color: var(--primary-dark); font-size: 0.85rem;">
+        <i class='bx bx-info-circle'></i>
+        <strong>Tip:</strong> To add new recurring schedules, use the "Add Schedule" button and enable "Repeat Weekly".
+      </div>
+
+      <!-- Existing Recurring Schedules -->
+      <div id="recurringList">
+        {% if recurring_schedules %}
+        <div class="schedule-entries">
+          {% for rs in recurring_schedules %}
+          <div class="schedule-entry">
+            <div class="schedule-entry-left">
+              <div class="schedule-entry-avatar">{{ rs.staff.first_name|make_list|first|upper }}</div>
+              <div class="schedule-entry-info">
+                <strong>{{ rs.staff.full_name }}</strong>
+                <span>{{ rs.get_day_of_week_display }} &middot; {{ rs.get_shift_type_display }}</span>
+              </div>
+            </div>
+            <div class="schedule-entry-details">
+              <div class="schedule-entry-time">
+                <i class='bx bx-time-five'></i> {{ rs.start_time|time:"g:i A" }} – {{ rs.end_time|time:"g:i A" }}
+              </div>
+              <div class="schedule-entry-branch">
+                <i class='bx bx-map-pin'></i> {{ rs.branch.name }}
+              </div>
+              <span class="shift-badge shift-{{ rs.shift_type|lower }}">{{ rs.get_shift_type_display }}</span>
+            </div>
+            <form method="POST" action="{% url 'employees:recurring_delete' rs.pk %}" style="margin:0;">
+              {% csrf_token %}
+              <button type="submit" class="pet-action-btn danger" title="Remove" onclick="return confirm('Remove this recurring template? This will not delete already generated schedule entries.');">
+                <i class='bx bx-trash'></i>
+              </button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding: 32px 0;">
+          <i class='bx bx-revision' style="font-size: 2.5rem; color: var(--text-3);"></i>
+          <h4>No recurring templates</h4>
+          <p style="color: var(--text-3); font-size: 0.85rem;">Click "Add Schedule" and enable "Repeat Weekly" to create recurring schedules.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="schedule-modal-footer">
+      <button type="button" class="btn-action outline" id="cancelRecurringModal">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT SCHEDULE MODAL -->
+<div class="schedule-modal-overlay" id="editScheduleModal">
+  <div class="schedule-modal">
+    <div class="schedule-modal-header">
+      <h3><i class='bx bx-edit'></i> Edit Schedule</h3>
+      <button class="schedule-modal-close" id="closeEditModal"><i class='bx bx-x'></i></button>
+    </div>
+    <form method="POST" action="" id="editScheduleForm" class="pet-form">
+      {% csrf_token %}
+      <div class="schedule-modal-body">
+        <div class="form-grid">
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <strong id="editStaffName" style="font-size: 1.1rem; display: block;"></strong>
+            <span id="editDateLabel" style="color: var(--text-2); display: block; margin-top: 4px;"></span>
+          </div>
+          <div class="form-group">
+            <label>Shift Type</label>
+            <select name="shift_type" id="editShiftType" class="form-control">
+              {% for val, label in shift_types %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="opacity: 0; pointer-events: none;"></div>
+          <div class="form-group">
+            <label>Start Time</label>
+            <input type="time" name="start_time" id="editStartTime" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>End Time</label>
+            <input type="time" name="end_time" id="editEndTime" class="form-control">
+          </div>
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <div class="toggle-switch-wrapper">
+              <label class="toggle-switch">
+                <input type="checkbox" name="is_available" id="editIsAvailable">
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label">Available for Appointments</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 8px;">
+          <label>Notes</label>
+          <textarea name="notes" id="editNotes" rows="2" class="form-control" placeholder="Optional notes..."></textarea>
+        </div>
+      </div>
+      <div class="schedule-modal-footer">
+        <button type="submit" class="btn-action primary" id="editSubmitBtn"><i class='bx bx-save'></i> Save Changes</button>
+        <button type="button" class="btn-action outline" id="cancelEditModal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- CLEAR ALL CONFIRMATION MODAL -->
+<div class="schedule-modal-overlay" id="clearAllModal">
+  <div class="schedule-modal" style="max-width: 420px;">
+    <div class="schedule-modal-header" style="background: #fff5f5;">
+      <h3 style="color: #e63946;"><i class='bx bx-error-circle'></i> Clear All Schedules</h3>
+      <button class="schedule-modal-close" id="closeClearAllModal"><i class='bx bx-x'></i></button>
+    </div>
+    <div class="schedule-modal-body" style="text-align: center; padding: 24px;">
+      <i class='bx bx-trash' style="font-size: 3rem; color: #e63946; margin-bottom: 12px;"></i>
+      <h4 style="margin-bottom: 8px;">Are you sure?</h4>
+      <p style="font-size: 0.82rem; color: var(--text-2);">
+        This will permanently delete <strong>ALL</strong> schedule entries across every branch and vet. This action cannot be undone.
+      </p>
+    </div>
+    <div class="schedule-modal-footer" style="justify-content: center; gap: 10px;">
+      <button type="button" class="btn-action outline" id="cancelClearAllModal">Cancel</button>
+      <form method="POST" action="{% url 'employees:schedule_clear_all' %}" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="btn-action primary" style="background: #e63946; border-color: #e63946;"><i class='bx bx-trash'></i> Yes, Delete All</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Improved Action Button Styles */
+  .schedule-actions {
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  .schedule-actions .pet-action-btn {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    border: 1.5px solid var(--border) !important;
+    background: var(--surface) !important;
+    color: var(--text-2) !important;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .schedule-actions .pet-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  .schedule-actions .pet-action-btn:active {
+    transform: translateY(0);
+  }
+
+  .schedule-actions .pet-action-btn.outline {
+    border-color: var(--primary-light) !important;
+    color: var(--primary) !important;
+    background: var(--primary-light) !important;
+  }
+
+  .schedule-actions .pet-action-btn.outline:hover {
+    background: var(--primary) !important;
+    color: white !important;
+    border-color: var(--primary) !important;
+  }
+
+  .schedule-actions .pet-action-btn.danger {
+    border-color: rgba(239, 68, 68, 0.2) !important;
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+  }
+
+  .schedule-actions .pet-action-btn.danger:hover {
+    background: #ef4444 !important;
+    color: white !important;
+    border-color: #ef4444 !important;
+  }
+
+  .schedule-actions .pet-action-btn i {
+    font-size: 20px;
+  }
+
+  /* Recurring entry buttons - match schedule entry style */
+  .schedule-entry .pet-action-btn {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    border: 1.5px solid var(--border) !important;
+    background: var(--surface) !important;
+    color: var(--text-2) !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .schedule-entry .pet-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  .schedule-entry .pet-action-btn.danger {
+    border-color: rgba(239, 68, 68, 0.2) !important;
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+  }
+
+  .schedule-entry .pet-action-btn.danger:hover {
+    background: #ef4444 !important;
+    color: white !important;
+    border-color: #ef4444 !important;
+  }
+
+  .schedule-entry .pet-action-btn i {
+    font-size: 20px;
+  }
+
+  /* Dark mode support */
+  [data-theme="dark"] .schedule-actions .pet-action-btn,
+  [data-theme="dark"] .schedule-entry .pet-action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: var(--text-2) !important;
+  }
+
+  [data-theme="dark"] .schedule-actions .pet-action-btn:hover,
+  [data-theme="dark"] .schedule-entry .pet-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  [data-theme="dark"] .schedule-actions .pet-action-btn.outline,
+  [data-theme="dark"] .schedule-entry .pet-action-btn.outline {
+    background: rgba(37, 99, 235, 0.15) !important;
+    border-color: rgba(37, 99, 235, 0.3) !important;
+    color: #60a5fa !important;
+  }
+
+  [data-theme="dark"] .schedule-actions .pet-action-btn.outline:hover,
+  [data-theme="dark"] .schedule-entry .pet-action-btn.outline:hover {
+    background: rgba(37, 99, 235, 0.3) !important;
+    border-color: #60a5fa !important;
+  }
+</style>
+
+<script>
+  const API_STAFF_URL = "{% url 'employees:available_staff_api' %}";
+</script>
+<script src="{% static 'js/employees/schedule.js' %}"></script>
+
+{% endblock %}

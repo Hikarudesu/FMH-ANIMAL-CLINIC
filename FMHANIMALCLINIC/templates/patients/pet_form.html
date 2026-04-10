@@ -1,0 +1,223 @@
+{% extends 'base/portal_user.html' %}
+
+{% block title %}{{ action }} Pet{% endblock %}
+
+{% block content %}
+
+<div class="pf-page">
+
+  <!-- Back link -->
+  <a href="{% url 'patients:my_pets' %}" class="pf-back-link">
+    <i class='bx bx-arrow-back'></i> Back to My Pets
+  </a>
+
+  <!-- Form Card -->
+  <div class="pf-card">
+
+    <!-- Card header with gradient -->
+    <div class="pf-card-header">
+      <div class="pf-header-bg">
+        <i class='bx bxs-dog pf-bg-icon pf-bg-1'></i>
+        <i class='bx bxs-bone pf-bg-icon pf-bg-2'></i>
+      </div>
+      <div class="pf-header-content">
+        <div class="pf-header-icon">
+          {% if action == 'Register' %}
+          <i class='bx bx-plus-circle'></i>
+          {% else %}
+          <i class='bx bx-edit-alt'></i>
+          {% endif %}
+        </div>
+        <h1>{{ action }} Pet</h1>
+        <p>{% if action == 'Register' %}Add a new furry friend to your family{% else %}Update {{ pet.name }}'s information{% endif %}</p>
+      </div>
+    </div>
+
+    <!-- Form Body -->
+    <form method="POST" class="pf-form" autocomplete="off" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="pf-error-banner">
+        <i class='bx bx-error-circle'></i> {{ form.non_field_errors.as_text }}
+      </div>
+      {% endif %}
+
+      <div class="pf-grid">
+        <!-- Photo dropzone Modern Redesign -->
+        <div class="pf-photo-upload-modern {% if form.photo.errors %}has-error{% endif %}">
+          <label class="pf-photo-label-modern">Patient Photo <span style="font-weight: 400; color: var(--text-3); font-size: 0.8rem; margin-left: 5px;">(Optional)</span></label>
+          <div class="pf-photo-box-modern">
+            
+            <div class="pf-photo-preview-modern" id="photoPreviewBox" style="{% if not pet.photo %}display: none;{% endif %}">
+              <img src="{% if pet.photo %}{{ pet.photo.url }}{% endif %}" alt="Patient Photo" id="chosenPhoto">
+            </div>
+
+            <div class="pf-photo-placeholder-modern" id="photoPlaceholderBox" style="{% if pet.photo %}display: none;{% endif %}">
+              <i class='bx bx-camera'></i>
+            </div>
+
+            <div class="pf-photo-actions-modern">
+              <span class="pf-photo-title-modern">Upload a photo</span>
+              <small>Supported formats: .png, .jpeg (Max 10MB)</small>
+              <div class="pf-photo-buttons-modern">
+                <button type="button" class="pf-btn-upload" onclick="document.getElementById('{{ form.photo.id_for_label }}').click();">
+                  <i class='bx bx-upload'></i> Choose Photo
+                </button>
+                <button type="button" class="pf-btn-remove" id="removePhotoBtn" style="{% if not pet.photo %}display: none;{% endif %}" onclick="removePhotoAction()">
+                  <i class='bx bx-trash'></i> Remove
+                </button>
+              </div>
+            </div>
+            
+            <!-- Hidden original Django widget -->
+            <div class="pf-hidden-photo-input" style="opacity: 0; position: absolute; z-index: -1;">
+              {{ form.photo }}
+            </div>
+            
+          </div>
+          {% if form.photo.errors %}<span class="pf-field-error">{{ form.photo.errors.0 }}</span>{% endif %}
+        </div>
+
+        <!-- Name -->
+        <div class="pf-field {% if form.name.errors %}has-error{% endif %}">
+          <div class="pf-field-icon"><i class='bx bx-rename'></i></div>
+          {{ form.name }}
+          <label for="{{ form.name.id_for_label }}">Name <span class="pf-required">*</span></label>
+          {% if form.name.errors %}<span class="pf-field-error">{{ form.name.errors.0 }}</span>{% endif %}
+        </div>
+
+        <!-- Species -->
+        <div class="pf-field {% if form.species.errors %}has-error{% endif %}">
+          <div class="pf-field-icon"><i class='bx bx-category'></i></div>
+          {{ form.species }}
+          <label for="{{ form.species.id_for_label }}">Species <span class="pf-required">*</span></label>
+          {% if form.species.errors %}<span class="pf-field-error">{{ form.species.errors.0 }}</span>{% endif %}
+        </div>
+
+        <!-- Breed -->
+        <div class="pf-field {% if form.breed.errors %}has-error{% endif %}">
+          <div class="pf-field-icon"><i class='bx bx-category'></i></div>
+          {{ form.breed }}
+          <label for="{{ form.breed.id_for_label }}">Breed</label>
+          {% if form.breed.errors %}<span class="pf-field-error">{{ form.breed.errors.0 }}</span>{% endif %}
+        </div>
+
+        <!-- Date of Birth -->
+        <div class="pf-field {% if form.date_of_birth.errors %}has-error{% endif %}">
+          <div class="pf-field-icon"><i class='bx bx-calendar'></i></div>
+          {{ form.date_of_birth }}
+          <label for="{{ form.date_of_birth.id_for_label }}">Date of Birth</label>
+          {% if form.date_of_birth.errors %}<span class="pf-field-error">{{ form.date_of_birth.errors.0 }}</span>{% endif %}
+        </div>
+
+        <!-- Sex -->
+        <div class="pf-field {% if form.sex.errors %}has-error{% endif %}">
+          <div class="pf-field-icon"><i class='bx bxs-dog'></i></div>
+          {{ form.sex }}
+          <label for="{{ form.sex.id_for_label }}">Sex <span class="pf-required">*</span></label>
+          {% if form.sex.errors %}<span class="pf-field-error">{{ form.sex.errors.0 }}</span>{% endif %}
+        </div>
+
+        <!-- Color -->
+        <div class="pf-field {% if form.color.errors %}has-error{% endif %}">
+          <div class="pf-field-icon"><i class='bx bx-palette'></i></div>
+          {{ form.color }}
+          <label for="{{ form.color.id_for_label }}">Color</label>
+          {% if form.color.errors %}<span class="pf-field-error">{{ form.color.errors.0 }}</span>{% endif %}
+        </div>
+
+        <!-- Active Status -->
+        <div class="pf-field pf-field-checkbox {% if form.is_active.errors %}has-error{% endif %}">
+          <div class="pf-checkbox-wrapper">
+            {{ form.is_active }}
+            <label for="{{ form.is_active.id_for_label }}">Active Status</label>
+          </div>
+          <small class="pf-help-text">Inactive pets will be hidden from appointment booking but keep their medical history.</small>
+          {% if form.is_active.errors %}<span class="pf-field-error">{{ form.is_active.errors.0 }}</span>{% endif %}
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="pf-actions">
+        <button type="submit" class="pf-submit-btn">
+          <i class='bx bx-check'></i> {{ action }} Pet
+        </button>
+        <a href="{% url 'patients:my_pets' %}" class="pf-cancel-btn">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+
+</div>
+
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const fileInput = document.getElementById('{{ form.photo.id_for_label }}');
+    if(fileInput) {
+      fileInput.addEventListener('change', previewSelectedPhoto);
+    }
+
+    // Auto-Capitalize for Pet Details (first letter only)
+    function capitalizeFirstLetter(str) {
+      if (!str) return str;
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    const fieldsToCapitalize = ['name', 'breed', 'color'];
+    fieldsToCapitalize.forEach(function(fieldName) {
+      const field = document.querySelector('[name="' + fieldName + '"]');
+      if (field && (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA')) {
+        field.addEventListener('input', function() {
+          const start = this.selectionStart;
+          const end = this.selectionEnd;
+          this.value = capitalizeFirstLetter(this.value);
+          this.setSelectionRange(start, end);
+        });
+      }
+    });
+  });
+
+  function previewSelectedPhoto(event) {
+    const input = event.target;
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('chosenPhoto').src = e.target.result;
+        document.getElementById('photoPreviewBox').style.display = 'block';
+        document.getElementById('photoPlaceholderBox').style.display = 'none';
+        document.getElementById('removePhotoBtn').style.display = 'inline-flex';
+        
+        // Uncheck the clear checkbox if it exists so Django keeps the new photo
+        const clearCheckbox = document.querySelector('input[name="{{ form.photo.name }}-clear"]');
+        if(clearCheckbox) {
+          clearCheckbox.checked = false;
+        }
+      }
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function removePhotoAction() {
+    // Clear preview UI
+    document.getElementById('chosenPhoto').src = '';
+    document.getElementById('photoPreviewBox').style.display = 'none';
+    document.getElementById('photoPlaceholderBox').style.display = 'flex';
+    document.getElementById('removePhotoBtn').style.display = 'none';
+    
+    // Clear the file input value
+    const fileInput = document.getElementById('{{ form.photo.id_for_label }}');
+    if(fileInput) {
+      fileInput.value = '';
+    }
+    
+    // Check the clear checkbox to tell Django to completely remove the existing photo
+    const clearCheckbox = document.querySelector('input[name="{{ form.photo.name }}-clear"]');
+    if(clearCheckbox) {
+      clearCheckbox.checked = true;
+    }
+  }
+</script>
+
+{% endblock %}

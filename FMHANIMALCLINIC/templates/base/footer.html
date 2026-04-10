@@ -1,0 +1,70 @@
+<!-- ============================================
+     FOOTER — ENHANCED
+     ============================================ -->
+{% load static %}
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+
+      <!-- Brand -->
+      <div class="footer-brand">
+        <a href="{% url 'landing_page' %}" class="nav-logo">
+          <img src="{% static 'image/fmh-logo.png' %}" alt="Logo" class="logo-icon">
+          FMHSYNC
+        </a>
+        <p>A Web-Based Management Information System with AI-Powered Diagnostics for FMH Animal Clinic. Providing trusted, technology-driven veterinary care across multiple branches.</p>
+        
+        <!-- Social Links -->
+        <div class="footer-social">
+          <a href="https://www.facebook.com/profile.php?id=61571317094214" target="_blank" rel="noopener noreferrer" class="facebook" aria-label="Facebook"><i class='bx bxl-facebook'></i></a>
+          <a href="https://www.instagram.com/fmh.animalclinic/" target="_blank" rel="noopener noreferrer" class="instagram" aria-label="Instagram"><i class='bx bxl-instagram'></i></a>
+          <a href="https://www.facebook.com/messages/t/1388736581249700/" target="_blank" rel="noopener noreferrer" class="messenger" aria-label="Messenger"><i class='bx bxl-messenger'></i></a>
+          <a href="https://www.tiktok.com/@fmhanimalclinic?is_from_webapp=1&sender_device=pc" target="_blank" rel="noopener noreferrer" class="tiktok" aria-label="TikTok"><i class='bx bxl-tiktok'></i></a>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="{% url 'landing_page' %}#home">Home</a></li>
+          <li><a href="{% url 'services_page' %}">Services</a></li>
+          <li><a href="{% url 'aboutus_page' %}">About Us</a></li>
+          <li><a href="{% url 'contact_page' %}">Contact</a></li>
+        </ul>
+      </div>
+
+      <!-- Services -->
+      <div class="footer-col">
+        <h4>Services</h4>
+        <ul>
+          <li><a href="#services">Consultation &amp; Treatment</a></li>
+          <li><a href="#services">Wellness Check</a></li>
+          <li><a href="#services">Soft Tissue Surgery</a></li>
+          <li><a href="#services">Diagnostics</a></li>
+          <li><a href="#services">Ultrasound / X-Ray</a></li>
+          <li><a href="#services">Pet Grooming</a></li>
+        </ul>
+      </div>
+
+      <!-- Branches -->
+      <div class="footer-col">
+        <h4>Branches</h4>
+        <ul>
+          <li><a href="{% url 'contact_page' %}">Pilar Branch</a></li>
+          <li><a href="{% url 'contact_page' %}">Molino Branch</a></li>
+          <li><a href="{% url 'contact_page' %}">Queensrow Branch</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <p>&copy; 2026 FMHSYNC — FMH Animal Clinic.</p>
+      <div class="footer-bottom-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+      </div>
+    </div>
+  </div>
+</footer>

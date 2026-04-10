@@ -1,0 +1,374 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+{% load record_filters %}
+
+{% block title %}Medical Records{% endblock %}
+
+{% block content %}
+
+<style>
+  .rec-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+
+  /* Pet name with warning badge */
+  .pet-name-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .missing-details-icon {
+    color: #f57f17;
+    font-size: 14px;
+    cursor: help;
+    flex-shrink: 0;
+  }
+
+  /* Cell stack spacing */
+  .cell-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .cell-primary {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+  .cell-secondary {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  /* Table Container Positioning - Using global .admin-table component styles */
+  .admin-table-card {
+    margin: 20px 0 0 0;
+    overflow-x: auto;
+  }
+
+  /* Search Dropdown */
+  .search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  .search-dropdown-highlight {
+    background: rgba(0,150,136,0.15);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+</style>
+
+<!-- ══════ RECORDS HERO ══════ -->
+{% url 'records:admin_create' as create_record_url %}
+{% if can_create %}
+{% include "components/page_hero.html" with title="Medical Records" icon="bx-clipboard" subtitle="Manage and track all pet medical records across branches" action_url=create_record_url action_label="Create New" action_icon="bx-plus-circle" icons_theme="medical" %}
+{% else %}
+{% include "components/page_hero.html" with title="Medical Records" icon="bx-clipboard" subtitle="Manage and track all pet medical records across branches" icons_theme="medical" %}
+{% endif %}
+
+<!-- ══════ FILTER BAR ══════ -->
+<div class="c-filter-bar" id="recordFilterBar">
+  <div class="c-filter-bar__glow"></div>
+  <form method="get" action="{% url 'records:admin_list' %}" class="c-filter-bar__form" autocomplete="off">
+
+    <!-- Search Row -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input type="text" name="q" value="{{ search_query }}"
+             placeholder="Search by pet, owner, signs…" id="recordSearch"
+             class="c-filter-bar__search-input" autocomplete="off">
+      <div class="search-dropdown" id="recordSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut"><span>⌘</span><span>K</span></div>
+    </div>
+
+    <!-- Removed Active Filter Chips -->
+
+    <!-- Filter Dropdowns Row -->
+    <div class="c-filter-bar__filters">
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_vet %} active{% endif %}">
+          <i class='bx bx-user-check c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_vet %}<span class="prefix">Vet:</span> {% for vet in vets %}{% if vet.id|stringformat:"d" == selected_vet %}Dr. {{ vet.first_name }} {{ vet.last_name }}{% endif %}{% endfor %}{% else %}All Vets{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select name="vet" onchange="this.form.submit()" class="c-filter-dropdown__select sd-convert">
+          <option value="">All Vets</option>
+          {% for vet in vets %}
+            <option value="{{ vet.id }}" {% if selected_vet == vet.id|stringformat:"d" %}selected{% endif %}>Dr. {{ vet.first_name }} {{ vet.last_name }} ({{ vet.branch.name|default:"—" }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if not is_branch_restricted and branches %}
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_branch %} active{% endif %}">
+          <i class='bx bx-building-house c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_branch %}<span class="prefix">Branch:</span> {% for branch in branches %}{% if branch.id|stringformat:"d" == selected_branch %}{{ branch.name }}{% endif %}{% endfor %}{% else %}All Branches{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select name="branch" onchange="this.form.submit()" class="c-filter-dropdown__select sd-convert">
+          <option value="">All Branches</option>
+          {% for branch in branches %}
+            <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"d" %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_source %} active{% endif %}">
+          <i class='bx bx-globe c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_source %}<span class="prefix">Source:</span> {{ selected_source }}{% else %}All Sources{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select name="source" onchange="this.form.submit()" class="c-filter-dropdown__select sd-convert">
+          <option value="">All Sources</option>
+          {% for value, label in source_choices %}
+            <option value="{{ value }}" {% if selected_source == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if search_query or selected_branch or selected_vet or selected_source %}
+      <a href="{% url 'records:admin_list' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Main Table Container -->
+<div class="admin-table-card">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th style="text-align: center;">Pet / Owner</th>
+        <th style="text-align: center;">Branch</th>
+        <th style="text-align: center;">Attending Vet</th>
+        <th style="text-align: center;">Vitals</th>
+        <th style="text-align: center;">History / Signs</th>
+        <th style="text-align: center;">Treatment / Rx</th>
+        <th style="text-align: center;">Follow-up</th>
+        <th style="text-align: center;">Status</th>
+        <th style="text-align: center;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in records %}
+      {% with latest=record.latest_entry %}
+      <tr class="searchable-row" style="cursor: pointer;"
+          data-pet="{{ record.pet.name }}"
+          data-owner="{{ record.pet.owner_display_name }}"
+          data-branch="{{ record.branch.name|default:'' }}"
+          data-source="{{ record.pet.source }}"
+          data-source_display="{{ record.pet.get_source_display }}"
+          data-href="{% url 'records:admin_detail' record.pk %}"
+          onclick="window.location='{% url 'records:admin_detail' record.pk %}';">
+        <td style="text-align: center;">
+          <div class="cell-stack" style="align-items: center;">
+            <span class="cell-primary pet-name-badge">
+              {{ record.pet.name }}
+              {% if record_warnings|get_item:record.pk %}
+              <i class='bx bx-error-circle missing-details-icon' title="Missing required details — complete to enable PDF download"></i>
+              {% endif %}
+            </span>
+            <span class="cell-secondary">{{ record.pet.owner_display_name }}</span>
+          </div>
+        </td>
+        <td style="text-align: center;">{{ record.branch.name|default:"—" }}</td>
+        <td style="text-align: center;">
+          <div class="cell-stack" style="align-items: center;">
+            {% if record.vet %}
+            <span class="cell-primary">Dr. {{ record.vet.first_name }} {{ record.vet.last_name }}</span>
+            {% if record.vet.license_number %}<span class="cell-secondary">PRC: {{ record.vet.license_number }}</span>{% endif %}
+            {% else %}<span class="cell-secondary">—</span>{% endif %}
+          </div>
+        </td>
+        <td style="text-align: center;">
+          <span class="cell-secondary">{{ latest.weight|default:"--" }} kg / {{ latest.temperature|default:"--" }} °C</span>
+        </td>
+        <td style="text-align: center;">
+          <span class="cell-secondary">{{ latest.history_clinical_signs|default:"--"|truncatechars:35 }}</span>
+        </td>
+        <td style="text-align: center;">
+          <div class="cell-stack" style="align-items: center;">
+            <span class="cell-secondary">Tx: {{ latest.treatment|default:"--"|truncatechars:20 }}</span>
+            {% if latest.rx %}<span class="cell-secondary">Rx: {{ latest.rx|truncatechars:20 }}</span>{% endif %}
+          </div>
+        </td>
+        <td style="text-align: center;">
+          <span class="cell-secondary">{{ latest.ff_up|date:"M j, Y"|default:"--" }}</span>
+        </td>
+        <td style="text-align: center;">
+          {% if record.status == 'Active' %}
+            <span class="admin-badge active">Active</span>
+          {% else %}
+            <span class="admin-badge inactive">{{ record.status }}</span>
+          {% endif %}
+        </td>
+        <td style="text-align: center;">
+          <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
+            {% if can_edit %}
+            <a href="{% url 'records:admin_edit' record.pk %}" class="action-btn" title="Edit Record"><i class='bx bx-edit-alt'></i></a>
+            {% endif %}
+            {% if can_delete %}
+            <a href="{% url 'records:admin_delete' record.pk %}" class="action-btn danger" title="Delete Record"><i class='bx bx-trash'></i></a>
+            {% endif %}
+            {% if can_create %}
+            <a href="{% url 'records:admin_add_entry' record.pk %}" class="action-btn" title="Add Visit Entry"><i class='bx bx-plus'></i></a>
+            {% endif %}
+            {% if record_warnings|get_item:record.pk %}
+            <span class="action-btn" style="opacity:0.4;cursor:not-allowed;" title="Complete all required fields before downloading PDF"><i class='bx bx-download'></i></span>
+            {% else %}
+            <a href="{% url 'records:download_pdf' record.pk %}" class="action-btn" title="Download PDF"><i class='bx bx-download'></i></a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endwith %}
+      {% empty %}
+      <tr>
+        <td colspan="9">
+          <div class="admin-empty-state">
+            <i class='bx bx-file'></i>
+            <h3>No medical records found</h3>
+            {% if can_create %}
+            <p>Create a new medical record to get started.</p>
+            {% else %}
+            <p>No records available to view.</p>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Modern Pagination Section -->
+  {% include "components/modern_pagination.html" %}
+</div>
+
+<script>
+// ══════ RECORDS SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+(function initRecordSearch() {
+  const searchInput = document.getElementById('recordSearch');
+  const dropdown    = document.getElementById('recordSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
+      pet   : row.dataset.pet    || '',
+      owner : row.dataset.owner  || '',
+      branch: row.dataset.branch || '',
+      source: row.dataset.source || '',
+      source_display: row.dataset.source_display || '',
+      href  : row.dataset.href   || '#',
+      row   : row
+    }));
+  }
+
+  let records = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No records found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map((r, idx) => `
+        <div class="search-dropdown-item" data-index="${idx}">
+          <i class='bx bx-file-blank'></i>
+          <div class="item-info">
+            <div class="record-meta-item source-badge ${r.source == 'PORTAL' ? 'portal' : 'walkin'}">
+              <i class='bx ${r.source == "PORTAL" ? 'bx-user-check' : 'bx-walk'}'></i>
+              ${r.source_display}
+            </div>
+            <div class="item-name">${highlight(r.pet, q)}</div>
+            <div class="item-sub">${highlight(r.owner, q)} &bull; ${r.branch || '—'}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].pet;
+          filterRows(results[idx].pet.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    records.forEach(r => {
+      const pl = r.pet.toLowerCase(); const ol = r.owner.toLowerCase(); const bl = r.branch.toLowerCase();
+      const matches = !q || pl.includes(q) || ol.includes(q) || bl.includes(q);
+      r.row.style.display = matches ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = records.filter(r =>
+      r.pet.toLowerCase().includes(q) || r.owner.toLowerCase().includes(q) || r.branch.toLowerCase().includes(q));
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx + 1) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx - 1 + items.length) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (idx >= 0) {
+        items[idx]?.click();
+      }
+      hideDropdown();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+}());
+</script>
+{% endblock %}

@@ -1,0 +1,399 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="admin-notif-page">
+
+<!-- ══════ NOTIFICATIONS HERO ══════ -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-bell'></i> Notifications</h1>
+      <p>Stay updated on clinic events and inventory alerts</p>
+    </div>
+    <div class="page-hero-actions">
+      {% if unread_count > 0 %}
+      <button id="markAllReadBtn" class="page-hero-btn" onclick="markAllNotificationsRead()">
+        <i class='bx bx-check-double'></i> Mark All Read
+        <span class="notif-badge-count">{{ unread_count }}</span>
+      </button>
+      {% endif %}
+      {% if page_obj.paginator.count > 0 %}
+      <button id="clearAllBtn" class="page-hero-btn" onclick="clearAllNotifications()">
+        <i class='bx bx-trash-alt'></i>
+        <span>Clear All</span>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Category Tabs -->
+{% include "components/tab_bar.html" with tabs=tab_list active_tab=current_filter tab_id="notifTabs" %}
+
+<!-- Filter Bar with Search and Dropdowns -->
+<div class="c-filter-bar" style="margin-bottom: 22px;">
+  <div class="c-filter-bar__glow"></div>
+  <form method="GET" action="{% url 'notifications:admin_notifications' %}" class="c-filter-bar__form" autocomplete="off">
+    <!-- Search Input -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input
+        type="text"
+        name="q"
+        value="{{ search_value }}"
+        placeholder="Search by title, message, or type..."
+        id="notifSearch"
+        class="c-filter-bar__search-input"
+        autocomplete="off"
+      >
+      <div class="search-dropdown" id="notifSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut">
+        <span>⌘</span><span>K</span>
+      </div>
+    </div>
+
+    <!-- Filter Dropdowns Row -->
+    <div class="c-filter-bar__filters">
+      <!-- Type Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if notif_type %} active{% endif %}">
+          <i class='bx bx-tag c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if notif_type %}{{ notif_type|title }}{% else %}All Types{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="type" onchange="this.form.submit()">
+          <option value="">All Types</option>
+          {% for type_code, type_label in notification_types %}
+            <option value="{{ type_code }}" {% if notif_type == type_code %}selected{% endif %}>{{ type_label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if search_value and search_value|length or notif_type and notif_type|length %}
+      <a href="{% url 'notifications:admin_notifications' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if page_obj.object_list %}
+<!-- Notification List -->
+<div class="modern-notif-list" id="notifList">
+  {% for notif in page_obj.object_list %}
+  <div class="notif-card-v2 {% if not notif.is_read %}unread{% endif %} searchable-row"
+       data-id="{{ notif.pk }}"
+       data-read="{{ notif.is_read|yesno:'true,false' }}"
+       data-title="{{ notif.title }}"
+       data-message="{{ notif.message }}"
+       data-type="{{ notif.get_notification_type_display }}"
+       data-status="{% if notif.is_read %}read{% else %}unread{% endif %}">
+
+    <!-- Accent gradient bar -->
+    <div class="notif-accent-bar
+      {% if notif.notification_type == 'APPOINTMENT' %}accent-appointment
+      {% elif notif.notification_type == 'FOLLOW_UP' %}accent-followup
+      {% elif notif.notification_type == 'INVENTORY_RESTOCK' or notif.notification_type == 'LOW_INVENTORY' %}accent-inventory
+      {% else %}accent-general{% endif %}"></div>
+
+    <!-- Main content area -->
+    <div class="notif-card-body">
+      <!-- Icon with glow effect -->
+      <div class="notif-icon-v2
+        {% if notif.notification_type == 'APPOINTMENT' %}icon-appointment
+        {% elif notif.notification_type == 'FOLLOW_UP' %}icon-followup
+        {% elif notif.notification_type == 'INVENTORY_RESTOCK' or notif.notification_type == 'LOW_INVENTORY' %}icon-inventory
+        {% else %}icon-general{% endif %}">
+        <div class="notif-icon-glow"></div>
+        {% if notif.notification_type == 'APPOINTMENT' %}
+          <i class='bx bx-calendar-event'></i>
+        {% elif notif.notification_type == 'FOLLOW_UP' %}
+          <i class='bx bx-plus-medical'></i>
+        {% elif notif.notification_type == 'INVENTORY_RESTOCK' %}
+          <i class='bx bx-check-shield'></i>
+        {% elif notif.notification_type == 'LOW_INVENTORY' %}
+          <i class='bx bx-error'></i>
+        {% else %}
+          <i class='bx bx-bell'></i>
+        {% endif %}
+      </div>
+
+      <!-- Content section -->
+      <div class="notif-content-v2">
+        <div class="notif-header-v2">
+          <h4 class="notif-title-v2">{{ notif.title }}</h4>
+          <div class="notif-meta-v2">
+            {% if not notif.is_read %}
+            <span class="notif-new-badge">
+              <span class="pulse-dot"></span>
+              New
+            </span>
+            {% endif %}
+            <span class="notif-time-v2">
+              <i class='bx bx-time-five'></i>
+              {{ notif.created_at|timesince }} ago
+            </span>
+          </div>
+        </div>
+        <p class="notif-message-v2">{{ notif.message }}</p>
+        <div class="notif-footer-v2">
+          <span class="notif-type-chip
+            {% if notif.notification_type == 'APPOINTMENT' %}chip-appointment
+            {% elif notif.notification_type == 'FOLLOW_UP' %}chip-followup
+            {% elif notif.notification_type == 'INVENTORY_RESTOCK' or notif.notification_type == 'LOW_INVENTORY' %}chip-inventory
+            {% else %}chip-general{% endif %}">
+            <span class="chip-dot"></span>
+            {{ notif.get_notification_type_display }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="notif-actions-v2">
+        {% if not notif.is_read %}
+        <button class="notif-action-btn action-read" onclick="markOneRead(this, {{ notif.pk }})" title="Mark as read">
+          <span class="action-icon"><i class='bx bx-check'></i></span>
+          <span class="action-label">Read</span>
+        </button>
+        {% endif %}
+        <button class="notif-action-btn action-delete" onclick="deleteNotification(this, {{ notif.pk }})" title="Delete notification">
+          <span class="action-icon"><i class='bx bx-trash-alt'></i></span>
+          <span class="action-ripple"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% include "components/modern_pagination.html" %}
+
+<script>
+// ══════ NOTIFICATION SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+(function initNotifSearch() {
+  const searchInput = document.getElementById('notifSearch');
+  const dropdown = document.getElementById('notifSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('div.searchable-row')).map(row => ({
+      title: row.dataset.title || '',
+      message: row.dataset.message || '',
+      type: row.dataset.type || '',
+      status: row.dataset.status || '',
+      row: row
+    }));
+  }
+
+  let items = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No notifications found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map(item => `
+        <div class="search-dropdown-item" data-title="${item.title}">
+          <i class='bx bx-bell'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(item.title, q)}</div>
+            <div class="item-sub">${highlight(item.type, q)} &bull; ${item.status}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((elem, idx) => {
+        elem.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].title;
+          filterRows(results[idx].title.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    items.forEach(item => {
+      const tl = item.title.toLowerCase();
+      const ml = item.message.toLowerCase();
+      const typel = item.type.toLowerCase();
+      const matchesSearch = !q || tl.includes(q) || ml.includes(q) || typel.includes(q);
+      item.row.style.display = matchesSearch ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = items.filter(item =>
+      item.title.toLowerCase().includes(q) ||
+      item.message.toLowerCase().includes(q) ||
+      item.type.toLowerCase().includes(q));
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items_elem = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items_elem.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items_elem[idx]?.classList.remove('active');
+      idx = (idx + 1) % items_elem.length;
+      items_elem[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items_elem[idx]?.classList.remove('active');
+      idx = (idx - 1 + items_elem.length) % items_elem.length;
+      items_elem[idx]?.classList.add('active');
+    } else if (e.key === 'Enter' && idx >= 0) {
+      e.preventDefault(); items_elem[idx]?.click();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+}());
+
+// Reinitialize searchable dropdowns for filter bar
+if (window.SearchableDropdown) {
+  SearchableDropdown.init();
+}
+
+// ══════ NOTIFICATION ACTIONS ══════
+function markAllNotificationsRead() {
+  fetch("{% url 'notifications:mark_all_read' %}", {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": "{{ csrf_token }}",
+      "Content-Type": "application/json"
+    }
+  }).then(response => {
+    if (response.ok) window.location.reload();
+  });
+}
+
+function markOneRead(btn, pk) {
+  event.stopPropagation();
+  fetch(`/notifications/${pk}/read/`, {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": "{{ csrf_token }}",
+      "Content-Type": "application/json"
+    }
+  }).then(response => {
+    if (response.ok) {
+      const card = btn.closest('.notif-card-v2');
+      card.classList.remove('unread');
+      card.dataset.read = 'true';
+      const newBadge = card.querySelector('.notif-new-badge');
+      if (newBadge) newBadge.remove();
+      btn.remove();
+    }
+  });
+}
+
+function deleteNotification(btn, pk) {
+  event.stopPropagation();
+  const card = btn.closest('.notif-card-v2');
+  card.classList.add('deleting');
+  setTimeout(() => {
+    fetch(`/notifications/${pk}/delete/`, {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": "{{ csrf_token }}",
+        "Content-Type": "application/json"
+      }
+    }).then(response => {
+      if (response.ok) {
+        card.remove();
+        if (document.querySelectorAll('.notif-card-v2').length === 0) {
+          window.location.reload();
+        }
+      }
+    });
+  }, 400);
+}
+
+function clearAllNotifications() {
+  if (confirm('Are you sure you want to delete all notifications? This action cannot be undone.')) {
+    const cards = document.querySelectorAll('.notif-card-v2');
+    cards.forEach((card, index) => {
+      setTimeout(() => {
+        card.classList.add('deleting');
+      }, index * 50);
+    });
+    setTimeout(() => {
+      fetch("{% url 'notifications:delete_all' %}", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": "{{ csrf_token }}",
+          "Content-Type": "application/json"
+        }
+      }).then(response => {
+        if (response.ok) window.location.reload();
+      });
+    }, cards.length * 50 + 400);
+  }
+}
+</script>
+</script>
+
+{% else %}
+<!-- No results for current filter -->
+<div class="notif-filter-empty">
+  <div class="notif-empty-visual">
+    <div class="notif-empty-ring ring-1"></div>
+    <div class="notif-empty-ring ring-2"></div>
+    <div class="notif-empty-ring ring-3"></div>
+    <div class="notif-empty-center-icon">
+      <i class='bx bx-filter-alt'></i>
+    </div>
+  </div>
+  <h2>No notifications found</h2>
+  <p>Try switching to a different filter to see other notifications.</p>
+</div>
+<script>
+function clearAllNotifications() {
+  if (confirm('Are you sure you want to delete all notifications? This action cannot be undone.')) {
+    window.location.reload();
+  }
+}
+</script>
+{% endif %}
+</div>
+
+<style>
+/* Fix dropdown clipping - allow overflow */
+.admin-notif-page {
+    overflow: visible !important;
+}
+</style>
+
+{% endblock %}
+

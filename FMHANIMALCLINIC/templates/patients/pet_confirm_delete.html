@@ -1,0 +1,34 @@
+{% extends 'base/portal_user.html' %}
+
+{% block title %}Delete {{ pet.name }}{% endblock %}
+
+{% block content %}
+
+<div class="pf-page">
+
+  <a href="{% url 'patients:my_pets' %}" class="pf-back-link">
+    <i class='bx bx-arrow-back'></i> Back to My Pets
+  </a>
+
+  <div class="pf-delete-card">
+    <div class="pf-delete-icon-ring">
+      <div class="pf-delete-icon">
+        <i class='bx bx-error-circle'></i>
+      </div>
+    </div>
+    <h2>Remove <strong>{{ pet.name }}</strong>?</h2>
+    <p>This action cannot be undone. All data associated with this pet will be permanently deleted.</p>
+    <form method="POST" class="pf-delete-actions">
+      {% csrf_token %}
+      <button type="submit" class="pf-delete-btn">
+        <i class='bx bx-trash'></i> Yes, Remove {{ pet.name }}
+      </button>
+      <a href="{% url 'patients:my_pets' %}" class="pf-cancel-btn">
+        Cancel
+      </a>
+    </form>
+  </div>
+
+</div>
+
+{% endblock %}

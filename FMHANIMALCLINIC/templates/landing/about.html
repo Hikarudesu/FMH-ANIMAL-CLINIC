@@ -1,0 +1,200 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- ============================================
+     ABOUT US HERO SECTION
+     ============================================ -->
+<section class="about-hero">
+  <div class="container about-hero-container">
+    <div class="about-hero-text">
+      <h1 class="about-hero-title">
+        <span class="line"><span class="line-inner">FMH ANIMAL CLINIC</span></span>
+        <span class="line"><span class="line-inner">Our <span class="highlight serif">Story</span></span></span>
+      </h1>
+      <p class="about-hero-tagline">Dedicated to providing exceptional care for your beloved pets with compassion, expertise, and cutting-edge AI technology</p>
+      <a href="#why-choose" class="btn-about-hero"><i class='bx bx-chevron-down'></i> Discover Our Story</a>
+    </div>
+    
+    <div class="about-hero-image fade-in">
+      <div class="hero-image-bg fade-in"></div>
+      <img src="{% static 'image/dog.png' %}" alt="About Us" class="hero-human fade-in">
+    </div>
+  </div>
+</section>
+
+<!-- ============================================
+     WHY CHOOSE FMH CLINIC?
+     ============================================ -->
+<section class="why-choose" id="why-choose">
+  <div class="container">
+    <h2 class="section-title fade-in">Why Choose <span class="teal-text">FMH Clinic?</span></h2>
+    <p class="section-subtitle fade-in">Trusted by pet owners for our advanced technology, professional care, and commitment to animal health.</p>
+
+    <div class="why-grid">
+
+      <div class="why-card teal fade-in">
+        <div class="why-icon-bg"><i class='bx bxs-brain'></i></div>
+        <div class="why-content">
+          <h3><i class='bx bx-brain'></i> AI-Powered Diagnostic Support</h3>
+          <p>Assists veterinarians by instantly identifying possible medical conditions based on your pet's patient history.</p>
+        </div>
+      </div>
+
+      <div class="why-card teal fade-in">
+        <div class="why-icon-bg"><i class='bx bxs-buildings'></i></div>
+        <div class="why-content">
+          <h3><i class='bx bx-buildings'></i> Multi-Branch Clinic System</h3>
+          <p>Unified access across all FMH Animal Clinic branches for seamless pet care, no matter which location you visit.</p>
+        </div>
+      </div>
+
+      <div class="why-card teal fade-in">
+        <div class="why-icon-bg"><i class='bx bxs-folder-open'></i></div>
+        <div class="why-content">
+          <h3><i class='bx bx-folder-open'></i> Centralized Pet Medical Records</h3>
+          <p>All your pet's medical history, records, and treatments stored securely in one centralized system accessible anytime.</p>
+        </div>
+      </div>
+
+      <div class="why-card teal fade-in">
+        <div class="why-icon-bg"><i class='bx bxs-calendar-check'></i></div>
+        <div class="why-content">
+          <h3><i class='bx bx-calendar-check'></i> Faster Appointment Scheduling</h3>
+          <p>Book appointments quickly and easily online. Choose your preferred branch, service, date, and time in seconds.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================================
+     AI DIAGNOSTIC HIGHLIGHT
+     ============================================ -->
+<section class="ai-section" id="ai-diagnostics">
+  <div class="container">
+    <div class="ai-content">
+
+      <!-- Left: Text -->
+      <div class="ai-text fade-in">
+        <h2>AI-Powered <span class="teal-text">Diagnostic Insights</span></h2>
+        <p>Our system leverages artificial intelligence to analyze your pet's medical history and provide actionable health insights to our veterinarians.</p>
+
+        <div class="ai-features">
+          <div class="ai-feature">
+            <i class='bx bx-check-circle'></i>
+            <p>AI analyzes pet medical history and recorded symptoms to identify patterns</p>
+          </div>
+          <div class="ai-feature">
+            <i class='bx bx-check-circle'></i>
+            <p>Provides suggested conditions based on comprehensive medical records</p>
+          </div>
+          <div class="ai-feature">
+            <i class='bx bx-check-circle'></i>
+            <p>Offers predictive health insights for proactive pet care</p>
+          </div>
+          <div class="ai-feature">
+            <i class='bx bx-check-circle'></i>
+            <p>Final diagnosis and treatment decisions remain with licensed veterinarians</p>
+          </div>
+        </div>
+
+        <div class="ai-disclaimer">
+          <i class='bx bx-error'></i>
+          <p>The AI-Powered Diagnostics is a decision-support tool, not a replacement for veterinarians. All clinical decisions are made by qualified, licensed professionals.</p>
+        </div>
+      </div>
+
+      <!-- Right: Visual Mockup -->
+      <div class="ai-visual fade-in">
+        <div class="ai-mockup">
+          <div class="ai-mockup-header">
+            <i class='bx bx-brain'></i>
+            <div>
+              <h4>AI Diagnostic Engine</h4>
+              <p>Decision-Support System</p>
+            </div>
+          </div>
+
+          <div class="ai-mockup-item">
+            <i class='bx bx-search-alt-2'></i>
+            <div class="item-info">
+              <h5>Symptom Analysis</h5>
+              <p>Analyzing recorded symptoms and history...</p>
+            </div>
+          </div>
+
+          <div class="ai-mockup-item">
+            <i class='bx bx-bar-chart-alt-2'></i>
+            <div class="item-info">
+              <h5>Suggested Conditions</h5>
+              <p>3 possible conditions identified</p>
+            </div>
+          </div>
+
+          <div class="ai-mockup-item">
+            <i class='bx bx-shield-plus'></i>
+            <div class="item-info">
+              <h5>Predictive Insights</h5>
+              <p>Health trend forecast generated</p>
+            </div>
+          </div>
+
+          <div class="ai-mockup-item">
+            <i class='bx bx-user-check'></i>
+            <div class="item-info">
+              <h5>Veterinarian Review</h5>
+              <p>Awaiting final clinical decision</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================================
+     OUR VETERINARIANS
+     ============================================ -->
+<section class="veterinarians" id="veterinarians">
+  <div class="container">
+    <h2 class="section-title fade-in">{% if vets_intro %}{{ vets_intro.title }}{% else %}Meet Our <span class="teal-text">Veterinarians</span>{% endif %}</h2>
+    <p class="section-subtitle fade-in">{% if vets_intro %}{{ vets_intro.subtitle }}{% else %}Experienced, compassionate professionals dedicated to your pet's health and well-being.{% endif %}</p>
+
+    <div class="vet-grid">
+      {% for vet in veterinarians %}
+      <div class="vet-card fade-in">
+        <div class="vet-image">
+          {% if vet.photo %}
+            <img src="{{ vet.photo.url }}" alt="{{ vet.name }}">
+          {% else %}
+            <i class='bx bx-user-circle'></i>
+          {% endif %}
+        </div>
+        <div class="vet-info">
+          <h3>{{ vet.name }}</h3>
+          <p class="vet-title">{{ vet.title }}</p>
+          <p class="vet-bio">{{ vet.bio }}</p>
+        </div>
+      </div>
+      {% empty %}
+      <!-- Fallback if no veterinarians in database -->
+      <div class="vet-card fade-in">
+        <div class="vet-image">
+          <i class='bx bx-user-circle'></i>
+        </div>
+        <div class="vet-info">
+          <h3>Our Veterinarians</h3>
+          <p class="vet-title">Coming Soon</p>
+          <p class="vet-bio">Meet our team of dedicated professionals.</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}

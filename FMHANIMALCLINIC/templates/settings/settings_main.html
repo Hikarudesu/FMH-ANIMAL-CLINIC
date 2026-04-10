@@ -1,0 +1,376 @@
+<!-- prettier-ignore -->
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+<!-- prettier-ignore -->
+{% block title %}System Settings{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<style>
+  /* Settings Container */
+  .settings-container {
+    max-width: 100%;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 24px 0 24px;
+  }
+
+  /* Settings Card - Match Dashboard Card layout exactly & Center it */
+  .settings-card {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg); /* like dashboard-card */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+    /* Removing padding from card so we can have a full-width header */
+    max-width: 100%;
+    width: 100%;
+    margin: 0 0 32px 0;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .settings-card:hover {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.05);
+    border-color: var(--primary);
+  }
+  .settings-card::before {
+    display: none;
+  }
+  .settings-card:hover::before {
+    display: none;
+  }
+
+  /* Admin Grid acts as the card-body */
+  .admin-grid {
+    padding: 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  .admin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .admin-field label {
+    color: var(--text-1);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .admin-input {
+    width: 100%;
+    padding: 12px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-1);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .admin-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.12);
+  }
+  select.admin-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    background-color: transparent;
+  }
+  .admin-field-full {
+    grid-column: 1 / -1;
+  }
+  .admin-actions {
+    margin: 0 32px 32px 32px; /* match card-body padding */
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+  .btn-submit {
+    padding: 10px 24px;
+    background: var(--primary); /* match Create Account button */
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25);
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 150, 136, 0.35);
+  }
+
+  /* Make the first section title act identically to .card-header */
+  .form-section-title:first-of-type {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-1);
+    background: var(--surface);
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin: -32px -32px 12px -32px; /* Expand out of admin-grid padding */
+    grid-column: 1 / -1;
+  }
+  .form-section-title:first-of-type i {
+    color: var(--primary);
+    font-size: 1.4rem;
+  }
+
+  /* Subsequent section titles act as intra-form dividers */
+  .form-section-title:not(:first-of-type) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 28px 0 16px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    grid-column: 1 / -1;
+  }
+  .form-section-title:not(:first-of-type) i {
+    color: var(--primary);
+    font-size: 1.3rem;
+  }
+  .error-text {
+    color: var(--danger, #ff4d4d);
+    font-size: 12px;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+  .form-hint {
+    color: var(--text-3);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  /* Checkbox styles */
+  .checkbox-field {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  .admin-checkbox {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--primary);
+    cursor: pointer;
+    margin-top: 2px;
+  }
+  .checkbox-content {
+    flex: 1;
+  }
+  .checkbox-content label {
+    color: var(--text-1);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .checkbox-content .form-hint {
+    margin-top: 0;
+  }
+
+  /* Logo preview */
+  .logo-preview-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .logo-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-3);
+    font-size: 28px;
+    border: 1px dashed var(--border);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    /* Container adjustments */
+    .settings-container {
+      padding: 20px 16px 0 16px;
+    }
+
+    /* Card adjustments */
+    .settings-card {
+      max-width: 100%;
+      margin: 0 0 24px 0;
+    }
+
+    .admin-grid {
+      grid-template-columns: 1fr;
+      padding: 24px;
+      gap: 16px;
+    }
+
+    .admin-field label {
+      font-size: 12px;
+    }
+
+    .admin-input {
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    .admin-actions {
+      margin: 0 24px 24px 24px;
+      padding-top: 20px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-submit {
+      padding: 9px 18px;
+      font-size: 13px;
+      gap: 6px;
+    }
+
+    .form-section-title:first-of-type {
+      padding: 16px 20px;
+      margin: -24px -24px 10px -24px;
+      font-size: 1.05rem;
+    }
+
+    .form-section-title:not(:first-of-type) {
+      margin: 20px 0 12px 0;
+      font-size: 0.95rem;
+    }
+
+    /* Logo preview */
+    .logo-preview-container {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .logo-preview,
+    .logo-placeholder {
+      width: 70px;
+      height: 70px;
+      font-size: 22px;
+    }
+
+    /* Checkbox field */
+    .checkbox-field {
+      padding: 12px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .settings-container {
+      padding: 16px 12px 0 12px;
+    }
+
+    .admin-grid {
+      padding: 20px;
+      gap: 14px;
+    }
+
+    .admin-actions {
+      margin: 0 20px 20px 20px;
+      flex-direction: column;
+    }
+
+    .btn-submit {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .form-section-title:first-of-type {
+      margin: -20px -20px 8px -20px;
+      padding: 14px 16px;
+      font-size: 0.95rem;
+    }
+
+    .error-text,
+    .form-hint {
+      font-size: 11px;
+    }
+
+    /* Checkbox field */
+    .checkbox-field {
+      padding: 10px;
+    }
+  }
+</style>
+
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-cog'></i> System Settings</h1>
+      <p>Configure clinic operations and system preferences</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ TAB BAR ══════ -->
+<div class="settings-container" style="padding-bottom: 0; margin-bottom: 0; padding-left: 0; padding-right: 0;">
+  <div class="c-tab-bar" style="width: 100%; max-width: 100%;">
+    <div class="c-tab-bar__glow"></div>
+    <div class="c-tab-bar__indicator"></div>
+    {% for tab in tabs %}
+    <button class="c-tab-btn{% if active_tab == tab.id %} active{% endif %}"
+            data-tab="{{ tab.id }}" type="button"
+            onclick="window.location.href='?tab={{ tab.id }}'">
+      <i class='bx {{ tab.icon }} c-tab-btn__icon'></i> <span class="c-tab-btn__label">{{ tab.label }}</span>
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="settings-container">
+
+  <!-- Tab Content -->
+  <div class="settings-body">
+    {% if active_tab == 'clinic' %}
+      {% include 'settings/partials/_clinic_info.html' %}
+    {% elif active_tab == 'scheduling' %}
+      {% include 'settings/partials/_scheduling.html' %}
+    {% elif active_tab == 'inventory' %}
+      {% include 'settings/partials/_inventory.html' %}
+    {% elif active_tab == 'notifications' %}
+      {% include 'settings/partials/_notifications.html' %}
+    {% elif active_tab == 'payroll' %}
+      {% include 'settings/partials/_payroll.html' %}
+    {% elif active_tab == 'system' %}
+      {% include 'settings/partials/_system.html' %}
+    {% elif active_tab == 'content' %}
+      {% include 'settings/partials/_content.html' %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

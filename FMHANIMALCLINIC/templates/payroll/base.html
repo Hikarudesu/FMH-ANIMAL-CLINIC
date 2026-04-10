@@ -1,0 +1,43 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Payroll Management{% endblock %}
+
+{% block content %}
+<style>
+/* Main Cards / Grids */
+.payroll-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 24px;
+}
+</style>
+
+<!-- Page Header - Matching System Standard -->
+{% include "components/page_hero.html" with title="Payroll Management" subtitle="Manage salaries, pay slips, and financial logs" icon="bx-money" %}
+
+<!-- Tab Navigation -->
+<div class="c-tab-bar">
+  <div class="c-tab-bar__glow"></div>
+  <div class="c-tab-bar__indicator"></div>
+  <button class="c-tab-btn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" data-tab="dashboard" type="button" onclick="window.location.href='{% url 'payroll:dashboard' %}'">
+      <i class='bx bx-grid-alt c-tab-btn__icon'></i> <span class="c-tab-btn__label">Dashboard</span>
+  </button>
+  <button class="c-tab-btn {% if request.resolver_match.url_name == 'vets' or request.resolver_match.url_name == 'vet_detail' %}active{% endif %}" data-tab="vets" type="button" onclick="window.location.href='{% url 'payroll:vets' %}'">
+      <i class='bx bx-group c-tab-btn__icon'></i> <span class="c-tab-btn__label">Active Staff</span>
+  </button>
+  <button class="c-tab-btn {% if request.resolver_match.url_name == 'requests' or 'payslip' in request.resolver_match.url_name %}active{% endif %}" data-tab="send" type="button" onclick="window.location.href='{% url 'payroll:requests' %}'">
+      <i class='bx bx-send c-tab-btn__icon'></i> <span class="c-tab-btn__label">Send Payslips</span>
+  </button>
+  <button class="c-tab-btn {% if 'audit' in request.resolver_match.url_name %}active{% endif %}" data-tab="audit" type="button" onclick="window.location.href='{% url 'payroll:audit_log' %}'">
+      <i class='bx bx-history c-tab-btn__icon'></i> <span class="c-tab-btn__label">Audit Log</span>
+  </button>
+</div>
+
+<!-- Page Content -->
+{% block payroll_content %}{% endblock %}
+
+{% endblock %}

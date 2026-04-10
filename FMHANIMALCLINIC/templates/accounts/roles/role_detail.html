@@ -1,0 +1,459 @@
+{% extends 'base/portal_admin.html' %}
+{% load permission_tags %}
+
+{% block title %}{{ role.name }}{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header">
+  <div style="display: flex; align-items: center; gap: 16px;">
+    <div class="role-icon-lg">
+      <i class='bx {% if role.code == 'superadmin' or role.code == 'admin' %}bx-crown{% elif role.code == 'branch_admin' %}bx-building{% elif role.code == 'veterinarian' %}bx-plus-medical{% elif role.code == 'receptionist' %}bx-phone{% elif role.code == 'vet_assistant' %}bx-user{% elif role.code == 'user' %}bx-heart{% else %}bx-shield-quarter{% endif %}'></i>
+    </div>
+    <div>
+      <h1 style="display: flex; align-items: center; gap: 10px;">
+        {{ role.name }}
+        {% if role.is_system_role %}
+        <span class="system-tag"><i class='bx bx-lock-alt'></i> System</span>
+        {% endif %}
+      </h1>
+      <p class="page-subtitle">{{ role.description|default:"Role configuration and permissions" }}</p>
+    </div>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'accounts:role_list' %}" class="btn-action">
+      <i class='bx bx-arrow-back'></i> Back
+    </a>
+    {% if user|has_module_permission:'roles:EDIT' %}
+      {% if not role.is_system_role or user.is_superuser %}
+      <a href="{% url 'accounts:role_edit' role.pk %}" class="btn-action primary">
+        <i class='bx bx-edit-alt'></i> Edit
+      </a>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<div class="detail-grid">
+  <!-- Role Info -->
+  <div class="dashboard-card">
+    <div class="card-header">
+      <h3><i class='bx bx-info-circle'></i> Role Settings</h3>
+    </div>
+    <div class="card-body">
+      <div class="info-list">
+        <div class="info-row">
+          <span class="info-label">Code</span>
+          <code class="info-code">{{ role.code }}</code>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Hierarchy Level</span>
+          <span class="level-badge">{{ role.hierarchy_level }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Portal Type</span>
+          {% if role.is_staff_role %}
+          <span class="type-tag staff">Staff Portal</span>
+          {% else %}
+          <span class="type-tag">User Portal</span>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="dashboard-card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3><i class='bx bx-group'></i> Assigned Users</h3>
+      <span class="count-badge">{{ assigned_users|length }}</span>
+    </div>
+    <div class="card-body">
+      {% if assigned_users %}
+      <div class="user-list">
+        {% for u in assigned_users|slice:":6" %}
+        <div class="user-row">
+          <div class="user-avatar-sm">
+            {% if u.profile_picture %}
+            <img src="{{ u.profile_picture.url }}" alt="">
+            {% else %}
+            {{ u.first_name|slice:":1"|upper|default:u.username|slice:":1"|upper }}
+            {% endif %}
+          </div>
+          <div class="user-info">
+            <strong>{{ u.get_full_name|default:u.username }}</strong>
+            <span>{{ u.branch.name|default:"No branch" }}</span>
+          </div>
+        </div>
+        {% endfor %}
+        {% if assigned_users|length > 6 %}
+        <a href="{% url 'accounts:user_role_list' %}?role={{ role.pk }}" class="view-all-link">
+          View all {{ assigned_users|length }} users <i class='bx bx-right-arrow-alt'></i>
+        </a>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="empty-small">
+        <i class='bx bx-user-x'></i>
+        <p>No users assigned</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Module Permissions -->
+<div class="dashboard-card" style="margin-top: 20px;">
+  <div class="card-header">
+    <h3><i class='bx bx-lock-open'></i> Module Permissions</h3>
+  </div>
+  <div class="card-body">
+    {% if module_perms %}
+    <div class="admin-table-card" style="box-shadow: none; border: 1px solid var(--border);">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Module</th>
+            <th style="text-align: center;">View</th>
+            <th style="text-align: center;">Create</th>
+            <th style="text-align: center;">Edit</th>
+            <th style="text-align: center;">Delete</th>
+            <th style="text-align: center;">Manage</th>
+            <th style="text-align: center;" title="Branch Restricted"><i class='bx bx-building-house'></i></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for code, data in module_perms.items %}
+          <tr>
+            <td>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="module-icon">
+                  <i class='bx {{ data.module.icon|default:"bx-cube" }}'></i>
+                </div>
+                <span>{{ data.module.name }}</span>
+              </div>
+            </td>
+            <td style="text-align: center;">
+              {% if 'VIEW' in data.permissions %}<span class="perm-yes"><i class='bx bx-check'></i></span>{% else %}<span class="perm-no">—</span>{% endif %}
+            </td>
+            <td style="text-align: center;">
+              {% if 'CREATE' in data.permissions %}<span class="perm-yes"><i class='bx bx-check'></i></span>{% else %}<span class="perm-no">—</span>{% endif %}
+            </td>
+            <td style="text-align: center;">
+              {% if 'EDIT' in data.permissions %}<span class="perm-yes"><i class='bx bx-check'></i></span>{% else %}<span class="perm-no">—</span>{% endif %}
+            </td>
+            <td style="text-align: center;">
+              {% if 'DELETE' in data.permissions %}<span class="perm-yes"><i class='bx bx-check'></i></span>{% else %}<span class="perm-no">—</span>{% endif %}
+            </td>
+            <td style="text-align: center;">
+              {% if 'MANAGE' in data.permissions %}<span class="perm-yes"><i class='bx bx-check'></i></span>{% else %}<span class="perm-no">—</span>{% endif %}
+            </td>
+            <td style="text-align: center;">
+              {% if data.restrict_to_branch %}<span class="perm-yes branch"><i class='bx bx-check'></i></span>{% else %}<span class="perm-no">—</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-small" style="padding: 40px;">
+      <i class='bx bx-shield-x'></i>
+      <p>No module permissions</p>
+      <small>{% if role.hierarchy_level >= 10 %}Level 10+ has implicit full access{% else %}Add permissions to grant module access{% endif %}</small>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if role.special_permissions.exists %}
+<!-- Special Permissions -->
+<div class="dashboard-card" style="margin-top: 20px;">
+  <div class="card-header">
+    <h3><i class='bx bx-star'></i> Special Permissions</h3>
+  </div>
+  <div class="card-body">
+    <div class="special-list">
+      {% for rsp in role.special_permissions.all %}
+      <div class="special-item">
+        <i class='bx bx-check-circle'></i>
+        <div>
+          <strong>{{ rsp.permission.name }}</strong>
+          <small>{{ rsp.permission.description }}</small>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 900px) {
+    .detail-grid { grid-template-columns: 1fr; }
+  }
+
+  .role-icon-lg {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 24px;
+  }
+  [data-theme="dark"] .role-icon-lg {
+    background: rgba(0, 150, 136, 0.15);
+  }
+
+  .system-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+
+  .info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .info-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .info-label {
+    font-size: 13px;
+    color: var(--text-3);
+  }
+  .info-code {
+    padding: 4px 10px;
+    background: var(--bg);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-2);
+  }
+
+  .level-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--primary-light);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--primary-dark);
+  }
+  [data-theme="dark"] .level-badge {
+    background: rgba(0, 150, 136, 0.15);
+    color: var(--primary);
+  }
+
+  .type-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .type-tag.staff {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+    color: var(--primary-dark);
+  }
+  .type-tag.restricted {
+    color: var(--text-2);
+  }
+  [data-theme="dark"] .type-tag.staff {
+    background: rgba(0, 150, 136, 0.15);
+    border-color: rgba(0, 150, 136, 0.3);
+    color: var(--primary);
+  }
+
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
+    background: var(--primary-light);
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary-dark);
+  }
+  [data-theme="dark"] .count-badge {
+    background: rgba(0, 150, 136, 0.15);
+    color: var(--primary);
+  }
+
+  .user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  .user-avatar-sm {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 13px;
+    overflow: hidden;
+  }
+  .user-avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  [data-theme="dark"] .user-avatar-sm {
+    background: rgba(0, 150, 136, 0.15);
+  }
+  .user-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .user-info strong {
+    font-size: 13px;
+  }
+  .user-info span {
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
+  .view-all-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px;
+    margin-top: 4px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--primary);
+    text-decoration: none;
+    transition: background 0.2s var(--ease);
+  }
+  .view-all-link:hover {
+    background: var(--border);
+  }
+
+  .empty-small {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-3);
+  }
+  .empty-small i {
+    font-size: 32px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .empty-small small {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .module-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 14px;
+  }
+  [data-theme="dark"] .module-icon {
+    background: rgba(0, 150, 136, 0.15);
+  }
+
+  .perm-yes {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--primary-light);
+    color: var(--primary);
+    border-radius: 50%;
+    font-size: 16px;
+  }
+  [data-theme="dark"] .perm-yes {
+    background: rgba(0, 150, 136, 0.15);
+  }
+  .perm-no {
+    color: var(--text-3);
+  }
+
+  .special-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+  .special-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  .special-item i {
+    color: var(--primary);
+    font-size: 18px;
+    margin-top: 2px;
+  }
+  .special-item strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  .special-item small {
+    font-size: 11px;
+    color: var(--text-3);
+  }
+</style>
+
+{% endblock %}

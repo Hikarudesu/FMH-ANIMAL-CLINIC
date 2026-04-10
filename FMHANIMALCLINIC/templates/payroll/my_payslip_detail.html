@@ -1,0 +1,370 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+{% load currency_filters %}
+
+{% block title %}Payslip - {{ payslip.payroll_period.period_display }}{% endblock %}
+
+{% block content %}
+<style>
+  .payslip-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .payslip-detail-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 12px;
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: var(--bg);
+    color: var(--text-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .back-btn:hover {
+    background: var(--surface);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  .print-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: var(--primary);
+    color: white;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .print-btn:hover {
+    opacity: 0.9;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.2);
+  }
+  .payslip-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .payslip-head {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 24px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .period-info h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+  .period-info p {
+    margin: 4px 0 0;
+    opacity: 0.9;
+    font-size: 0.9rem;
+  }
+  .net-pay-box {
+    text-align: right;
+  }
+  .net-pay-box span {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.9;
+  }
+  .net-pay-box strong {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .payslip-body {
+    padding: 32px;
+  }
+  .section-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 768px) {
+    .section-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .section {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .section-header {
+    padding: 14px 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-header.earnings {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border-bottom: 2px solid #10b981;
+  }
+  .section-header.deductions {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border-bottom: 2px solid #ef4444;
+  }
+  .section-table {
+    width: 100%;
+  }
+  .section-table td {
+    padding: 12px 20px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-table tr:last-child td {
+    border-bottom: none;
+  }
+  .section-table .label {
+    color: var(--text-2);
+  }
+  .section-table .value {
+    text-align: right;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-weight: 600;
+  }
+  .section-table .total-row td {
+    background: var(--surface);
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+  .clinic-benefits {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .clinic-benefits-header {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #2563eb;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .clinic-benefits .section-table td {
+    border-color: #dbeafe;
+  }
+  .clinic-benefits .value {
+    color: #2563eb;
+  }
+  .clinic-benefits-note {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 8px;
+    font-style: italic;
+  }
+  .footer-info {
+    padding: 16px 32px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    color: var(--text-3);
+    font-size: 0.85rem;
+  }
+  .footer-info strong {
+    color: var(--text-2);
+  }
+</style>
+
+<div class="payslip-detail-header">
+  <h1><i class='bx bx-file' style="color: var(--primary);"></i> Payslip Details</h1>
+  <div class="header-actions">
+    <a href="{% url 'payroll:my_payslips' %}" class="back-btn">
+      <i class='bx bx-arrow-back'></i> Back to My Payslips
+    </a>
+    <a href="{% url 'payroll:payslip_print' payslip.pk %}" class="print-btn" target="_blank">
+      <i class='bx bx-printer'></i> Print
+    </a>
+  </div>
+</div>
+
+<div class="payslip-container">
+  <!-- Header -->
+  <div class="payslip-head">
+    <div class="period-info">
+      <h2>{{ payslip.payroll_period.period_display }}</h2>
+      <p>{{ payslip.employee.full_name }} &middot; {{ payslip.employee.get_position_display }}</p>
+    </div>
+    <div class="net-pay-box">
+      <span>Net Pay</span>
+      <strong>{{ payslip.net_pay|peso }}</strong>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="payslip-body">
+    <div class="section-grid">
+      <!-- Earnings -->
+      <div class="section">
+        <div class="section-header earnings">
+          <i class='bx bx-trending-up'></i> Earnings
+        </div>
+        <table class="section-table">
+          <tr>
+            <td class="label">Base Salary</td>
+            <td class="value">{{ payslip.base_salary|peso }}</td>
+          </tr>
+          {% if payslip.overtime_pay > 0 %}
+          <tr>
+            <td class="label">Overtime ({{ payslip.overtime_hours }}h)</td>
+            <td class="value">{{ payslip.overtime_pay|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.holiday_pay > 0 %}
+          <tr>
+            <td class="label">Holiday Pay</td>
+            <td class="value">{{ payslip.holiday_pay|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.bonus > 0 %}
+          <tr>
+            <td class="label">Bonus</td>
+            <td class="value">{{ payslip.bonus|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.allowance > 0 %}
+          <tr>
+            <td class="label">Allowances</td>
+            <td class="value">{{ payslip.allowance|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.staff_allowance > 0 %}
+          <tr>
+            <td class="label">Staff Allowance</td>
+            <td class="value">{{ payslip.staff_allowance|peso }}</td>
+          </tr>
+          {% endif %}
+          <tr class="total-row">
+            <td class="label">Total Earnings</td>
+            <td class="value" style="color: #10b981;">{{ payslip.gross_pay|peso }}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Deductions -->
+      <div class="section">
+        <div class="section-header deductions">
+          <i class='bx bx-trending-down'></i> Deductions
+        </div>
+        <table class="section-table">
+          {% if payslip.tax > 0 %}
+          <tr>
+            <td class="label">Withholding Tax</td>
+            <td class="value">{{ payslip.tax|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.cash_advance > 0 %}
+          <tr>
+            <td class="label">Cash Advance</td>
+            <td class="value">{{ payslip.cash_advance|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.late_deduction > 0 %}
+          <tr>
+            <td class="label">Late Deductions</td>
+            <td class="value">{{ payslip.late_deduction|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.absent_deduction > 0 %}
+          <tr>
+            <td class="label">Absence Deductions</td>
+            <td class="value">{{ payslip.absent_deduction|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.other_deductions > 0 %}
+          <tr>
+            <td class="label">Other Deductions</td>
+            <td class="value">{{ payslip.other_deductions|peso }}</td>
+          </tr>
+          {% endif %}
+          {% if payslip.total_deductions == 0 %}
+          <tr>
+            <td class="label" colspan="2" style="text-align: center; color: var(--text-3);">No deductions</td>
+          </tr>
+          {% endif %}
+          <tr class="total-row">
+            <td class="label">Total Deductions</td>
+            <td class="value" style="color: #ef4444;">{{ payslip.total_deductions|peso }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Clinic Benefits Info -->
+    {% if PAYROLL_AUTO_STATUTORY and payslip.total_clinic_contributions > 0 %}
+    <div class="clinic-benefits">
+      <div class="clinic-benefits-header">
+        <i class='bx bx-shield-quarter'></i> Clinic-Paid Benefits (Not Deducted)
+      </div>
+      <table class="section-table" style="background: transparent;">
+        {% if payslip.clinic_sss > 0 %}
+        <tr>
+          <td class="label">SSS</td>
+          <td class="value">{{ payslip.clinic_sss|peso }}</td>
+        </tr>
+        {% endif %}
+        {% if payslip.clinic_philhealth > 0 %}
+        <tr>
+          <td class="label">PhilHealth</td>
+          <td class="value">{{ payslip.clinic_philhealth|peso }}</td>
+        </tr>
+        {% endif %}
+        {% if payslip.clinic_pagibig > 0 %}
+        <tr>
+          <td class="label">PAG-IBIG</td>
+          <td class="value">{{ payslip.clinic_pagibig|peso }}</td>
+        </tr>
+        {% endif %}
+      </table>
+      <div class="clinic-benefits-note">
+        These contributions are paid by the clinic on your behalf and are NOT deducted from your salary.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-info">
+    <strong>Document ID:</strong> PS-{{ payslip.id }}-{{ payslip.payroll_period.year }}{{ payslip.payroll_period.month|stringformat:"02d" }}
+    &nbsp;&middot;&nbsp;
+    <strong>Released:</strong> {{ payslip.payroll_period.released_at|date:"F d, Y" }}
+  </div>
+</div>
+{% endblock %}

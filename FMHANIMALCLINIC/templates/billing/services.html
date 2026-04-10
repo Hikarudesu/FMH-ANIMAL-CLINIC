@@ -1,0 +1,310 @@
+{% extends 'base/portal_admin.html' %} {% load static %} {% block title %}Clinic Services{% endblock %} {% block content %}
+<!-- ══════ CLINIC SERVICES HERO ══════ -->
+{% url 'billing:billable_item_create' as add_service_url %}
+{% if can_create %}
+{% include "components/page_hero.html" with title="Clinic Services" icon="bx-briefcase" subtitle="Configure and manage clinic services, pricing models, and service categories" action_url=add_service_url action_icon="bx-plus" action_label="Add Service" %}
+{% else %}
+{% include "components/page_hero.html" with title="Clinic Services" icon="bx-briefcase" subtitle="Configure and manage clinic services, pricing models, and service categories" %}
+{% endif %}
+
+<!-- Filter Bar with Search and Dropdowns -->
+<div class="c-filter-bar" style="margin-bottom: 20px;">
+  <div class="c-filter-bar__glow"></div>
+  <form method="GET" action="{% url 'billing:billable_items' %}" class="c-filter-bar__form" autocomplete="off">
+    <!-- Search Input -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input
+        type="text"
+        name="q"
+        value="{{ request.GET.q }}"
+        placeholder="Search service name or category..."
+        id="serviceSearch"
+        class="c-filter-bar__search-input"
+        autocomplete="off"
+      >
+      <div class="search-dropdown" id="serviceSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut">
+        <span>⌘</span><span>K</span>
+      </div>
+    </div>
+
+    <!-- Filter Dropdowns Row -->
+    <div class="c-filter-bar__filters">
+      <!-- Status Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if request.GET.status %} active{% endif %}">
+          <i class='bx bx-check-circle c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if request.GET.status %}
+              {% for value, label in status_choices %}
+                {% if value == request.GET.status %}{{ label|title }}{% endif %}
+              {% endfor %}
+            {% else %}All Status{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="status" onchange="this.form.submit()">
+          <option value="">All Status</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Category Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if request.GET.category %} active{% endif %}">
+          <i class='bx bx-tag c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if request.GET.category %}
+              {% for cat in categories %}
+                {% if cat == request.GET.category %}{{ cat }}{% endif %}
+              {% endfor %}
+            {% else %}All Categories{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="category" onchange="this.form.submit()">
+          <option value="">All Categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat }}" {% if request.GET.category == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if request.GET.q and request.GET.q|length or request.GET.status and request.GET.status|length or request.GET.category and request.GET.category|length %}
+      <a href="{% url 'billing:billable_items' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<div class="admin-table-card">
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th style="text-align: center;">Service Name</th>
+          <th style="text-align: center;">Category</th>
+          <th style="text-align: center;">Cost</th>
+          <th style="text-align: center;">Price</th>
+          <th style="text-align: center;">Duration</th>
+          <th style="text-align: center;">Status</th>
+          <th style="text-align: center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr class="searchable-row"
+            data-service-name="{{ item.name }}"
+            data-category="{{ item.category }}"
+            data-status="{% if item.active %}Active{% else %}Inactive{% endif %}">
+        <td style="text-align: center; font-weight: 600; color: var(--text-1);">{{ item.name }}</td>
+        <td style="text-align: center;" class="cell-secondary">{{ item.category|default:"-" }}</td>
+        <td style="text-align: center;" class="cell-secondary">₱{{ item.cost|floatformat:2 }}</td>
+        <td style="text-align: center; font-weight: 500; color: var(--text-1);">₱{{ item.price|floatformat:2 }}</td>
+        <td style="text-align: center;" class="cell-secondary">{% if item.duration %}{{ item.duration }} min{% else %}-{% endif %}</td>
+        <td style="text-align: center;">
+          <span class="admin-badge {% if item.active %}active{% else %}inactive{% endif %}">
+              {% if item.active %}Active{% else %}Inactive{% endif %}
+          </span>
+        </td>
+        <td style="text-align: center;">
+          <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
+            {% if can_edit %}
+            <a href="{% url 'billing:billable_item_update' item.pk %}" class="action-btn" title="Edit">
+              <i class='bx bx-edit-alt'></i>
+            </a>
+            {% endif %}
+            {% if can_delete %}
+            <form method="POST" action="{% url 'billing:billable_item_delete' item.pk %}" style="display: inline" onsubmit="return confirm('Are you sure you want to delete this service?');">
+              {% csrf_token %}
+              <button type="submit" class="action-btn danger" title="Delete">
+                <i class='bx bx-trash'></i>
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td
+          colspan="7"
+          style="padding: 40px; text-align: center; color: var(--text-3)"
+        >
+          <i
+            class="bx bx-briefcase"
+            style="font-size: 2rem; margin-bottom: 10px; display: block"
+          ></i>
+          {% if can_create %}No services found. Click "Add Service" to create one.{% else %}No services found.{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div
+    style="
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-2);
+      font-size: 0.9rem;
+    "
+  >
+    <div>Showing 1 to {{ items.count }} of {{ items.count }} entries</div>
+    <div style="display: flex; gap: 4px">
+      <button
+        style="
+          border: 1px solid var(--border);
+          background: var(--surface);
+          padding: 6px 12px;
+          border-radius: var(--radius-sm);
+          color: var(--text-3);
+          cursor: pointer;
+        "
+        disabled
+      >
+        &lt;
+      </button>
+      <span style="padding: 6px 12px; font-weight: 500">Page 1 of 1</span>
+      <button
+        style="
+          border: 1px solid var(--border);
+          background: var(--surface);
+          padding: 6px 12px;
+          border-radius: var(--radius-sm);
+          color: var(--text-3);
+          cursor: pointer;
+        "
+        disabled
+      >
+        &gt;
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════ SERVICES SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+(function initServiceSearch() {
+  const searchInput = document.getElementById('serviceSearch');
+  const dropdown = document.getElementById('serviceSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
+      service_name: row.dataset.serviceName || '',
+      category: row.dataset.category || '',
+      status: row.dataset.status || '',
+      row: row
+    }));
+  }
+
+  let items = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No services found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map(item => `
+        <div class="search-dropdown-item" data-service-name="${item.service_name}">
+          <i class='bx bx-briefcase'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(item.service_name, q)}</div>
+            <div class="item-sub">${highlight(item.category, q)} • ${item.status}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((elem, idx) => {
+        elem.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].service_name;
+          filterRows(results[idx].service_name.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    items.forEach(item => {
+      const nl = item.service_name.toLowerCase();
+      const cl = item.category.toLowerCase();
+      const matchesSearch = !q || nl.includes(q) || cl.includes(q);
+      item.row.style.display = matchesSearch ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = items.filter(item =>
+      item.service_name.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q));
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items_elem = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items_elem.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items_elem[idx]?.classList.remove('active');
+      idx = (idx + 1) % items_elem.length;
+      items_elem[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items_elem[idx]?.classList.remove('active');
+      idx = (idx - 1 + items_elem.length) % items_elem.length;
+      items_elem[idx]?.classList.add('active');
+    } else if (e.key === 'Enter' && idx >= 0) {
+      e.preventDefault(); items_elem[idx]?.click();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+
+  // Hotkey CMD/CTRL+K to focus search
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+    }
+  });
+}());
+
+// Reinitialize searchable dropdowns for filter bar
+if (window.SearchableDropdown) {
+  SearchableDropdown.init();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,276 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt - {{ sale.transaction_id }}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+
+    .receipt {
+      background: white;
+      max-width: 300px;
+      margin: 0 auto;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .receipt-header {
+      text-align: center;
+      padding-bottom: 15px;
+      border-bottom: 1px dashed #333;
+      margin-bottom: 15px;
+    }
+
+    .receipt-logo {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .receipt-clinic {
+      font-size: 10px;
+      color: #666;
+    }
+
+    .receipt-info {
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px dashed #333;
+    }
+
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }
+
+    .receipt-label {
+      color: #666;
+    }
+
+    .receipt-items {
+      margin-bottom: 15px;
+    }
+
+    .receipt-item {
+      margin-bottom: 8px;
+    }
+
+    .receipt-item-name {
+      font-weight: bold;
+    }
+
+    .receipt-item-detail {
+      display: flex;
+      justify-content: space-between;
+      color: #666;
+      font-size: 11px;
+    }
+
+    .receipt-divider {
+      border-top: 1px dashed #333;
+      margin: 15px 0;
+    }
+
+    .receipt-totals {
+      margin-bottom: 15px;
+    }
+
+    .receipt-total-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .receipt-total-row.grand {
+      font-weight: bold;
+      font-size: 14px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 2px solid #333;
+    }
+
+    .receipt-payment {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 4px;
+    }
+
+    .receipt-payment-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .receipt-footer {
+      text-align: center;
+      padding-top: 15px;
+      border-top: 1px dashed #333;
+      font-size: 10px;
+      color: #666;
+    }
+
+    .receipt-footer p {
+      margin-bottom: 5px;
+    }
+
+    .receipt-barcode {
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      letter-spacing: 3px;
+      margin: 15px 0;
+      padding: 10px;
+      background: #f0f0f0;
+    }
+
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .receipt {
+        box-shadow: none;
+        max-width: 100%;
+      }
+
+      .no-print {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="no-print" style="text-align: center; margin-bottom: 20px;">
+  <p style="color: #666; font-size: 11px; margin-bottom: 10px; font-style: italic;">
+    This view is not printable. Physical receipts are automatically printed by the POS terminal.
+  </p>
+  <button onclick="window.close()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #666; color: white; border: none; border-radius: 5px;">
+    Close
+  </button>
+</div>
+
+<div class="receipt">
+  <!-- Header -->
+  <div class="receipt-header">
+    <div class="receipt-logo">FMH ANIMAL CLINIC</div>
+    <div class="receipt-clinic">{{ sale.branch.name }}</div>
+    <div class="receipt-clinic">{{ sale.branch.address }}</div>
+    <div class="receipt-clinic">{{ sale.branch.phone_number }}</div>
+  </div>
+
+  <!-- Transaction Info -->
+  <div class="receipt-info">
+    <div class="receipt-row">
+      <span class="receipt-label">Transaction:</span>
+      <span>{{ sale.transaction_id }}</span>
+    </div>
+    <div class="receipt-row">
+      <span class="receipt-label">Date:</span>
+      <span>{{ sale.created_at|date:"M j, Y g:i A" }}</span>
+    </div>
+    <div class="receipt-row">
+      <span class="receipt-label">Cashier:</span>
+      <span>{{ sale.cashier.get_full_name|default:sale.cashier.email }}</span>
+    </div>
+    <div class="receipt-row">
+      <span class="receipt-label">Customer:</span>
+      <span>{{ sale.customer_display_name }}</span>
+    </div>
+    {% if sale.pet %}
+    <div class="receipt-row">
+      <span class="receipt-label">Pet:</span>
+      <span>{{ sale.pet.name }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Items -->
+  <div class="receipt-items">
+    {% for item in items %}
+    <div class="receipt-item">
+      <div class="receipt-item-name">{{ item.name }}</div>
+      <div class="receipt-item-detail">
+        <span>{{ item.quantity }} x ₱{{ item.unit_price|floatformat:2 }}</span>
+        <span>₱{{ item.line_total|floatformat:2 }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="receipt-divider"></div>
+
+  <!-- Totals -->
+  <div class="receipt-totals">
+    <div class="receipt-total-row">
+      <span>Subtotal</span>
+      <span>₱{{ sale.subtotal|floatformat:2 }}</span>
+    </div>
+    <div class="receipt-total-row" style="{% if sale.discount_amount > 0 %}color: #e65100; font-weight: 600;{% else %}color: #999;{% endif %}">
+      <span>Discount{% if sale.discount_reason and sale.discount_amount > 0 %} ({{ sale.discount_reason }}){% endif %}</span>
+      <span>-₱{{ sale.discount_amount|default:0|floatformat:2 }}</span>
+    </div>
+    {% if sale.tax_amount > 0 %}
+    <div class="receipt-total-row">
+      <span>Tax</span>
+      <span>₱{{ sale.tax_amount|floatformat:2 }}</span>
+    </div>
+    {% endif %}
+    <div class="receipt-total-row grand">
+      <span>TOTAL</span>
+      <span>₱{{ sale.total|floatformat:2 }}</span>
+    </div>
+  </div>
+
+  <!-- Payment Info -->
+  <div class="receipt-payment">
+    <div class="receipt-payment-title">Payment</div>
+    {% for payment in payments %}
+    <div class="receipt-total-row">
+      <span>{{ payment.get_method_display }}</span>
+      <span>₱{{ payment.amount|floatformat:2 }}</span>
+    </div>
+    {% endfor %}
+    <div class="receipt-total-row" style="margin-top: 10px; padding-top: 5px; border-top: 1px solid #ddd;">
+      <span>Amount Paid</span>
+      <span>₱{{ sale.amount_paid|floatformat:2 }}</span>
+    </div>
+    <div class="receipt-total-row">
+      <span>Change</span>
+      <span>₱{{ sale.change_due|floatformat:2 }}</span>
+    </div>
+  </div>
+
+  <!-- Barcode/ID -->
+  <div class="receipt-barcode">
+    {{ sale.transaction_id }}
+  </div>
+
+  <!-- Footer -->
+  <div class="receipt-footer">
+    <p>Thank you for choosing FMH Animal Clinic!</p>
+    <p>For inquiries, call {{ sale.branch.phone_number }}</p>
+    <p style="margin-top: 10px; font-size: 9px;">
+      This serves as your official receipt.
+    </p>
+  </div>
+</div>
+
+</body>
+</html>

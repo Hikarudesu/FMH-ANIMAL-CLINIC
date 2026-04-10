@@ -1,0 +1,29 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Delete Visit Entry{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 60px auto;">
+    <div class="dashboard-card" style="padding: 32px; text-align: center; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);">
+        <i class='bx bx-trash' style="font-size: 48px; color: var(--danger, #e53e3e); margin-bottom: 16px;"></i>
+        <h2 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Delete Visit Entry?</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">
+            You are about to delete the visit entry on
+            <strong>{{ entry.date_recorded|date:"F j, Y" }}</strong>
+            for <strong>{{ record.pet.name }}</strong>.
+            This action cannot be undone.
+        </p>
+        <form method="post" style="display: flex; gap: 12px; justify-content: center;">
+            {% csrf_token %}
+            <a href="{% url 'records:admin_detail' record.pk %}"
+               style="padding: 10px 24px; border: 1px solid var(--border); border-radius: var(--radius-sm); text-decoration: none; color: var(--text-primary); background: var(--bg); font-weight: 500;">
+                Cancel
+            </a>
+            <button type="submit"
+                    style="padding: 10px 24px; background: var(--danger, #e53e3e); color: white; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;">
+                Yes, Delete Entry
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,237 @@
+{% extends 'base/portal_user.html' %}
+{% load static %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+
+  <!-- ── Hero Banner ── -->
+  <div class="profile-hero">
+    <div class="profile-hero-bg">
+      <i class='bx bxs-dog hero-bg-icon icon-1'></i>
+      <i class='bx bxs-bone hero-bg-icon icon-2'></i>
+      <i class='bx bxs-dog hero-bg-icon icon-3'></i>
+      <i class='bx bxs-bone hero-bg-icon icon-4'></i>
+    </div>
+    <div class="profile-hero-content">
+      <div class="profile-avatar-wrapper">
+        <div class="profile-avatar-ring">
+          <div class="profile-avatar-inner">
+            {% if user.profile_picture %}
+            <img src="{{ user.profile_picture.url }}" alt="{{ user.first_name }}">
+            {% else %}
+            <i class='bx bx-user'></i>
+            {% endif %}
+          </div>
+        </div>
+        <span class="profile-avatar-status" title="Active"></span>
+      </div>
+      <h1 class="profile-hero-name">{{ user.get_full_name|default:user.username }}</h1>
+      <p class="profile-hero-email"><i class='bx bx-envelope'></i> {{ user.email|default:"No email provided" }}</p>
+      <div class="profile-hero-tags">
+        <span class="profile-tag role"><i class='bx bx-shield-quarter'></i> {{ user.get_display_role }}</span>
+        <span class="profile-tag branch"><i class='bx bx-building-house'></i> {{ user.branch.name|default:"General" }}</span>
+        <span class="profile-tag joined"><i class='bx bx-calendar'></i> Joined {{ user.date_joined|date:"M Y" }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Details Card ── -->
+  <div class="profile-card">
+    <div class="profile-card-header">
+      <div class="profile-card-title">
+        <div class="profile-card-icon"><i class='bx bx-id-card'></i></div>
+        <div>
+          <h2>Account Details</h2>
+          <p>Your personal information</p>
+        </div>
+      </div>
+      <button type="button" class="profile-edit-btn" id="editProfileBtn">
+        <i class='bx bx-edit-alt'></i> Edit Profile
+      </button>
+    </div>
+
+    <div class="profile-fields">
+
+      <div class="profile-field">
+        <div class="profile-field-icon"><i class='bx bx-user'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Full Name</span>
+          <span class="profile-field-value">{{ user.get_full_name|default:user.username }}</span>
+        </div>
+      </div>
+
+      <div class="profile-field">
+        <div class="profile-field-icon"><i class='bx bx-envelope'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Email Address</span>
+          <span class="profile-field-value">{{ user.email|default:"N/A" }}</span>
+        </div>
+      </div>
+
+      <div class="profile-field">
+        <div class="profile-field-icon"><i class='bx bx-phone'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Phone Number</span>
+          <span class="profile-field-value">{{ user.phone_number|default:"N/A" }}</span>
+        </div>
+      </div>
+
+      <div class="profile-field">
+        <div class="profile-field-icon"><i class='bx bx-building-house'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Clinic Branch</span>
+          <span class="profile-field-value">{{ user.branch.name|default:"General" }}</span>
+        </div>
+      </div>
+
+      <div class="profile-field full-width">
+        <div class="profile-field-icon"><i class='bx bx-map'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Address</span>
+          <span class="profile-field-value">{{ user.address|default:"N/A" }}</span>
+        </div>
+      </div>
+
+      <div class="profile-field">
+        <div class="profile-field-icon"><i class='bx bx-shield-quarter'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Account Role</span>
+          <span class="profile-field-value">{{ user.get_display_role }}</span>
+        </div>
+      </div>
+
+      <div class="profile-field">
+        <div class="profile-field-icon"><i class='bx bx-calendar'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Date Joined</span>
+          <span class="profile-field-value">{{ user.date_joined|date:"F j, Y" }}</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Edit Profile Modal ── -->
+<div class="modal-overlay" id="editProfileModal">
+  <div class="modal-content profile-modal">
+    <div class="modal-header">
+      <div class="modal-header-icon"><i class='bx bx-edit-alt'></i></div>
+      <div>
+        <h3>Edit Profile</h3>
+        <p class="modal-subtitle">Update your personal information</p>
+      </div>
+      <button class="modal-close" id="closeProfileModal">&times;</button>
+    </div>
+    <form method="POST" action="{% url 'profile' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="modal-body">
+        {% if form.non_field_errors %}
+          <div class="form-error-banner">
+            <i class='bx bx-error-circle'></i> {{ form.non_field_errors.as_text }}
+          </div>
+        {% endif %}
+
+        <!-- Avatar Upload -->
+        <div class="modal-avatar-upload">
+          <div class="modal-avatar-preview" id="avatarPreview">
+            {% if user.profile_picture %}
+            <img src="{{ user.profile_picture.url }}" alt="Profile">
+            {% else %}
+            <i class='bx bx-user'></i>
+            {% endif %}
+          </div>
+          <div class="modal-avatar-actions">
+            <label for="{{ form.profile_picture.id_for_label }}" class="avatar-upload-btn">
+              <i class='bx bx-camera'></i> Change Photo
+            </label>
+            <span class="avatar-hint">Supported formats: .png, .jpeg (Max 10MB)</span>
+            <div style="display: none;">{{ form.profile_picture }}</div>
+            {% if form.profile_picture.errors %}<small class="field-error">{{ form.profile_picture.errors.as_text }}</small>{% endif %}
+          </div>
+        </div>
+
+        <!-- Form Fields -->
+        <div class="modal-form-grid">
+          <div class="floating-field">
+            <div class="field-icon"><i class='bx bx-user'></i></div>
+            {{ form.first_name }}
+            <label for="{{ form.first_name.id_for_label }}">First Name</label>
+            {% if form.first_name.errors %}<small class="field-error">{{ form.first_name.errors.as_text }}</small>{% endif %}
+          </div>
+          <div class="floating-field">
+            <div class="field-icon"><i class='bx bx-user'></i></div>
+            {{ form.last_name }}
+            <label for="{{ form.last_name.id_for_label }}">Last Name</label>
+            {% if form.last_name.errors %}<small class="field-error">{{ form.last_name.errors.as_text }}</small>{% endif %}
+          </div>
+          <div class="floating-field">
+            <div class="field-icon"><i class='bx bx-envelope'></i></div>
+            {{ form.email }}
+            <label for="{{ form.email.id_for_label }}">Email</label>
+            {% if form.email.errors %}<small class="field-error">{{ form.email.errors.as_text }}</small>{% endif %}
+          </div>
+          <div class="floating-field">
+            <div class="field-icon"><i class='bx bx-phone'></i></div>
+            {{ form.phone_number }}
+            <label for="{{ form.phone_number.id_for_label }}">Phone Number</label>
+            {% if form.phone_number.errors %}<small class="field-error">{{ form.phone_number.errors.as_text }}</small>{% endif %}
+          </div>
+          <div class="floating-field">
+            <div class="field-icon"><i class='bx bx-building-house'></i></div>
+            {{ form.branch }}
+            <label for="{{ form.branch.id_for_label }}">Clinic Branch</label>
+            {% if form.branch.errors %}<small class="field-error">{{ form.branch.errors.as_text }}</small>{% endif %}
+          </div>
+          <div class="floating-field full-width">
+            <div class="field-icon"><i class='bx bx-map'></i></div>
+            {{ form.address }}
+            <label for="{{ form.address.id_for_label }}">Address</label>
+            {% if form.address.errors %}<small class="field-error">{{ form.address.errors.as_text }}</small>{% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-action outline" id="cancelProfileModal"><i class='bx bx-x'></i> Cancel</button>
+        <button type="submit" class="btn-action primary"><i class='bx bx-check'></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const fileInput = document.querySelector('input[type="file"][name="profile_picture"]');
+    const previewContainer = document.getElementById('avatarPreview');
+
+    if (fileInput && previewContainer) {
+      fileInput.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(event) {
+            previewContainer.innerHTML = '<img src="' + event.target.result + '" alt="Profile Preview">';
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    /* Animate profile fields on scroll */
+    const fields = document.querySelectorAll('.profile-field');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          entry.target.style.transitionDelay = (i * 0.05) + 's';
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    fields.forEach(f => observer.observe(f));
+  });
+</script>
+{% endblock %}

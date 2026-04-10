@@ -1,0 +1,705 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Sales History{% endblock %}
+
+{% block content %}
+<!-- ══════ SALES HISTORY HERO ══════ -->
+{% url 'pos:checkout' as new_sale_url %}
+{% include "components/page_hero.html" with title="Sales History" icon="bx-cart" subtitle="View and manage completed transactions" action_url=new_sale_url action_icon="bx-cart" action_label="New Sale" %}
+
+<!-- Filter Bar with Search and Dropdowns -->
+<div class="c-filter-bar" style="margin-bottom: 20px;">
+  <div class="c-filter-bar__glow"></div>
+  <form method="GET" action="{% url 'pos:sales_list' %}" class="c-filter-bar__form" autocomplete="off">
+    <!-- Search Input -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input
+        type="text"
+        name="q"
+        value="{{ request.GET.q }}"
+        placeholder="Search transaction ID or customer..."
+        id="salesSearch"
+        class="c-filter-bar__search-input"
+        autocomplete="off"
+      >
+      <div class="search-dropdown" id="salesSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut">
+        <span>⌘</span><span>K</span>
+      </div>
+    </div>
+
+    <!-- Filter Dropdowns Row -->
+    <div class="c-filter-bar__filters">
+      <!-- Status Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if request.GET.status %} active{% endif %}">
+          <i class='bx bx-receipt c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if request.GET.status %}
+              {% for value, label in status_choices %}
+                {% if value == request.GET.status %}{{ label }}{% endif %}
+              {% endfor %}
+            {% else %}All Status{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="status" onchange="this.form.submit()">
+          <option value="">All Status</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Customer Type Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if request.GET.customer_type %} active{% endif %}">
+          <i class='bx bx-user c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if request.GET.customer_type %}
+              {% for value, label in customer_type_choices %}
+                {% if value == request.GET.customer_type %}{{ label }}{% endif %}
+              {% endfor %}
+            {% else %}All Customer Types{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="customer_type" onchange="this.form.submit()">
+          <option value="">All Customer Types</option>
+          {% for value, label in customer_type_choices %}
+            <option value="{{ value }}" {% if request.GET.customer_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Branch Filter -->
+      {% if not is_branch_restricted %}
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if request.GET.branch %} active{% endif %}">
+          <i class='bx bx-building-house c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if request.GET.branch %}
+              {% for branch in branches %}
+                {% if branch.id|stringformat:"i" == request.GET.branch %}{{ branch.name }}{% endif %}
+              {% endfor %}
+            {% else %}All Branches{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="branch" onchange="this.form.submit()">
+          <option value="">All Branches</option>
+          {% for branch in branches %}
+            <option value="{{ branch.id }}" {% if request.GET.branch == branch.id|stringformat:"i" %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      {% if request.GET.q and request.GET.q|length or request.GET.status and request.GET.status|length or request.GET.customer_type and request.GET.customer_type|length or request.GET.branch and request.GET.branch|length %}
+      <a href="{% url 'pos:sales_list' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Summary Cards -->
+{% if totals.total_sales %}
+<div class="dashboard-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 20px;">
+  <div class="admin-card">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 48px; height: 48px; background: #e8f5e9; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+        <i class='bx bx-money' style="font-size: 24px; color: #2e7d32;"></i>
+      </div>
+      <div>
+        <div style="font-size: 12px; color: var(--text-secondary);">Total Sales</div>
+        <div style="font-size: 24px; font-weight: 700; color: var(--primary);">₱{{ totals.total_sales|floatformat:2|default:"0.00" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="admin-card">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 48px; height: 48px; background: #e3f2fd; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+        <i class='bx bx-receipt' style="font-size: 24px; color: #1565c0;"></i>
+      </div>
+      <div>
+        <div style="font-size: 12px; color: var(--text-secondary);">Transactions</div>
+        <div style="font-size: 24px; font-weight: 700; color: var(--text-primary);">{{ sales.paginator.count }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Sales Table -->
+<div class="admin-table-card">
+  <div class="table-responsive">
+    <table class="admin-table" style="font-size: 13px;">
+      <thead>
+        <tr>
+          <th style="text-align: center; padding: 12px 8px;">TXN ID</th>
+          <th style="text-align: center; padding: 12px 8px;">Date</th>
+          <th style="text-align: center; padding: 12px 8px;">Customer</th>
+          <th style="text-align: center; padding: 12px 8px;">Items</th>
+          <th style="text-align: center; padding: 12px 8px;">Discount</th>
+          <th style="text-align: center; padding: 12px 8px;">Total</th>
+          <th style="text-align: center; padding: 12px 8px;">Payment</th>
+          <th style="text-align: center; padding: 12px 8px;">Status</th>
+          <th style="text-align: center; padding: 12px 8px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sale in sales %}
+        <tr class="searchable-row"
+            data-txn-id="{{ sale.transaction_id }}"
+            data-customer="{{ sale.customer_display_name }}"
+            data-status="{{ sale.get_status_display }}"
+            data-customer-type="{{ sale.get_customer_type_display }}"
+            data-branch="{{ sale.branch.name }}"
+            data-amount="{{ sale.total }}">
+          <td style="text-align: center; font-weight: 600; font-family: monospace; padding: 10px 8px; white-space: nowrap;">{{ sale.transaction_id }}</td>
+          <td style="text-align: center; font-size: 12px; color: var(--text-secondary); padding: 10px 8px; white-space: nowrap;">
+            {{ sale.created_at|date:"M d" }}<br>
+            <small>{{ sale.created_at|date:"g:i A" }}</small>
+          </td>
+          <td style="text-align: center; padding: 10px 8px;">
+            <div style="font-weight: 500; font-size: 13px;">{{ sale.customer_display_name|truncatewords:2 }}</div>
+            {% if sale.pet %}
+            <small style="color: var(--text-secondary); font-size: 11px;">{{ sale.pet.name }}</small>
+            {% endif %}
+          </td>
+          <td style="text-align: center; padding: 10px 8px;">{{ sale.items.count }}</td>
+          <td style="text-align: center; padding: 10px 8px;">
+            {% if sale.discount_amount > 0 %}
+            <span style="color: #e65100; font-weight: 600;">-₱{{ sale.discount_amount|floatformat:2 }}</span>
+            {% else %}
+            <span style="color: var(--text-3);">-</span>
+            {% endif %}
+          </td>
+          <td style="text-align: center; font-weight: 700; color: var(--primary); padding: 10px 8px;">₱{{ sale.total|floatformat:2 }}</td>
+          <td style="text-align: center; padding: 10px 8px;">
+            {% if sale.payments.all %}
+              {% for payment in sale.payments.all %}
+              <span style="background: #e3f2fd; color: #1565c0; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; display: inline-block; margin: 1px;">
+                {{ payment.get_method_display|truncatewords:1 }}
+              </span>
+              {% endfor %}
+            {% else %}
+              <span style="color: var(--text-3);">-</span>
+            {% endif %}
+          </td>
+          <td style="text-align: center; padding: 10px 8px;">
+            <span class="admin-badge" style="
+              font-size: 11px; padding: 4px 8px;
+              {% if sale.status == 'COMPLETED' %}background: #e8f5e9; color: #2e7d32;
+              {% elif sale.status == 'VOIDED' %}background: #ffebee; color: #c62828;
+              {% elif sale.status == 'REFUNDED' %}background: #fff3e0; color: #e65100;
+              {% else %}background: var(--bg); color: var(--text-secondary);
+              {% endif %}
+            ">{{ sale.get_status_display|truncatewords:1 }}</span>
+          </td>
+          <td style="text-align: center; padding: 10px 8px;">
+            <div class="rec-action-grid" style="margin: 0 auto; width: max-content; gap: 6px; display: flex;">
+              <a href="{% url 'pos:sale_detail' sale.pk %}" class="action-btn" title="View Details" style="padding: 4px 6px;">
+                <i class='bx bx-show' style="font-size: 16px;"></i>
+              </a>
+              <a href="{% url 'pos:receipt' sale.pk %}" class="action-btn" title="View Receipt" target="_blank" style="padding: 4px 6px;">
+                <i class='bx bx-printer' style="font-size: 16px;"></i>
+              </a>
+              <a href="{% url 'pos:sale_soa' sale.pk %}" class="action-btn" title="Statement of Account" style="padding: 4px 6px;">
+                <i class='bx bx-file' style="font-size: 16px;"></i>
+              </a>
+              {% if sale.status == 'COMPLETED' and not sale.refunds.exists %}
+              <a href="{% url 'pos:refund_request' sale.pk %}" class="action-btn" title="Request Refund" style="padding: 4px 6px;">
+                <i class='bx bx-undo' style="font-size: 16px;"></i>
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+            No sales found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if sales.has_other_pages %}
+  <div class="pagination-wrapper">
+    <div class="pagination-info">
+      <i class='bx bx-receipt'></i>
+      <span>Showing <strong>{{ sales.start_index }}-{{ sales.end_index }}</strong> of <strong>{{ sales.paginator.count }}</strong> transactions</span>
+    </div>
+    <div class="pagination-controls">
+      <nav aria-label="Sales pagination">
+        <ul class="pagination-list">
+          <!-- First Page Button -->
+          {% if sales.has_previous %}
+            <li>
+              <a href="?page=1&{{ request.GET.urlencode }}"
+                 class="pagination-btn nav-btn" title="First Page">
+                <i class='bx bx-chevrons-left'></i>
+              </a>
+            </li>
+          {% endif %}
+
+          <!-- Previous Button -->
+          {% if sales.has_previous %}
+            <li>
+              <a href="?page={{ sales.previous_page_number }}&{{ request.GET.urlencode }}"
+                 class="pagination-btn nav-btn" title="Previous">
+                <i class='bx bx-chevron-left'></i>
+              </a>
+            </li>
+          {% else %}
+            <li>
+              <span class="pagination-btn nav-btn disabled">
+                <i class='bx bx-chevron-left'></i>
+              </span>
+            </li>
+          {% endif %}
+
+          <!-- Page Numbers -->
+          {% for num in sales.paginator.page_range %}
+            {% if sales.number == num %}
+              <li>
+                <span class="pagination-btn active">
+                  {{ num }}
+                </span>
+              </li>
+            {% elif num > sales.number|add:'-3' and num < sales.number|add:'3' %}
+              <li>
+                <a href="?page={{ num }}&{{ request.GET.urlencode }}"
+                   class="pagination-btn">
+                  {{ num }}
+                </a>
+              </li>
+            {% elif num == 1 or num == sales.paginator.num_pages %}
+              <li>
+                <a href="?page={{ num }}&{{ request.GET.urlencode }}"
+                   class="pagination-btn">
+                  {{ num }}
+                </a>
+              </li>
+            {% elif num == sales.number|add:'-3' or num == sales.number|add:'3' %}
+              <li>
+                <span class="pagination-ellipsis">...</span>
+              </li>
+            {% endif %}
+          {% endfor %}
+
+          <!-- Next Button -->
+          {% if sales.has_next %}
+            <li>
+              <a href="?page={{ sales.next_page_number }}&{{ request.GET.urlencode }}"
+                 class="pagination-btn nav-btn" title="Next">
+                <i class='bx bx-chevron-right'></i>
+              </a>
+            </li>
+          {% else %}
+            <li>
+              <span class="pagination-btn nav-btn disabled">
+                <i class='bx bx-chevron-right'></i>
+              </span>
+            </li>
+          {% endif %}
+
+          <!-- Last Page Button -->
+          {% if sales.has_next %}
+            <li>
+              <a href="?page={{ sales.paginator.num_pages }}&{{ request.GET.urlencode }}"
+                 class="pagination-btn nav-btn" title="Last Page">
+                <i class='bx bx-chevrons-right'></i>
+              </a>
+            </li>
+          {% endif %}
+        </ul>
+      </nav>
+
+      <!-- Quick Jump -->
+      <div class="page-jump">
+        <span>Go to</span>
+        <input type="number"
+               id="pageJumpInput"
+               min="1"
+               max="{{ sales.paginator.num_pages }}"
+               value="{{ sales.number }}"
+               class="page-jump-input">
+        <button onclick="jumpToPage()" class="page-jump-btn" title="Jump to page">
+          <i class='bx bx-right-arrow-alt'></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+/* ══════════════════════════════════════════════ */
+/* MODERN PAGINATION STYLES */
+/* ══════════════════════════════════════════════ */
+.pagination-wrapper {
+  padding: 1.25rem 1.5rem;
+  border-top: 2px solid var(--border);
+  background: linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(255,255,255,0));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+
+.pagination-info i {
+  font-size: 1.1rem;
+  color: var(--primary);
+}
+
+.pagination-info strong {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.pagination-list {
+  display: flex;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  align-items: center;
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 0.75rem;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: white;
+  color: var(--text-1);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.pagination-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 0;
+}
+
+.pagination-btn:hover::before {
+  opacity: 0.1;
+}
+
+.pagination-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.pagination-btn.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.3);
+  transform: scale(1.05);
+}
+
+.pagination-btn.active:hover {
+  transform: scale(1.05);
+  color: white;
+}
+
+.pagination-btn.nav-btn {
+  font-size: 1.1rem;
+  background: linear-gradient(135deg, #f8f9fa, white);
+}
+
+.pagination-btn.nav-btn:hover {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  border-color: transparent;
+}
+
+.pagination-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #f5f5f5;
+}
+
+.pagination-ellipsis {
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  color: var(--text-3);
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+/* Page Jump Input */
+.page-jump {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #f8f9fa, white);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.page-jump-input {
+  width: 60px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-1);
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.page-jump-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.page-jump-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+.page-jump-btn:hover {
+  transform: translateX(3px);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+}
+
+.page-jump-btn:active {
+  transform: translateX(1px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .pagination-wrapper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .pagination-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    gap: 1rem;
+  }
+
+  .pagination-list {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .page-jump {
+    width: 100%;
+    justify-content: center;
+  }
+}
+</style>
+
+<script>
+function jumpToPage() {
+  const input = document.getElementById('pageJumpInput');
+  const pageNumber = parseInt(input.value);
+  const maxPages = parseInt(input.max);
+
+  if (pageNumber >= 1 && pageNumber <= maxPages) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageNumber);
+    window.location.href = url.toString();
+  } else {
+    input.value = {{ sales.number }};
+    alert('Please enter a valid page number between 1 and ' + maxPages);
+  }
+}
+
+// Allow Enter key to jump to page
+document.addEventListener('DOMContentLoaded', function() {
+  const pageInput = document.getElementById('pageJumpInput');
+  if (pageInput) {
+    pageInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        jumpToPage();
+      }
+    });
+  }
+});
+
+// ══════ SALES SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+(function initSalesSearch() {
+  const searchInput = document.getElementById('salesSearch');
+  const dropdown = document.getElementById('salesSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
+      txn_id: row.dataset.txnId || '',
+      customer: row.dataset.customer || '',
+      status: row.dataset.status || '',
+      customer_type: row.dataset.customerType || '',
+      branch: row.dataset.branch || '',
+      amount: row.dataset.amount || '',
+      row: row
+    }));
+  }
+
+  let items = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No sales found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map(item => `
+        <div class="search-dropdown-item" data-txn-id="${item.txn_id}">
+          <i class='bx bx-receipt'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(item.txn_id, q)}</div>
+            <div class="item-sub">${highlight(item.customer, q)} &bull; ${item.customer_type} &bull; ${item.branch}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((elem, idx) => {
+        elem.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].txn_id;
+          filterRows(results[idx].txn_id.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    items.forEach(item => {
+      const txl = item.txn_id.toLowerCase();
+      const cl = item.customer.toLowerCase();
+      const matchesSearch = !q || txl.includes(q) || cl.includes(q);
+      item.row.style.display = matchesSearch ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = items.filter(item =>
+      item.txn_id.toLowerCase().includes(q) ||
+      item.customer.toLowerCase().includes(q));
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items_elem = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items_elem.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items_elem[idx]?.classList.remove('active');
+      idx = (idx + 1) % items_elem.length;
+      items_elem[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items_elem[idx]?.classList.remove('active');
+      idx = (idx - 1 + items_elem.length) % items_elem.length;
+      items_elem[idx]?.classList.add('active');
+    } else if (e.key === 'Enter' && idx >= 0) {
+      e.preventDefault(); items_elem[idx]?.click();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+
+  // Hotkey CMD/CTRL+K to focus search
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+    }
+  });
+}());
+
+// Reinitialize searchable dropdowns for filter bar
+if (window.SearchableDropdown) {
+  SearchableDropdown.init();
+}
+</script>
+{% endblock %}

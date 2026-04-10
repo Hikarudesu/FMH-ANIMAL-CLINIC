@@ -1,0 +1,122 @@
+/* Modern Pagination Styles - Circle Design */
+.modern-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 24px;
+  background: transparent;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  padding: 6px;
+  border-radius: 50px;
+  box-shadow: none;
+  border: none;
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(0, 150, 136, 0.12);
+  border: 1px solid rgba(0,150,136,0.25);
+  color: var(--primary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.pagination-btn:hover:not(.pagination-btn-disabled) {
+  background: linear-gradient(135deg, var(--primary) 0%, #00796b 100%);
+  color: white;
+  transform: scale(1.1);
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(0,150,136,0.3);
+}
+
+.pagination-btn-disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 6px;
+}
+
+.pagination-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(0, 150, 136, 0.08);
+  border: 1px solid rgba(0,150,136,0.15);
+  color: var(--primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  position: relative;
+  z-index: 1;
+}
+
+.pagination-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: -1;
+}
+
+.pagination-page:hover {
+  color: var(--primary);
+}
+
+.pagination-page:hover::before {
+  opacity: 0.1;
+  transform: scale(1);
+}
+
+.pagination-page.active {
+  color: white;
+  background: linear-gradient(135deg, var(--primary) 0%, #00796b 100%);
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(0,150,136,0.3);
+}
+
+.pagination-page.active::before {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .modern-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pagination-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,995 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Activity Logs{% endblock %}
+
+{% block content %}
+
+<!-- ══════ ACTIVITY LOGS HERO ══════ -->
+{% url 'inventory:activity_logs' as logs_url %}
+{% include "components/page_hero.html" with title="Activity Logs" icon="bx-history" subtitle="Monitor all system activities, user actions, and changes" action_url=logs_url action_icon="bx-refresh" action_label="Refresh" action_button_label="Clear Logs" action_button_icon="bx-trash" action_button_onclick="openClearModal()" action_button_class="danger" %}
+
+<!-- ══════ FILTER BAR ══════ -->
+<div class="logs-filter-bar">
+  <form method="GET" action="{% url 'inventory:activity_logs' %}" class="logs-filter-form" id="logsFilterForm">
+    <div class="filter-group">
+      <i class='bx bx-calendar'></i>
+      <select name="date_filter" class="filter-select sd-convert" onchange="this.form.submit()">
+        <option value="all" {% if selected_date_filter == 'all' %}selected{% endif %}>All Time</option>
+        <option value="today" {% if selected_date_filter == 'today' %}selected{% endif %}>Today</option>
+        <option value="yesterday" {% if selected_date_filter == 'yesterday' %}selected{% endif %}>Yesterday</option>
+        <option value="week" {% if selected_date_filter == 'week' %}selected{% endif %}>This Week</option>
+        <option value="month" {% if selected_date_filter == 'month' %}selected{% endif %}>This Month</option>
+      </select>
+    </div>
+    <div class="filter-divider"></div>
+    <div class="filter-group">
+      <i class='bx bx-layer'></i>
+      <select name="group_by" class="filter-select sd-convert" onchange="this.form.submit()">
+        <option value="date" {% if group_by == 'date' %}selected{% endif %}>Group by Date</option>
+        <option value="branch" {% if group_by == 'branch' %}selected{% endif %}>Group by Branch</option>
+        <option value="category" {% if group_by == 'category' %}selected{% endif %}>Group by Category</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <i class='bx bx-category'></i>
+      <select name="category" class="filter-select sd-convert" onchange="this.form.submit()">
+        <option value="all">All Categories</option>
+        {% for cat_name, cat_value in categories %}
+          <option value="{{ cat_value }}" {% if selected_category == cat_value %}selected{% endif %}>{{ cat_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <i class='bx bx-building'></i>
+      <select name="branch_id" class="filter-select sd-convert" onchange="this.form.submit()">
+        <option value="">All Branches</option>
+        <option value="system" {% if selected_branch_id == 'system' %}selected{% endif %}>System-wide</option>
+        {% for branch in branches %}
+          <option value="{{ branch.id }}" {% if selected_branch_id|stringformat:"s" == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <a href="{% url 'inventory:activity_logs' %}" class="filter-clear-btn">
+      <i class='bx bx-x'></i> Clear
+    </a>
+  </form>
+</div>
+
+<!-- ══════ ACTIVITY LOGS CONTENT ══════ -->
+<div class="logs-content">
+  {% if grouped_logs %}
+    {% for group_name, group_logs in grouped_logs %}
+      {% if group_logs %}
+      <div class="log-section" data-group="{{ group_name|slugify }}">
+        <!-- Section Header -->
+        <div class="section-header">
+          <div class="section-title">
+            <div class="section-icon">
+              {% if group_key == 'date' %}
+                <i class='bx bx-calendar-alt'></i>
+              {% elif group_key == 'branch' %}
+                <i class='bx bx-building'></i>
+              {% else %}
+                <i class='bx bx-category-alt'></i>
+              {% endif %}
+            </div>
+            <div>
+              <h3>{{ group_name }}</h3>
+              <span class="section-count">{{ group_logs|length }} {% if group_logs|length == 1 %}activity{% else %}activities{% endif %}</span>
+            </div>
+          </div>
+          <button type="button" class="section-toggle" onclick="toggleSection(this)">
+            <i class='bx bx-chevron-down'></i>
+          </button>
+        </div>
+
+        <!-- Log Items Container -->
+        <div class="log-items-container">
+          <div class="log-items" data-page="1">
+            {% for log in group_logs %}
+            <div class="log-card category-{{ log.category|slugify }}" {% if forloop.counter > 5 %}style="display: none;"{% endif %} data-index="{{ forloop.counter }}">
+              <div class="log-card-inner">
+                <!-- Category Icon -->
+                <div class="log-icon category-{{ log.category|slugify }}">
+                  {% if log.category == 'Stock Management' %}
+                    <i class='bx bx-package'></i>
+                  {% elif log.category == 'User Management' %}
+                    <i class='bx bx-user'></i>
+                  {% else %}
+                    <i class='bx bx-cog'></i>
+                  {% endif %}
+                </div>
+
+                <!-- Log Content -->
+                <div class="log-body">
+                  <div class="log-header">
+                    <span class="log-action">{{ log.action }}</span>
+                    <span class="category-tag category-{{ log.category|slugify }}">
+                      {{ log.get_category_display }}
+                    </span>
+                  </div>
+
+                  <div class="log-meta">
+                    <span class="meta-item">
+                      <i class='bx bx-user-circle'></i>
+                      {{ log.user.get_full_name|default:log.user.username }}
+                    </span>
+                    {% if log.branch %}
+                    <span class="meta-item">
+                      <i class='bx bx-map-pin'></i>
+                      {{ log.branch.name }}
+                    </span>
+                    {% else %}
+                    <span class="meta-item system">
+                      <i class='bx bx-globe'></i>
+                      System-wide
+                    </span>
+                    {% endif %}
+                  </div>
+
+                  {% if log.details %}
+                  <div class="log-details">
+                    {{ log.details }}
+                  </div>
+                  {% endif %}
+
+                  <div class="log-footer">
+                    <span class="log-time">
+                      <i class='bx bx-time-five'></i>
+                      {{ log.timestamp|date:"M d, Y \a\t H:i" }}
+                      <span class="relative">({{ log.timestamp|timesince }} ago)</span>
+                    </span>
+                    <form method="POST" action="{% url 'inventory:delete_activity_log' log.id %}" class="delete-form">
+                      {% csrf_token %}
+                      <button type="submit" class="delete-btn" title="Delete" onclick="return confirm('Delete this log?')">
+                        <i class='bx bx-trash-alt'></i>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <!-- Pagination -->
+          {% if group_logs|length > 5 %}
+          <div class="modern-pagination activity-log-pagination" data-total-items="{{ group_logs|length }}" data-items-per-page="5">
+            <div class="pagination-controls">
+              
+              <button type="button" class="pagination-btn pagination-btn-first" onclick="goToPage(this, 1)" disabled title="First Page">
+                <i class='bx bx-chevrons-left'></i>
+              </button>
+              <button type="button" class="pagination-btn pagination-btn-prev" onclick="changePage(this, -1)" disabled title="Previous">
+                <i class='bx bx-chevron-left'></i>
+              </button>
+              
+              <div class="pagination-pages page-number-container">
+                <!-- Javascript will insert dots and page numbers here -->
+              </div>
+
+              <button type="button" class="pagination-btn pagination-btn-next" onclick="changePage(this, 1)" title="Next">
+                <i class='bx bx-chevron-right'></i>
+              </button>
+              <button type="button" class="pagination-btn pagination-btn-last" onclick="goToLastPage(this)" title="Last Page">
+                <i class='bx bx-chevrons-right'></i>
+              </button>
+            </div>
+            
+            <div class="page-info" style="display:none;">
+              <span class="current-page">1</span>
+              <span class="total-pages">{{ group_logs|length|add:4|divisibleby:5|default:1 }}</span>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  {% else %}
+    <!-- Empty State -->
+    <div class="empty-state-card">
+      <div class="empty-icon">
+        <i class='bx bx-inbox'></i>
+      </div>
+      <h3>No Activity Logs Found</h3>
+      <p>There are no activity logs matching your current filters.</p>
+      <a href="{% url 'inventory:activity_logs' %}" class="reset-btn">
+        <i class='bx bx-reset'></i> Reset Filters
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Clear Logs Modal -->
+<div id="clearModal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class='bx bx-trash'></i> Clear Activity Logs</h3>
+      <button type="button" class="modal-close" onclick="closeClearModal()">
+        <i class='bx bx-x'></i>
+      </button>
+    </div>
+    <form method="POST" action="{% url 'inventory:clear_activity_logs' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+        <p class="warning-text">
+          <i class='bx bx-error-circle'></i>
+          This action cannot be undone. Please select which logs to clear.
+        </p>
+        <div class="modal-field">
+          <label>Date Range</label>
+          <select name="date_filter" class="modal-select">
+            <option value="all">All Time</option>
+            <option value="older">Older than this month</option>
+            <option value="month">This Month & Older</option>
+            <option value="week">This Week & Older</option>
+            <option value="yesterday">Yesterday & Older</option>
+            <option value="today">Today Only</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Category</label>
+          <select name="category" class="modal-select">
+            <option value="all">All Categories</option>
+            {% for cat_name, cat_value in categories %}
+              <option value="{{ cat_value }}">{{ cat_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Branch</label>
+          <select name="branch_id" class="modal-select">
+            <option value="">All Branches</option>
+            <option value="system">System-wide Only</option>
+            {% for branch in branches %}
+              <option value="{{ branch.id }}">{{ branch.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeClearModal()">Cancel</button>
+        <button type="submit" class="btn-danger">
+          <i class='bx bx-trash'></i> Clear Logs
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+/* ══════ FILTER BAR ══════ */
+.logs-filter-bar {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.logs-filter-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.filter-group > i {
+  color: var(--primary);
+  font-size: 1.1rem;
+}
+
+.filter-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.filter-clear-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  background: var(--bg);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.filter-clear-btn:hover {
+  background: var(--surface);
+  color: var(--text-1);
+  border-color: var(--border-hover);
+}
+
+/* Dropdown width fix for activity logs filters */
+.logs-filter-bar .sd-dropdown {
+  min-width: 220px;
+  width: auto;
+}
+
+.logs-filter-bar .filter-select {
+  min-width: 140px;
+}
+
+/* ══════ LOG SECTION ══════ */
+.logs-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.log-section {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--surface) 100%);
+  border-bottom: 1px solid var(--border);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.section-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 12px rgba(0, 150, 136, 0.3);
+}
+
+.section-title h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.section-count {
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+
+.section-toggle {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.section-toggle:hover {
+  background: var(--bg);
+  color: var(--text-1);
+}
+
+.section-toggle i {
+  font-size: 1.3rem;
+  transition: transform 0.3s ease;
+}
+
+.log-section.collapsed .section-toggle i {
+  transform: rotate(-90deg);
+}
+
+.log-section.collapsed .log-items-container {
+  display: none;
+}
+
+/* ══════ LOG CARDS - MODERN DESIGN ══════ */
+.log-items-container {
+  padding: 16px 20px;
+}
+
+.log-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.log-card {
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.log-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateX(4px);
+}
+
+.log-card-inner {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+}
+
+.log-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.log-icon.category-stock-management {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffe082 100%);
+  color: #f57c00;
+}
+
+.log-icon.category-user-management {
+  background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 100%);
+  color: #3949ab;
+}
+
+.log-icon.category-system-settings {
+  background: linear-gradient(135deg, var(--primary-light) 0%, #b2dfdb 100%);
+  color: var(--primary);
+}
+
+.log-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.log-action {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-1);
+}
+
+.category-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.category-tag.category-stock-management {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.category-tag.category-user-management {
+  background: #e8eaf6;
+  color: #3949ab;
+}
+
+.category-tag.category-system-settings {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+.log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.meta-item i {
+  font-size: 0.95rem;
+  color: var(--text-3);
+}
+
+.meta-item.system {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.log-details {
+  padding: 10px 14px;
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  border-left: 3px solid var(--primary);
+  margin-bottom: 10px;
+}
+
+.log-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.log-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-3);
+}
+
+.log-time i {
+  font-size: 0.9rem;
+}
+
+.log-time .relative {
+  color: var(--text-3);
+  opacity: 0.8;
+}
+
+.delete-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.delete-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(220, 38, 38, 0.2) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.log-card:hover .delete-btn {
+  opacity: 1;
+}
+
+.delete-btn:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  border-color: #991b1b;
+  color: white;
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.delete-btn:hover::before {
+  opacity: 1;
+}
+
+.delete-btn:active {
+  transform: scale(1.05);
+}
+
+[data-theme="dark"] .delete-btn {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.3) 0%, rgba(220, 38, 38, 0.4) 100%);
+  border-color: rgba(220, 38, 38, 0.6);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .delete-btn:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  border-color: #dc2626;
+  color: white;
+}
+
+/* ══════ EMPTY STATE ══════ */
+.empty-state-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 60px 30px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.empty-icon i {
+  font-size: 2.5rem;
+  color: var(--text-3);
+}
+
+.empty-state-card h3 {
+  font-size: 1.1rem;
+  color: var(--text-1);
+  margin: 0 0 8px;
+}
+
+.empty-state-card p {
+  color: var(--text-2);
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+}
+
+.reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--primary);
+  color: white;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.reset-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+/* ══════ MODAL ══════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-header h3 i { color: #dc2626; }
+
+.modal-close {
+  padding: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: var(--bg);
+  color: var(--text-1);
+}
+
+.modal-body { padding: 24px; }
+
+.warning-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  background: #fef3cd;
+  border: 1px solid #ffc107;
+  border-radius: var(--radius);
+  color: #856404;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+}
+
+.warning-text i { font-size: 1.2rem; flex-shrink: 0; }
+
+[data-theme="dark"] .warning-text {
+  background: rgba(255, 193, 7, 0.15);
+  border-color: rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+}
+
+.modal-field { margin-bottom: 16px; }
+
+.modal-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+
+.modal-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text-1);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.modal-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--bg);
+  border-color: var(--border-hover);
+}
+
+.btn-danger {
+  padding: 10px 20px;
+  background: #dc2626;
+  border: none;
+  color: white;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover { background: #b91c1c; }
+
+/* ══════ RESPONSIVE ══════ */
+@media (max-width: 768px) {
+  .logs-hero { padding: 24px 18px; }
+  .logs-hero-inner { flex-direction: column; text-align: center; }
+  .logs-hero-text h1 { font-size: 1.3rem; justify-content: center; }
+  .logs-hero-actions { width: 100%; justify-content: center; }
+
+  .logs-filter-form { flex-direction: column; align-items: stretch; }
+  .filter-group { width: 100%; }
+  .filter-divider { display: none; }
+  .filter-clear-btn { margin-left: 0; width: 100%; justify-content: center; }
+
+  .log-card-inner { flex-direction: column; }
+  .log-icon { width: 40px; height: 40px; font-size: 1.2rem; }
+  .log-footer { flex-wrap: wrap; }
+  .delete-btn { opacity: 1; }
+
+  .activity-log-pagination { flex-wrap: wrap; }
+  .page-btn span { display: none; }
+}
+</style>
+
+<script>
+// Toggle section collapse
+function toggleSection(btn) {
+  const section = btn.closest('.log-section');
+  section.classList.toggle('collapsed');
+}
+
+function setPage(container, newPage) {
+  const items = container.querySelectorAll('.log-card');
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(items.length / itemsPerPage);
+
+  if (newPage < 1 || newPage > totalPages) return;
+
+  const pageInfo = container.querySelector('.page-info');
+  const currentPageEl = pageInfo.querySelector('.current-page');
+  currentPageEl.textContent = newPage;
+
+  // Show/hide items
+  items.forEach((item, index) => {
+    const itemPage = Math.ceil((index + 1) / itemsPerPage);
+    item.style.display = itemPage === newPage ? '' : 'none';
+  });
+
+  const pagination = container.querySelector('.activity-log-pagination');
+  const firstBtn = pagination.querySelector('.pagination-btn-first');
+  const prevBtn = pagination.querySelector('.pagination-btn-prev');
+  const nextBtn = pagination.querySelector('.pagination-btn-next');
+  const lastBtn = pagination.querySelector('.pagination-btn-last');
+
+  if(newPage === 1) {
+    firstBtn.classList.add('pagination-btn-disabled');
+    prevBtn.classList.add('pagination-btn-disabled');
+  } else {
+    firstBtn.classList.remove('pagination-btn-disabled');
+    prevBtn.classList.remove('pagination-btn-disabled');
+  }
+
+  if(newPage === totalPages) {
+    nextBtn.classList.add('pagination-btn-disabled');
+    lastBtn.classList.add('pagination-btn-disabled');
+  } else {
+    nextBtn.classList.remove('pagination-btn-disabled');
+    lastBtn.classList.remove('pagination-btn-disabled');
+  }
+
+  renderPageNumbers(pagination, newPage, totalPages);
+}
+
+function changePage(btn, direction) {
+  const container = btn.closest('.log-items-container');
+  const currentPageEl = container.querySelector('.current-page');
+  let currentPage = parseInt(currentPageEl.textContent);
+  setPage(container, currentPage + direction);
+}
+
+function goToPageNative(btn, targetPage) {
+  const container = btn.closest('.log-items-container');
+  setPage(container, targetPage);
+}
+
+function goToPage(btn, page) {
+  const container = btn.closest('.log-items-container');
+  setPage(container, page);
+}
+
+function goToLastPage(btn) {
+  const container = btn.closest('.log-items-container');
+  const totalPages = parseInt(container.querySelector('.total-pages').textContent);
+  setPage(container, totalPages);
+}
+
+function renderPageNumbers(pagination, currentPage, totalPages) {
+  const pageContainer = pagination.querySelector('.page-number-container');
+  if(!pageContainer) return;
+  pageContainer.innerHTML = '';
+  
+  for(let i = 1; i <= totalPages; i++) {
+    if (i === currentPage) {
+      pageContainer.innerHTML += `<span class="pagination-page active">${i}</span>`;
+    } else if (i >= currentPage - 2 && i <= currentPage + 2) {
+      pageContainer.innerHTML += `<button type="button" class="pagination-page" onclick="goToPage(this, ${i})">${i}</button>`;
+    }
+  }
+}
+
+// Initialize total pages on load
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.activity-log-pagination').forEach(pagination => {
+    const container = pagination.closest('.log-items-container');
+    const items = container.querySelectorAll('.log-card');
+    const totalPages = Math.ceil(items.length / 5);
+    pagination.querySelector('.total-pages').textContent = totalPages;
+    renderPageNumbers(pagination, 1, totalPages);
+  });
+});
+
+// Modal functions
+function openClearModal() {
+  document.getElementById('clearModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeClearModal() {
+  document.getElementById('clearModal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('clearModal').addEventListener('click', function(e) {
+  if (e.target === this) closeClearModal();
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('clearModal').classList.contains('active')) {
+    closeClearModal();
+  }
+});
+</script>
+
+{% endblock %}

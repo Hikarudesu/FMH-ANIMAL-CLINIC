@@ -1,0 +1,607 @@
+{% extends 'base/portal_admin.html' %}
+{% load permission_tags %}
+
+{% block title %}{% if role %}Edit Role{% else %}Create Role{% endif %}{% endblock %}
+
+{% block content %}
+
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-shield-plus'></i> {% if role %}Edit Role: {{ role.name }}{% else %}Create New Role{% endif %}</h1>
+      <p>{% if role %}Modify role permissions and settings{% else %}Define a new role with specific access permissions{% endif %}</p>
+    </div>
+    <div class="page-hero-actions">
+      <a href="{% url 'accounts:role_list' %}" class="page-hero-btn">
+        <i class='bx bx-arrow-back'></i> Back
+      </a>
+    </div>
+  </div>
+</div>
+
+{% if role.is_system_role %}
+<!-- System Role Warning -->
+<div class="system-warning">
+  <i class='bx bx-error'></i>
+  <div>
+    <strong>System Role</strong>
+    <span>Changes could affect core functionality. Proceed with caution.</span>
+  </div>
+</div>
+{% endif %}
+
+<form method="POST" id="roleForm">
+  {% csrf_token %}
+
+  <!-- Basic Information -->
+  <div class="dashboard-card">
+    <div class="card-header">
+      <h3><i class='bx bx-info-circle'></i> Basic Information</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Role Name <span class="required">*</span></label>
+          <input type="text" name="name" class="admin-input" required
+                 value="{% if role %}{{ role.name }}{% else %}{{ form_data.name|default:'' }}{% endif %}"
+                 placeholder="e.g., Veterinarian, Receptionist">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hierarchy Level</label>
+          <select name="hierarchy_level" class="admin-input" id="hierarchyLevelSelect" onchange="onHierarchyChange(this)">
+            <option value="2" {% if role and role.hierarchy_level == 2 %}selected{% endif %}>Level 2 — Vet Assistant</option>
+            <option value="4" {% if role and role.hierarchy_level == 4 %}selected{% endif %}>Level 4 — Receptionist</option>
+            <option value="6" {% if role and role.hierarchy_level == 6 %}selected{% endif %}>Level 6 — Veterinarian</option>
+            <option value="8" {% if role and role.hierarchy_level == 8 %}selected{% endif %}>Level 8 — Admin</option>
+          </select>
+          <small class="form-hint">Higher level = more authority. <strong>Selecting a level auto-fills permissions.</strong></small>
+        </div>
+
+        <div class="form-group full-width">
+          <label class="form-label">Description</label>
+          <textarea name="description" class="admin-input" rows="2"
+                    placeholder="Brief description of this role">{% if role %}{{ role.description }}{% else %}{{ form_data.description|default:'' }}{% endif %}</textarea>
+        </div>
+      </div>
+
+      <!-- Quick Presets -->
+      <div class="presets-section">
+        <label class="form-label">Quick Presets</label>
+        <p class="form-hint">Auto-fill typical permissions for common role types</p>
+        <div class="preset-buttons">
+          <button type="button" class="preset-btn" onclick="applyPreset('branch_admin')">
+            <i class='bx bx-building'></i> Branch Admin
+          </button>
+          <button type="button" class="preset-btn" onclick="applyPreset('veterinarian')">
+            <i class='bx bx-plus-medical'></i> Veterinarian
+          </button>
+          <button type="button" class="preset-btn" onclick="applyPreset('receptionist')">
+            <i class='bx bx-phone'></i> Receptionist
+          </button>
+          <button type="button" class="preset-btn" onclick="applyPreset('vet_assistant')">
+            <i class='bx bx-user'></i> Vet Assistant
+          </button>
+          <button type="button" class="preset-btn clear" onclick="clearAllPermissions()">
+            <i class='bx bx-x'></i> Clear All
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Module Permissions -->
+  <div class="dashboard-card" style="margin-top: 20px;">
+    <div class="card-header">
+      <h3><i class='bx bx-lock-open'></i> Module Permissions</h3>
+    </div>
+    <div class="card-body">
+      <div class="perm-legend">
+        <span><strong>V</strong> View</span>
+        <span><strong>C</strong> Create</span>
+        <span><strong>E</strong> Edit</span>
+        <span><strong>D</strong> Delete</span>
+        <span><strong>All</strong> Select All for module</span>
+        <span><strong><i class='bx bx-building-house' style="font-size: 13px; vertical-align: middle;"></i></strong> Restrict to Own Branch</span>
+      </div>
+
+      <div class="perm-table-wrap">
+        <table class="perm-table">
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>V</th>
+              <th>C</th>
+              <th>E</th>
+              <th>D</th>
+              <th>All</th>
+              <th title="Restrict data to own branch"><i class='bx bx-building-house'></i></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for module in modules %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.name }} data to own branch">
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Special Permissions -->
+  {% if special_permissions %}
+  <div class="dashboard-card" style="margin-top: 20px;">
+    <div class="card-header">
+      <h3><i class='bx bx-star'></i> Special Permissions</h3>
+    </div>
+    <div class="card-body">
+      <div class="special-grid">
+        {% for sp in special_permissions %}
+        <label class="special-item">
+          <input type="checkbox" name="special_{{ sp.code }}"
+                 {% if sp.code in current_special %}checked{% endif %}>
+          <div>
+            <strong>{{ sp.name }}</strong>
+            <small>{{ sp.description }}</small>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Form Actions -->
+  <div class="form-actions">
+    <a href="{% url 'accounts:role_list' %}" class="btn-action">Cancel</a>
+    <button type="submit" class="btn-action primary">
+      <i class='bx bx-save'></i> {% if role %}Update{% else %}Create{% endif %} Role
+    </button>
+  </div>
+</form>
+
+<style>
+  .system-warning {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    background: rgba(230, 57, 70, 0.08);
+    border: 1px solid rgba(230, 57, 70, 0.2);
+    border-radius: var(--radius);
+    color: var(--accent);
+  }
+  .system-warning i { font-size: 24px; }
+  .system-warning strong { display: block; font-size: 14px; }
+  .system-warning span { font-size: 13px; opacity: 0.9; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .form-group.full-width { grid-column: 1 / -1; }
+
+  .form-label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: var(--text-1);
+  }
+  .form-label .required { color: var(--accent); }
+  .form-hint {
+    display: block;
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 4px;
+  }
+
+  .admin-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-1);
+    transition: border-color 0.2s;
+  }
+  .admin-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  select.admin-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235e6278' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  textarea.admin-input {
+    min-height: 60px;
+    resize: vertical;
+  }
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .checkbox-item:hover { background: var(--border); }
+  .checkbox-item input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    cursor: pointer;
+  }
+  .checkbox-item span {
+    font-size: 13px;
+    font-weight: 500;
+    display: block;
+  }
+  .checkbox-item small {
+    font-size: 11px;
+    color: var(--text-3);
+    display: block;
+    margin-top: 2px;
+  }
+  .checkbox-item.system {
+    background: rgba(230, 57, 70, 0.05);
+    border: 1px solid rgba(230, 57, 70, 0.15);
+  }
+  .checkbox-item.system span { color: var(--accent); }
+
+  .presets-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .preset-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .preset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .preset-btn:hover {
+    background: var(--surface);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .preset-btn.clear:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .preset-btn.applied {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .perm-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .perm-legend strong {
+    color: var(--text-2);
+    margin-right: 4px;
+  }
+
+  .perm-table-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .perm-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .perm-table th,
+  .perm-table td {
+    padding: 10px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .perm-table th {
+    background: var(--bg);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+  }
+  .perm-table th:first-child,
+  .perm-table td:first-child {
+    text-align: left;
+    width: 200px;
+  }
+  .perm-table tbody tr:last-child td { border-bottom: none; }
+  .perm-table tbody tr:hover { background: var(--bg); }
+
+  .module-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .module-cell i {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  [data-theme="dark"] .module-cell i {
+    background: rgba(0, 150, 136, 0.15);
+  }
+
+  .perm-cb {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+  }
+  .branch-restrict-cb {
+    accent-color: #e07c24;
+  }
+
+  .special-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .special-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .special-item:hover { background: var(--border); }
+  .special-item input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    cursor: pointer;
+  }
+  .special-item strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  .special-item small {
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  @media (max-width: 768px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+  // ═══════════════════════════════════════════════════════════════
+  // RBAC ROLE FORM - Permission Presets & Hierarchy Automation
+  // ═══════════════════════════════════════════════════════════════
+
+  // Hierarchy level to preset mapping
+  const hierarchyPresets = {
+    2: 'vet_assistant',
+    4: 'receptionist',
+    6: 'veterinarian',
+    8: 'admin'
+  };
+
+  // Permission presets for each role type
+  // NOTE: APPROVE/EXPORT removed — only VIEW, CREATE, EDIT, DELETE, MANAGE remain
+  const presets = {
+    admin: {
+      dashboard: ['VIEW'],
+      appointments: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      patients: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      medical_records: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      ai_diagnostics: ['VIEW', 'CREATE'],
+      pos: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      clinic_services: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      staff: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      schedule: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      inventory: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      stock_monitor: ['VIEW'],
+      analytics: ['VIEW'],
+      activity_logs: ['VIEW'],
+      branches: ['VIEW', 'CREATE', 'EDIT'],
+    },
+    veterinarian: {
+      dashboard: ['VIEW'],
+      appointments: ['VIEW', 'EDIT'],
+      patients: ['VIEW', 'CREATE', 'EDIT'],
+      medical_records: ['VIEW', 'CREATE', 'EDIT'],
+      ai_diagnostics: ['VIEW', 'CREATE'],
+      schedule: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+    },
+    receptionist: {
+      dashboard: ['VIEW'],
+      appointments: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      patients: ['VIEW', 'CREATE', 'EDIT'],
+      pos: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      clinic_services: ['VIEW', 'CREATE'],
+      inventory: ['VIEW', 'CREATE', 'EDIT'],
+    },
+    vet_assistant: {
+      dashboard: ['VIEW'],
+      appointments: ['VIEW'],
+      patients: ['VIEW'],
+      medical_records: ['VIEW'],
+      inventory: ['VIEW'],
+    }
+  };
+
+  // Branch restriction presets per role
+  const branchRestrictionPresets = {
+    admin: ['branches'],  // Admin restricted to managing their own branch
+    veterinarian: ['appointments', 'patients', 'medical_records', 'schedule'],
+    receptionist: ['appointments', 'patients', 'pos', 'inventory'],
+    vet_assistant: ['appointments', 'patients', 'medical_records', 'inventory'],
+  };
+
+  // Clear all permission checkboxes
+  function clearAllPermissions() {
+    document.querySelectorAll('.module-perm').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.all-perms-toggle').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.branch-restrict-cb').forEach(cb => cb.checked = false);
+  }
+
+  // Apply a preset to the permission checkboxes
+  function applyPreset(presetName) {
+    clearAllPermissions();
+    
+    const preset = presets[presetName];
+    if (!preset) return;
+
+    for (const [module, perms] of Object.entries(preset)) {
+      perms.forEach(perm => {
+        const cb = document.querySelector(`input[name="perm_${module}_${perm}"]`);
+        if (cb) cb.checked = true;
+      });
+      // Update the "All" toggle for this module
+      updateAllToggle(module);
+    }
+
+    // Apply branch restrictions for this preset
+    const branchRestrictions = branchRestrictionPresets[presetName] || [];
+    branchRestrictions.forEach(module => {
+      const cb = document.querySelector(`input[name="branch_restrict_${module}"]`);
+      if (cb) cb.checked = true;
+    });
+  }
+
+  // Update the "All" checkbox state for a specific module
+  function updateAllToggle(moduleCode) {
+    const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
+    if (!row) return;
+    const perms = row.querySelectorAll('.module-perm');
+    const allToggle = row.querySelector('.all-perms-toggle');
+    if (perms.length > 0 && allToggle) {
+      const allChecked = Array.from(perms).every(p => p.checked);
+      allToggle.checked = allChecked;
+    }
+  }
+
+  // Toggle all permissions for a module
+  function toggleAllPerms(checkbox, moduleCode) {
+    const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
+    const perms = row.querySelectorAll('.module-perm');
+    perms.forEach(perm => {
+      perm.checked = checkbox.checked;
+    });
+  }
+
+  // AUTO-APPLY preset when hierarchy level changes
+  function onHierarchyChange(selectEl) {
+    const level = parseInt(selectEl.value);
+    const presetName = hierarchyPresets[level];
+    
+    if (presetName) {
+      applyPreset(presetName);
+      
+      // Visual feedback - highlight the corresponding preset button
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('applied'));
+      const presetBtn = document.querySelector(`.preset-btn[onclick*="${presetName}"]`);
+      if (presetBtn) {
+        presetBtn.classList.add('applied');
+        setTimeout(() => presetBtn.classList.remove('applied'), 1500);
+      }
+    }
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize "All" checkboxes state
+    document.querySelectorAll('tr[data-module]').forEach(row => {
+      const moduleCode = row.dataset.module;
+      updateAllToggle(moduleCode);
+    });
+
+    // Add change listeners to individual permission checkboxes
+    document.querySelectorAll('.module-perm').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const moduleCode = this.dataset.module;
+        updateAllToggle(moduleCode);
+      });
+    });
+  });
+</script>
+
+{% endblock %}

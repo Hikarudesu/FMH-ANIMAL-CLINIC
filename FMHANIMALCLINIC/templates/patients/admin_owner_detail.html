@@ -1,0 +1,730 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}{{ owner.get_full_name|default:owner.username }} — Owner Profile{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<style>
+  /* ══════════════════════════════════════════════════════════════════════════
+     MODERN OWNER DETAIL PAGE - Professional UI/UX Design
+     ══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── CSS Variables ── */
+  :root {
+    --gradient-primary: linear-gradient(135deg, #00897b 0%, #26a69a 50%, #4db6ac 100%);
+    --gradient-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+    --shadow-glow: 0 4px 24px rgba(0,137,123,0.25);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+  }
+
+  /* ── Breadcrumb ── */
+  .od-breadcrumb {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 24px;
+    padding: 12px 16px; background: var(--surface); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+  .od-breadcrumb a {
+    color: var(--primary); text-decoration: none; font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .od-breadcrumb a:hover { color: #00695c; }
+  .od-breadcrumb i.bx-chevron-right { color: var(--border); font-size: 1rem; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     HEADER SECTION - Gradient with Bubble Design
+     ══════════════════════════════════════════════════════════════════════════ */
+  .od-header {
+    position: relative;
+    display: flex; align-items: flex-start; gap: 28px;
+    padding: 36px 32px;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-xl);
+    margin-bottom: 28px;
+    box-shadow: var(--shadow-glow);
+    overflow: hidden;
+  }
+
+
+  .od-avatar {
+    position: relative; z-index: 2;
+    width: 100px; height: 100px; border-radius: var(--radius-lg);
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 2.4rem; font-weight: 700; flex-shrink: 0;
+    overflow: hidden;
+    border: 3px solid rgba(255,255,255,0.3);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  }
+  .od-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .od-header-info { flex: 1; position: relative; z-index: 2; }
+  .od-header-info h1 {
+    font-size: 1.75rem; margin: 0 0 6px 0; color: #fff;
+    font-weight: 700; letter-spacing: -0.02em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .od-header-info .od-subtitle {
+    color: rgba(255,255,255,0.85); font-size: 0.95rem; margin: 0 0 16px 0;
+    font-weight: 500;
+  }
+
+  .od-contact-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .od-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 50px; font-size: 0.85rem; color: #fff;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+  .od-chip:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+  }
+  .od-chip i { font-size: 1rem; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     GRID LAYOUT
+     ══════════════════════════════════════════════════════════════════════════ */
+  .od-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 900px) {
+    .od-grid { grid-template-columns: 1fr; }
+    .od-header { flex-direction: column; align-items: center; text-align: center; }
+    .od-contact-chips { justify-content: center; }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     MODERN CARDS
+     ══════════════════════════════════════════════════════════════════════════ */
+  .od-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+  }
+  .od-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .od-card-header {
+    padding: 18px 24px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    font-size: 0.9rem; font-weight: 700; color: var(--text-primary);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .od-card-header i {
+    font-size: 1.3rem;
+    color: #fff;
+    background: var(--gradient-primary);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+  }
+  .od-card-header .od-section-count {
+    margin-left: 8px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    background: var(--bg);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  .od-clear-btn {
+    margin-left: auto; padding: 8px 16px; font-size: 0.75rem;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+    color: #fff; border: none;
+    border-radius: 50px; cursor: pointer; text-transform: uppercase;
+    font-weight: 700; letter-spacing: 0.03em;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(238,90,90,0.3);
+  }
+  .od-clear-btn:hover {
+    background: linear-gradient(135deg, #ee5a5a 0%, #d63031 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(238,90,90,0.4);
+  }
+
+  .od-card-body { padding: 20px 24px; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     PET CARDS
+     ══════════════════════════════════════════════════════════════════════════ */
+  .od-pet-card {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px; border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none; color: inherit;
+    background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+  }
+  .od-pet-card:last-child { margin-bottom: 0; }
+  .od-pet-card:hover {
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+    border-color: var(--primary);
+    transform: translateX(8px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .od-pet-avatar {
+    width: 56px; height: 56px; border-radius: var(--radius-md);
+    background: var(--gradient-primary);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 1.4rem; flex-shrink: 0;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .od-pet-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .od-pet-info { flex: 1; }
+  .od-pet-info .pet-name {
+    font-weight: 700; font-size: 1rem; color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .od-pet-info .pet-meta {
+    font-size: 0.8rem; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+
+  .od-pet-arrow {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--bg); display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); font-size: 1.2rem;
+    transition: all 0.3s;
+  }
+  .od-pet-card:hover .od-pet-arrow {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     LIST ITEMS (Appointments, Notifications, Activities)
+     ══════════════════════════════════════════════════════════════════════════ */
+  .od-list-item {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 0; border-bottom: 1px solid #f0f0f0;
+    transition: all 0.2s;
+  }
+  .od-list-item:last-child { border-bottom: none; }
+  .od-list-item:hover { background: #fafafa; margin: 0 -24px; padding: 14px 24px; }
+
+  .od-list-icon {
+    width: 42px; height: 42px; border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary); font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .od-list-icon.appt { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1976d2; }
+  .od-list-icon.notif { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #f57c00; }
+  .od-list-icon.activity { background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #8e24aa; }
+
+  .od-list-info { flex: 1; }
+  .od-list-info .list-title {
+    font-size: 0.9rem; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .od-list-info .list-meta {
+    font-size: 0.8rem; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+
+  .od-delete-icon {
+    width: 36px; height: 36px; border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+    color: #c62828; display: flex; align-items: center;
+    justify-content: center; cursor: pointer;
+    font-size: 1rem; opacity: 0; flex-shrink: 0;
+    transition: all 0.3s;
+  }
+  .od-list-item:hover .od-delete-icon { opacity: 1; }
+  .od-delete-icon:hover {
+    background: linear-gradient(135deg, #ef5350 0%, #e53935 100%);
+    color: #fff;
+    transform: scale(1.1);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     EMPTY STATE
+     ══════════════════════════════════════════════════════════════════════════ */
+  .od-empty {
+    text-align: center; color: var(--text-secondary);
+    padding: 40px 24px; font-size: 0.9rem;
+  }
+  .od-empty i {
+    font-size: 3rem; display: block; margin-bottom: 12px;
+    color: #ddd;
+  }
+  .od-empty p { margin: 0; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     PAGINATION - Modern Style
+     ══════════════════════════════════════════════════════════════════════════ */
+  .od-pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .od-page-info {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .od-page-controls { display: flex; gap: 8px; }
+  .od-page-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-primary); cursor: pointer;
+    transition: all 0.3s;
+    font-size: 1.1rem;
+  }
+  .od-page-btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #e8f5e9;
+    transform: translateY(-2px);
+  }
+  .od-page-btn:disabled {
+    opacity: 0.4; cursor: not-allowed;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     STATUS BADGES
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-status-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 12px; border-radius: 50px; font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .pd-status-badge.healthy { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; }
+  .pd-status-badge.monitor { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #e65100; }
+  .pd-status-badge.treatment { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; }
+  .pd-status-badge.surgery { background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%); color: #c62828; }
+  .pd-status-badge.diagnostics { background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #6a1b9a; }
+  .pd-status-badge.critical { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #b71c1c; }
+</style>
+
+<!-- Breadcrumb -->
+<div class="od-breadcrumb">
+  <a href="{% url 'patients:admin_list' %}"><i class='bx bxs-dog'></i> Patients</a>
+  <i class='bx bx-chevron-right'></i>
+  <span>{{ owner.get_full_name|default:owner.username }}</span>
+</div>
+
+<!-- Header -->
+<div class="od-header">
+  <div class="od-avatar">
+    {% if owner.profile_picture %}
+      <img src="{{ owner.profile_picture.url }}" alt="{{ owner.get_full_name }}">
+    {% else %}
+      {{ owner.first_name|make_list|first|upper|default:owner.username|make_list|first|upper }}
+    {% endif %}
+  </div>
+  <div class="od-header-info">
+    <h1>{{ owner.get_full_name|default:owner.username }}</h1>
+    <p class="od-subtitle">{{ owner.get_display_role }} · Joined {{ owner.date_joined|date:"M Y" }}</p>
+    <div class="od-contact-chips">
+      {% if owner.email %}<span class="od-chip"><i class='bx bx-envelope'></i> {{ owner.email }}</span>{% endif %}
+      {% if owner.phone_number %}<span class="od-chip"><i class='bx bx-phone'></i> {{ owner.phone_number }}</span>{% endif %}
+      {% if owner.branch %}<span class="od-chip"><i class='bx bx-building-house'></i> {{ owner.branch.name }}</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Grid -->
+<div class="od-grid">
+  <!-- Pets Card -->
+  <div class="od-card">
+    <div class="od-card-header">
+      <i class='bx bxs-dog'></i> Registered Pets
+      <span class="od-section-count">{{ pets|length }}</span>
+    </div>
+    <div class="od-card-body" style="padding: 16px 24px;">
+      <div id="pets-container">
+        {% for pet in pets %}
+        <a href="{% url 'patients:admin_detail' pet.pk %}" class="od-pet-card pet-item" data-index="{{ forloop.counter0 }}">
+          <div class="od-pet-avatar">
+            {% if pet.photo %}<img src="{{ pet.photo.url }}" alt="{{ pet.name }}">{% else %}{{ pet.name|make_list|first|upper }}{% endif %}
+          </div>
+          <div class="od-pet-info">
+            <div class="pet-name">{{ pet.name }}</div>
+            <div class="pet-meta">
+              {{ pet.species }} · {{ pet.breed|default:"—" }}
+              <span class="pd-status-badge {{ pet.status|lower }}">{{ pet.get_status_display }}</span>
+            </div>
+          </div>
+          <div class="od-pet-arrow"><i class='bx bx-chevron-right'></i></div>
+        </a>
+        {% empty %}
+        <div class="od-empty">
+          <i class='bx bx-paw'></i>
+          <p>No pets registered</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if pets|length > 5 %}
+    <div class="od-pagination" id="pets-pagination">
+      <div class="od-page-info">Showing <span id="pets-start">1</span>-<span id="pets-end">5</span> of {{ pets|length }}</div>
+      <div class="od-page-controls">
+        <button class="od-page-btn" id="pets-prev" onclick="changePage('pets', -1)" disabled><i class='bx bx-chevron-left'></i></button>
+        <button class="od-page-btn" id="pets-next" onclick="changePage('pets', 1)"><i class='bx bx-chevron-right'></i></button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Appointments Card -->
+  <div class="od-card">
+    <div class="od-card-header">
+      <i class='bx bx-calendar-check'></i> Appointment History
+      <span class="od-section-count">{{ appointments|length }}</span>
+    </div>
+    <div class="od-card-body" style="padding: 8px 24px;">
+      <div id="appt-container">
+        {% for appt in appointments %}
+        <div class="od-list-item appt-item" data-index="{{ forloop.counter0 }}">
+          <div class="od-list-icon appt"><i class='bx bx-calendar-event'></i></div>
+          <div class="od-list-info">
+            <div class="list-title">{{ appt.pet_name }} — {{ appt.get_reason_display }}</div>
+            <div class="list-meta">
+              {{ appt.appointment_date|date:"M j, Y" }} · {{ appt.branch.name|default:"—" }}
+              <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="od-empty">
+          <i class='bx bx-calendar-x'></i>
+          <p>No appointments</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if appointments|length > 5 %}
+    <div class="od-pagination" id="appt-pagination">
+      <div class="od-page-info">Showing <span id="appt-start">1</span>-<span id="appt-end">5</span> of {{ appointments|length }}</div>
+      <div class="od-page-controls">
+        <button class="od-page-btn" id="appt-prev" onclick="changePage('appt', -1)" disabled><i class='bx bx-chevron-left'></i></button>
+        <button class="od-page-btn" id="appt-next" onclick="changePage('appt', 1)"><i class='bx bx-chevron-right'></i></button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Notifications Card -->
+  <div class="od-card">
+    <div class="od-card-header">
+      <i class='bx bx-bell'></i> Recent Notifications
+      <span class="od-section-count">{{ notifications|length }}</span>
+      {% if notifications %}
+      <button class="od-clear-btn" onclick="clearAllNotifications()">Clear All</button>
+      {% endif %}
+    </div>
+    <div class="od-card-body" style="padding: 8px 24px;">
+      <div id="notif-container">
+        {% for notif in notifications %}
+        <div class="od-list-item notif-item" data-index="{{ forloop.counter0 }}" data-id="{{ notif.pk }}">
+          <div class="od-list-icon notif"><i class='bx bx-bell'></i></div>
+          <div class="od-list-info">
+            <div class="list-title">{{ notif.title }}</div>
+            <div class="list-meta">{{ notif.message|truncatechars:60 }} · {{ notif.created_at|timesince }} ago</div>
+          </div>
+          <div class="od-delete-icon" onclick="deleteNotification({{ notif.pk }}, this)">
+            <i class='bx bx-trash'></i>
+          </div>
+        </div>
+        {% empty %}
+        <div class="od-empty">
+          <i class='bx bx-bell-off'></i>
+          <p>No notifications</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if notifications|length > 5 %}
+    <div class="od-pagination" id="notif-pagination">
+      <div class="od-page-info">Showing <span id="notif-start">1</span>-<span id="notif-end">5</span> of <span id="notif-total">{{ notifications|length }}</span></div>
+      <div class="od-page-controls">
+        <button class="od-page-btn" id="notif-prev" onclick="changePage('notif', -1)" disabled><i class='bx bx-chevron-left'></i></button>
+        <button class="od-page-btn" id="notif-next" onclick="changePage('notif', 1)"><i class='bx bx-chevron-right'></i></button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Activity Log Card -->
+  <div class="od-card">
+    <div class="od-card-header">
+      <i class='bx bx-history'></i> Recent Activity
+      <span class="od-section-count">{{ activities|length }}</span>
+      {% if activities %}
+      <button class="od-clear-btn" onclick="clearAllActivities()">Clear All</button>
+      {% endif %}
+    </div>
+    <div class="od-card-body" style="padding: 8px 24px;">
+      <div id="activity-container">
+        {% for act in activities %}
+        <div class="od-list-item activity-item" data-index="{{ forloop.counter0 }}" data-id="{{ act.pk }}">
+          <div class="od-list-icon activity"><i class='bx bx-check-circle'></i></div>
+          <div class="od-list-info">
+            <div class="list-title">{{ act.action }} {{ act.object_name }}</div>
+            <div class="list-meta">{{ act.timestamp|timesince }} ago</div>
+          </div>
+          <div class="od-delete-icon" onclick="deleteActivity({{ act.pk }}, this)">
+            <i class='bx bx-trash'></i>
+          </div>
+        </div>
+        {% empty %}
+        <div class="od-empty">
+          <i class='bx bx-time-five'></i>
+          <p>No recent activity</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if activities|length > 5 %}
+    <div class="od-pagination" id="activity-pagination">
+      <div class="od-page-info">Showing <span id="act-start">1</span>-<span id="act-end">5</span> of <span id="act-total">{{ activities|length }}</span></div>
+      <div class="od-page-controls">
+        <button class="od-page-btn" id="act-prev" onclick="changePage('activity', -1)" disabled><i class='bx bx-chevron-left'></i></button>
+        <button class="od-page-btn" id="act-next" onclick="changePage('activity', 1)"><i class='bx bx-chevron-right'></i></button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Client-Side Pagination & Delete Script -->
+<script>
+  const ITEMS_PER_PAGE = 5;
+  const state = {
+    pets: { page: 1, total: {{ pets|length }} },
+    appt: { page: 1, total: {{ appointments|length }} },
+    notif: { page: 1, total: {{ notifications|length }} },
+    activity: { page: 1, total: {{ activities|length }} }
+  };
+
+  function updateListVisibility(type) {
+    let selector, prefix;
+
+    if (type === 'pets') {
+      selector = '.pet-item';
+      prefix = 'pets';
+    } else if (type === 'appt') {
+      selector = '.appt-item';
+      prefix = 'appt';
+    } else if (type === 'notif') {
+      selector = '.notif-item';
+      prefix = 'notif';
+    } else if (type === 'activity') {
+      selector = '.activity-item';
+      prefix = 'act';
+    }
+
+    const items = document.querySelectorAll(selector);
+    const currentPage = state[type].page;
+
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+
+    items.forEach((elem) => {
+      const idx = parseInt(elem.getAttribute('data-index'));
+      elem.style.display = (idx >= startIndex && idx < endIndex) ? '' : 'none';
+    });
+
+    if(state[type].total > 0) {
+      const startSpan = document.getElementById(`${prefix}-start`);
+      const endSpan = document.getElementById(`${prefix}-end`);
+      const prevBtn = document.getElementById(`${prefix}-prev`);
+      const nextBtn = document.getElementById(`${prefix}-next`);
+
+      if (startSpan) startSpan.textContent = startIndex + 1;
+      if (endSpan) endSpan.textContent = Math.min(endIndex, state[type].total);
+      if (prevBtn) prevBtn.disabled = currentPage === 1;
+      if (nextBtn) nextBtn.disabled = endIndex >= state[type].total;
+    }
+  }
+
+  function changePage(type, direction) {
+    state[type].page += direction;
+    updateListVisibility(type);
+  }
+
+  // Delete individual notification
+  async function deleteNotification(notifId, btnElement) {
+    if (!confirm('Delete this notification?')) return;
+
+    try {
+      const response = await fetch(`/patients/admin/owner/{{ owner.pk }}/notification/${notifId}/delete/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const listItem = btnElement.closest('.notif-item');
+        listItem.style.transition = 'all 0.3s';
+        listItem.style.opacity = '0';
+        listItem.style.transform = 'translateX(20px)';
+        setTimeout(() => {
+          listItem.remove();
+          state.notif.total--;
+          updateNotificationCount();
+          updateListVisibility('notif');
+        }, 300);
+      }
+    } catch (error) {
+      alert('Failed to delete notification');
+    }
+  }
+
+  // Clear all notifications
+  async function clearAllNotifications() {
+    if (!confirm(`Clear all ${state.notif.total} notifications?`)) return;
+
+    try {
+      const response = await fetch(`/patients/admin/owner/{{ owner.pk }}/notifications/clear/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        location.reload();
+      }
+    } catch (error) {
+      alert('Failed to clear notifications');
+    }
+  }
+
+  // Delete individual activity
+  async function deleteActivity(actId, btnElement) {
+    if (!confirm('Delete this activity?')) return;
+
+    try {
+      const response = await fetch(`/patients/admin/owner/{{ owner.pk }}/activity/${actId}/delete/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const listItem = btnElement.closest('.activity-item');
+        listItem.style.transition = 'all 0.3s';
+        listItem.style.opacity = '0';
+        listItem.style.transform = 'translateX(20px)';
+        setTimeout(() => {
+          listItem.remove();
+          state.activity.total--;
+          updateActivityCount();
+          updateListVisibility('activity');
+        }, 300);
+      }
+    } catch (error) {
+      alert('Failed to delete activity');
+    }
+  }
+
+  // Clear all activities
+  async function clearAllActivities() {
+    if (!confirm(`Clear all ${state.activity.total} activities?`)) return;
+
+    try {
+      const response = await fetch(`/patients/admin/owner/{{ owner.pk }}/activities/clear/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        location.reload();
+      }
+    } catch (error) {
+      alert('Failed to clear activities');
+    }
+  }
+
+  function updateNotificationCount() {
+    const totalSpan = document.getElementById('notif-total');
+    if (totalSpan) totalSpan.textContent = state.notif.total;
+
+    const pagination = document.getElementById('notif-pagination');
+    if (state.notif.total <= 5 && pagination) pagination.remove();
+  }
+
+  function updateActivityCount() {
+    const totalSpan = document.getElementById('act-total');
+    if (totalSpan) totalSpan.textContent = state.activity.total;
+
+    const pagination = document.getElementById('activity-pagination');
+    if (state.activity.total <= 5 && pagination) pagination.remove();
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      updateListVisibility('pets');
+      updateListVisibility('appt');
+      updateListVisibility('notif');
+      updateListVisibility('activity');
+    });
+  } else {
+    updateListVisibility('pets');
+    updateListVisibility('appt');
+    updateListVisibility('notif');
+    updateListVisibility('activity');
+  }
+</script>
+
+{% endblock %}

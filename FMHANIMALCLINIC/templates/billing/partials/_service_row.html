@@ -1,0 +1,11 @@
+<div class="service-row">
+  <div class="service-row-header">
+    <label>{{ label }}</label>
+    <input type="number" name="{{ field }}" value="{{ amount|floatformat:2 }}"
+           min="0" step="0.01" placeholder="0.00"
+           class="service-amount-input form-input">
+  </div>
+  <input type="text" name="{{ desc_field }}" value="{{ desc }}"
+         placeholder="Description (optional)"
+         class="service-desc-input form-input">
+</div>

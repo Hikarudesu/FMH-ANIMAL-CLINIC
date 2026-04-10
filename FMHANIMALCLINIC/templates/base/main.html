@@ -1,0 +1,79 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FMH Animal Clinic — A web-based veterinary management system with AI-powered diagnostics. Book appointments, manage pet records, and access multi-branch care.">
+  <meta name="theme-color" content="#009688">
+  <title>FMHSYNC — Veterinary Clinic Management System</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="{% static 'image/fmh-logo.png' %}">
+
+  <!-- Preconnect for external resources -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+
+  <!-- Boxicons CDN -->
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
+  <!-- Font Awesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Shared Component Styles -->
+  <link rel="stylesheet" href="{% static 'css/base/navbar.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base/footer.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base/messages.css' %}">
+  <link rel="stylesheet" href="{% static 'css/accounts/auth.css' %}">
+
+  <!-- Landing Page CSS -->
+  <link rel="stylesheet" href="{% static 'css/landing/landing.css' %}">
+</head>
+<body>
+
+<!-- Global Toast Messages -->
+{% if messages %}
+<div class="portal-messages" id="portalMessages">
+  {% for message in messages %}
+  <div class="portal-message {{ message.tags }}">
+    {% if 'success' in message.tags %}<i class='bx bx-check-circle'></i>
+    {% elif 'error' in message.tags or 'danger' in message.tags %}<i class='bx bx-error-circle'></i>
+    {% elif 'warning' in message.tags %}<i class='bx bx-error-alt'></i>
+    {% else %}<i class='bx bx-info-circle'></i>{% endif %}
+    
+    <div>
+      <strong>
+        {% if 'success' in message.tags %}Success
+        {% elif 'error' in message.tags or 'danger' in message.tags %}Error
+        {% elif 'warning' in message.tags %}Warning
+        {% else %}Information{% endif %}
+      </strong>
+      <span>{{ message }}</span>
+    </div>
+
+    <button class="portal-message-close" onclick="this.parentElement.remove()"><i class='bx bx-x'></i></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+  {% if request.resolver_match.url_name != 'login_page' and request.resolver_match.url_name != 'register_page' and request.resolver_match.url_name != 'select_branch' %}
+  {% include 'base/navbar_landing.html' %}
+  {% include 'base/navbar_bottom.html' %}
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+
+
+  {% if request.resolver_match.url_name != 'login_page' and request.resolver_match.url_name != 'register_page' and request.resolver_match.url_name != 'select_branch' %}
+  {% include 'base/footer.html' %}
+  {% endif %}
+
+  <!-- Landing Page JS -->
+  <script src="{% static 'js/landing/landing.js' %}"></script>
+  <!-- Global Messages JS -->
+  <script src="{% static 'js/base/messages.js' %}"></script>
+</body>
+</html>

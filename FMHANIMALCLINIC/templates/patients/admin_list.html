@@ -1,0 +1,537 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Patients Management{% endblock %}
+
+{% block content %}
+<style>
+  /* Client Name Bubble */
+  .client-bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(0, 150, 136, 0.08);
+    border: 1px solid rgba(0, 150, 136, 0.2);
+    border-radius: 20px;
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+  }
+  .client-bubble:hover {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 10px rgba(0, 150, 136, 0.25);
+    transform: translateY(-1px);
+  }
+  
+  .client-bubble.walk-in {
+    background: rgba(245, 127, 23, 0.08);
+    border: 1px solid rgba(245, 127, 23, 0.2);
+    color: #e65100;
+  }
+  .client-bubble.walk-in:hover {
+    background: #f57c00;
+    color: white;
+    box-shadow: 0 4px 10px rgba(245, 127, 23, 0.25);
+  }
+
+  /* Modal Overlay */
+  .pm-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease-in-out;
+  }
+  .pm-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+  .pm-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 90%;
+    max-width: 550px;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(20px);
+    transition: transform 0.2s ease-in-out;
+    overflow: hidden;
+  }
+  .pm-modal-overlay.active .pm-modal {
+    transform: translateY(0);
+  }
+  .pm-modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid var(--primary);
+  }
+  .pm-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .pm-modal-close:hover {
+    color: var(--accent);
+  }
+  .pm-modal-body {
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .pm-detail-group {
+    margin-bottom: 14px;
+  }
+  .pm-detail-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-2);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .pm-detail-value {
+    font-size: 0.95rem;
+    color: var(--text-1);
+    font-weight: 500;
+  }
+  .pm-modal-footer {
+    padding: 16px 24px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+  }
+  @media (max-width: 768px) {
+    .pm-modal {
+      width: 95%;
+      max-width: none;
+    }
+    .pm-modal-header {
+      padding: 16px 18px;
+    }
+    .pm-modal-body {
+      padding: 18px;
+      gap: 16px;
+    }
+    .pm-modal-footer {
+      padding: 14px 18px;
+    }
+  }
+  @media (max-width: 640px) {
+    .pm-modal-body {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+  }
+  @media (max-width: 480px) {
+    .pm-modal-header {
+      padding: 14px;
+    }
+    .pm-modal-body {
+      padding: 14px;
+    }
+    .pm-modal-footer {
+      padding: 12px 14px;
+    }
+    .pm-detail-label {
+      font-size: 0.75rem;
+    }
+    .pm-detail-value {
+      font-size: 0.88rem;
+    }
+  }
+</style>
+
+<!-- ══════ PATIENTS HERO ══════ -->
+{% url 'patients:admin_add_pet' as add_pet_url %}
+{% if can_create %}
+{% include "components/page_hero.html" with title="Patients" icon="bxs-dog" subtitle="View all registered pets, owners, and clinical statuses" action_url=add_pet_url action_label="Add Patient" action_icon="bx-plus" icons_theme="pets" %}
+{% else %}
+{% include "components/page_hero.html" with title="Patients" icon="bxs-dog" subtitle="View all registered pets, owners, and clinical statuses" icons_theme="pets" %}
+{% endif %}
+
+<!-- ══════ SEARCH & FILTER BAR ══════ -->
+<div class="c-filter-bar" id="patientFilterBar">
+  <div class="c-filter-bar__glow"></div>
+  <form method="get" action="{% url 'patients:admin_list' %}" class="c-filter-bar__form" autocomplete="off" id="patientFilterForm">
+
+    <!-- Search Row -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input type="text" name="q" value="{{ search_query }}"
+             placeholder="Search by owner, pet..." id="patientSearch"
+             class="c-filter-bar__search-input" autocomplete="off">
+      <div class="search-dropdown" id="patientSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut"><span>⌘</span><span>K</span></div>
+    </div>
+
+    <!-- Removed Active Filter Chips -->
+
+    <!-- Filter Dropdowns Row -->
+    <div class="c-filter-bar__filters">
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_status %} active{% endif %}">
+          <i class='bx bx-loader-circle c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_status_name %}<span class="prefix">Status:</span> {{ selected_status_name }}{% else %}All Status{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="status" onchange="this.form.submit()">
+          <option value="">All Status</option>
+          {% for status_obj in statuses %}
+          <option value="{{ status_obj.id }}" {% if selected_status|stringformat:"s" == status_obj.id|stringformat:"s" %}selected{% endif %}>{{ status_obj.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_source %} active{% endif %}">
+          <i class='bx bx-globe c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_source %}<span class="prefix">Source:</span> {{ selected_source }}{% else %}All Sources{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="source" onchange="this.form.submit()">
+          <option value="">All Sources</option>
+          {% for value, label in sources %}
+          <option value="{{ value }}" {% if selected_source == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if not is_branch_restricted and branches %}
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_branch %} active{% endif %}">
+          <i class='bx bx-building-house c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_branch %}<span class="prefix">Branch:</span> {% for branch in branches %}{% if branch.id|stringformat:"d" == selected_branch %}{{ branch.name }}{% endif %}{% endfor %}{% else %}All Branches{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="branch" onchange="this.form.submit()">
+          <option value="">All Branches</option>
+          {% for branch in branches %}
+          <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"d" %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_species %} active{% endif %}">
+          <i class='bx bxs-dog c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_species %}<span class="prefix">Species:</span> {{ selected_species }}{% else %}All Species{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="species" onchange="this.form.submit()">
+          <option value="">All Species</option>
+          {% for species in species_list %}
+          <option value="{{ species }}" {% if selected_species == species %}selected{% endif %}>{{ species }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if search_query or selected_status or selected_branch or selected_species or selected_source %}
+      <a href="{% url 'patients:admin_list' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Main Table Container -->
+<div class="admin-table-card">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th style="text-align: center;">Name</th>
+        <th style="text-align: center;">Code</th>
+        <th style="text-align: center;">Client (Owner)</th>
+        <th style="text-align: center;">Species</th>
+        <th style="text-align: center;">Breed</th>
+        <th style="text-align: center;">D.O.B / Age</th>
+        <th style="text-align: center;">Status</th>
+        <th style="text-align: center;">Created</th>
+        <th style="text-align: center;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pet in pets %}
+      <tr class="searchable-row"
+          data-name="{{ pet.name }}"
+          data-owner="{% if pet.owner %}{{ pet.owner.get_full_name|default:pet.owner.username }}{% else %}{{ pet.guest_owner_name }}{% endif %}"
+          data-species="{{ pet.species|default:'' }}"
+          data-breed="{{ pet.breed|default:'' }}"
+          data-status="{{ pet.status|lower }}">
+        <td style="text-align: center;">
+          <a href="{% url 'patients:admin_detail' pet.id %}" class="cell-link">{{ pet.name }}{% if pet.has_missing_details %}<i class='bx bx-info-circle' style="font-size: 1rem; color: #ff9800; margin-left: 6px; vertical-align: middle;" title="Incomplete profile: {{ pet.missing_details_list|join:', ' }}"></i>{% endif %}</a>
+        </td>
+        <td style="text-align: center;"><span class="cell-secondary">{{ pet.name|truncatechars:1 }}{{ pet.id|stringformat:"02d" }}P{% if pet.owner %}{{ pet.owner.id|stringformat:"02d" }}{% else %}GX{% endif %}X</span></td>
+        <td style="text-align: center;">
+          <div>
+            {% if pet.owner %}
+              <a href="{% url 'patients:admin_owner_detail' pet.owner.id %}" class="client-bubble">
+                <i class='bx bxs-user'></i> {{ pet.owner.get_full_name|default:pet.owner.username }}
+              </a>
+            {% else %}
+              <span class="client-bubble walk-in" style="cursor: default;" title="Walk-in Guest">
+                <i class='bx bx-walk'></i> {{ pet.guest_owner_name|default:"—" }}
+              </span>
+            {% endif %}
+          </div>
+        </td>
+        <td style="text-align: center;">{{ pet.species|default:"-" }}</td>
+        <td style="text-align: center;">{{ pet.breed|default:"-" }}</td>
+        <td style="text-align: center;">{{ pet.date_of_birth|date:"M j, Y"|default:"-" }}</td>
+        <td style="text-align: center;">
+          <span class="admin-badge {{ pet.status|lower }}">{{ pet.get_status_display }}</span>
+        </td>
+        <td style="text-align: center;"><span class="cell-secondary">{{ pet.created_at|date:"M j, Y" }}</span></td>
+        <td style="text-align: center;">
+          <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
+            <a href="{% url 'patients:admin_detail' pet.id %}" class="action-btn" title="View Profile"><i class='bx bx-show'></i></a>
+            {% if can_edit %}
+            <a href="{% url 'patients:admin_edit_pet' pet.id %}" class="action-btn" title="Edit Patient"><i class='bx bx-edit-alt'></i></a>
+            {% endif %}
+            {% if can_delete %}
+            <a href="{% url 'patients:admin_delete_pet' pet.id %}" class="action-btn danger" title="Delete"><i class='bx bx-trash'></i></a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="9">
+          <div class="admin-empty-state">
+            <i class='bx bxs-dog'></i>
+            <h3>No patients found</h3>
+            <p>Add your first patient to get started.</p>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Modern Pagination Section -->
+  {% include "components/modern_pagination.html" %}
+</div>
+
+<!-- PATIENT DETAILS MODAL -->
+<div class="pm-modal-overlay" id="patientDetailModal">
+  <div class="pm-modal">
+    <div class="pm-modal-header">
+      <div>
+        <h3 id="modalPetName" style="color: var(--text-1); margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px; font-size: 1.15rem;">
+          Pet Name <span class="admin-badge active" style="font-size: 0.7rem;">Active</span>
+        </h3>
+        <p id="modalOwnerNameTitle" style="color: var(--text-2); margin: 0; font-size: 0.875rem;">Owner: Client Name</p>
+      </div>
+      <button class="pm-modal-close" onclick="closePatientDetail()"><i class='bx bx-x'></i></button>
+    </div>
+    
+    <div class="pm-modal-body">
+      <!-- Left Column: Pet Specs -->
+      <div>
+        <h4 style="color: var(--text-2); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; align-items: center; gap: 6px;"><i class='bx bxs-dog'></i> Pet Details</h4>
+        
+        <div class="pm-detail-group">
+          <span class="pm-detail-label">Species & Breed</span>
+          <span class="pm-detail-value"><span id="modalSpecies">Dog</span> - <span id="modalBreed">Husky</span></span>
+        </div>
+        <div class="pm-detail-group">
+          <span class="pm-detail-label">Age & Sex</span>
+          <span class="pm-detail-value"><span id="modalAge">2</span> yrs • <span id="modalSex">Male</span></span>
+        </div>
+        <div class="pm-detail-group">
+          <span class="pm-detail-label">Color</span>
+          <span class="pm-detail-value" id="modalColor">Black/White</span>
+        </div>
+      </div>
+      
+      <!-- Right Column: Owner Info -->
+      <div>
+        <h4 style="color: var(--text-2); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; align-items: center; gap: 6px;"><i class='bx bxs-user-detail'></i> Owner Info</h4>
+        
+        <div class="pm-detail-group">
+          <span class="pm-detail-label">Full Name</span>
+          <span class="pm-detail-value" id="modalOwnerName">John Doe</span>
+        </div>
+        <div class="pm-detail-group">
+          <span class="pm-detail-label">Contact Number</span>
+          <span class="pm-detail-value" id="modalOwnerPhone">09123456789</span>
+        </div>
+        <div class="pm-detail-group">
+          <span class="pm-detail-label">Email Address</span>
+          <span class="pm-detail-value" style="word-break: break-all;" id="modalOwnerEmail">john@example.com</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="pm-modal-footer">
+      {% if can_edit %}
+      <a href="#" id="modalEditBtn" class="admin-btn primary"><i class='bx bx-edit'></i> Edit Patient</a>
+      {% endif %}
+      <a href="#" id="modalViewBtn" class="admin-btn secondary"><i class='bx bx-show'></i> View Profile</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openPatientDetail(name, species, breed, sex, age, color, ownerName, ownerPhone, ownerEmail, editUrl) {
+    document.getElementById('modalPetName').innerHTML = name + ' <span class="admin-badge active" style="font-size: 0.7rem;">Active</span>';
+    document.getElementById('modalOwnerNameTitle').innerText = 'Owner: ' + ownerName;
+    
+    document.getElementById('modalSpecies').innerText = species;
+    document.getElementById('modalBreed').innerText = breed;
+    document.getElementById('modalAge').innerText = age;
+    document.getElementById('modalSex').innerText = sex;
+    document.getElementById('modalColor').innerText = color;
+    
+    document.getElementById('modalOwnerName').innerText = ownerName;
+    document.getElementById('modalOwnerPhone').innerText = ownerPhone;
+    document.getElementById('modalOwnerEmail').innerText = ownerEmail;
+    
+    document.getElementById('modalEditBtn').href = editUrl;
+    
+    document.getElementById('patientDetailModal').classList.add('active');
+  }
+
+  function closePatientDetail() {
+    document.getElementById('patientDetailModal').classList.remove('active');
+  }
+
+  document.getElementById('patientDetailModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      closePatientDetail();
+    }
+  });
+
+  // ══════ SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+  (function initPatientSearch() {
+    const searchInput = document.getElementById('patientSearch');
+    const dropdown    = document.getElementById('patientSearchDropdown');
+    if (!searchInput || !dropdown) return;
+
+    function buildData() {
+      return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
+        name   : row.dataset.name    || '',
+        owner  : row.dataset.owner   || '',
+        species: row.dataset.species || '',
+        breed  : row.dataset.breed   || '',
+        editUrl: row.dataset.editUrl || '#',
+        row    : row
+      }));
+    }
+
+    let patients = buildData();
+
+    function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    function highlight(text, q) {
+      if (!q) return text;
+      return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+        '<span class="search-dropdown-highlight">$1</span>');
+    }
+
+    function renderDropdown(results, q) {
+      if (!results.length) {
+        dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No patients found</div>';
+      } else {
+        dropdown.innerHTML = results.slice(0, 8).map(p => `
+          <div class="search-dropdown-item" data-name="${p.name}">
+            <i class='bx bxs-dog'></i>
+            <div class="item-info">
+              <div class="item-name">${highlight(p.name, q)}</div>
+              <div class="item-sub">${highlight(p.owner, q)} &bull; ${p.species}${p.breed && p.breed !== '-' ? ' &bull; ' + p.breed : ''}</div>
+            </div>
+            <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+          </div>`).join('');
+        dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
+          item.addEventListener('mousedown', e => {
+            e.preventDefault();
+            searchInput.value = results[idx].name;
+            filterRows(results[idx].name.toLowerCase());
+            hideDropdown();
+          });
+        });
+      }
+      dropdown.style.display = 'block';
+      dropdown.classList.add('active');
+    }
+
+    function hideDropdown() {
+      dropdown.classList.remove('active');
+      dropdown.style.display = '';
+    }
+
+    function filterRows(q) {
+      patients.forEach(p => {
+        const nl = p.name.toLowerCase(); const ol = p.owner.toLowerCase();
+        const sl = p.species.toLowerCase(); const bl = p.breed.toLowerCase();
+        const matchesSearch = !q || nl.includes(q) || ol.includes(q) || sl.includes(q) || bl.includes(q);
+        p.row.style.display = matchesSearch ? '' : 'none';
+      });
+    }
+
+    searchInput.addEventListener('input', function () {
+      const q = this.value.toLowerCase().trim();
+      filterRows(q);
+      if (!q) { hideDropdown(); return; }
+      const results = patients.filter(p =>
+        p.name.toLowerCase().includes(q) || p.owner.toLowerCase().includes(q) ||
+        p.species.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q));
+      renderDropdown(results, q);
+    });
+
+    searchInput.addEventListener('focus', function () {
+      if (this.value.trim()) this.dispatchEvent(new Event('input'));
+    });
+
+    searchInput.addEventListener('blur', function () {
+      setTimeout(hideDropdown, 150);
+    });
+
+    searchInput.addEventListener('keydown', function (e) {
+      const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+      let idx = items.findIndex(i => i.classList.contains('active'));
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        items[idx]?.classList.remove('active');
+        idx = (idx + 1) % items.length;
+        items[idx]?.classList.add('active');
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        items[idx]?.classList.remove('active');
+        idx = (idx - 1 + items.length) % items.length;
+        items[idx]?.classList.add('active');
+      } else if (e.key === 'Enter' && idx >= 0) {
+        e.preventDefault(); items[idx]?.click();
+      } else if (e.key === 'Escape') {
+        hideDropdown();
+      }
+    });
+  }());
+</script>
+
+{% endblock %}

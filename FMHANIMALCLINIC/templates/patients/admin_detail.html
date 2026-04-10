@@ -1,0 +1,737 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}{{ pet.name }} — Patient Profile{% endblock %}
+
+{% block content %}
+<style>
+  /* ══════════════════════════════════════════════════════════════════════════
+     MODERN PATIENT DETAIL PAGE - Professional UI/UX Design
+     ══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── CSS Variables ── */
+  :root {
+    --gradient-primary: linear-gradient(135deg, #00897b 0%, #26a69a 50%, #4db6ac 100%);
+    --gradient-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-warning: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    --gradient-danger: linear-gradient(135deg, #ef5350 0%, #e53935 100%);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+    --shadow-glow: 0 4px 24px rgba(0,137,123,0.25);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+  }
+
+  /* ── Breadcrumb ── */
+  .pd-breadcrumb {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 24px;
+    padding: 12px 16px; background: var(--surface); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+  .pd-breadcrumb a {
+    color: var(--primary); text-decoration: none; font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .pd-breadcrumb a:hover { color: #00695c; }
+  .pd-breadcrumb i.bx-chevron-right { color: var(--border); font-size: 1rem; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     CLINICAL ACTION ALERT - Modern Banner
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-action-alert {
+    display: flex; align-items: center; gap: 16px;
+    padding: 18px 24px; border-radius: var(--radius-lg);
+    margin-bottom: 24px; font-size: 0.95rem;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+  }
+  .pd-action-alert::before {
+    content: '';
+    position: absolute;
+    width: 100px; height: 100px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+    top: -30px; right: 20px;
+  }
+  .pd-action-alert.surgery { background: linear-gradient(135deg, #ef5350 0%, #e53935 100%); color: #fff; }
+  .pd-action-alert.monitor { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: #fff; }
+  .pd-action-alert.diagnostics { background: linear-gradient(135deg, #ab47bc 0%, #8e24aa 100%); color: #fff; }
+  .pd-action-alert.treatment { background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%); color: #fff; }
+  .pd-action-alert.critical { background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%); color: #fff; }
+  .pd-action-alert i { font-size: 1.8rem; }
+  .pd-action-alert strong { margin-right: 4px; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     HEADER SECTION - Gradient with Bubble Design
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-header {
+    position: relative;
+    display: flex; align-items: flex-start; gap: 28px;
+    padding: 36px 32px;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-xl);
+    margin-bottom: 28px;
+    box-shadow: var(--shadow-glow);
+    overflow: hidden;
+  }
+
+  /* Paw & Bone Icons Background Decorations */
+  .pd-header-icon {
+    position: absolute;
+    color: rgba(255,255,255,0.25);
+    z-index: 1;
+  }
+  .pd-header-icon.paw-1 { font-size: 5.5rem; top: 5%; right: 4%; transform: rotate(-15deg); }
+  .pd-header-icon.bone-1 { font-size: 4.5rem; bottom: 8%; right: 28%; transform: rotate(45deg); }
+  .pd-header-icon.paw-2 { font-size: 4rem; top: 50%; left: 2%; transform: rotate(20deg); }
+  .pd-header-icon.bone-2 { font-size: 3.5rem; top: 12%; right: 38%; transform: rotate(-30deg); }
+  .pd-header-icon.paw-3 { font-size: 4.5rem; bottom: 5%; right: 10%; transform: rotate(10deg); }
+  .pd-header-icon.bone-3 { font-size: 3rem; top: 35%; left: 22%; transform: rotate(60deg); }
+  .pd-header-icon.paw-4 { font-size: 3.5rem; top: 65%; right: 48%; transform: rotate(-25deg); }
+  .pd-header-icon.bone-4 { font-size: 2.5rem; bottom: 35%; left: 6%; transform: rotate(15deg); }
+  .pd-header-icon.paw-5 { font-size: 3rem; top: 8%; left: 12%; transform: rotate(35deg); }
+  .pd-header-icon.bone-5 { font-size: 4rem; bottom: 20%; right: 42%; transform: rotate(-45deg); }
+  .pd-header-icon.paw-6 { font-size: 5rem; top: 38%; right: 2%; transform: rotate(-10deg); }
+  .pd-header-icon.bone-6 { font-size: 2.8rem; bottom: 48%; left: 18%; transform: rotate(25deg); }
+  .pd-header-icon.paw-7 { font-size: 2.5rem; top: 75%; right: 18%; transform: rotate(40deg); }
+  .pd-header-icon.bone-7 { font-size: 3.2rem; top: 22%; left: 35%; transform: rotate(-20deg); }
+
+  .pd-avatar {
+    position: relative; z-index: 2;
+    width: 120px; height: 120px; border-radius: var(--radius-lg);
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 2.8rem; font-weight: 700; flex-shrink: 0;
+    overflow: hidden;
+    border: 3px solid rgba(255,255,255,0.3);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  }
+  .pd-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .pd-header-info { flex: 1; position: relative; z-index: 2; }
+  .pd-header-info h1 {
+    font-size: 2rem; margin: 0 0 8px 0; color: #fff;
+    font-weight: 700; letter-spacing: -0.02em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+  }
+  .pd-header-info .pd-subtitle {
+    color: rgba(255,255,255,0.9); font-size: 1rem; margin: 0 0 20px 0;
+    font-weight: 500;
+  }
+
+  .pd-quick-stats { display: flex; gap: 12px; flex-wrap: wrap; }
+  .pd-quick-stat {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 50px; font-size: 0.85rem; color: #fff;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+  .pd-quick-stat:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+  }
+  .pd-quick-stat i { font-size: 1rem; }
+
+  .pd-header-actions {
+    display: flex; gap: 10px; flex-shrink: 0; align-self: flex-start;
+    position: relative; z-index: 2;
+  }
+  .pd-header-actions .admin-btn {
+    padding: 12px 20px;
+    border-radius: 50px;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+    transition: all 0.3s;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .pd-header-actions .admin-btn.primary {
+    background: #fff;
+    color: var(--primary);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+  .pd-header-actions .admin-btn.primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+  }
+  .pd-header-actions .admin-btn.secondary {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .pd-header-actions .admin-btn.secondary:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-3px);
+  }
+
+  /* Status Badge in Header */
+  .pd-status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 50px; font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .pd-status-badge.healthy { background: rgba(255,255,255,0.95); color: #2e7d32; }
+  .pd-status-badge.monitor { background: rgba(255,255,255,0.95); color: #e65100; }
+  .pd-status-badge.treatment { background: rgba(255,255,255,0.95); color: #1565c0; }
+  .pd-status-badge.surgery { background: rgba(255,255,255,0.95); color: #c62828; }
+  .pd-status-badge.diagnostics { background: rgba(255,255,255,0.95); color: #6a1b9a; }
+  .pd-status-badge.critical { background: rgba(255,255,255,0.95); color: #b71c1c; }
+  .pd-status-badge i { font-size: 14px; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     GRID LAYOUT
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 900px) {
+    .pd-grid { grid-template-columns: 1fr; }
+    .pd-header { flex-direction: column; align-items: center; text-align: center; }
+    .pd-quick-stats, .pd-header-actions { justify-content: center; }
+    .pd-header-info h1 { justify-content: center; }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     MODERN CARDS
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+  }
+  .pd-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .pd-card-header {
+    padding: 18px 24px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    font-size: 0.9rem; font-weight: 700; color: var(--text-primary);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .pd-card-header i {
+    font-size: 1.3rem;
+    color: #fff;
+    background: var(--gradient-primary);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+  }
+  .pd-card-header .pd-section-count {
+    margin-left: 8px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    background: var(--bg);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  .pd-card-body { padding: 20px 24px; }
+
+  /* Full width card */
+  .pd-card-full { grid-column: 1 / -1; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     INFO ROWS
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-info-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid #f0f0f0;
+  }
+  .pd-info-row:last-child { border-bottom: none; }
+  .pd-info-label {
+    font-size: 0.8rem; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+  }
+  .pd-info-value {
+    font-size: 0.95rem; color: var(--text-primary); font-weight: 600;
+  }
+  .pd-info-value a {
+    color: var(--primary); text-decoration: none;
+    transition: all 0.2s;
+  }
+  .pd-info-value a:hover { color: #00695c; text-decoration: underline; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     LIST ITEMS (Appointments, Notifications)
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-list-item {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 0; border-bottom: 1px solid #f0f0f0;
+    transition: all 0.2s;
+  }
+  .pd-list-item:last-child { border-bottom: none; }
+  .pd-list-item:hover { background: #fafafa; margin: 0 -24px; padding: 14px 24px; }
+
+  .pd-list-icon {
+    width: 48px; height: 48px; border-radius: var(--radius-md);
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary); font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+  .pd-list-icon.appt { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1976d2; }
+  .pd-list-icon.notif { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #f57c00; }
+  .pd-list-icon.surgery { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; }
+  .pd-list-icon.monitor { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #e65100; }
+  .pd-list-icon.treatment { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; }
+  .pd-list-icon.diagnostics { background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #8e24aa; }
+  .pd-list-icon.critical { background: linear-gradient(135deg, #ffebee 0%, #ef9a9a 100%); color: #b71c1c; }
+
+  .pd-list-info { flex: 1; }
+  .pd-list-info .list-title {
+    font-size: 0.95rem; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .pd-list-info .list-meta {
+    font-size: 0.8rem; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     EMPTY STATE
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-empty {
+    text-align: center; color: var(--text-secondary);
+    padding: 40px 24px; font-size: 0.9rem;
+  }
+  .pd-empty i {
+    font-size: 3rem; display: block; margin-bottom: 12px;
+    color: #ddd;
+  }
+  .pd-empty p { margin: 0; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     PAGINATION - Modern Style
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .pd-page-info { color: var(--text-secondary); font-weight: 500; }
+  .pd-page-controls { display: flex; gap: 8px; }
+  .pd-page-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-primary); cursor: pointer;
+    transition: all 0.3s;
+    font-size: 1.1rem;
+  }
+  .pd-page-btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #e8f5e9;
+    transform: translateY(-2px);
+  }
+  .pd-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     TIMELINE - Modern Style
+     ══════════════════════════════════════════════════════════════════════════ */
+  .pd-timeline { padding: 24px; }
+  .pd-timeline-item {
+    position: relative; padding-left: 36px; padding-bottom: 28px;
+    border-left: 3px solid #e0e0e0; margin-left: 12px;
+  }
+  .pd-timeline-item:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .pd-timeline-dot {
+    position: absolute; left: -10px; top: 0;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--gradient-primary);
+    border: 3px solid var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .pd-timeline-date {
+    font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .pd-timeline-content {
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 18px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s;
+  }
+  .pd-timeline-content:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateX(4px);
+  }
+  .pd-timeline-content p { margin: 8px 0; font-size: 0.9rem; color: var(--text-primary); }
+  .pd-timeline-content .label {
+    color: var(--primary); font-weight: 700; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .pd-timeline-vet {
+    font-size: 0.8rem; color: var(--text-secondary); margin-top: 12px;
+    display: flex; align-items: center; gap: 6px;
+    padding-top: 12px; border-top: 1px dashed var(--border);
+  }
+  .pd-timeline-action-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 50px; font-size: 0.7rem; font-weight: 700;
+    margin-top: 10px; text-transform: uppercase;
+  }
+  .pd-timeline-action-badge.surgery { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; }
+  .pd-timeline-action-badge.monitor { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #e65100; }
+  .pd-timeline-action-badge.critical { background: linear-gradient(135deg, #ffebee 0%, #ef9a9a 100%); color: #b71c1c; }
+  .pd-timeline-action-badge.treatment { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; }
+  .pd-timeline-action-badge.diagnostics { background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #6a1b9a; }
+
+  /* Walk-in Badge */
+  .pd-walkin-badge {
+    margin-left: auto;
+    font-size: 0.7rem;
+    background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+    color: #f57f17;
+    border: 1px solid #ffe082;
+    padding: 6px 12px;
+    border-radius: 50px;
+    display: flex; align-items: center; gap: 6px;
+    font-weight: 700;
+  }
+</style>
+
+<!-- Breadcrumb -->
+<div class="pd-breadcrumb">
+  <a href="{% url 'patients:admin_list' %}"><i class='bx bxs-dog'></i> Patients</a>
+  <i class='bx bx-chevron-right'></i>
+  <span>{{ pet.name }}</span>
+</div>
+
+<!-- Clinical Action Alert -->
+{% if latest_entry and latest_entry.action_required != 'HEALTHY' %}
+<div class="pd-action-alert {{ latest_entry.action_required|lower }}">
+  <i class='bx {% if latest_entry.action_required == "SURGERY" %}bx-plus-medical{% elif latest_entry.action_required == "MONITOR" %}bx-show{% elif latest_entry.action_required == "CRITICAL" %}bx-error{% elif latest_entry.action_required == "TREATMENT" %}bx-pulse{% else %}bx-test-tube{% endif %}'></i>
+  <div>
+    <strong>Active Clinical Action:</strong>
+    {{ latest_entry.get_action_required_display }}
+    <span style="opacity:0.8;">— since {{ latest_entry.date_recorded|date:"M j, Y" }}</span>
+  </div>
+</div>
+{% endif %}
+
+<div class="pd-header">
+  <div class="pd-avatar">
+    {% if pet.photo %}
+      <img src="{{ pet.photo.url }}" alt="{{ pet.name }}">
+    {% else %}
+      {{ pet.name|make_list|first|upper }}
+    {% endif %}
+  </div>
+  <div class="pd-header-info">
+    <h1>
+      {{ pet.name }}
+      <span class="pd-status-badge {{ pet.status|lower }}">
+        {% if pet.status == 'HEALTHY' %}<i class='bx bx-check-circle'></i>
+        {% elif pet.status == 'SURGERY' %}<i class='bx bx-plus-medical'></i>
+        {% elif pet.status == 'MONITOR' %}<i class='bx bx-show'></i>
+        {% elif pet.status == 'DIAGNOSTICS' %}<i class='bx bx-test-tube'></i>
+        {% elif pet.status == 'CRITICAL' %}<i class='bx bx-error'></i>
+        {% else %}<i class='bx bx-pulse'></i>{% endif %}
+        {{ pet.get_status_display }}
+      </span>
+    </h1>
+    <p class="pd-subtitle">{{ pet.species }} · {{ pet.breed|default:"Unknown Breed" }} · {{ pet.get_sex_display }}</p>
+    <div class="pd-quick-stats">
+      <div class="pd-quick-stat"><i class='bx bx-calendar-alt'></i> {% if pet.date_of_birth %}{{ pet.date_of_birth|timesince }} old{% else %}DOB unknown{% endif %}</div>
+      <div class="pd-quick-stat"><i class='bx bx-palette'></i> {{ pet.color|default:"—" }}</div>
+      <div class="pd-quick-stat"><i class='bx bx-time-five'></i> Registered {{ pet.created_at|date:"M j, Y" }}</div>
+    </div>
+  </div>
+  <div class="pd-header-actions">
+    <a href="{% url 'patients:admin_edit_pet' pet.pk %}" class="admin-btn primary"><i class='bx bx-edit-alt'></i> Edit Patient</a>
+    <a href="{% url 'records:admin_create' %}" class="admin-btn secondary"><i class='bx bx-plus'></i> New Record</a>
+  </div>
+</div>
+
+<!-- Info Grid -->
+<div class="pd-grid">
+  <!-- Owner Info Card -->
+  <div class="pd-card">
+    <div class="pd-card-header">
+      <i class='bx bxs-user-detail'></i> Owner Information
+      {% if pet.is_walkin %}<span class="pd-walkin-badge"><i class='bx bx-walk'></i> Walk-in</span>{% endif %}
+    </div>
+    <div class="pd-card-body">
+      {% if owner %}
+      <div class="pd-info-row">
+        <span class="pd-info-label">Full Name</span>
+        <a href="{% url 'patients:admin_owner_detail' owner.pk %}" class="pd-info-value">{{ owner.get_full_name|default:owner.username }}</a>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Email</span>
+        <span class="pd-info-value" style="word-break:break-all;">{{ owner.email|default:"—" }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Phone</span>
+        <span class="pd-info-value">{{ owner.phone_number|default:"—" }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Address</span>
+        <span class="pd-info-value">{{ owner.address|default:"—"|truncatechars:50 }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Branch</span>
+        <span class="pd-info-value">{{ owner.branch.name|default:"—" }}</span>
+      </div>
+      {% else %}
+      <div class="pd-info-row">
+        <span class="pd-info-label">Full Name</span>
+        <span class="pd-info-value">{{ pet.guest_owner_name|default:"—" }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Email</span>
+        <span class="pd-info-value" style="word-break:break-all;">{{ pet.guest_owner_email|default:"—" }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Phone</span>
+        <span class="pd-info-value">{{ pet.guest_owner_phone|default:"—" }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Address</span>
+        <span class="pd-info-value">{{ pet.guest_owner_address|default:"—"|truncatechars:50 }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Portal Account</span>
+        <span class="pd-info-value" style="color:var(--text-secondary); font-style:italic;">None — Walk-in</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Pet Details Card -->
+  <div class="pd-card">
+    <div class="pd-card-header">
+      <i class='bx bxs-dog'></i> Pet Details
+    </div>
+    <div class="pd-card-body">
+      <div class="pd-info-row">
+        <span class="pd-info-label">Species</span>
+        <span class="pd-info-value">{{ pet.species }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Breed</span>
+        <span class="pd-info-value">{{ pet.breed|default:"—" }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Date of Birth</span>
+        <span class="pd-info-value">{{ pet.date_of_birth|date:"M j, Y"|default:"—" }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Sex</span>
+        <span class="pd-info-value">{{ pet.get_sex_display }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Color</span>
+        <span class="pd-info-value">{{ pet.color|default:"—" }}</span>
+      </div>
+      <div class="pd-info-row">
+        <span class="pd-info-label">Clinical Status</span>
+        <span class="pd-status-badge {{ pet.status|lower }}" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);">{{ pet.get_status_display }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Appointment History -->
+  <div class="pd-card">
+    <div class="pd-card-header">
+      <i class='bx bx-calendar-check'></i> Appointment History
+      <span class="pd-section-count">{{ appointments|length }}</span>
+    </div>
+    <div class="pd-card-body" style="padding: 8px 24px;">
+      <div id="appt-container">
+        {% for appt in appointments %}
+        <div class="pd-list-item appt-item" data-index="{{ forloop.counter0 }}">
+          <div class="pd-list-icon appt"><i class='bx bx-calendar-event'></i></div>
+          <div class="pd-list-info">
+            <div class="list-title">{{ appt.appointment_date|date:"M j, Y" }} at {{ appt.appointment_time_display }}</div>
+            <div class="list-meta">
+              {{ appt.get_reason_display }} · {{ appt.branch.name|default:"—" }}
+              <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="pd-empty">
+          <i class='bx bx-calendar-x'></i>
+          <p>No appointments yet</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if appointments|length > 5 %}
+    <div class="pd-pagination" id="appt-pagination">
+      <div class="pd-page-info">Showing <span id="appt-start">1</span>-<span id="appt-end">5</span> of {{ appointments|length }}</div>
+      <div class="pd-page-controls">
+        <button class="pd-page-btn" id="appt-prev" onclick="changePage('appt', -1)" disabled><i class='bx bx-chevron-left'></i></button>
+        <button class="pd-page-btn" id="appt-next" onclick="changePage('appt', 1)"><i class='bx bx-chevron-right'></i></button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Clinical Alerts -->
+  <div class="pd-card">
+    <div class="pd-card-header">
+      <i class='bx bx-bell'></i> Clinical Action Alerts
+    </div>
+    <div class="pd-card-body" style="padding: 8px 24px;">
+      <div id="alerts-container">
+        {% for record in medical_records %}
+          {% for entry in record.entries.all %}
+            {% if entry.action_required != 'HEALTHY' %}
+            <div class="pd-list-item alert-item" data-index="{{ forloop.counter0 }}">
+              <div class="pd-list-icon {{ entry.action_required|lower }}">
+                <i class='bx {% if entry.action_required == "SURGERY" %}bx-plus-medical{% elif entry.action_required == "MONITOR" %}bx-show{% elif entry.action_required == "CRITICAL" %}bx-error{% elif entry.action_required == "TREATMENT" %}bx-pulse{% else %}bx-test-tube{% endif %}'></i>
+              </div>
+              <div class="pd-list-info">
+                <div class="list-title">{{ entry.get_action_required_display }}</div>
+                <div class="list-meta">{{ entry.date_recorded|date:"M j, Y" }}</div>
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        {% empty %}
+        <div class="pd-empty">
+          <i class='bx bx-bell-off'></i>
+          <p>No clinical action alerts</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Medical Records Timeline (full width) -->
+<div class="pd-card pd-card-full">
+  <div class="pd-card-header">
+    <i class='bx bx-file'></i> Medical Records Timeline
+    <span class="pd-section-count">{{ medical_records|length }} records</span>
+  </div>
+  <div class="pd-timeline">
+    {% for record in medical_records %}
+      {% for entry in record.entries.all %}
+      <div class="pd-timeline-item">
+        <div class="pd-timeline-dot"></div>
+        <div class="pd-timeline-date">{{ entry.date_recorded|date:"M j, Y" }}</div>
+        <div class="pd-timeline-content">
+          {% if entry.weight or entry.temperature %}
+          <p><span class="label">Vitals:</span> {{ entry.weight|default:"--" }} kg · {{ entry.temperature|default:"--" }}°C</p>
+          {% endif %}
+          {% if entry.history_clinical_signs %}
+          <p><span class="label">History / Signs:</span> {{ entry.history_clinical_signs|truncatechars:120 }}</p>
+          {% endif %}
+          {% if entry.treatment %}
+          <p><span class="label">Treatment:</span> {{ entry.treatment|truncatechars:120 }}</p>
+          {% endif %}
+          {% if entry.rx %}
+          <p><span class="label">Rx:</span> {{ entry.rx|truncatechars:80 }}</p>
+          {% endif %}
+          {% if entry.ff_up %}
+          <p><span class="label">Follow-up:</span> {{ entry.ff_up|date:"M j, Y" }}</p>
+          {% endif %}
+          {% if entry.action_required != 'HEALTHY' %}
+          <span class="pd-timeline-action-badge {{ entry.action_required|lower }}">
+            <i class='bx {% if entry.action_required == "SURGERY" %}bx-plus-medical{% elif entry.action_required == "MONITOR" %}bx-show{% elif entry.action_required == "CRITICAL" %}bx-error{% elif entry.action_required == "TREATMENT" %}bx-pulse{% else %}bx-test-tube{% endif %}'></i>
+            {{ entry.get_action_required_display }}
+          </span>
+          {% endif %}
+          {% if entry.vet %}
+          <div class="pd-timeline-vet"><i class='bx bx-user-check'></i> Dr. {{ entry.vet.first_name }} {{ entry.vet.last_name }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    {% empty %}
+      <div class="pd-empty">
+        <i class='bx bx-folder-open'></i>
+        <p>No medical records for this patient yet</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Client-Side Pagination Script -->
+<script>
+  const ITEMS_PER_PAGE = 5;
+  const state = {
+    appt: { page: 1, total: {{ appointments|length }} }
+  };
+
+  function updateListVisibility(type) {
+    let selector, prefix;
+
+    if (type === 'appt') {
+      selector = '.appt-item';
+      prefix = 'appt';
+    }
+
+    const items = document.querySelectorAll(selector);
+    const currentPage = state[type].page;
+
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+
+    items.forEach((elem) => {
+      const idx = parseInt(elem.getAttribute('data-index'));
+      elem.style.display = (idx >= startIndex && idx < endIndex) ? '' : 'none';
+    });
+
+    if(state[type].total > 0) {
+      const startSpan = document.getElementById(`${prefix}-start`);
+      const endSpan = document.getElementById(`${prefix}-end`);
+      const prevBtn = document.getElementById(`${prefix}-prev`);
+      const nextBtn = document.getElementById(`${prefix}-next`);
+
+      if (startSpan) startSpan.textContent = startIndex + 1;
+      if (endSpan) endSpan.textContent = Math.min(endIndex, state[type].total);
+      if (prevBtn) prevBtn.disabled = currentPage === 1;
+      if (nextBtn) nextBtn.disabled = endIndex >= state[type].total;
+    }
+  }
+
+  function changePage(type, direction) {
+    state[type].page += direction;
+    updateListVisibility(type);
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      updateListVisibility('appt');
+    });
+  } else {
+    updateListVisibility('appt');
+  }
+</script>
+
+{% endblock %}

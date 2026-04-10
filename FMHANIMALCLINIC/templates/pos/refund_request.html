@@ -1,0 +1,464 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Request Refund{% endblock %}
+
+{% block content %}
+<style>
+  .refund-container {
+    max-width: 700px;
+  }
+
+  .refund-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .refund-sale-info {
+    background: var(--bg);
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+  }
+
+  .refund-sale-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  .refund-sale-row.total {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+  }
+
+  .refund-form-group {
+    margin-bottom: 20px;
+  }
+
+  .refund-form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .refund-form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--text-primary);
+  }
+
+  .refund-form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .refund-form-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--text-primary);
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+  }
+
+  /* Item Selection Styles */
+  .refund-items-section {
+    margin-bottom: 24px;
+  }
+
+  .refund-items-header {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 12px;
+  }
+
+  .refund-item-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+
+  .refund-item-row.selected {
+    border-color: var(--primary);
+    background: rgba(0, 150, 136, 0.05);
+  }
+
+  .refund-item-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary);
+  }
+
+  .refund-item-info {
+    min-width: 0;
+  }
+
+  .refund-item-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .refund-item-meta {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+
+  .refund-item-qty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .refund-item-qty input {
+    width: 60px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  .refund-item-qty input:disabled {
+    background: var(--bg);
+    opacity: 0.6;
+  }
+
+  .refund-item-amount {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--primary);
+    min-width: 80px;
+    text-align: right;
+  }
+
+  .refund-total-section {
+    background: var(--bg);
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .refund-total-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+
+  .refund-total-amount {
+    font-size: 20px;
+    font-weight: 700;
+    color: #e65100;
+  }
+
+  .refund-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .refund-btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .refund-btn.primary {
+    background: #e65100;
+    color: white;
+    border: none;
+  }
+
+  .refund-btn.secondary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+
+  .refund-btn:hover {
+    opacity: 0.9;
+  }
+
+  .refund-type-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .refund-type-tab {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .refund-type-tab.active {
+    border-color: var(--primary);
+    background: rgba(0, 150, 136, 0.05);
+  }
+
+  .refund-type-tab input {
+    display: none;
+  }
+
+  .refund-type-tab-label {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-1);
+  }
+
+  .refund-type-tab-desc {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+
+  #partialItemsSection {
+    display: none;
+  }
+
+  #partialItemsSection.visible {
+    display: block;
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Request Refund</h1>
+    <p class="page-subtitle">Create refund request for {{ sale.transaction_id }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'pos:sale_detail' sale.pk %}" class="btn-action outline">
+      <i class='bx bx-arrow-back'></i> Back to Sale
+    </a>
+  </div>
+</div>
+
+<div class="refund-container">
+  <div class="refund-card">
+    <!-- Sale Summary -->
+    <div class="refund-sale-info">
+      <div class="refund-sale-row">
+        <span>Transaction ID</span>
+        <span style="font-family: monospace; font-weight: 600;">{{ sale.transaction_id }}</span>
+      </div>
+      <div class="refund-sale-row">
+        <span>Customer</span>
+        <span>{{ sale.customer_display_name }}</span>
+      </div>
+      <div class="refund-sale-row">
+        <span>Date</span>
+        <span>{{ sale.created_at|date:"M j, Y g:i A" }}</span>
+      </div>
+      <div class="refund-sale-row total">
+        <span>Refundable Amount</span>
+        <span>₱{{ total_refundable|floatformat:2 }}</span>
+      </div>
+    </div>
+
+    <!-- Refund Form -->
+    <form method="POST" id="refundForm">
+      {% csrf_token %}
+
+      <!-- Refund Type Selection -->
+      <div class="refund-form-group">
+        <label class="refund-form-label">Refund Type</label>
+        <div class="refund-type-tabs">
+          <label class="refund-type-tab active" id="tabFull">
+            <input type="radio" name="refund_type" value="FULL" checked>
+            <span class="refund-type-tab-label">Full Refund</span>
+            <span class="refund-type-tab-desc">Refund all items</span>
+          </label>
+          <label class="refund-type-tab" id="tabPartial">
+            <input type="radio" name="refund_type" value="PARTIAL">
+            <span class="refund-type-tab-label">Partial Refund</span>
+            <span class="refund-type-tab-desc">Select specific items</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Partial Refund Item Selection -->
+      <div id="partialItemsSection" class="refund-items-section">
+        <div class="refund-items-header">Select Items to Refund</div>
+        {% for ri in refundable_items %}
+        <div class="refund-item-row" id="itemRow{{ ri.item.pk }}">
+          <input type="checkbox"
+                 class="refund-item-checkbox"
+                 name="select_{{ ri.item.pk }}"
+                 id="select_{{ ri.item.pk }}"
+                 onchange="toggleItemSelection({{ ri.item.pk }})">
+          <div class="refund-item-info">
+            <div class="refund-item-name">{{ ri.item.name }}</div>
+            <div class="refund-item-meta">
+              ₱{{ ri.item.unit_price|floatformat:2 }} × {{ ri.refundable_qty }} available
+            </div>
+          </div>
+          <div class="refund-item-qty">
+            <input type="number"
+                   name="qty_{{ ri.item.pk }}"
+                   id="qty_{{ ri.item.pk }}"
+                   value="{{ ri.refundable_qty }}"
+                   min="1"
+                   max="{{ ri.refundable_qty }}"
+                   data-unit-price="{{ ri.item.unit_price }}"
+                   data-max-qty="{{ ri.refundable_qty }}"
+                   onchange="updateItemAmount({{ ri.item.pk }})"
+                   disabled>
+          </div>
+          <div class="refund-item-amount" id="amount_{{ ri.item.pk }}">
+            ₱{{ ri.max_refund_amount|floatformat:2 }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Refund Total -->
+      <div class="refund-total-section">
+        <span class="refund-total-label">Total Refund Amount</span>
+        <span class="refund-total-amount" id="refundTotal">₱{{ total_refundable|floatformat:2 }}</span>
+      </div>
+
+      <div class="refund-form-group">
+        <label class="refund-form-label">Reason for Refund *</label>
+        <textarea name="reason" class="refund-form-input" rows="3" required placeholder="Please provide a detailed reason for the refund request..."></textarea>
+      </div>
+
+      <div class="refund-form-group">
+        <label class="refund-form-label">Refund Method</label>
+        <select name="refund_method" class="refund-form-select" required>
+          {% for value, label in payment_methods %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="refund-actions">
+        <a href="{% url 'pos:sale_detail' sale.pk %}" class="refund-btn secondary">Cancel</a>
+        <button type="submit" class="refund-btn primary">
+          <i class='bx bx-undo'></i> Process Refund
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const totalRefundable = {{ total_refundable }};
+
+// Toggle refund type tabs
+document.querySelectorAll('.refund-type-tab input').forEach(radio => {
+  radio.addEventListener('change', function() {
+    document.querySelectorAll('.refund-type-tab').forEach(tab => tab.classList.remove('active'));
+    this.closest('.refund-type-tab').classList.add('active');
+
+    const partialSection = document.getElementById('partialItemsSection');
+    if (this.value === 'PARTIAL') {
+      partialSection.classList.add('visible');
+      updateTotalFromSelection();
+    } else {
+      partialSection.classList.remove('visible');
+      document.getElementById('refundTotal').textContent = '₱' + totalRefundable.toFixed(2);
+    }
+  });
+});
+
+function toggleItemSelection(itemId) {
+  const checkbox = document.getElementById('select_' + itemId);
+  const qtyInput = document.getElementById('qty_' + itemId);
+  const row = document.getElementById('itemRow' + itemId);
+
+  if (checkbox.checked) {
+    qtyInput.disabled = false;
+    row.classList.add('selected');
+  } else {
+    qtyInput.disabled = true;
+    row.classList.remove('selected');
+  }
+  updateTotalFromSelection();
+}
+
+function updateItemAmount(itemId) {
+  const qtyInput = document.getElementById('qty_' + itemId);
+  const amountSpan = document.getElementById('amount_' + itemId);
+  const unitPrice = parseFloat(qtyInput.dataset.unitPrice);
+  const maxQty = parseInt(qtyInput.dataset.maxQty);
+
+  let qty = parseInt(qtyInput.value) || 0;
+  if (qty > maxQty) {
+    qty = maxQty;
+    qtyInput.value = maxQty;
+  }
+  if (qty < 1) {
+    qty = 1;
+    qtyInput.value = 1;
+  }
+
+  const amount = unitPrice * qty;
+  amountSpan.textContent = '₱' + amount.toFixed(2);
+  updateTotalFromSelection();
+}
+
+function updateTotalFromSelection() {
+  let total = 0;
+  document.querySelectorAll('.refund-item-checkbox:checked').forEach(checkbox => {
+    const itemId = checkbox.id.replace('select_', '');
+    const qtyInput = document.getElementById('qty_' + itemId);
+    const unitPrice = parseFloat(qtyInput.dataset.unitPrice);
+    const qty = parseInt(qtyInput.value) || 0;
+    total += unitPrice * qty;
+  });
+  document.getElementById('refundTotal').textContent = '₱' + total.toFixed(2);
+}
+</script>
+{% endblock %}

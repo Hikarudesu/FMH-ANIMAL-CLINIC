@@ -1,0 +1,151 @@
+{% extends 'base/portal_admin.html' %}
+{% load currency_filters %}
+
+{% block title %}Payslip Generation{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 24px;">
+  <div class="page-title-group">
+    <h1><i class='bx bx-receipt text-primary'></i> Generate Payslips</h1>
+    <p class="text-secondary" style="margin-top: 4px; font-size: 0.95rem;">Select a billing period to view and generate employee payslips.</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'employees:staff_list' %}" class="btn-action outline border-radius-sm">
+      <i class='bx bx-group'></i> Manage Staff
+    </a>
+  </div>
+</div>
+
+<div class="dashboard-card shadow-sm" style="margin-bottom: 24px; border-radius: var(--radius-md);">
+  <div class="card-body" style="padding: 20px 24px;">
+    <form method="get" class="filter-bar" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+      <div class="form-group" style="margin-bottom: 0; min-width: 200px;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-2); margin-bottom: 8px; display: block;">Billing Month</label>
+        <div class="select-wrapper" style="position: relative;">
+          <select name="month" class="form-control sd-convert" style="width: 100%; border-radius: var(--radius-sm); padding: 10px 14px; background-color: var(--bg-1); border: 1px solid var(--border); appearance: none; font-weight: 500;">
+            {% for m in months %}
+              <option value="{{ m.num }}" {% if m.num == selected_month %}selected{% endif %}>{{ m.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 150px;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-2); margin-bottom: 8px; display: block;">Billing Year</label>
+        <div class="input-wrapper" style="position: relative;">
+          <input type="number" name="year" class="form-control" value="{{ selected_year }}" min="2020" max="2100" style="width: 100%; border-radius: var(--radius-sm); padding: 10px 14px; background-color: var(--bg-1); border: 1px solid var(--border); font-weight: 500;">
+          <i class='bx bx-calendar' style="position: absolute; right: 12px; top: 12px; color: var(--text-3); font-size: 1.2rem; pointer-events: none;"></i>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <button type="submit" class="btn-action primary" style="padding: 10px 24px; border-radius: var(--radius-sm); box-shadow: 0 4px 12px rgba(37,99,235,0.2);">
+          <i class='bx bx-filter-alt'></i> Apply Filter
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="dashboard-card shadow-sm" style="border-radius: var(--radius-md); overflow: hidden;">
+  <div class="card-header" style="background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px;">
+    <h3 style="font-size: 1.05rem; font-weight: 600; color: var(--text-1); margin: 0;">Staff Payroll List</h3>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="portal-table modern-table">
+        <thead>
+          <tr>
+            <th style="padding-left: 24px;">Employee Profile</th>
+            <th>Role / Position</th>
+            <th>Designated Branch</th>
+            <th>Base Salary</th>
+            <th style="text-align: right; padding-right: 24px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for member in staff_list %}
+          <tr class="table-row-hover">
+            <td style="padding-left: 24px;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div class="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-light), #e0e7ff); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                  {{ member.first_name|first }}{{ member.last_name|first }}
+                </div>
+                <div style="display: flex; flex-direction: column;">
+                  <strong style="font-size: 0.95rem; color: var(--text-1);">{{ member.full_name }}</strong>
+                  <span style="font-size: 0.8rem; color: var(--text-3);">{{ member.email|default:"No email provided" }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="status-badge" style="background: var(--bg-1); color: var(--text-2); border: 1px solid var(--border); font-weight: 600; padding: 4px 10px; border-radius: 6px;">
+                <i class='bx bx-briefcase' style="margin-right: 4px;"></i> {{ member.get_position_display }}
+              </span>
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 6px; color: var(--text-2);">
+                <i class='bx bx-building-house text-primary'></i>
+                <span>{{ member.branch.name|default:"Head Office" }}</span>
+              </div>
+            </td>
+            <td>
+              <strong style="color: var(--text-1); font-family: monospace; font-size: 1.05rem;">&#8369;{{ member.salary|default:0|peso }}</strong>
+              <span style="font-size: 0.75rem; color: var(--text-3);">/ mo</span>
+            </td>
+            <td style="text-align: right; padding-right: 24px;">
+              <a href="{% url 'employees:payslip_detail' member.pk %}?month={{ selected_month }}&year={{ selected_year }}" class="btn-action small outline hover-primary" style="transition: all 0.2s; border-radius: var(--radius-sm);">
+                <i class='bx bx-file-blank'></i> View Payslip
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5">
+              <div class="empty-state-elegant" style="padding: 60px 20px; text-align: center;">
+                <div class="icon-wrapper" style="width: 80px; height: 80px; background: var(--bg-1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                  <i class='bx bx-group' style="font-size: 2.5rem; color: var(--text-3);"></i>
+                </div>
+                <h4 style="font-size: 1.1rem; color: var(--text-1); margin-bottom: 8px;">No Staff Found</h4>
+                <p style="color: var(--text-3); font-size: 0.9rem; max-width: 300px; margin: 0 auto;">There are no active staff members matching the selected criteria.</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .modern-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .modern-table th {
+    background: var(--bg-1);
+    color: var(--text-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modern-table td {
+    padding: 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-hover);
+  }
+  .table-row-hover {
+    transition: background-color 0.2s ease;
+  }
+  .table-row-hover:hover {
+    background-color: var(--bg-1);
+  }
+  .hover-primary:hover {
+    background-color: var(--primary);
+    color: white !important;
+    border-color: var(--primary);
+  }
+</style>
+{% endblock %}

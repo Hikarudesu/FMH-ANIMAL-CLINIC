@@ -1,0 +1,281 @@
+{% extends 'base/portal_user.html' %} {% load static %} {% block title %}My
+{% load currency_filters %}
+Reservations{% endblock %} {% block content %}
+
+<!-- Hero Header -->
+<div class="cat-hero" style="margin-bottom: 28px">
+  <div class="cat-hero-bg">
+    <i class="bx bx-cart hero-scatter sc-1"></i>
+    <i class="bx bx-package hero-scatter sc-2"></i>
+    <i class="bx bx-receipt hero-scatter sc-3"></i>
+  </div>
+  <div class="cat-hero-inner">
+    <div class="cat-hero-text">
+      <h1><i class="bx bx-receipt"></i> My Reservations</h1>
+      <p>Track the status of your reserved products</p>
+    </div>
+  </div>
+</div>
+
+{% if reservations %}
+<p
+  style="
+    color: var(--text-2);
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  "
+>
+  <i
+    class="bx bx-info-circle"
+    style="font-size: 1.2rem; color: var(--primary)"
+  ></i>
+  For cancellation purposes, please call the clinic.
+</p>
+<div class="rsv-list">
+  {% for rsv in reservations %}
+  <div class="rsv-card">
+    <div class="rsv-card-left">
+      <div
+        class="rsv-card-icon {% if rsv.product.item_type == 'Medication' %}med{% endif %}"
+      >
+        {% if rsv.product.item_type == 'Medication' %}
+        <i class="bx bx-capsule"></i>
+        {% else %}
+        <i class="bx bx-package"></i>
+        {% endif %}
+      </div>
+      <div>
+        <h3 class="rsv-card-product">{{ rsv.product.name }}</h3>
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.8rem;
+            color: var(--text-3);
+            margin-top: 4px;
+          "
+        >
+          <div style="display: flex; align-items: center; gap: 4px">
+            <i class="bx bx-building-house"></i>
+            {{ rsv.product.branch.name }}
+          </div>
+          <!-- created str -->
+          <div style="display: flex; align-items: center; gap: 4px">
+            <i class="bx bx-calendar"></i>
+            <!-- date str -->
+            Reserved: {{ rsv.created_at|date:"M j, Y" }}
+          </div>
+          <!-- pickup date condition -->
+          {% if rsv.pickup_date %}
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              color: var(--primary);
+              font-weight: 600;
+            "
+          >
+            <i class="bx bx-package"></i>
+            <!-- date str -->
+            Pickup target: {{ rsv.pickup_date|date:"F j, Y" }}
+          </div>
+          <!-- condition close -->
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="rsv-card-right">
+      {% if rsv.status == 'Pending' %}
+      <div class="rsv-countdown" data-created="{{ rsv.created_at|date:'c' }}">
+        <i class="bx bx-time-five"></i>
+        <span class="time-left">Calculating...</span>
+      </div>
+      {% endif %}
+      <div class="rsv-card-qty">x{{ rsv.quantity }}</div>
+      <div class="rsv-card-price">&#8369;{{ rsv.product.price|peso }}</div>
+      <span
+        class="rsv-card-status {% if rsv.status == 'Pending' %}pending {% elif rsv.status == 'Released' %}released {% else %}cancelled{% endif %}"
+        >{{ rsv.status }}</span
+      >
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="pets-empty-hero">
+  <div class="pets-empty-visual">
+    <div class="pets-empty-ring ring-1"></div>
+    <div class="pets-empty-ring ring-2"></div>
+    <div class="pets-empty-ring ring-3"></div>
+    <div class="pets-empty-center-icon">
+      <i class="bx bx-cart"></i>
+    </div>
+  </div>
+  <h2>No reservations yet</h2>
+  <p>
+    Browse the
+    <a
+      href="{% url 'inventory:catalog' %}"
+      style="color: var(--primary); font-weight: 600"
+      >Digital Catalog</a
+    >
+    to reserve products for your pets!
+  </p>
+</div>
+{% endif %}
+
+<style>
+  .rsv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .rsv-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 12px);
+    padding: 18px 24px;
+    transition: box-shadow 0.2s;
+  }
+  .rsv-card:hover {
+    box-shadow: var(--shadow-sm);
+  }
+  .rsv-card-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .rsv-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #e0f2f1;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+  }
+  .rsv-card-icon.med {
+    background: #e8eaf6;
+    color: #3949ab;
+  }
+  .rsv-card-product {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0 0 4px;
+  }
+  .rsv-card-meta {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .rsv-card-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .rsv-card-qty {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  .rsv-card-price {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .rsv-card-status {
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .rsv-card-status.pending {
+    background: #fff3e0;
+    color: #e65100;
+  }
+  .rsv-card-status.released {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .rsv-card-status.cancelled {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  @media (max-width: 700px) {
+    .rsv-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .rsv-card-right {
+      width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+  }
+  .rsv-countdown {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #e65100;
+    background: #fff3e0;
+    padding: 6px 12px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const countdowns = document.querySelectorAll(".rsv-countdown");
+
+    function updateTimers() {
+      countdowns.forEach((el) => {
+        const createdStr = el.getAttribute("data-created");
+        if (!createdStr) return;
+
+        const createdDate = new Date(createdStr);
+        const expireDate = new Date(
+          createdDate.getTime() + 24 * 60 * 60 * 1000,
+        );
+        const now = new Date();
+        const diff = expireDate - now;
+
+        const timeSpan = el.querySelector(".time-left");
+
+        if (diff <= 0) {
+          timeSpan.textContent = "Expired";
+          el.style.color = "#c62828";
+          el.style.background = "#ffebee";
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          timeSpan.textContent = `Expires in: ${hours}h ${minutes}m`;
+        }
+      });
+    }
+
+    updateTimers();
+    setInterval(updateTimers, 60000);
+  });
+</script>
+{% endblock %}

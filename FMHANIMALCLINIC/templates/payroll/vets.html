@@ -1,0 +1,311 @@
+{% extends 'payroll/base.html' %}
+{% load currency_filters %}
+{% load static %}
+
+{% block title %}Employees - Payroll{% endblock %}
+
+{% block payroll_content %}
+<style>
+  .header-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  
+  .header-bar h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0;
+  }
+  
+  .header-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 0.9rem;
+  }
+  
+  .header-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .header-stat-value {
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .header-stat-label {
+    color: var(--text-3);
+  }
+  
+  .employees-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+  
+  .employees-table thead {
+    background: transparent;
+    border-bottom: 2px solid var(--border);
+  }
+  
+  .employees-table th {
+    padding: 12px 10px;
+    text-align: left;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-2);
+  }
+  
+  .employees-table tbody td {
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    font-size: 0.85rem;
+  }
+  
+  .employees-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .employees-table tbody tr {
+    transition: background-color 0.2s ease;
+  }
+  
+  .employees-table tbody tr:hover {
+    background-color: var(--primary-light);
+  }
+  
+  .employee-name {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .employee-avatar {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--primary), #0097a7);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .employee-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+    display: block;
+  }
+  
+  .employee-info strong {
+    display: block;
+    color: var(--text-1);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  
+  .employee-info small {
+    display: block;
+    color: var(--text-3);
+    font-size: 0.75rem;
+    margin-top: 2px;
+  }
+  
+  .money-value {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: var(--text-1);
+    font-size: 0.85rem;
+  }
+  
+  .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .status-draft {
+    background: rgba(158, 158, 158, 0.15);
+    color: #9E9E9E;
+  }
+  
+  .status-generated {
+    background: rgba(255, 152, 0, 0.15);
+    color: #FF9800;
+  }
+  
+  .status-released {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+  }
+  
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  
+  .action-btn:hover {
+    background: var(--surface);
+    border-color: var(--primary);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-3);
+  }
+  
+  .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 12px;
+  }
+</style>
+
+<!-- Header Bar -->
+<div class="header-bar">
+  <div>
+    <h2><i class='bx bx-group' style="color: var(--primary);"></i> Employee Directory</h2>
+  </div>
+  <div class="header-stats">
+    <div class="header-stat">
+      <span class="header-stat-value">{{ filtered_count }}</span>
+      <span class="header-stat-label">Displayed Staff</span>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Section -->
+<div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; margin-bottom: 24px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <label for="branch-filter" style="font-size: 0.85rem; font-weight: 600; color: var(--text-2);">Filter by Branch</label>
+    <select id="branch-filter" onchange="filterByBranch()" style="padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-1); font-size: 0.9rem; font-family: inherit; cursor: pointer; min-width: 200px;">
+      <option value="">All Branches</option>
+      {% for branch in branches %}
+        <option value="{{ branch.id }}" {% if selected_branch|stringformat:"s" == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if selected_branch %}
+  <a href="{% url 'payroll:vets' %}" style="padding: 10px 16px; background: var(--bg); color: var(--text-1); border: 1px solid var(--border); border-radius: var(--radius-sm); text-decoration: none; font-weight: 600; font-size: 0.9rem; cursor: pointer;">Clear Filter</a>
+  {% endif %}
+</div>
+
+<script>
+function filterByBranch() {
+  const branchId = document.getElementById('branch-filter').value;
+  if (branchId) {
+    window.location.href = '{% url "payroll:vets" %}?branch=' + branchId;
+  } else {
+    window.location.href = '{% url "payroll:vets" %}';
+  }
+}
+</script>
+
+<!-- Employees Table -->
+{% if employees %}
+<div class="table-responsive" style="overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+<table class="employees-table" style="border: none; box-shadow: none; width: 100%;">
+  <thead>
+    <tr>
+      <th style="text-align: left; padding-left: 16px;">Employee & Branch</th>
+      <th style="text-align: center;">Position</th>
+      <th style="text-align: center;">Base Salary</th>
+      <th style="text-align: center;">Period Status</th>
+      <th style="text-align: center;">Last Payslip</th>
+      <th style="text-align: center;">YTD Gross</th>
+      <th style="text-align: center; padding-right: 16px;">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in employees %}
+    <tr>
+      <td style="text-align: left; padding-left: 16px;">
+        <div class="employee-name" style="justify-content: flex-start;">
+          <div class="employee-avatar">
+            {% if item.employee.user and item.employee.user.profile_picture %}
+              <img src="{{ item.employee.user.profile_picture.url }}" alt="{{ item.employee.full_name }}">
+            {% else %}
+              {{ item.employee.first_name.0 }}{{ item.employee.last_name.0 }}
+            {% endif %}
+          </div>
+          <div class="employee-info text-left" style="text-align: left;">
+            <strong>{{ item.employee.full_name }}</strong>
+            <small>{{ item.employee.branch.name|default:"No Branch" }}</small>
+          </div>
+        </div>
+      </td>
+      <td style="text-align: center; color: var(--text-2);">{{ item.employee.position|default:"-" }}</td>
+      <td class="money-value" style="text-align: center;">₱{{ item.employee.salary|peso }}</td>
+      <td style="text-align: center;">
+        {% if item.current_payslip %}
+          <span class="status-badge {% if item.current_payslip.status == 'RELEASED' %}status-released{% elif item.current_payslip.status == 'APPROVED' %}status-generated{% else %}status-draft{% endif %}">
+            {{ item.current_payslip.status }}
+          </span>
+        {% else %}
+          <span class="status-badge status-draft">No Payslip</span>
+        {% endif %}
+      </td>
+      <td class="money-value" style="text-align: center;">{% if item.last_payslip %}₱{{ item.last_payslip.net_pay|peso }}{% else %}-{% endif %}</td>
+      <td class="money-value" style="text-align: center;">₱{{ item.ytd_gross|peso }}</td>
+      <td style="padding-right: 16px;">
+        <div style="display: flex; gap: 6px; justify-content: center;">
+          <a href="{% url 'payroll:vet_detail' item.employee.id %}" class="action-btn" style="padding: 6px 10px; font-size: 1.1rem; width: 32px; height: 32px;" title="Edit Salary Configuration">
+            <i class='bx bx-pencil'></i>
+          </a>
+          {% if item.current_payslip %}
+          <a href="{% url 'payroll:payslip_print' item.current_payslip.id %}" class="action-btn" style="background: var(--bg); color: var(--text-1); border: 1px solid var(--border); padding: 6px 10px; font-size: 1.1rem; width: 32px; height: 32px;" title="View Current Payslip">
+            <i class='bx bx-file'></i>
+          </a>
+          {% else %}
+          <span style="color: var(--text-3); font-size: 0.85rem;">No payslip</span>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state">
+  <i class='bx bx-user-x'></i>
+  <p>No active employees found</p>
+</div>
+{% endif %}
+{% endblock %}

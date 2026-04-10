@@ -1,0 +1,137 @@
+<!-- ============================================
+     NAVBAR
+     ============================================ -->
+{% load static %}
+<nav class="navbar">
+  <div class="container">
+
+    <!-- Logo -->
+    <a href="{% url 'landing_page' %}" class="nav-logo">
+      <img src="{% static 'image/fmh-logo.png' %}" alt="Logo" class="logo-icon">
+      FMHSYNC
+    </a>
+
+    <!-- Desktop Nav Links -->
+    <ul class="nav-links">
+      <li><a href="{% url 'landing_page' %}" class="{% if request.resolver_match.url_name == 'landing_page' %}active{% endif %}">Home</a></li>
+      <li><a href="{% url 'services_page' %}" class="{% if request.resolver_match.url_name == 'services_page' %}active{% endif %}">Services</a></li>
+      <li><a href="{% url 'aboutus_page' %}" class="{% if request.resolver_match.url_name == 'aboutus_page' %}active{% endif %}">About Us</a></li>
+      <li><a href="{% url 'contact_page' %}" class="{% if request.resolver_match.url_name == 'contact_page' %}active{% endif %}">Contact</a></li>
+    </ul>
+
+    <div class="nav-buttons">
+      <div class="nav-cta">
+        <a href="{% url 'appointments:public_book' %}" class="btn btn-red">Book Now</a>
+      </div>
+      {% if request.user.is_authenticated %}
+        <div class="nav-profile-dropdown">
+          <button class="nav-profile-btn" id="landingProfileBtn">
+            <div class="nav-avatar">
+              {% if request.user.profile_picture %}
+                <img src="{{ request.user.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              {% elif request.user.first_name %}
+                {{ request.user.first_name|make_list|first|upper }}
+              {% elif request.user.username %}
+                {{ request.user.username|make_list|first|upper }}
+              {% else %}
+                <i class='bx bxs-user'></i>
+              {% endif %}
+            </div>
+            <span class="nav-profile-name">{{ request.user.first_name|default:request.user.username }}</span>
+            <i class='bx bx-chevron-down nav-chevron'></i>
+          </button>
+          
+          <div class="nav-dropdown-menu" id="landingProfileMenu">
+            <div class="nav-dropdown-header">
+              <div class="nav-avatar">
+                {% if request.user.profile_picture %}
+                  <img src="{{ request.user.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                {% elif request.user.first_name %}
+                  {{ request.user.first_name|make_list|first|upper }}
+                {% elif request.user.username %}
+                  {{ request.user.username|make_list|first|upper }}
+                {% else %}
+                  <i class='bx bxs-user'></i>
+                {% endif %}
+              </div>
+              <div class="nav-dropdown-user-info">
+                <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                <span>{{ request.user.email }}</span>
+                <span class="role-badge">{{ request.user.get_display_role }}</span>
+              </div>
+            </div>
+            <div class="nav-dropdown-divider"></div>
+            {% if request.user.is_clinic_staff %}
+              <a href="{% url 'admin_dashboard' %}" class="nav-dropdown-item"><i class='bx bxs-dashboard'></i> Dashboard</a>
+            {% else %}
+              <a href="{% url 'user_dashboard' %}" class="nav-dropdown-item"><i class='bx bxs-dashboard'></i> Dashboard</a>
+              <a href="{% url 'patients:my_pets' %}" class="nav-dropdown-item"><i class='bx bxs-dog'></i> My Pets</a>
+            {% endif %}
+            <div class="nav-dropdown-divider"></div>
+            <form action="{% url 'logout' %}" method="post" style="margin: 0;">
+              {% csrf_token %}
+              <button type="submit" class="nav-dropdown-item text-danger">
+                <i class='bx bx-log-out'></i> Log Out
+              </button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <a href="{% url 'login_page' %}" class="btn btn-outline">Login</a>
+        <a href="{% url 'register_page' %}" class="btn btn-primary">Sign Up</a>
+      {% endif %}
+    </div>
+
+    <!-- Mobile Toggle -->
+    <button class="nav-toggle" aria-label="Open navigation menu" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+  </div>
+</nav>
+
+<!-- Mobile Navigation Drawer -->
+<div class="nav-overlay"></div>
+<div class="nav-mobile">
+  <button class="mobile-close" aria-label="Close navigation menu">
+    <i class='bx bx-x'></i>
+  </button>
+
+  <div class="mobile-logo">
+    <a href="{% url 'landing_page' %}" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: inherit;">
+      <img src="{% static 'image/fmh-logo.png' %}" alt="Logo" class="logo-icon">
+      <span>FMHSYNC</span>
+    </a>
+  </div>
+
+  <ul class="mobile-links">
+    <li><a href="{% url 'landing_page' %}" class="{% if request.resolver_match.url_name == 'landing_page' %}active{% endif %}"><i class='bx bx-home-alt'></i> Home</a></li>
+    <li><a href="{% url 'services_page' %}" class="{% if request.resolver_match.url_name == 'services_page' %}active{% endif %}"><i class='bx bx-grid-alt'></i> Services</a></li>
+    <li><a href="{% url 'aboutus_page' %}" class="{% if request.resolver_match.url_name == 'aboutus_page' %}active{% endif %}"><i class='bx bx-info-circle'></i> About Us</a></li>
+    <li><a href="{% url 'contact_page' %}" class="{% if request.resolver_match.url_name == 'contact_page' %}active{% endif %}"><i class='bx bx-phone'></i> Contact</a></li>
+  </ul>
+
+  <div class="mobile-buttons">
+    <a href="{% url 'appointments:public_book' %}" class="btn btn-red btn-full">Book Appointment</a>
+    {% if request.user.is_authenticated %}
+      {% if request.user.is_clinic_staff %}
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-primary btn-full">Dashboard</a>
+      {% else %}
+        <a href="{% url 'user_dashboard' %}" class="btn btn-primary btn-full">Dashboard</a>
+      {% endif %}
+      <form action="{% url 'logout' %}" method="post" style="margin: 0; width: 100%;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-full">Log Out</button>
+      </form>
+    {% else %}
+      <a href="{% url 'login_page' %}" class="btn btn-outline btn-full">Login</a>
+      <a href="{% url 'register_page' %}" class="btn btn-primary btn-full">Sign Up</a>
+    {% endif %}
+  </div>
+
+  <div class="mobile-footer">
+    <p>Powered by AI Diagnostics</p>
+  </div>
+</div>

@@ -1,0 +1,99 @@
+<!-- Clinic Information Settings Form -->
+<div class="settings-card">
+  <form method="POST" enctype="multipart/form-data" autocomplete="off">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="clinic">
+
+    <div class="admin-grid">
+      <div class="form-section-title">
+        <i class='bx bx-building'></i> Clinic Branding
+      </div>
+
+      <!-- Logo Upload -->
+      <div class="admin-field admin-field-full">
+        <label>Clinic Logo</label>
+        <div class="logo-preview-container">
+          {% if clinic_profile.logo %}
+            <img src="{{ clinic_profile.logo.url }}" alt="Clinic Logo" class="logo-preview">
+          {% else %}
+            <div class="logo-placeholder">
+              <i class='bx bx-image'></i>
+            </div>
+          {% endif %}
+          <div style="flex: 1;">
+            {{ forms.clinic.logo }}
+            <p class="form-hint">Supported formats: .png, .jpeg (Max 10MB)</p>
+          </div>
+        </div>
+        {% if forms.clinic.logo.errors %}
+          <div class="error-text">{{ forms.clinic.logo.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.name.id_for_label }}">Clinic Name *</label>
+        {{ forms.clinic.name }}
+        {% if forms.clinic.name.errors %}
+          <div class="error-text">{{ forms.clinic.name.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.tagline.id_for_label }}">Tagline / Slogan</label>
+        {{ forms.clinic.tagline }}
+        <p class="form-hint">A short phrase that represents your clinic</p>
+        {% if forms.clinic.tagline.errors %}
+          <div class="error-text">{{ forms.clinic.tagline.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-phone'></i> Contact Information
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.email.id_for_label }}">Email Address</label>
+        {{ forms.clinic.email }}
+        {% if forms.clinic.email.errors %}
+          <div class="error-text">{{ forms.clinic.email.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.phone.id_for_label }}">Phone Number</label>
+        {{ forms.clinic.phone }}
+        {% if forms.clinic.phone.errors %}
+          <div class="error-text">{{ forms.clinic.phone.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label for="{{ forms.clinic.address.id_for_label }}">Address</label>
+        {{ forms.clinic.address }}
+        <p class="form-hint">Main clinic address (for branches, manage via Staff Management > Branches)</p>
+        {% if forms.clinic.address.errors %}
+          <div class="error-text">{{ forms.clinic.address.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class='bx bx-certification'></i> Legal Information
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.license_number.id_for_label }}">License Number</label>
+        {{ forms.clinic.license_number }}
+        <p class="form-hint">Business or veterinary license number</p>
+        {% if forms.clinic.license_number.errors %}
+          <div class="error-text">{{ forms.clinic.license_number.errors.0 }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="admin-actions">
+      <button type="submit" class="btn-submit">
+        <i class='bx bx-save'></i> Save Clinic Information
+      </button>
+    </div>
+  </form>
+</div>

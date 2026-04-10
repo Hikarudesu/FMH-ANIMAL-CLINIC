@@ -1,0 +1,461 @@
+<!-- prettier-ignore -->
+{% extends 'base/portal_admin.html' %}
+
+<!-- prettier-ignore -->
+{% block title %}{{ action }} Branch{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<style>
+  .admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .admin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .admin-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 2px;
+    color: var(--text-1);
+  }
+  .admin-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-1);
+    transition: border-color 0.2s;
+  }
+  .admin-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  select.admin-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+  }
+  .admin-field-full {
+    grid-column: 1 / -1;
+  }
+  .admin-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+    transition: all 0.2s var(--ease);
+    text-decoration: none;
+  }
+  .btn-cancel:hover {
+    border-color: var(--border-hover);
+    background: var(--bg);
+  }
+  .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s var(--ease);
+    text-decoration: none;
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25);
+  }
+  .btn-submit:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 150, 136, 0.35);
+  }
+  .error-text {
+    display: block;
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+  .form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 24px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    grid-column: 1 / -1;
+  }
+  .form-section-title:first-of-type {
+    margin-top: 0;
+  }
+  .form-section-title i {
+    color: var(--primary);
+    font-size: 1.1rem;
+  }
+  .form-section-hint {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-3);
+    margin-left: 4px;
+  }
+  .form-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-1);
+    cursor: pointer;
+  }
+  .form-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+  }
+  @media (max-width: 600px) {
+    .admin-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-building-house'></i> {{ action }} Branch</h1>
+      <p>{% if action == 'Add' %}Register a new clinic location{% else %}Update {{ branch.name }} details{% endif %}</p>
+    </div>
+    <div class="page-hero-actions">
+      <a href="{% url 'branches:list' %}" class="page-hero-btn">
+        <i class='bx bx-arrow-back'></i> Back
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-card" style="max-width: 800px; margin: 0 auto;">
+  <div class="card-header">
+    <h3><i class='bx bx-info-circle'></i> Branch Details</h3>
+  </div>
+  <div class="card-body">
+    <form method="POST" autocomplete="off">
+    {% csrf_token %}
+
+    <div class="admin-grid">
+      <div class="form-section-title">
+        <i class="bx bx-info-circle"></i> General Information
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.name.id_for_label }}">Branch Name *</label>
+        {{ form.name }}
+        <script>
+          document
+            .getElementById("{{ form.name.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.name.errors %}
+        <div class="error-text">{{ form.name.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.branch_code.id_for_label }}">Branch Code</label>
+        {{ form.branch_code }}
+        <script>
+          document
+            .getElementById("{{ form.branch_code.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.branch_code.errors %}
+        <div class="error-text">{{ form.branch_code.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.phone_number.id_for_label }}">Phone Number *</label>
+        {{ form.phone_number }}
+        <script>
+          document
+            .getElementById("{{ form.phone_number.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.phone_number.errors %}
+        <div class="error-text">{{ form.phone_number.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.email.id_for_label }}">Email</label>
+        {{ form.email }}
+        <script>
+          document
+            .getElementById("{{ form.email.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.email.errors %}
+        <div class="error-text">{{ form.email.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title"><i class="bx bx-map"></i> Location</div>
+
+      <div class="admin-field admin-field-full">
+        <label for="{{ form.address.id_for_label }}">Street Address *</label>
+        {{ form.address }}
+        <script>
+          document
+            .getElementById("{{ form.address.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.address.errors %}
+        <div class="error-text">{{ form.address.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.city.id_for_label }}">City *</label>
+        {{ form.city }}
+        <script>
+          document
+            .getElementById("{{ form.city.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.city.errors %}
+        <div class="error-text">{{ form.city.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.state.id_for_label }}">State/Province *</label>
+        {{ form.state }}
+        <script>
+          document
+            .getElementById("{{ form.state.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.state.errors %}
+        <div class="error-text">{{ form.state.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.zip_code.id_for_label }}">Zip/Postal Code *</label>
+        {{ form.zip_code }}
+        <script>
+          document
+            .getElementById("{{ form.zip_code.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.zip_code.errors %}
+        <div class="error-text">{{ form.zip_code.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.zip_code.id_for_label }}">License Number</label>
+        {{ form.clinic_license_number }}
+        <script>
+          document
+            .getElementById("{{ form.clinic_license_number.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.clinic_license_number.errors %}
+        <div class="error-text">{{ form.clinic_license_number.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class="bx bx-map-pin"></i> Google Maps Integration
+        <span class="form-section-hint">(For contact page map display)</span>
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label for="{{ form.google_maps_embed_url.id_for_label }}">Google Maps Embed URL *</label>
+        {{ form.google_maps_embed_url }}
+        <script>
+          document
+            .getElementById("{{ form.google_maps_embed_url.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        <small style="color: var(--text-secondary); font-size: 11px; margin-top: 4px;">
+          Go to Google Maps → Search address → Share → Embed a map → Copy the src URL
+        </small>
+        {% if form.google_maps_embed_url.errors %}
+        <div class="error-text">{{ form.google_maps_embed_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label for="{{ form.google_maps_link.id_for_label }}">Google Maps Direct Link</label>
+        {{ form.google_maps_link }}
+        <script>
+          document
+            .getElementById("{{ form.google_maps_link.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.google_maps_link.errors %}
+        <div class="error-text">{{ form.google_maps_link.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class="bx bx-share-alt"></i> Social Media Links
+        <span class="form-section-hint">(Optional)</span>
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.facebook_url.id_for_label }}">Facebook URL</label>
+        {{ form.facebook_url }}
+        <script>
+          document
+            .getElementById("{{ form.facebook_url.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.facebook_url.errors %}
+        <div class="error-text">{{ form.facebook_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.instagram_url.id_for_label }}">Instagram URL</label>
+        {{ form.instagram_url }}
+        <script>
+          document
+            .getElementById("{{ form.instagram_url.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.instagram_url.errors %}
+        <div class="error-text">{{ form.instagram_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.messenger_url.id_for_label }}">Messenger URL</label>
+        {{ form.messenger_url }}
+        <script>
+          document
+            .getElementById("{{ form.messenger_url.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.messenger_url.errors %}
+        <div class="error-text">{{ form.messenger_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.tiktok_url.id_for_label }}">TikTok URL</label>
+        {{ form.tiktok_url }}
+        <script>
+          document
+            .getElementById("{{ form.tiktok_url.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.tiktok_url.errors %}
+        <div class="error-text">{{ form.tiktok_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class="bx bx-time"></i> Operations
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label for="{{ form.operating_hours.id_for_label }}"
+          >Operating Hours</label
+        >
+        {{ form.operating_hours }}
+        <script>
+          let hoursInput = document.getElementById(
+            "{{ form.operating_hours.id_for_label }}",
+          );
+          if (hoursInput) {
+            hoursInput.classList.add("admin-input");
+            if (hoursInput.tagName.toLowerCase() === "textarea") {
+              hoursInput.setAttribute("rows", "3");
+            }
+          }
+        </script>
+        {% if form.operating_hours.errors %}
+        <div class="error-text">{{ form.operating_hours.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.display_order.id_for_label }}">Display Order</label>
+        {{ form.display_order }}
+        <script>
+          document
+            .getElementById("{{ form.display_order.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        <small style="color: var(--text-secondary); font-size: 11px; margin-top: 4px;">
+          Lower numbers appear first on contact page
+        </small>
+        {% if form.display_order.errors %}
+        <div class="error-text">{{ form.display_order.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.badge_label.id_for_label }}">Badge Label</label>
+        {{ form.badge_label }}
+        <script>
+          document
+            .getElementById("{{ form.badge_label.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        <small style="color: var(--text-secondary); font-size: 11px; margin-top: 4px;">
+          e.g., "Main Branch", "New!"
+        </small>
+        {% if form.badge_label.errors %}
+        <div class="error-text">{{ form.badge_label.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field admin-field-full" style="margin-top: 8px">
+        <label class="form-checkbox-label">
+          {{ form.is_active }}
+          <span>Active Branch</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="admin-actions">
+      <a href="{% url 'branches:list' %}" class="btn-cancel">Cancel</a>
+      <button type="submit" class="btn-submit">{{ action }} Branch</button>
+    </div>
+  </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,338 @@
+{% extends 'base/portal_admin.html' %}
+{% load currency_filters %}
+{% load static %}
+
+{% block title %}Stock Level Monitor{% endblock %}
+
+{% block content %}
+<!-- Page Hero - Using standard include -->
+{% url 'inventory:super_admin_stock_monitoring' as refresh_url %}
+{% if selected_branch %}
+  {% include "components/page_hero.html" with title="Stock Level Monitor" icon="bx-check-shield" subtitle=selected_branch.name action_url=refresh_url action_icon="bx-refresh" action_label="Refresh" %}
+{% else %}
+  {% include "components/page_hero.html" with title="Stock Level Monitor" icon="bx-check-shield" subtitle="Monitor low stock levels" action_url=refresh_url action_icon="bx-refresh" action_label="Refresh" %}
+{% endif %}
+
+<!-- Filter Bar -->
+<div class="c-filter-bar" style="margin-bottom: 22px;">
+  <div class="c-filter-bar__glow"></div>
+  <form method="GET" action="/inventory/super-admin/overview/" class="c-filter-bar__form" autocomplete="off">
+    <div class="c-filter-bar__filters">
+      <!-- Status Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_status %} active{% endif %}">
+          <i class='bx bx-pulse c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_status %}{{ selected_status }}{% else %}All Status{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="status" onchange="this.form.submit()">
+          <option value="">All Status</option>
+          <option value="In Stock" {% if selected_status == 'In Stock' %}selected{% endif %}>In Stock</option>
+          <option value="Low Stock" {% if selected_status == 'Low Stock' %}selected{% endif %}>Low Stock</option>
+          <option value="Out of Stock" {% if selected_status == 'Out of Stock' %}selected{% endif %}>Out of Stock</option>
+        </select>
+      </div>
+
+      <!-- Branch Filter - Hidden when branch restricted -->
+      {% if not is_branch_restricted and branches %}
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_branch %} active{% endif %}">
+          <i class='bx bx-building-house c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_branch %}{{ selected_branch.name }}{% else %}All Branches{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="branch_id" onchange="this.form.submit()">
+          <option value="">All Branches</option>
+          {% for branch in branches %}
+            <option value="{{ branch.id }}" {% if selected_branch.id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <!-- Clear Button -->
+      {% if show_clear %}
+      <a href="/inventory/super-admin/overview/" class="c-filter-bar__clear" title="Clear Filters">
+        <i class='bx bx-x'></i>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Alert Summary Stats -->
+<div class="stats-grid" style="margin-bottom: 30px;">
+  <div class="stat-card teal">
+    <div class="stat-icon-bg"><i class='bx bx-error-alt'></i></div>
+    <div class="stat-label">Low Stock Items</div>
+    <div class="stat-value">{{ low_stock_count }}</div>
+    <div class="stat-sub">Below minimum threshold</div>
+  </div>
+  <div class="stat-card teal">
+    <div class="stat-icon-bg"><i class='bx bx-info-circle'></i></div>
+    <div class="stat-label">Out of Stock</div>
+    <div class="stat-value">{{ out_of_stock_count }}</div>
+    <div class="stat-sub">Immediate attention needed</div>
+  </div>
+  <div class="stat-card teal">
+    <div class="stat-icon-bg"><i class='bx bx-package'></i></div>
+    <div class="stat-label">Total Products</div>
+    <div class="stat-value">{{ total_products }}</div>
+    <div class="stat-sub">Active tracked items</div>
+  </div>
+  <div class="stat-card teal">
+    <div class="stat-icon-bg"><i class='bx bx-wallet'></i></div>
+    <div class="stat-label">Inventory Value</div>
+    <div class="stat-value">₱{{ total_inventory_value|peso }}</div>
+    <div class="stat-sub">Total asset valuation</div>
+  </div>
+</div>
+
+<!-- Branch-wise Breakdown (if applicable) -->
+{% if branch_breakdown %}
+<div class="dashboard-card" style="margin-bottom: 30px;">
+  <div class="card-header">
+    <h3>Branch-wise Stock Summary</h3>
+  </div>
+  <div class="table-responsive">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Branch</th>
+          <th>Total Products</th>
+          <th>Low Stock</th>
+          <th>Out of Stock</th>
+          <th>Inventory Value</th>
+          <th style="text-align: center;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for branch_id, stats in branch_breakdown.items %}
+          <tr>
+            <td style="font-weight: 600;">{{ stats.name }}</td>
+            <td>
+              <span style="color: #1565c0; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">
+                {{ stats.product_count }}
+              </span>
+            </td>
+            <td>
+              <span style="color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">
+                {{ stats.low }}
+              </span>
+            </td>
+            <td>
+              <span style="color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">
+                {{ stats.out }}
+              </span>
+            </td>
+            <td style="font-weight: 600;">₱{{ stats.inventory_value|peso }}</td>
+            <td style="text-align: center;">
+              <a href="{% url 'inventory:super_admin_stock_monitoring' %}?branch_id={{ branch_id }}" class="small-badge">
+                View Details
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Low Stock Items Section -->
+<div class="dashboard-card" style="margin-bottom: 30px;">
+  <div class="card-header">
+    <h3 style="display: flex; align-items: center; gap: 8px;">
+      <i class='bx bx-error-alt' style="color: #ff9800;"></i>
+      Low Stock Items ({{ low_stock_count }})
+    </h3>
+  </div>
+
+  {% if low_stock %}
+  <div class="table-responsive">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Product Name</th>
+          <th>Branch</th>
+          <th>Current Stock</th>
+          <th>Min. Threshold</th>
+          <th>Variance</th>
+          <th>Type</th>
+          <th style="text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in low_stock %}
+        <tr style="border-left: 4px solid #ff9800;">
+          <td style="font-weight: 600; color: var(--text-1);">{{ item.name }}</td>
+          <td>
+            <span style="background: var(--primary-light); color: var(--primary-dark); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 500;">
+              {{ item.branch.name }}
+            </span>
+          </td>
+          <td style="font-weight: 600; font-size: 1.1rem;">{{ item.stock_quantity }}</td>
+          <td style="color: var(--text-2);">{{ item.min_stock_level }}</td>
+          <td style="color: #d32f2f; font-weight: 600;">
+            -{{ item.min_stock_level|add:"-"|add:item.stock_quantity }} units
+          </td>
+          <td>
+            <span style="
+              {% if item.item_type == 'Medication' %}
+                background: #e8eaf6; color: #3949ab;
+              {% else %}
+                background: #e0f2f1; color: #00897b;
+              {% endif %}
+              padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+              {{ item.item_type }}
+            </span>
+          </td>
+          <td style="text-align: right;">
+            <a href="{% url 'inventory:product_edit' item.pk %}" class="small-badge" title="Edit item">
+              <i class='bx bx-edit-alt'></i> Edit
+            </a>
+            <a href="{% url 'inventory:adjustment_new' %}?product_id={{ item.pk }}" class="small-badge" title="Adjust stock">
+              <i class='bx bx-transfer'></i> Adjust
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div style="padding: 40px; text-align: center; color: var(--text-2);">
+      <i class='bx bx-check-circle' style="font-size: 2.5rem; color: var(--primary); margin-bottom: 10px; display: block;"></i>
+      <p>All items are adequately stocked!</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Out of Stock Items Section -->
+<div class="dashboard-card">
+  <div class="card-header">
+    <h3 style="display: flex; align-items: center; gap: 8px;">
+      <i class='bx bx-info-circle' style="color: #d32f2f;"></i>
+      Out of Stock Items ({{ out_of_stock_count }})
+    </h3>
+  </div>
+
+  {% if out_of_stock %}
+  <div class="table-responsive">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Product Name</th>
+          <th>Branch</th>
+          <th>Min. Threshold</th>
+          <th>Type</th>
+          <th>Last Updated</th>
+          <th style="text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in out_of_stock %}
+        <tr style="border-left: 4px solid #d32f2f;">
+          <td style="font-weight: 600;">{{ item.name }}</td>
+          <td>
+            <span style="background: var(--primary-light); color: var(--primary-dark); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 500;">
+              {{ item.branch.name }}
+            </span>
+          </td>
+          <td style="color: var(--text-2);">{{ item.min_stock_level }}</td>
+          <td>
+            <span style="
+              {% if item.item_type == 'Medication' %}
+                background: #e8eaf6; color: #3949ab;
+              {% else %}
+                background: #e0f2f1; color: #00897b;
+              {% endif %}
+              padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+              {{ item.item_type }}
+            </span>
+          </td>
+          <td style="color: var(--text-3); font-size: 0.9rem;">
+            {{ item.updated_at|date:"M d, H:i" }}
+          </td>
+          <td style="text-align: right;">
+            <a href="{% url 'inventory:product_edit' item.pk %}" class="small-badge" title="Edit item">
+              <i class='bx bx-edit-alt'></i> Edit
+            </a>
+            <a href="{% url 'inventory:adjustment_new' %}?product_id={{ item.pk }}" class="small-badge" title="Restock">
+              <i class='bx bx-plus'></i> Restock
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div style="padding: 40px; text-align: center; color: var(--text-2);">
+      <i class='bx bx-check-circle' style="font-size: 2.5rem; color: var(--primary); margin-bottom: 10px; display: block;"></i>
+      <p>No out-of-stock items!</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Custom Styles for this page -->
+<style>
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.small-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s var(--ease);
+  cursor: pointer;
+  border: none;
+}
+
+.small-badge:hover {
+  background: var(--primary);
+  color: white;
+}
+
+/* Keep dropdowns above cards but below sidebar */
+.c-filter-bar {
+  position: relative;
+  z-index: 20;
+}
+
+.c-filter-dropdown {
+  position: relative;
+  z-index: 30;
+}
+
+.c-filter-dropdown:focus-within {
+  z-index: 80;
+}
+
+.c-filter-dropdown .sd-dropdown {
+  z-index: 90 !important;
+}
+</style>
+
+{% endblock %}

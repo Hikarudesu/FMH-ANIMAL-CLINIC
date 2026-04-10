@@ -1,0 +1,71 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- ============================================
+     BRANCH SELECTION PAGE
+     ============================================ -->
+<section class="branch-select-page">
+  <div class="branch-select-container">
+    <!-- Header -->
+    <div class="branch-select-header">
+      <div class="branch-select-icon">
+        <i class='bx bx-building-house'></i>
+      </div>
+      <h1>Welcome, {{ user.first_name }}!</h1>
+      <p>Choose your preferred branch for faster booking. This will be pre-selected when you book appointments, but you can always choose a different branch.</p>
+    </div>
+
+    <!-- Branch Cards -->
+    {% if branches %}
+    <div class="branch-grid">
+      {% for branch in branches %}
+      <form method="POST" action="{% url 'select_branch' %}" class="branch-card-form">
+        {% csrf_token %}
+        <input type="hidden" name="branch_id" value="{{ branch.id }}">
+        <button type="submit" class="branch-card">
+          <div class="branch-card-icon">
+            <i class='bx bx-map-pin'></i>
+          </div>
+          <div class="branch-card-info">
+            <h3>{{ branch.name }}</h3>
+            <span class="branch-card-city">
+              <i class='bx bx-map'></i> {{ branch.city }}, {{ branch.state }}
+            </span>
+            {% if branch.phone_number %}
+            <span class="branch-card-phone">
+              <i class='bx bx-phone'></i> {{ branch.phone_number }}
+            </span>
+            {% endif %}
+            {% if branch.operating_hours %}
+            <span class="branch-card-hours">
+              <i class='bx bx-time'></i> {{ branch.operating_hours }}
+            </span>
+            {% endif %}
+          </div>
+          <div class="branch-card-arrow">
+            <i class='bx bx-right-arrow-alt'></i>
+          </div>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="branch-empty">
+      <i class='bx bx-info-circle'></i>
+      <p>No branches are available at the moment. Please contact the clinic for assistance.</p>
+    </div>
+    {% endif %}
+
+    <!-- Skip option -->
+    <div class="branch-select-footer">
+      <form method="POST" action="{% url 'select_branch' %}">
+        {% csrf_token %}
+        <button type="submit" class="branch-skip-btn">Skip for now →</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

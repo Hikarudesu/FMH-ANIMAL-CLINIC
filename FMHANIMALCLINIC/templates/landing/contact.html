@@ -1,0 +1,259 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- Inject dynamic branch data for JS -->
+<script>
+  window.branchData = {{ branches_json|safe }};
+</script>
+
+<!-- ============================================
+     CONTACT PAGE HEADER
+     ============================================ -->
+<section class="contact-header">
+    <div class="container">
+        <div class="contact-header-content fade-in">
+
+            <!-- Badge -->
+            <div class="contact-hero-badge">
+                <i class='bx bx-map-pin'></i> {{ branches.count }} Branch{{ branches.count|pluralize:"es" }} Across Metro Manila
+            </div>
+
+            <h1>
+                <span class="line"><span class="line-inner">Get in Touch</span></span>
+                <span class="line"><span class="line-inner">with <span class="highlight serif">FMH Animal Clinic</span></span></span>
+            </h1>
+
+            <p>We're here to help you and your beloved pets. Visit any of our branches, give us a call, or send us a message — we'd love to hear from you.</p>
+
+            <!-- Buttons -->
+            <div class="contact-hero-buttons">
+                <a href="#branches" class="btn btn-red btn-lg">
+                    <i class='bx bx-map'></i> Find a Branch
+                </a>
+                <a href="{% url 'appointments:public_book' %}" class="btn btn-outline btn-lg">
+                    <i class='bx bx-calendar-check'></i> Book Appointment
+                </a>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     BRANCHES & MAP SECTION (PREMIUM TEAL)
+     ============================================ -->
+<section class="branches-map-section" id="branches">
+    <div class="container height-100-vh">
+        <div class="section-branch-header fade-in">
+            <h2 class="branch-section-title">Visit Our <span class="teal-text">Expert Clinics</span></h2>
+            <p class="branch-section-tagline">Find the nearest branch and experience professional pet care today.</p>
+        </div>
+
+        <div class="branch-premium-card fade-in">
+            
+            <!-- LEFT: BRANCH DETAILS -->
+            <div class="branch-info-col">
+                <div class="branch-title-container">
+                    <div class="branch-badge-row">
+                        <button class="branch-nav-btn prev" onclick="switchBranch('prev')" title="Previous Branch">
+                            <i class='bx bx-chevron-left'></i>
+                        </button>
+                        <span class="branch-badge-teal" id="branch-badge">{% if branches.first.badge_label %}{{ branches.first.badge_label }}{% else %}{{ branches.first.name }}{% endif %}</span>
+                        <button class="branch-nav-btn next" onclick="switchBranch('next')" title="Next Branch">
+                            <i class='bx bx-chevron-right'></i>
+                        </button>
+                    </div>
+                    <h2 class="branch-name-main" id="branch-title">{{ branches.first.name }}</h2>
+                </div>
+
+                <div class="branch-details-list">
+                    <!-- Address -->
+                    <div class="premium-info-item">
+                        <div class="premium-icon-box">📍</div>
+                        <div class="premium-text-box">
+                            <span class="premium-label">Location</span>
+                            <span class="premium-value" id="branch-address">{{ branches.first.address }}, {{ branches.first.city }}, {{ branches.first.state }} {{ branches.first.zip_code }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Contact -->
+                    <div class="premium-info-item">
+                        <div class="premium-icon-box">📞</div>
+                        <div class="premium-text-box">
+                            <span class="premium-label">Contact Number</span>
+                            <span class="premium-value" id="branch-phone">{{ branches.first.phone_number }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="premium-info-item">
+                        <div class="premium-icon-box">📩</div>
+                        <div class="premium-text-box">
+                            <span class="premium-label">Email Address</span>
+                            <span class="premium-value" id="branch-email">{{ branches.first.email }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Hours -->
+                    <div class="premium-info-item">
+                        <div class="premium-icon-box">🕒</div>
+                        <div class="premium-text-box">
+                            <span class="premium-label">Clinic Hours</span>
+                            <span class="premium-value" id="branch-hours">{{ branches.first.operating_hours }}</span>
+                        </div>
+                    </div>
+
+                    <div class="branch-info-footer">
+                        <p class="social-promo-text">Follow us for updates and pet care tips</p>
+                        <div class="social-links-row">
+                            <a href="{{ branches.first.facebook_url }}" target="_blank" rel="noopener noreferrer" class="connect-icon fb" title="Facebook" id="branch-fb" aria-label="Facebook"><i class='bx bxl-facebook'></i></a>
+                            <a href="{{ branches.first.instagram_url }}" target="_blank" rel="noopener noreferrer" class="connect-icon ig" title="Instagram" id="branch-ig" aria-label="Instagram"><i class='bx bxl-instagram'></i></a>
+                            <a href="{{ branches.first.messenger_url }}" target="_blank" rel="noopener noreferrer" class="connect-icon ms" title="Messenger" id="branch-ms" aria-label="Messenger"><i class='bx bxl-messenger'></i></a>
+                            <a href="{{ branches.first.tiktok_url }}" target="_blank" rel="noopener noreferrer" class="connect-icon tk" title="TikTok" id="branch-tk" aria-label="TikTok"><i class='bx bxl-tiktok'></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: MAP -->
+            <div class="branch-map-col">
+                <div class="map-container-premium">
+                    <iframe id="main-branch-map" src="{{ branches.first.google_maps_embed_url }}" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     EMERGENCY NOTICE
+     ============================================ -->
+<section class="emergency-section">
+    <div class="container">
+        <div class="emergency-notice fade-in">
+            <div class="emergency-icon">
+                <i class='bx bx-error-circle'></i>
+            </div>
+            <div class="emergency-content">
+                <h3>🚨 Emergency Cases</h3>
+                <p>For urgent medical situations, please call the clinic directly. Our veterinarians are available to assist you immediately.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     CONTACT FORM
+     ============================================ -->
+<section class="contact-form-section" id="contact-form-section">
+    <div class="container">
+        <div class="contact-form-wrapper">
+            <div class="form-header fade-in">
+                <h2>Send us a <span class="teal-text">Message</span></h2>
+                <p>We'll respond within 24 business hours</p>
+            </div>
+
+            <form id="contactForm" class="contact-form fade-in" novalidate>
+                {% csrf_token %}
+                <div class="form-grid">
+                    <!-- Left Column -->
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label for="fullName">Full Name *</label>
+                            <input type="text" id="fullName" name="fullName" placeholder="Your name" required autocomplete="name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" placeholder="your.email@example.com" required autocomplete="email">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone">Contact Number *</label>
+                            <input type="tel" id="phone" name="phone" placeholder="09XXXXXXXXX"
+                                   inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11"
+                                   oninput="this.value=this.value.replace(/\D/g,'')"
+                                   autocomplete="tel">
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="form-column">
+                        <div class="form-group">
+
+                            <label for="branch">Preferred Branch *</label>
+                            <select id="branch" name="branch" required>
+                                <option value="">Select a branch</option>
+                                {% for branch in branches %}
+                                <option value="{{ branch.id }}">{{ branch.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group form-group-full">
+                    <label for="message">Message *</label>
+                    <textarea id="message" name="message" placeholder="Tell us more about your message..." rows="6" required></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg" aria-label="Send message">
+                    Send Message <i class='bx bx-send'></i>
+                </button>
+
+                <!-- Success Message -->
+                <div id="formSuccess" class="form-success" style="display: none;">
+                    <div class="success-icon">
+                        <i class='bx bx-check-circle'></i>
+                    </div>
+                    <h4>Message Sent Successfully!</h4>
+                    <p>Thank you. We'll contact you soon.</p>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SOCIAL MEDIA SECTION (CONNECT WITH US)
+     ============================================ -->
+<section class="social-footer-section">
+    <!-- Decorative Paw Prints -->
+    <span class="paw-decor paw-1">🐾</span>
+    <span class="paw-decor paw-2">🐾</span>
+    <span class="paw-decor paw-3">🐾</span>
+    <span class="paw-decor paw-4">🐾</span>
+    <span class="paw-decor paw-5">🐾</span>
+
+    <div class="container">
+        <div class="social-wrapper fade-in">
+            <h3>Connect With <span class="white-text">Us</span></h3>
+            <p class="white-text">Follow us for pet care tips and clinic updates</p>
+            
+            <div class="social-links">
+                <a href="https://www.facebook.com/profile.php?id=61571317094214" target="_blank" rel="noopener noreferrer" class="social-link facebook">
+                    <i class='bx bxl-facebook'></i>
+                    <span>Facebook</span>
+                </a>
+                <a href="https://www.instagram.com/fmh.animalclinic/" target="_blank" rel="noopener noreferrer" class="social-link instagram">
+                    <i class='bx bxl-instagram'></i>
+                    <span>Instagram</span>
+                </a>
+                <a href="https://www.facebook.com/messages/t/461780853694978/" target="_blank" rel="noopener noreferrer" class="social-link messenger">
+                    <i class='bx bxl-messenger'></i>
+                    <span>Messenger</span>
+                </a>
+                <a href="https://www.tiktok.com/@fmhanimalclinic?is_from_webapp=1&sender_device=pc" target="_blank" rel="noopener noreferrer" class="social-link tiktok">
+                    <i class='bx bxl-tiktok'></i>
+                    <span>TikTok</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}
+

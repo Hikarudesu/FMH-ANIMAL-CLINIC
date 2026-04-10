@@ -1,0 +1,394 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Sale {{ sale.transaction_id }}{% endblock %}
+
+{% block content %}
+<style>
+  .sale-detail-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 1024px) {
+    .sale-detail-grid { grid-template-columns: 1fr; }
+  }
+
+  .sale-detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .sale-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+
+  .sale-txn-id {
+    font-family: monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .sale-status-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .sale-status-badge.completed { background: #e8f5e9; color: #2e7d32; }
+  .sale-status-badge.voided { background: #ffebee; color: #c62828; }
+  .sale-status-badge.refunded { background: #fff3e0; color: #e65100; }
+  .sale-status-badge.pending { background: #e3f2fd; color: #1565c0; }
+
+  .sale-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+
+  .sale-info-row:last-child { border-bottom: none; }
+
+  .sale-info-label {
+    color: var(--text-secondary);
+  }
+
+  .sale-info-value {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .sale-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sale-item-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sale-item-name {
+    font-weight: 500;
+  }
+
+  .sale-item-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .sale-item-total {
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  .sale-totals {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+  }
+
+  .sale-totals-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 14px;
+  }
+
+  .sale-totals-row.total {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+    border-top: 2px solid var(--border);
+    margin-top: 8px;
+    padding-top: 16px;
+  }
+
+  .payment-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  .payment-icon {
+    width: 40px;
+    height: 40px;
+    background: #e3f2fd;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #1565c0;
+  }
+
+  .payment-info {
+    flex: 1;
+  }
+
+  .payment-method {
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .payment-date {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .payment-amount {
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .sale-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .sale-action-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .sale-action-btn.primary {
+    background: var(--primary);
+    color: white;
+    border: none;
+  }
+
+  .sale-action-btn.outline {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+
+  .sale-action-btn.danger {
+    background: #ffebee;
+    border: 1px solid #ffcdd2;
+    color: #c62828;
+  }
+
+  .sale-action-btn:hover {
+    opacity: 0.9;
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Sale Details</h1>
+    <p class="page-subtitle">Transaction {{ sale.transaction_id }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'pos:sales_list' %}" class="btn-action outline">
+      <i class='bx bx-arrow-back'></i> Back to Sales
+    </a>
+    <a href="{% url 'pos:receipt' sale.pk %}" class="btn-action primary" target="_blank">
+      <i class='bx bx-receipt'></i> View Receipt
+    </a>
+  </div>
+</div>
+
+<div class="sale-detail-grid">
+  <!-- Left Column -->
+  <div>
+    <!-- Sale Info -->
+    <div class="sale-detail-card">
+      <div class="sale-detail-header">
+        <div class="sale-txn-id">{{ sale.transaction_id }}</div>
+        <span class="sale-status-badge {{ sale.status|lower }}">{{ sale.get_status_display }}</span>
+      </div>
+
+      <div class="sale-info-row">
+        <span class="sale-info-label">Date & Time</span>
+        <span class="sale-info-value">{{ sale.created_at|date:"M j, Y g:i A" }}</span>
+      </div>
+      <div class="sale-info-row">
+        <span class="sale-info-label">Customer</span>
+        <span class="sale-info-value">{{ sale.customer_display_name }}</span>
+      </div>
+      {% if sale.pet %}
+      <div class="sale-info-row">
+        <span class="sale-info-label">Pet</span>
+        <span class="sale-info-value">{{ sale.pet.name }} ({{ sale.pet.species }})</span>
+      </div>
+      {% endif %}
+      <div class="sale-info-row">
+        <span class="sale-info-label">Cashier</span>
+        <span class="sale-info-value">{{ sale.cashier.get_full_name|default:sale.cashier.email }}</span>
+      </div>
+      <div class="sale-info-row">
+        <span class="sale-info-label">Branch</span>
+        <span class="sale-info-value">{{ sale.branch.name }}</span>
+      </div>
+      {% if sale.voided_by %}
+      <div class="sale-info-row">
+        <span class="sale-info-label">Voided By</span>
+        <span class="sale-info-value" style="color: #c62828;">{{ sale.voided_by.get_full_name }} - {{ sale.void_reason }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Items -->
+    <div class="sale-detail-card">
+      <h3 class="sale-section-title">Items ({{ items.count }})</h3>
+
+      {% for item in items %}
+      <div class="sale-item-row">
+        <div>
+          <div class="sale-item-name">{{ item.name }}</div>
+          <div class="sale-item-meta">
+            {{ item.quantity }} x ₱{{ item.unit_price|floatformat:2 }}
+            {% if item.discount > 0 %} <span style="color: #e65100;">(-₱{{ item.discount|floatformat:2 }})</span>{% endif %}
+          </div>
+        </div>
+        <div class="sale-item-total">₱{{ item.line_total|floatformat:2 }}</div>
+      </div>
+      {% endfor %}
+
+      <div class="sale-totals">
+        <div class="sale-totals-row">
+          <span>Subtotal</span>
+          <span>₱{{ sale.subtotal|floatformat:2 }}</span>
+        </div>
+        <div class="sale-totals-row">
+          <span>Discount{% if sale.discount_reason %} ({{ sale.discount_reason }}){% endif %}</span>
+          <span style="color: {% if sale.discount_amount > 0 %}#e65100{% else %}var(--text-3){% endif %};">-₱{{ sale.discount_amount|default:0|floatformat:2 }}</span>
+        </div>
+        {% if sale.tax_amount > 0 %}
+        <div class="sale-totals-row">
+          <span>Tax</span>
+          <span>₱{{ sale.tax_amount|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        <div class="sale-totals-row total">
+          <span>Total</span>
+          <span>₱{{ sale.total|floatformat:2 }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div>
+    <!-- Payments -->
+    <div class="sale-detail-card">
+      <h3 class="sale-section-title">Payments</h3>
+
+      {% for payment in payments %}
+      <div class="payment-item">
+        <div class="payment-icon">
+          {% if payment.method == 'CASH' %}<i class='bx bx-money'></i>
+          {% elif payment.method == 'CARD' %}<i class='bx bx-credit-card'></i>
+          {% elif payment.method == 'GCASH' %}<i class='bx bx-wallet'></i>
+          {% else %}<i class='bx bx-transfer'></i>{% endif %}
+        </div>
+        <div class="payment-info">
+          <div class="payment-method">{{ payment.get_method_display }}</div>
+          <div class="payment-date">{{ payment.created_at|date:"M j, Y g:i A" }}</div>
+          {% if payment.reference_number %}
+          <div class="payment-date">Ref: {{ payment.reference_number }}</div>
+          {% endif %}
+        </div>
+        <div class="payment-amount">₱{{ payment.amount|floatformat:2 }}</div>
+      </div>
+      {% empty %}
+      <p style="text-align: center; color: var(--text-secondary); padding: 20px;">No payments recorded</p>
+      {% endfor %}
+
+      <div class="sale-totals" style="margin-top: 16px;">
+        <div class="sale-totals-row">
+          <span>Amount Paid</span>
+          <span>₱{{ sale.amount_paid|floatformat:2 }}</span>
+        </div>
+        <div class="sale-totals-row">
+          <span>Change Given</span>
+          <span>₱{{ sale.change_due|floatformat:2 }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    {% if sale.status == 'COMPLETED' %}
+    <div class="sale-detail-card">
+      <h3 class="sale-section-title">Actions</h3>
+      <div class="sale-actions" style="flex-direction: column;">
+        <!-- Statement of Account Button -->
+        <a href="{% url 'pos:sale_soa' sale.pk %}" class="sale-action-btn primary" target="_blank">
+          <i class='bx bx-file'></i> View Statement of Account
+        </a>
+        {% if not refunds %}
+        <a href="{% url 'pos:refund_request' sale.pk %}" class="sale-action-btn outline">
+          <i class='bx bx-undo'></i> Request Refund
+        </a>
+        {% else %}
+        <div class="sale-action-btn" style="background: #f5f5f5; color: #757575; cursor: not-allowed;">
+          <i class='bx bx-check-circle'></i> Refund Already Processed
+        </div>
+        {% endif %}
+        <form method="POST" action="{% url 'pos:void_sale' sale.pk %}" style="display: contents;" onsubmit="return confirm('Are you sure you want to void this sale?');">
+          {% csrf_token %}
+          <input type="hidden" name="reason" value="Manager override">
+          <button type="submit" class="sale-action-btn danger">
+            <i class='bx bx-x-circle'></i> Void Sale
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Refunds -->
+    {% if refunds %}
+    <div class="sale-detail-card">
+      <h3 class="sale-section-title">Refunds</h3>
+      {% for refund in refunds %}
+      <div class="payment-item">
+        <div class="payment-icon" style="background: #fff3e0; color: #e65100;">
+          <i class='bx bx-undo'></i>
+        </div>
+        <div class="payment-info">
+          <div class="payment-method">{{ refund.refund_id }}</div>
+          <div class="payment-date">{{ refund.get_status_display }} - {{ refund.created_at|date:"M j, Y" }}</div>
+        </div>
+        <div class="payment-amount" style="color: #c62828;">-₱{{ refund.amount|floatformat:2 }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

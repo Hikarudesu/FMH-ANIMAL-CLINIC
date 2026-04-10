@@ -1,0 +1,617 @@
+{% extends 'payroll/base.html' %}
+{% load currency_filters %}
+{% load static %}
+
+{% block title %}{{ staff.full_name }} - Vet Details{% endblock %}
+
+{% block payroll_content %}
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   VET DETAIL PAGE - Enterprise SaaS Design
+   ═══════════════════════════════════════════════════════════════ */
+
+.vet-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 24px;
+}
+
+.vet-avatar {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, var(--primary), #00796b);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 8px 24px rgba(0, 150, 136, 0.25);
+}
+
+.vet-info {
+    flex: 1;
+}
+
+.vet-name {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0 0 8px 0;
+}
+
+.vet-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.vet-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: var(--text-2);
+    background: var(--bg);
+    padding: 6px 12px;
+    border-radius: 6px;
+}
+
+.vet-meta-item i {
+    color: var(--primary);
+}
+
+.vet-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg);
+    color: var(--text-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* Layout Grid */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 24px;
+}
+
+@media (max-width: 1100px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Section Cards */
+.detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.card-header h3 i {
+    color: var(--primary);
+}
+
+.card-body {
+    padding: 24px;
+}
+
+/* Form Styling */
+.form-section {
+    margin-bottom: 24px;
+}
+
+.form-section:last-child {
+    margin-bottom: 0;
+}
+
+.form-section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 8px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    color: var(--text-1);
+    transition: all 0.2s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.1);
+}
+
+.form-input-large {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 20px;
+}
+
+.form-hint {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 6px;
+}
+
+.currency-prefix {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.currency-prefix span {
+    padding: 12px 16px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    font-weight: 600;
+    color: var(--text-2);
+}
+
+.currency-prefix .form-input {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* Submit Button */
+.btn-submit {
+    width: 100%;
+    padding: 14px 24px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    margin-top: 24px;
+}
+
+.btn-submit:hover {
+    background: var(--primary-dark, #00796b);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.3);
+}
+
+/* History Table */
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.history-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+}
+
+.history-table td {
+    padding: 14px 16px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.history-table tbody tr:hover {
+    background: var(--bg);
+}
+
+.history-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* YTD Stats */
+.ytd-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.ytd-stat {
+    background: var(--bg);
+    padding: 16px;
+    border-radius: var(--radius-sm);
+    text-align: center;
+}
+
+.ytd-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin-bottom: 4px;
+}
+
+.ytd-stat-label {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    text-transform: uppercase;
+}
+
+/* Audit Trail */
+.audit-item {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+}
+
+.audit-item:last-child {
+    border-bottom: none;
+}
+
+.audit-icon {
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 150, 136, 0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.audit-content {
+    flex: 1;
+}
+
+.audit-text {
+    font-size: 0.9rem;
+    color: var(--text-1);
+    margin-bottom: 4px;
+}
+
+.audit-time {
+    font-size: 0.8rem;
+    color: var(--text-3);
+}
+
+/* Status Badge */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-released {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.status-draft {
+    background: rgba(158, 158, 158, 0.1);
+    color: #757575;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-3);
+}
+
+.empty-state i {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+</style>
+
+<!-- Header Section -->
+<div class="vet-header">
+    <div class="vet-avatar">
+        <i class='bx bx-user'></i>
+    </div>
+    <div class="vet-info">
+        <h1 class="vet-name">{{ staff.full_name }}</h1>
+        <div class="vet-meta">
+            <div class="vet-meta-item">
+                <i class='bx bx-briefcase'></i>
+                {{ staff.get_position_display }}
+            </div>
+            <div class="vet-meta-item">
+                <i class='bx bx-building'></i>
+                {{ staff.branch.name|default:"No Branch Assigned" }}
+            </div>
+            {% if staff.email %}
+            <div class="vet-meta-item">
+                <i class='bx bx-envelope'></i>
+                {{ staff.email }}
+            </div>
+            {% endif %}
+            {% if staff.license_number %}
+            <div class="vet-meta-item">
+                <i class='bx bx-id-card'></i>
+                PRC# {{ staff.license_number }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="vet-actions">
+        <a href="{% url 'payroll:vets' %}" class="back-btn">
+            <i class='bx bx-arrow-back'></i> Back to Staff List
+        </a>
+    </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="detail-grid">
+    <!-- Left Column: Editor & History -->
+    <div>
+        <!-- Salary Editor Card -->
+        <div class="detail-card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <h3><i class='bx bx-wallet'></i> Payroll Configuration</h3>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="form-section">
+                        <div class="form-section-title">Base Compensation</div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Monthly Base Salary</label>
+                            <div class="currency-prefix">
+                                <span>₱</span>
+                                <input type="number" name="base_salary" class="form-input" 
+                                       value="{{ staff.salary }}" step="0.01" min="0"
+                                       placeholder="0.00">
+                            </div>
+                            <div class="form-hint">This is the default monthly salary used when generating payslips.</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Default Working Days per Month</label>
+                            <input type="number" name="default_days_worked" class="form-input" 
+                                   value="{{ staff.default_days_worked|default:22 }}" step="1" min="0" max="31"
+                                   placeholder="22">
+                            <div class="form-hint">Standard working days used when generating payslips.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <div class="form-section-title">Default Allowances</div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Staff Allowance</label>
+                            <div class="currency-prefix">
+                                <span>₱</span>
+                                <input type="number" name="default_staff_allowance" class="form-input" 
+                                       value="{{ staff.default_staff_allowance|default:2000 }}" step="0.01" min="0"
+                                       placeholder="2000.00">
+                            </div>
+                            <div class="form-hint">Monthly staff allowance (typically ₱1,000 on 15th + ₱1,000 on 30th).</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Other Allowances</label>
+                            <div class="currency-prefix">
+                                <span>₱</span>
+                                <input type="number" name="default_other_allowance" class="form-input" 
+                                       value="{{ staff.default_other_allowance|default:0 }}" step="0.01" min="0"
+                                       placeholder="0.00">
+                            </div>
+                            <div class="form-hint">Transportation, meal, or other recurring allowances.</div>
+                        </div>
+                    </div>
+                    
+                    {% if PAYROLL_AUTO_STATUTORY %}
+                    <div class="form-section">
+                        <div class="form-section-title">Statutory Deductions (Auto-calculated)</div>
+                        <div class="ytd-grid">
+                            <div class="ytd-stat">
+                                <div class="ytd-stat-value">4.5%</div>
+                                <div class="ytd-stat-label">SSS</div>
+                            </div>
+                            <div class="ytd-stat">
+                                <div class="ytd-stat-value">2.0%</div>
+                                <div class="ytd-stat-label">PhilHealth</div>
+                            </div>
+                            <div class="ytd-stat">
+                                <div class="ytd-stat-value">₱100</div>
+                                <div class="ytd-stat-label">PAG-IBIG</div>
+                            </div>
+                        </div>
+                        <div class="form-hint" style="margin-top: 12px; text-align: center;">These are clinic-paid contributions calculated automatically when generating payslips.</div>
+                    </div>
+                    {% endif %}
+                    
+                    <button type="submit" class="btn-submit">
+                        <i class='bx bx-save'></i> Save Payroll Configuration
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Payslip History Card -->
+        <div class="detail-card">
+            <div class="card-header">
+                <h3><i class='bx bx-history'></i> Payslip History</h3>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                {% if payslip_history %}
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>Gross Pay</th>
+                            <th>Deductions</th>
+                            <th>Net Pay</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payslip in payslip_history %}
+                        <tr>
+                            <td>
+                                <strong>{{ payslip.payroll_period.period_display }}</strong>
+                            </td>
+                            <td>₱{{ payslip.gross_pay|peso }}</td>
+                            <td style="color: #DC3545;">-₱{{ payslip.total_deductions|peso }}</td>
+                            <td style="font-weight: 700; color: #10b981;">₱{{ payslip.net_pay|peso }}</td>
+                            <td>
+                                {% if payslip.status == 'RELEASED' %}
+                                <span class="status-badge status-released"><i class='bx bx-check'></i> Sent</span>
+                                {% else %}
+                                <span class="status-badge status-draft"><i class='bx bx-time'></i> {{ payslip.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <i class='bx bx-folder-open'></i>
+                    <p>No payslip history found for this employee.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column: Stats & Audit -->
+    <div>
+        <!-- YTD Summary Card -->
+        <div class="detail-card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <h3><i class='bx bx-bar-chart-alt-2'></i> Year-to-Date Summary</h3>
+            </div>
+            <div class="card-body">
+                <div class="ytd-grid">
+                    <div class="ytd-stat">
+                        <div class="ytd-stat-value">₱{{ ytd_stats.total_gross|default:0|peso }}</div>
+                        <div class="ytd-stat-label">Total Gross</div>
+                    </div>
+                    <div class="ytd-stat">
+                        <div class="ytd-stat-value">₱{{ ytd_stats.total_net|default:0|peso }}</div>
+                        <div class="ytd-stat-label">Total Net</div>
+                    </div>
+                    <div class="ytd-stat">
+                        <div class="ytd-stat-value">₱{{ ytd_stats.total_deductions|default:0|peso }}</div>
+                        <div class="ytd-stat-label">Total Deductions</div>
+                    </div>
+                    <div class="ytd-stat">
+                        <div class="ytd-stat-value">{{ ytd_stats.count|default:"0" }}</div>
+                        <div class="ytd-stat-label">Payslips Sent</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity Card -->
+        <div class="detail-card">
+            <div class="card-header">
+                <h3><i class='bx bx-pulse'></i> Recent Activity</h3>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                    {% for log in recent_logs %}
+                    <div class="audit-item">
+                        <div class="audit-icon">
+                            <i class='bx bx-edit-alt'></i>
+                        </div>
+                        <div class="audit-content">
+                            <div class="audit-text">{{ log.description }}</div>
+                            <div class="audit-time">
+                                {{ log.created_at|date:"M d, Y • h:i A" }}
+                                {% if log.user %} by {{ log.user.get_full_name|default:log.user.username }}{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <i class='bx bx-info-circle'></i>
+                    <p>No recent activity recorded.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+﻿{% extends 'payroll/base.html' %}
+{% load currency_filters %}
+
+{% block title %}Send Payslips - Confirmation{% endblock %}
+
+{% block payroll_content %}
+<style>
+  .confirm-card { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius-md); padding: 40px; max-width: 600px; margin: 40px auto; text-align: center; }
+  .confirm-icon { font-size: 4rem; margin-bottom: 16px; display: inline-block; padding: 20px; background: rgba(0, 150, 136, 0.1); border-radius: 50%; color: var(--primary); }
+  .confirm-title { font-size: 1.5rem; font-weight: 700; color: var(--text-1); margin-bottom: 12px; }
+  .confirm-message { color: var(--text-2); margin-bottom: 24px; font-size: 1rem; line-height: 1.6; }
+  .details { background: var(--bg); padding: 20px; border-radius: var(--radius-sm); margin-bottom: 24px; text-align: left; }
+  .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { font-weight: 600; color: var(--text-2); }
+  .detail-value { color: var(--text-1); font-weight: 700; }
+  .actions { display: flex; gap: 12px; justify-content: center; }
+  .btn { padding: 12px 28px; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; text-decoration: none; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { opacity: 0.9; box-shadow: 0 4px 10px rgba(0,150,136,0.3); }
+  .btn-secondary { background: var(--text-3); color: white; }
+  .btn-secondary:hover { opacity: 0.9; }
+  .warning { color: #f59e0b; font-size: 0.9rem; margin-top: 20px; padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; }
+</style>
+
+<div class="confirm-card">
+  <div class="confirm-icon"><i class='bx bx-paper-plane'></i></div>
+  <h2 class="confirm-title">Send Payslips to Vets</h2>
+  <p class="confirm-message">
+    You are about to dispatch the finalized payslips directly to the vet accounts. Once sent, these records will be locked and cannot be edited.
+  </p>
+
+  <div class="details">
+    <div class="detail-row">
+      <span class="detail-label">Payroll Period</span>
+      <span class="detail-value">{{ period.period_display }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Total Documents to Send</span>
+      <span class="detail-value">{{ period.employee_count }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Total Gross Pay</span>
+      <span class="detail-value">₱{{ period.total_gross|peso }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Total Deductions</span>
+      <span class="detail-value">₱{{ period.total_deductions|peso }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Total to Disburse</span>
+      <span class="detail-value" style="color: #4CAF50; font-size: 1.2rem;">₱{{ period.total_net|peso }}</span>
+    </div>
+  </div>
+
+  <form method="post" style="display: inline;">
+    {% csrf_token %}
+    <div class="actions">
+      <a href="{% url 'payroll:payslips' period.id %}" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary"><i class='bx bx-send'></i> Confirm & Send All</button>
+    </div>
+  </form>
+
+  <div class="warning">
+    <i class='bx bx-info-circle'></i> This action is permanent. Make sure all payslips are correct before you dispatch them.
+  </div>
+</div>
+{% endblock %}

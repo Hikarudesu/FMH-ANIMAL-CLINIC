@@ -1,0 +1,2361 @@
+{% extends 'base/portal_user.html' %}
+{% load static %}
+
+{% block title %}My Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODERN USER DASHBOARD - REDESIGNED TO MATCH ADMIN PORTAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<style>
+  /* ═══════════════════════════════════════════════ */
+  /* CSS VARIABLES */
+  /* ═══════════════════════════════════════════════ */
+  
+  :root {
+    --primary: #009688;
+    --primary-dark: #00796b;
+    --surface: #ffffff;
+    --bg: #f8fafc;
+    --border: #e2e8f0;
+    --text-1: #1e293b;
+    --text-2: #475569;
+    --text-3: #64748b;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In)   */
+  /* ═══════════════════════════════════════════════ */
+  
+  /* Base: hidden state */
+  .dash-fade {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Directional variants */
+  .dash-fade.fade-left {
+    transform: translateX(-30px);
+  }
+  
+  .dash-fade.fade-right {
+    transform: translateX(30px);
+  }
+  
+  .dash-fade.fade-up {
+    transform: translateY(30px);
+  }
+
+  /* Revealed state */
+  .dash-fade.visible {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  /* Stagger delays */
+  .dash-fade.stagger-1 { transition-delay: 0.08s; }
+  .dash-fade.stagger-2 { transition-delay: 0.16s; }
+  .dash-fade.stagger-3 { transition-delay: 0.24s; }
+  .dash-fade.stagger-4 { transition-delay: 0.32s; }
+  .dash-fade.stagger-5 { transition-delay: 0.40s; }
+  .dash-fade.stagger-6 { transition-delay: 0.48s; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* HERO STATS ROW */
+  /* ═══════════════════════════════════════════════ */
+  
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  
+  @media (max-width: 1200px) {
+    .hero-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 640px) {
+    .hero-stats { grid-template-columns: 1fr; }
+  }
+  
+  .hero-stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hero-stat-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary);
+  }
+  
+  .hero-stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hero-stat-icon i {
+    font-size: 26px;
+    color: white;
+  }
+  
+  .hero-stat-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+  .hero-stat-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+  .hero-stat-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+  .hero-stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  .hero-stat-icon.emerald { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+  
+  .hero-stat-card:hover .hero-stat-icon {
+    transform: scale(1.15) rotate(-8deg);
+  }
+  
+  .hero-stat-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .hero-stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-1);
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+  
+  .hero-stat-label {
+    font-size: 13px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+  
+  .hero-stat-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  
+  .meta-item.success { color: #10b981; }
+  .meta-item.warning { color: #f59e0b; }
+  .meta-item.danger { color: #ef4444; }
+  
+  .meta-item i { font-size: 14px; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* ALERT BANNER MODERN */
+  /* ═══════════════════════════════════════════════ */
+  
+  .alert-banner-modern {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #fcd34d;
+    border-radius: 16px;
+    padding: 18px 24px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    position: relative;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .alert-banner-modern.info {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border-color: #93c5fd;
+  }
+  
+  .alert-icon {
+    width: 48px;
+    height: 48px;
+    background: #f59e0b;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .alert-banner-modern.info .alert-icon {
+    background: #3b82f6;
+  }
+  
+  .alert-icon i {
+    font-size: 24px;
+    color: white;
+  }
+  
+  .alert-content { flex: 1; }
+  
+  .alert-content h4 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #78350f;
+  }
+  
+  .alert-banner-modern.info .alert-content h4 {
+    color: #1e40af;
+  }
+  
+  .alert-content p {
+    margin: 0;
+    font-size: 13px;
+    color: #92400e;
+  }
+  
+  .alert-banner-modern.info .alert-content p {
+    color: #1e3a8a;
+  }
+  
+  .alert-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    text-decoration: none;
+    padding: 10px 18px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 10px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .alert-banner-modern.info .alert-action {
+    color: #1e40af;
+  }
+  
+  .alert-action:hover {
+    background: rgba(255,255,255,0.9);
+    transform: translateY(-2px);
+  }
+  
+  .alert-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 20px;
+    color: #92400e;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .alert-close:hover { opacity: 1; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* CHARTS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .charts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 24px;
+  }
+  
+  .charts-row.equal {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .charts-row:nth-child(2) {
+    grid-template-columns: 1fr 1.5fr;
+  }
+  
+  @media (max-width: 992px) {
+    .charts-row,
+    .charts-row:nth-child(2),
+    .charts-row.equal {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .chart-card-modern {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .chart-card-modern:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
+    border-color: var(--primary);
+  }
+  
+  .chart-card-modern.full {
+    grid-column: 1 / -1;
+  }
+  
+  .chart-card-modern.large {
+    flex: 1.5;
+  }
+  
+  .chart-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .chart-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+  
+  .chart-title i {
+    font-size: 20px;
+    color: var(--primary);
+  }
+  
+  .chart-title span {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .chart-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .chart-badge.purple {
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+  }
+  
+  .chart-badge.teal {
+    background: rgba(0, 150, 136, 0.1);
+    color: #009688;
+  }
+  
+  .chart-badge.orange {
+    background: rgba(249, 115, 22, 0.1);
+    color: #f97316;
+  }
+  
+  .chart-badge.emerald {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .chart-badge.blue {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+  
+  .chart-card-modern:hover .chart-badge {
+    transform: scale(1.05);
+  }
+  
+  .chart-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    margin-left: auto;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .chart-link:hover {
+    gap: 8px;
+  }
+  
+  .chart-body {
+    padding: 24px;
+    height: 280px;
+    position: relative;
+  }
+  
+  .chart-body.tall { height: 320px; }
+  .chart-body.short { height: 240px; }
+  .chart-body.wide { height: 260px; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* INSIGHTS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .insights-section {
+    margin-bottom: 32px;
+  }
+  
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .section-title i {
+    font-size: 22px;
+    color: var(--primary);
+  }
+  
+  .section-title span {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .section-link {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    transition: gap 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .section-link:hover { gap: 8px; }
+  
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  
+  @media (max-width: 1100px) {
+    .insights-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 700px) {
+    .insights-grid { grid-template-columns: 1fr; }
+  }
+  
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 24px;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .insight-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary);
+  }
+  
+  .insight-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .insight-header i {
+    font-size: 20px;
+    color: var(--primary);
+  }
+  
+  .insight-header span {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .insight-metrics {
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+  }
+  
+  .metric-item {
+    flex: 1;
+    text-align: center;
+    padding: 14px 8px;
+    background: var(--bg);
+    border-radius: 12px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .metric-item:hover {
+    transform: translateY(-2px);
+  }
+  
+  .metric-value {
+    display: block;
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 4px;
+    letter-spacing: -1px;
+  }
+  
+  .metric-value.success { color: #10b981; }
+  .metric-value.blue { color: #3b82f6; }
+  .metric-value.purple { color: #8b5cf6; }
+  .metric-value.orange { color: #f59e0b; }
+  
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* SPECIES BREAKDOWN BARS */
+  /* ═══════════════════════════════════════════════ */
+  
+  .species-list-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .species-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: 10px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .species-row:hover {
+    transform: translateX(4px);
+    background: rgba(0, 150, 136, 0.05);
+  }
+  
+  .species-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .species-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 6px;
+  }
+  
+  .species-bar-container {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  
+  .species-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #009688, #00bcd4);
+    border-radius: 3px;
+    transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .species-count {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary);
+    min-width: 32px;
+    text-align: right;
+    padding: 4px 10px;
+    background: rgba(0, 150, 136, 0.1);
+    border-radius: 8px;
+  }
+  
+  .species-percentage {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    margin-left: 8px;
+  }
+  
+  /* Species Pagination */
+  .species-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  
+  .species-page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    background: var(--bg);
+    border: none;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .species-page-btn:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+  }
+  
+  .species-page-btn.active {
+    background: var(--primary);
+    color: white;
+  }
+  
+  .species-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .species-page-info {
+    font-size: 11px;
+    color: var(--text-3);
+    padding: 0 8px;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* SCHEDULE / APPOINTMENTS LIST */
+  /* ═══════════════════════════════════════════════ */
+  
+  .schedule-section {
+    margin-bottom: 32px;
+  }
+  
+  .schedule-list-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .schedule-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--bg);
+    border-radius: 14px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .schedule-item:hover {
+    background: rgba(0, 150, 136, 0.05);
+    transform: translateX(4px);
+  }
+  
+  .schedule-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #009688 0%, #00796b 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+  }
+  
+  .schedule-avatar.pending {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+  
+  .schedule-avatar.confirmed {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
+  
+  .schedule-avatar.completed {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  }
+  
+  .schedule-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .schedule-pet-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+    margin-bottom: 4px;
+  }
+  
+  .schedule-branch {
+    font-size: 12px;
+    color: var(--text-3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .schedule-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .schedule-datetime {
+    text-align: right;
+  }
+  
+  .schedule-date {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .schedule-time {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+  
+  .status-badge-modern {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .status-badge-modern.pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+  
+  .status-badge-modern.confirmed {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .status-badge-modern.completed {
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+  }
+  
+  .status-badge-modern.cancelled {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* FOLLOW-UP ALERTS */
+  /* ═══════════════════════════════════════════════ */
+  
+  .followup-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .followup-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fef3c7 100%);
+    border: 1px solid #fcd34d;
+    border-radius: 14px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .followup-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.15);
+  }
+  
+  .followup-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #f59e0b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .followup-icon i {
+    font-size: 20px;
+    color: white;
+  }
+  
+  .followup-info {
+    flex: 1;
+  }
+  
+  .followup-pet {
+    font-size: 14px;
+    font-weight: 700;
+    color: #78350f;
+    margin-bottom: 2px;
+  }
+  
+  .followup-reason {
+    font-size: 12px;
+    color: #92400e;
+  }
+  
+  .followup-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .followup-date {
+    font-size: 12px;
+    font-weight: 600;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .followup-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #92400e;
+    text-decoration: none;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .followup-action:hover {
+    background: white;
+    transform: translateY(-2px);
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* ACTIVITY TIMELINE */
+  /* ═══════════════════════════════════════════════ */
+  
+  .activity-list-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .activity-item-modern {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  
+  .activity-item-modern:last-child {
+    border-bottom: none;
+  }
+  
+  .activity-item-modern::before {
+    content: '';
+    position: absolute;
+    left: 17px;
+    top: 44px;
+    bottom: -14px;
+    width: 2px;
+    background: var(--border);
+  }
+  
+  .activity-item-modern:last-child::before {
+    display: none;
+  }
+  
+  .activity-icon-modern {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .activity-icon-modern i {
+    font-size: 16px;
+    color: white;
+  }
+  
+  .activity-icon-modern.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+  .activity-icon-modern.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+  .activity-icon-modern.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  
+  .activity-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .activity-action {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 2px;
+  }
+  
+  .activity-object {
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  
+  .activity-time {
+    font-size: 11px;
+    color: var(--text-3);
+    white-space: nowrap;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* QUICK ACTIONS */
+  /* ═══════════════════════════════════════════════ */
+  
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  
+  @media (max-width: 992px) {
+    .quick-actions { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 500px) {
+    .quick-actions { grid-template-columns: 1fr; }
+  }
+  
+  .quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    text-decoration: none;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .quick-action-btn:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 40px rgba(0, 150, 136, 0.15);
+    border-color: var(--primary);
+  }
+  
+  .quick-action-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .quick-action-icon i {
+    font-size: 24px;
+    color: white;
+  }
+  
+  .quick-action-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+  .quick-action-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+  .quick-action-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+  .quick-action-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  
+  .quick-action-btn:hover .quick-action-icon {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  
+  .quick-action-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    text-align: center;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* EMPTY STATES */
+  /* ═══════════════════════════════════════════════ */
+  
+  .empty-state-modern {
+    text-align: center;
+    padding: 48px 24px;
+  }
+  
+  .empty-state-modern i {
+    font-size: 48px;
+    color: var(--border);
+    margin-bottom: 16px;
+  }
+  
+  .empty-state-modern h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-2);
+    margin: 0 0 8px;
+  }
+  
+  .empty-state-modern p {
+    font-size: 13px;
+    color: var(--text-3);
+    margin: 0;
+  }
+  
+  /* ═══════════════════════════════════════════════ */
+  /* GLASS BUTTONS (ACTIVITY) */
+  /* ═══════════════════════════════════════════════ */
+  .btn-glass-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  
+  .btn-glass-clear:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+  }
+  
+  .btn-glass-delete-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: #94a3b8;
+    background: transparent;
+    border: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+  
+  .btn-glass-delete-icon:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    transform: scale(1.1);
+  }
+  
+  .activity-item-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+  }
+  
+
+  /* ═══════════════════════════════════════════════ */
+  /* PAGINATION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .pagination-modern {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  
+  .page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .page-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: rgba(0, 150, 136, 0.05);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 150, 136, 0.1);
+  }
+  
+  .page-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25);
+  }
+  
+  .page-btn.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    background: var(--bg);
+    box-shadow: none;
+  }
+  
+  .page-btn i {
+    font-size: 18px;
+  }
+
+  /* Branch Badge */
+  .branch-badge-modern {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, rgba(0, 150, 136, 0.1) 0%, rgba(0, 188, 212, 0.1) 100%);
+    border: 1px solid rgba(0, 150, 136, 0.2);
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 24px;
+  }
+  
+  .branch-badge-modern i {
+    font-size: 16px;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* RESPONSIVE - SCHEDULE ITEMS (Mobile Fix)       */
+  /* ═══════════════════════════════════════════════ */
+  
+  @media (max-width: 576px) {
+    .schedule-item {
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+    
+    .schedule-avatar {
+      width: 42px;
+      height: 42px;
+      font-size: 16px;
+    }
+    
+    .schedule-info {
+      flex: 1;
+      min-width: calc(100% - 60px);
+    }
+    
+    .schedule-meta {
+      width: 100%;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      padding-left: 54px;
+      gap: 12px;
+    }
+    
+    .schedule-datetime {
+      text-align: left;
+    }
+    
+    .schedule-date {
+      font-size: 12px;
+    }
+    
+    .schedule-time {
+      font-size: 10px;
+    }
+    
+    .status-badge-modern {
+      padding: 5px 10px;
+      font-size: 10px;
+    }
+  }
+</style>
+
+<!-- No Branch Warning Banner -->
+{% if not user.branch %}
+<div class="alert-banner-modern info dash-fade fade-up">
+  <div class="alert-icon">
+    <i class='bx bx-info-circle'></i>
+  </div>
+  <div class="alert-content">
+    <h4>Set your preferred branch</h4>
+    <p>Choose a preferred branch to speed up booking. Your branch will be pre-selected when you book appointments.</p>
+  </div>
+  <a href="{% url 'select_branch' %}" class="alert-action">Set Branch <i class='bx bx-right-arrow-alt'></i></a>
+</div>
+{% endif %}
+
+<!-- Page Hero -->
+{% include "components/page_hero.html" with title="Dashboard" subtitle="Welcome back! Here's an overview of your pet care" icon="bxs-dashboard" action_url="appointments:portal_book" action_label="Book Appointment" action_icon="bx-calendar-plus" action_url_2="patients:add_pet" action_label_2="Register Pet" action_icon_2="bx-plus-circle" %}
+
+<!-- Branch Badge -->
+{% if user.branch %}
+<div class="branch-badge-modern">
+  <i class='bx bx-map-pin'></i> {{ user.branch.name }} — {{ user.branch.city }}
+</div>
+{% endif %}
+
+<!-- HERO STATS ROW -->
+<div class="hero-stats">
+  <div class="hero-stat-card dash-fade fade-up stagger-1">
+    <div class="hero-stat-icon teal">
+      <i class='bx bxs-dog'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ pet_count|default:"0" }}</span>
+      <span class="hero-stat-label">My Pets</span>
+      <div class="hero-stat-meta">
+        {% if pet_species_breakdown %}
+        <span class="meta-item">
+          {% for species in pet_species_breakdown|slice:":2" %}{{ species.species }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card dash-fade fade-up stagger-2">
+    <div class="hero-stat-icon blue">
+      <i class='bx bx-calendar-check'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ upcoming_count|default:"0" }}</span>
+      <span class="hero-stat-label">Upcoming Appointments</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item success"><i class='bx bx-check'></i> {{ upcoming_confirmed|default:"0" }} confirmed</span>
+        <span class="meta-item warning"><i class='bx bx-time'></i> {{ upcoming_pending|default:"0" }} pending</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card dash-fade fade-up stagger-3">
+    <div class="hero-stat-icon orange">
+      <i class='bx bx-bell'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ follow_up_count|default:"0" }}</span>
+      <span class="hero-stat-label">Pending Follow-ups</span>
+      <div class="hero-stat-meta">
+        {% if overdue_follow_ups > 0 %}
+        <span class="meta-item danger"><i class='bx bx-error'></i> {{ overdue_follow_ups }} overdue</span>
+        {% else %}
+        <span class="meta-item success"><i class='bx bx-check'></i> All on track</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card dash-fade fade-up stagger-4">
+    <div class="hero-stat-icon purple">
+      <i class='bx bx-wallet'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">₱{{ total_spent_this_year|floatformat:0|default:"0" }}</span>
+      <span class="hero-stat-label">Spent This Year</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">₱{{ total_spent_all_time|floatformat:0|default:"0" }} all time</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MEDICAL ALERTS / FOLLOW-UPS -->
+{% if follow_ups %}
+<div class="alert-banner-modern dash-fade fade-up" style="margin-bottom: 24px;">
+  <div class="alert-icon">
+    <i class='bx bx-bell bx-tada'></i>
+  </div>
+  <div class="alert-content">
+    <h4>Pending Follow-ups</h4>
+    <p>You have {{ follow_ups|length }} follow-up visit{{ follow_ups|length|pluralize }} scheduled for your pets.</p>
+  </div>
+  <i class='bx bx-x alert-close' onclick="this.parentElement.style.display='none'"></i>
+</div>
+
+<div class="chart-card-modern dash-fade fade-up" style="margin-bottom: 24px;">
+  <div class="chart-header">
+    <div class="chart-title">
+      <i class='bx bx-bell'></i>
+      <span>Medical Alerts / Follow-ups</span>
+    </div>
+    <div class="chart-badge orange">{{ follow_ups|length }} Pending</div>
+  </div>
+  <div style="padding: 20px;">
+    <div class="followup-list">
+      {% for fu in follow_ups %}
+      <div class="followup-item">
+        <div class="followup-icon">
+          <i class='bx bx-calendar-exclamation'></i>
+        </div>
+        <div class="followup-info">
+          <div class="followup-pet">{{ fu.pet_name }}</div>
+          <div class="followup-reason">{{ fu.reason|default:"Routine follow-up visit" }}</div>
+        </div>
+        <div class="followup-meta">
+          <div class="followup-date">
+            <i class='bx bx-calendar'></i> {{ fu.follow_up_date|date:"M d, Y" }}
+            {% if fu.follow_up_end_date and fu.follow_up_end_date != fu.follow_up_date %}
+              - {{ fu.follow_up_end_date|date:"M d, Y" }}
+            {% endif %}
+          </div>
+          <a href="javascript:void(0)" class="followup-action" onclick="downloadICS('{{ fu.pet_name|escapejs }}', '{{ fu.follow_up_date|date:'Y-m-d' }}', '{{ fu.reason|escapejs }} {% if fu.follow_up_end_date %}(Ends: {{ fu.follow_up_end_date|date:'Y-m-d' }}){% endif %}')">
+            <i class='bx bx-calendar-plus'></i> Add to Calendar
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- CHARTS SECTION -->
+<div class="charts-section">
+  
+  <!-- ROW 1: Appointment History & Pet Health -->
+  <div class="charts-row equal">
+    <div class="chart-card-modern dash-fade fade-up stagger-1">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-line-chart'></i>
+          <span>Appointment History</span>
+        </div>
+        <div class="chart-badge purple">Last 6 Months</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="appointmentHistoryChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="chart-card-modern dash-fade fade-up stagger-2">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-heart'></i>
+          <span>Pet Health Overview</span>
+        </div>
+        <div class="chart-badge emerald">Current Status</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="petHealthChart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ROW 2: Appointment Status & Spending -->
+  <div class="charts-row equal">
+    <div class="chart-card-modern dash-fade fade-up stagger-3">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-pie-chart-alt-2'></i>
+          <span>Appointment Status</span>
+        </div>
+        <div class="chart-badge blue">Last 90 Days</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="appointmentStatusChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="chart-card-modern dash-fade fade-up stagger-4">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-money'></i>
+          <span>Spending Breakdown</span>
+        </div>
+        <div class="chart-badge orange">All Time</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="spendingChart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ROW 3: Visits Per Pet (Full Width) -->
+  <div class="charts-row">
+    <div class="chart-card-modern full dash-fade fade-up">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>Visits Per Pet</span>
+        </div>
+        <div class="chart-badge teal">All Time</div>
+        <a href="{% url 'patients:my_pets' %}" class="chart-link">
+          View All Pets <i class='bx bx-right-arrow-alt'></i>
+        </a>
+      </div>
+      <div class="chart-body wide">
+        <canvas id="visitsPerPetChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK ACTIONS -->
+<div class="quick-actions">
+  <a href="{% url 'appointments:portal_book' %}" class="quick-action-btn">
+    <div class="quick-action-icon teal">
+      <i class='bx bx-calendar-plus'></i>
+    </div>
+    <span class="quick-action-label">Book Appointment</span>
+  </a>
+  <a href="{% url 'patients:my_pets' %}" class="quick-action-btn">
+    <div class="quick-action-icon blue">
+      <i class='bx bxs-dog'></i>
+    </div>
+    <span class="quick-action-label">View My Pets</span>
+  </a>
+  <a href="{% url 'appointments:my_appointments' %}" class="quick-action-btn">
+    <div class="quick-action-icon purple">
+      <i class='bx bx-calendar'></i>
+    </div>
+    <span class="quick-action-label">My Appointments</span>
+  </a>
+  <a href="{% url 'notifications:notification_list' %}" class="quick-action-btn">
+    <div class="quick-action-icon orange">
+      <i class='bx bx-bell'></i>
+    </div>
+    <span class="quick-action-label">Notifications {% if unread_notif_count > 0 %}({{ unread_notif_count }}){% endif %}</span>
+  </a>
+</div>
+
+<!-- INSIGHTS SECTION -->
+<div class="insights-section">
+  <div class="section-title">
+    <i class='bx bx-bar-chart'></i>
+    <span>Quick Insights</span>
+  </div>
+  
+  <div class="insights-grid">
+    <!-- Pet Species Breakdown -->
+    <div class="insight-card dash-fade fade-up stagger-1">
+      <div class="insight-header">
+        <i class='bx bxs-dog'></i>
+        <span>Pet Species</span>
+      </div>
+      {% if pet_species_breakdown %}
+      <div class="species-list-modern" id="speciesList">
+        {% for species in pet_species_breakdown|slice:":5" %}
+        <div class="species-row species-item" data-index="{{ forloop.counter0 }}">
+          <div class="species-info">
+            <div class="species-name">{{ species.species }}</div>
+            <div class="species-bar-container">
+              <div class="species-bar-fill" style="width: {{ species.percentage }}%;"></div>
+            </div>
+          </div>
+          <div class="species-count">{{ species.count }}</div>
+          <span class="species-percentage">{{ species.percentage }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% if pet_species_breakdown|length > 5 %}
+      <div class="species-pagination">
+        <button class="species-page-btn" id="speciesPrev" disabled onclick="speciesPageChange(-1)">
+          <i class='bx bx-chevron-left'></i>
+        </button>
+        <span class="species-page-info" id="speciesPageInfo">1 / {{ pet_species_breakdown|length|add:"-1"|divisibleby:5|add:1 }}</span>
+        <button class="species-page-btn" id="speciesNext" onclick="speciesPageChange(1)">
+          <i class='bx bx-chevron-right'></i>
+        </button>
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="empty-state-modern">
+        <i class='bx bxs-dog'></i>
+        <h4>No pets yet</h4>
+        <p>Register your first pet to get started</p>
+      </div>
+      {% endif %}
+    </div>
+    
+    <!-- Reservation Status -->
+    <div class="insight-card dash-fade fade-up stagger-2">
+      <div class="insight-header">
+        <i class='bx bx-calendar-check'></i>
+        <span>Reservations</span>
+      </div>
+      <div class="insight-metrics">
+        <div class="metric-item">
+          <span class="metric-value success">{{ approved_reservations|default:"0" }}</span>
+          <span class="metric-label">Confirmed</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value orange">{{ pending_reservations|default:"0" }}</span>
+          <span class="metric-label">Pending</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value purple">{{ cancelled_appointments_count|default:"0" }}</span>
+          <span class="metric-label">Cancelled</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- This Month Stats -->
+    <div class="insight-card dash-fade fade-up stagger-3">
+      <div class="insight-header">
+        <i class='bx bx-calendar'></i>
+        <span>This Month</span>
+      </div>
+      <div class="insight-metrics">
+        <div class="metric-item">
+          <span class="metric-value blue">{{ appointments_this_month|default:"0" }}</span>
+          <span class="metric-label">Visits</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value success">{{ vaccination_appointments|default:"0" }}</span>
+          <span class="metric-label">Vaccines</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value purple">{{ unread_notif_count|default:"0" }}</span>
+          <span class="metric-label">Alerts</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCHEDULE SECTION -->
+<div class="schedule-section">
+  <div class="charts-row equal" id="dashboard-activity-section">
+    <!-- Upcoming Appointments -->
+    <div class="chart-card-modern dash-fade fade-up stagger-1">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-calendar'></i>
+          <span>Upcoming Appointments</span>
+        </div>
+        <a href="{% url 'appointments:my_appointments' %}" class="chart-link">
+          View All <i class='bx bx-right-arrow-alt'></i>
+        </a>
+      </div>
+      <div style="padding: 24px;">
+        {% if upcoming_appointments %}
+        <div class="schedule-list-modern">
+          {% for appt in upcoming_appointments %}
+          <div class="schedule-item">
+            <div class="schedule-avatar {{ appt.status|lower }}">
+              {{ appt.pet_name|make_list|first|upper }}
+            </div>
+            <div class="schedule-info">
+              <div class="schedule-pet-name">{{ appt.pet_name }}</div>
+              <div class="schedule-branch">
+                <i class='bx bx-map-pin'></i> {{ appt.branch.name }}
+              </div>
+            </div>
+            <div class="schedule-meta">
+              <div class="schedule-datetime">
+                <div class="schedule-date">
+                  <i class='bx bx-calendar'></i> {{ appt.appointment_date|date:"M d" }}
+                </div>
+                <div class="schedule-time">{{ appt.appointment_time_display }}</div>
+              </div>
+              <span class="status-badge-modern {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        
+        <!-- Pagination for Upcoming Appointments -->
+        {% if upcoming_appointments.has_other_pages %}
+        <div class="pagination-modern">
+          {% if upcoming_appointments.has_previous %}
+            <a href="?upcoming_page=1{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
+            <a href="?upcoming_page={{ upcoming_appointments.previous_page_number }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
+          {% else %}
+            <span class="page-btn disabled"><i class='bx bx-chevrons-left'></i></span>
+            <span class="page-btn disabled"><i class='bx bx-chevron-left'></i></span>
+          {% endif %}
+          
+          {% for num in upcoming_appointments.paginator.page_range %}
+            {% if upcoming_appointments.number == num %}
+              <span class="page-btn active">{{ num }}</span>
+            {% elif num > upcoming_appointments.number|add:'-2' and num < upcoming_appointments.number|add:'2' %}
+              <a href="?upcoming_page={{ num }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn">{{ num }}</a>
+            {% endif %}
+          {% endfor %}
+          
+          {% if upcoming_appointments.has_next %}
+            <a href="?upcoming_page={{ upcoming_appointments.next_page_number }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
+            <a href="?upcoming_page={{ upcoming_appointments.paginator.num_pages }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
+          {% else %}
+            <span class="page-btn disabled"><i class='bx bx-chevron-right'></i></span>
+            <span class="page-btn disabled"><i class='bx bx-chevrons-right'></i></span>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state-modern">
+          <i class='bx bx-calendar-x'></i>
+          <h4>No upcoming appointments</h4>
+          <p>Book your first appointment to get started</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="chart-card-modern dash-fade fade-up stagger-2">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-history'></i>
+          <span>Recent Activity</span>
+        </div>
+        {% if recent_activities %}
+        <form method="POST" action="{% url 'accounts:clear_all_activities' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-glass-clear" onclick="return confirm('Are you sure you want to clear all activities?');">
+            <i class='bx bx-trash'></i> Clear All
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      <div style="padding: 24px;">
+        {% if recent_activities %}
+        <div class="activity-list-modern">
+          {% for activity in recent_activities %}
+          <div class="activity-item-modern">
+            <div class="activity-icon-modern {% if 'Created' in activity.action %}teal{% elif 'Updated' in activity.action %}blue{% else %}orange{% endif %}">
+              <i class='bx {% if 'Created' in activity.action %}bx-plus{% elif 'Updated' in activity.action %}bx-edit-alt{% else %}bx-trash{% endif %}'></i>
+            </div>
+            <div class="activity-content" style="flex: 1;">
+              <div class="activity-action">{{ activity.action }}</div>
+              <div class="activity-object">{{ activity.object_name }}</div>
+            </div>
+            <div class="activity-time" style="padding-right: 8px;">{{ activity.timestamp|timesince }} ago</div>
+            <div class="activity-item-actions">
+              <form method="POST" action="{% url 'accounts:delete_activity' activity.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-glass-delete-icon" title="Delete" onclick="return confirm('Delete this activity?');">
+                  <i class='bx bx-x'></i>
+                </button>
+              </form>
+            </div>
+          </div>
+          {% empty %}
+          <div class="activity-item-modern">
+            <div class="activity-icon-modern teal">
+              <i class='bx bx-check'></i>
+            </div>
+            <div class="activity-content">
+              <div class="activity-action">No recent activity</div>
+              <div class="activity-object">Your activity will appear here</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        
+        <!-- Pagination -->
+        {% if recent_activities.has_other_pages %}
+        <div class="pagination-modern">
+          {% if recent_activities.has_previous %}
+            <a href="?page=1{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
+            <a href="?page={{ recent_activities.previous_page_number }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
+          {% else %}
+            <span class="page-btn disabled"><i class='bx bx-chevrons-left'></i></span>
+            <span class="page-btn disabled"><i class='bx bx-chevron-left'></i></span>
+          {% endif %}
+          
+          {% for num in recent_activities.paginator.page_range %}
+            {% if recent_activities.number == num %}
+              <span class="page-btn active">{{ num }}</span>
+            {% elif num > recent_activities.number|add:'-2' and num < recent_activities.number|add:'2' %}
+              <a href="?page={{ num }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn">{{ num }}</a>
+            {% endif %}
+          {% endfor %}
+          
+          {% if recent_activities.has_next %}
+            <a href="?page={{ recent_activities.next_page_number }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
+            <a href="?page={{ recent_activities.paginator.num_pages }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
+          {% else %}
+            <span class="page-btn disabled"><i class='bx bx-chevron-right'></i></span>
+            <span class="page-btn disabled"><i class='bx bx-chevrons-right'></i></span>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state-modern">
+          <i class='bx bx-history'></i>
+          <h4>No activity yet</h4>
+          <p>Your recent changes will appear here</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Medical Records / Completed Visits -->
+<div class="chart-card-modern dash-fade fade-up" style="margin-bottom: 32px;">
+  <div class="chart-header">
+    <div class="chart-title">
+      <i class='bx bx-file'></i>
+      <span>Recent Completed Visits</span>
+    </div>
+    <a href="{% url 'patients:my_pets' %}" class="chart-link">
+      View Medical Records <i class='bx bx-right-arrow-alt'></i>
+    </a>
+  </div>
+  <div style="padding: 20px;">
+    {% if recent_completed %}
+    <div class="schedule-list-modern">
+      {% for appt in recent_completed %}
+      <div class="schedule-item">
+        <div class="schedule-avatar completed">
+          <i class='bx bx-check'></i>
+        </div>
+        <div class="schedule-info">
+          <div class="schedule-pet-name">{{ appt.pet_name }}</div>
+          <div class="schedule-branch">
+            <i class='bx bx-map-pin'></i> {{ appt.branch.name }}
+            {% if appt.preferred_vet %} • Dr. {{ appt.preferred_vet.user.get_full_name }}{% endif %}
+          </div>
+        </div>
+        <div class="schedule-meta">
+          <div class="schedule-datetime">
+            <div class="schedule-date">
+              <i class='bx bx-calendar'></i> {{ appt.appointment_date|date:"M d, Y" }}
+            </div>
+            <div class="schedule-time">{{ appt.get_reason_display|default:"General Visit" }}</div>
+          </div>
+          <span class="status-badge-modern completed">Completed</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state-modern">
+      <i class='bx bx-file-blank'></i>
+      <h4>No completed visits yet</h4>
+      <p>Records appear after your pet's first visit</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CHART.JS CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Common chart options
+const commonOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: {
+    duration: 2000,
+    easing: 'easeInOutQuart'
+  },
+  plugins: {
+    legend: {
+      display: true,
+      position: 'bottom',
+      labels: {
+        padding: 20,
+        usePointStyle: true,
+        pointStyle: 'circle',
+        font: { size: 11, weight: '600', family: 'Inter, sans-serif' },
+        color: '#64748b'
+      }
+    }
+  }
+};
+
+const commonTooltip = {
+  backgroundColor: 'rgba(30, 41, 59, 0.95)',
+  titleColor: '#fff',
+  bodyColor: '#e2e8f0',
+  titleFont: { size: 13, weight: '700' },
+  bodyFont: { size: 12 },
+  padding: 14,
+  cornerRadius: 12,
+  displayColors: true,
+  boxPadding: 6
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1. APPOINTMENT HISTORY LINE CHART
+// ═══════════════════════════════════════════════════════════════════════════
+
+const appointmentHistoryCtx = document.getElementById('appointmentHistoryChart');
+if (appointmentHistoryCtx) {
+  const monthlyData = {{ monthly_appointments_json|safe }};
+  
+  new Chart(appointmentHistoryCtx, {
+    type: 'line',
+    data: {
+      labels: monthlyData.map(d => d.month),
+      datasets: [{
+        label: 'Appointments',
+        data: monthlyData.map(d => d.count),
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 6,
+        pointBackgroundColor: '#6366f1',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverRadius: 8
+      }]
+    },
+    options: {
+      ...commonOptions,
+      plugins: {
+        ...commonOptions.plugins,
+        legend: { display: false },
+        tooltip: {
+          ...commonTooltip,
+          callbacks: {
+            label: ctx => `${ctx.raw} appointment${ctx.raw !== 1 ? 's' : ''}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1, color: '#64748b', font: { size: 11 } },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        x: {
+          ticks: { color: '#64748b', font: { size: 11 } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. PET HEALTH DOUGHNUT CHART
+// ═══════════════════════════════════════════════════════════════════════════
+
+const petHealthCtx = document.getElementById('petHealthChart');
+if (petHealthCtx) {
+  const healthData = {{ pet_health_json|safe }};
+  
+  const healthColors = {
+    'Healthy': '#10b981',
+    'Monitoring': '#f59e0b',
+    'In Treatment': '#3b82f6',
+    'Post-Surgery': '#8b5cf6',
+    'Diagnostics': '#06b6d4',
+    'Critical': '#ef4444'
+  };
+  
+  const labels = healthData.map(d => d.status);
+  const data = healthData.map(d => d.count);
+  const colors = labels.map(l => healthColors[l] || '#94a3b8');
+  const total = data.reduce((a, b) => a + b, 0);
+  
+  // Center text plugin
+  const centerTextPlugin = {
+    id: 'centerText',
+    afterDraw: function(chart) {
+      const ctx = chart.ctx;
+      const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+      const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+      
+      ctx.save();
+      ctx.font = 'bold 28px Inter, sans-serif';
+      ctx.fillStyle = '#1e293b';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(total, centerX, centerY - 8);
+      
+      ctx.font = '500 12px Inter, sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('Total Pets', centerX, centerY + 16);
+      ctx.restore();
+    }
+  };
+  
+  new Chart(petHealthCtx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderWidth: 0,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      ...commonOptions,
+      cutout: '70%',
+      plugins: {
+        ...commonOptions.plugins,
+        tooltip: {
+          ...commonTooltip,
+          callbacks: {
+            label: ctx => {
+              const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+              return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+            }
+          }
+        }
+      }
+    },
+    plugins: [centerTextPlugin]
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3. APPOINTMENT STATUS PIE CHART
+// ═══════════════════════════════════════════════════════════════════════════
+
+const appointmentStatusCtx = document.getElementById('appointmentStatusChart');
+if (appointmentStatusCtx) {
+  const statusData = {{ appointment_status_json|safe }};
+  
+  const statusColors = {
+    'Pending': '#f59e0b',
+    'Confirmed': '#10b981',
+    'Completed': '#6366f1',
+    'Cancelled': '#ef4444'
+  };
+  
+  const labels = statusData.map(d => d.status);
+  const data = statusData.map(d => d.count);
+  const colors = labels.map(l => statusColors[l] || '#94a3b8');
+  const total = data.reduce((a, b) => a + b, 0);
+  
+  new Chart(appointmentStatusCtx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#ffffff',
+        hoverOffset: 12,
+        hoverBorderWidth: 3
+      }]
+    },
+    options: {
+      ...commonOptions,
+      plugins: {
+        ...commonOptions.plugins,
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            padding: 16,
+            usePointStyle: true,
+            pointStyle: 'circle',
+            font: { size: 11, weight: '600' },
+            color: '#64748b',
+            generateLabels: function(chart) {
+              const data = chart.data;
+              return data.labels.map((label, i) => {
+                const value = data.datasets[0].data[i];
+                const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                return {
+                  text: `${label}: ${value} (${pct}%)`,
+                  fillStyle: data.datasets[0].backgroundColor[i],
+                  strokeStyle: data.datasets[0].backgroundColor[i],
+                  lineWidth: 0,
+                  pointStyle: 'circle',
+                  hidden: false,
+                  index: i
+                };
+              });
+            }
+          }
+        },
+        tooltip: {
+          ...commonTooltip,
+          callbacks: {
+            label: ctx => {
+              const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+              return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+            }
+          }
+        }
+      },
+      animation: {
+        animateRotate: true,
+        animateScale: true,
+        duration: 2000,
+        easing: 'easeInOutQuart'
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4. SPENDING BREAKDOWN PIE CHART
+// ═══════════════════════════════════════════════════════════════════════════
+
+const spendingCtx = document.getElementById('spendingChart');
+if (spendingCtx) {
+  const spendingData = {{ spending_breakdown_json|safe }};
+  
+  const categoryColors = {
+    'Services': '#009688',
+    'Products': '#3b82f6',
+    'Medications': '#f59e0b'
+  };
+  
+  if (spendingData.length > 0) {
+    const labels = spendingData.map(d => d.category);
+    const data = spendingData.map(d => d.total);
+    const colors = labels.map(l => categoryColors[l] || '#94a3b8');
+    const total = data.reduce((a, b) => a + b, 0);
+    
+    new Chart(spendingCtx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: colors,
+          borderWidth: 0,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        ...commonOptions,
+        cutout: '65%',
+        plugins: {
+          ...commonOptions.plugins,
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: ctx => {
+                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                return `${ctx.label}: ₱${ctx.raw.toLocaleString()} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  } else {
+    // Show empty state
+    spendingCtx.parentElement.innerHTML = `
+      <div class="empty-state-modern">
+        <i class='bx bx-wallet'></i>
+        <h4>No spending data</h4>
+        <p>Your spending breakdown will appear here</p>
+      </div>
+    `;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5. VISITS PER PET BAR CHART
+// ═══════════════════════════════════════════════════════════════════════════
+
+const visitsPerPetCtx = document.getElementById('visitsPerPetChart');
+if (visitsPerPetCtx) {
+  const visitsData = {{ visits_per_pet_json|safe }};
+  
+  if (visitsData.length > 0) {
+    const labels = visitsData.map(d => d.pet__name);
+    const data = visitsData.map(d => d.visits);
+    
+    // Gradient colors for bars
+    const barColors = [
+      '#009688', '#00bcd4', '#3b82f6', '#6366f1', '#8b5cf6', '#f59e0b'
+    ];
+    
+    new Chart(visitsPerPetCtx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Visits',
+          data: data,
+          backgroundColor: barColors.slice(0, labels.length),
+          borderRadius: 8,
+          borderSkipped: false,
+          barThickness: 40
+        }]
+      },
+      options: {
+        ...commonOptions,
+        indexAxis: 'y',
+        plugins: {
+          ...commonOptions.plugins,
+          legend: { display: false },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: ctx => `${ctx.raw} visit${ctx.raw !== 1 ? 's' : ''}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, color: '#64748b', font: { size: 11 } },
+            grid: { color: 'rgba(0,0,0,0.05)' }
+          },
+          y: {
+            ticks: { color: '#1e293b', font: { size: 12, weight: '600' } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  } else {
+    visitsPerPetCtx.parentElement.innerHTML = `
+      <div class="empty-state-modern">
+        <i class='bx bx-bar-chart-alt-2'></i>
+        <h4>No visit data</h4>
+        <p>Pet visits will appear here after appointments</p>
+      </div>
+    `;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ICS CALENDAR DOWNLOAD
+// ═══════════════════════════════════════════════════════════════════════════
+
+function downloadICS(petName, dateStr, reason) {
+  const dtStart = dateStr.replace(/-/g, '');
+  const dtEnd = dtStart;
+  const summary = 'Follow-up: ' + petName;
+  const description = reason || 'Routine follow-up visit at FMH Animal Clinic';
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//FMHSYNC//EN',
+    'BEGIN:VEVENT',
+    'DTSTART;VALUE=DATE:' + dtStart,
+    'DTEND;VALUE=DATE:' + dtEnd,
+    'SUMMARY:' + summary,
+    'DESCRIPTION:' + description,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'followup_' + petName.replace(/\s+/g, '_') + '.ics';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SPECIES PAGINATION (Client-side)
+// ═══════════════════════════════════════════════════════════════════════════
+
+{% if pet_species_breakdown|length > 5 %}
+const speciesData = {{ pet_species_json|safe }};
+let speciesPage = 0;
+const speciesPerPage = 5;
+const totalSpeciesPages = Math.ceil(speciesData.length / speciesPerPage);
+
+function renderSpeciesPage() {
+  const start = speciesPage * speciesPerPage;
+  const end = start + speciesPerPage;
+  const pageData = speciesData.slice(start, end);
+  
+  const container = document.getElementById('speciesList');
+  if (!container) return;
+  
+  container.innerHTML = pageData.map((species, i) => `
+    <div class="species-row" style="animation: fadeIn 0.4s ease ${i * 0.08}s both;">
+      <div class="species-info">
+        <div class="species-name">${species.species}</div>
+        <div class="species-bar-container">
+          <div class="species-bar-fill" style="width: ${species.percentage}%;"></div>
+        </div>
+      </div>
+      <div class="species-count">${species.count}</div>
+      <span class="species-percentage">${species.percentage}%</span>
+    </div>
+  `).join('');
+  
+  // Update pagination info
+  const pageInfo = document.getElementById('speciesPageInfo');
+  if (pageInfo) pageInfo.textContent = `${speciesPage + 1} / ${totalSpeciesPages}`;
+  
+  // Update button states
+  const prevBtn = document.getElementById('speciesPrev');
+  const nextBtn = document.getElementById('speciesNext');
+  if (prevBtn) prevBtn.disabled = speciesPage === 0;
+  if (nextBtn) nextBtn.disabled = speciesPage >= totalSpeciesPages - 1;
+}
+
+function speciesPageChange(delta) {
+  const newPage = speciesPage + delta;
+  if (newPage >= 0 && newPage < totalSpeciesPages) {
+    speciesPage = newPage;
+    renderSpeciesPage();
+  }
+}
+
+// Add fadeIn animation keyframes if not exists
+if (!document.getElementById('speciesFadeStyle')) {
+  const style = document.createElement('style');
+  style.id = 'speciesFadeStyle';
+  style.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+{% endif %}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCROLL-TRIGGERED ANIMATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function startDashAnimations() {
+  const allFades = Array.from(document.querySelectorAll('.dash-fade'));
+  
+  // Helper: is this element currently in the viewport?
+  function isInView(el) {
+    const r = el.getBoundingClientRect();
+    return r.top < window.innerHeight && r.bottom > 0;
+  }
+  
+  // Helper: get the stagger delay in ms from the element's CSS transition-delay
+  function getStaggerMs(el) {
+    return Math.round((parseFloat(getComputedStyle(el).transitionDelay) || 0) * 1000);
+  }
+  
+  // Helper: reveal an element and replay any chart inside it
+  function revealEl(el, extraDelay) {
+    const stagger = getStaggerMs(el);
+    const total = extraDelay + stagger;
+    setTimeout(() => el.classList.add('visible'), total);
+    el.querySelectorAll('canvas').forEach(canvas => {
+      const chart = Chart.getChart(canvas);
+      if (chart) setTimeout(() => { chart.reset(); chart.update(); }, total + 350);
+    });
+  }
+  
+  // Pass 1 — Elements already in viewport: reveal with a base delay of 80ms
+  //           so the browser paints opacity:0 before transitioning to opacity:1
+  const inView = allFades.filter(isInView);
+  const offScreen = allFades.filter(el => !isInView(el));
+  
+  inView.forEach(el => revealEl(el, 80));
+  
+  // Pass 2 — Off-screen elements: use IntersectionObserver (no extra delay needed)
+  if (offScreen.length) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          revealEl(entry.target, 0);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { root: null, threshold: 0.05, rootMargin: '0px' });
+    offScreen.forEach(el => observer.observe(el));
+  }
+}
+
+// Start animations after charts are ready
+if (typeof Chart !== 'undefined') {
+  startDashAnimations();
+} else {
+  // Fallback if Chart.js not loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(startDashAnimations, 100);
+  });
+}
+</script>
+
+{% endblock %}

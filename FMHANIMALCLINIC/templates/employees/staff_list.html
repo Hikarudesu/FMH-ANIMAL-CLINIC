@@ -1,0 +1,407 @@
+{% extends 'base/portal_admin.html' %}
+{% load currency_filters %}
+
+{% block title %}Staff Management{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+{% include "components/page_hero.html" with title="Staff Management" subtitle="View and update staff member details" icon="bx-group" %}
+
+<!-- Filter Bar -->
+<div class="c-filter-bar" id="staffFilterBar">
+  <div class="c-filter-bar__glow"></div>
+
+  <form method="GET" id="staffFilterForm" class="c-filter-bar__form">
+    <!-- Search Section -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input
+        type="text"
+        name="q"
+        value="{{ q }}"
+        placeholder="Search by name or email..."
+        id="staffSearch"
+        class="c-filter-bar__search-input"
+        autocomplete="off"
+      >
+      <div class="search-dropdown" id="staffSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut">
+        <span>⌘</span><span>K</span>
+      </div>
+    </div>
+
+    <!-- Filter Dropdowns -->
+    <div class="c-filter-bar__filters">
+      <!-- Branch Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_branch %} active{% endif %}">
+          <i class='bx bx-building c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_branch %}
+              <span class="prefix">Branch:</span>
+              {% for branch in branches %}
+                {% if branch.id|stringformat:"d" == selected_branch %}{{ branch.name }}{% endif %}
+              {% endfor %}
+            {% else %}
+              All Branches
+            {% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="branch" onchange="document.getElementById('staffFilterForm').submit()">
+          <option value="">All Branches</option>
+          {% for branch in branches %}
+          <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"d" %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Position Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_position %} active{% endif %}">
+          <i class='bx bx-briefcase c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_position %}
+              <span class="prefix">Position:</span>
+              {% for value, label in positions %}
+                {% if value == selected_position %}{{ label }}{% endif %}
+              {% endfor %}
+            {% else %}
+              All Positions
+            {% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="position" onchange="document.getElementById('staffFilterForm').submit()">
+          <option value="">All Positions</option>
+          {% for value, label in positions %}
+          <option value="{{ value }}" {% if selected_position == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Clear Button -->
+      {% if q or selected_branch or selected_position %}
+      <a href="{% url 'employees:staff_list' %}" class="c-filter-bar__clear" title="Clear Filters">
+        <i class='bx bx-x'></i>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if staff_users %}
+<!-- Staff Table -->
+<div class="admin-table-card">
+    <table class="admin-table staff-table">
+      <thead>
+        <tr>
+          <th style="text-align: center;">Name</th>
+          <th style="text-align: center;">Role</th>
+          <th style="text-align: center;">Branch</th>
+          <th style="text-align: center;">Salary</th>
+          <th style="text-align: center;">License Expiry</th>
+          <th style="text-align: center;">Status</th>
+          <th style="text-align: center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in staff_users %}
+        <tr data-staffname="{{ user.get_full_name|default:user.username }}" data-email="{{ user.email }}" data-branch="{{ user.branch.name|default:'' }}" class="searchable-row">
+        <td style="text-align: center;">
+            <div class="staff-name-cell" style="justify-content: center;">
+              <div class="staff-avatar">
+                {% if user.profile_picture %}
+                  <img src="{{ user.profile_picture.url }}" alt="{{ user.get_full_name|default:user.username }}" class="staff-avatar-image">
+                {% else %}
+                  <span>{{ user.first_name|default:user.username|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}</span>
+                {% endif %}
+              </div>
+              <div class="cell-stack" style="align-items: center;">
+                <span class="cell-primary">{{ user.get_full_name|default:user.username }}</span>
+                <span class="cell-secondary">{{ user.email }}</span>
+              </div>
+            </div>
+          </td>
+          <td style="text-align: center;">
+            <span class="admin-badge position-{{ user.assigned_role.code|lower }}">{{ user.assigned_role.name }}</span>
+          </td>
+          <td style="text-align: center;">
+            <span class="cell-secondary">{{ user.branch.name|default:"—" }}</span>
+          </td>
+          <td style="text-align: center;" class="cell-secondary">
+            {% if user.staff_profile %}₱{{ user.staff_profile.salary|peso }}{% else %}—{% endif %}
+          </td>
+          <td style="text-align: center;">
+            {% if user.staff_profile and user.staff_profile.license_expiry %}
+              <span class="cell-secondary {% if user.staff_profile.license_expired %}text-danger-inline{% endif %}">
+                {{ user.staff_profile.license_expiry|date:"M d, Y" }}
+                {% if user.staff_profile.license_expired %}<i class='bx bx-error-circle'></i>{% endif %}
+              </span>
+            {% else %}
+              <span class="cell-secondary">N/A</span>
+            {% endif %}
+          </td>
+          <td style="text-align: center;">
+            {% if user.is_active %}
+              <span class="admin-badge active">Active</span>
+            {% else %}
+              <span class="admin-badge inactive">Inactive</span>
+            {% endif %}
+          </td>
+          <td style="text-align: center;">
+            <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
+              <a href="{% url 'employees:staff_edit' user.pk %}" class="action-btn" title="Edit">
+                <i class='bx bx-edit-alt'></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div class="dashboard-card full-width">
+  <div class="card-body">
+    <div class="empty-state-large">
+      <div class="empty-state-icon">
+        <i class='bx bx-group'></i>
+      </div>
+      <h3>No staff members found</h3>
+      <p>Add your first staff member to get started managing your clinic team.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+  /* Search Dropdown */
+  .search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 9999 !important;
+    display: none;
+    animation: dropdownIn 0.2s cubic-bezier(0.23, 1, 0.32, 1) both;
+    margin-top: 8px;
+  }
+
+  .search-dropdown.active {
+    display: block;
+  }
+
+  @keyframes dropdownIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .search-dropdown-item {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-dropdown-item:last-child {
+    border-bottom: none;
+  }
+
+  .search-dropdown-item:hover,
+  .search-dropdown-item.active {
+    background: rgba(0, 150, 136, 0.06);
+  }
+
+  .search-dropdown-item i {
+    font-size: 1.2rem;
+    color: var(--primary);
+    width: 24px;
+    text-align: center;
+  }
+
+  .search-dropdown-item .item-info {
+    flex: 1;
+  }
+
+  .search-dropdown-item .item-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+
+  .search-dropdown-item .item-sub {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+
+  .search-dropdown-highlight {
+    background: rgba(0, 150, 136, 0.15);
+    color: var(--primary);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .search-dropdown-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .search-dropdown-empty i {
+    font-size: 1.5rem;
+    opacity: 0.5;
+  }
+
+  [data-theme="dark"] .search-dropdown {
+    background: var(--surface);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .staff-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+    display: block;
+  }
+</style>
+
+<script>
+// ══════ STAFF SEARCH AUTOCOMPLETE ══════
+(function initStaffSearch() {
+  const searchInput = document.getElementById('staffSearch');
+  const dropdown    = document.getElementById('staffSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
+      name   : row.dataset.staffname || '',
+      email  : row.dataset.email     || '',
+      branch : row.dataset.branch    || '',
+      row    : row
+    }));
+  }
+
+  let staff = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No staff found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map((r, idx) => `
+        <div class="search-dropdown-item" data-index="${idx}">
+          <i class='bx bx-user'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(r.name, q)}</div>
+            <div class="item-sub">${highlight(r.email, q)} &bull; ${r.branch || '—'}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].name;
+          filterRows(results[idx].name.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    staff.forEach(s => {
+      const nl = s.name.toLowerCase(); const el = s.email.toLowerCase(); const bl = s.branch.toLowerCase();
+      const matches = !q || nl.includes(q) || el.includes(q) || bl.includes(q);
+      s.row.style.display = matches ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = staff.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.email.toLowerCase().includes(q) ||
+      s.branch.toLowerCase().includes(q)
+    );
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx + 1) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[idx]?.classList.remove('active');
+      idx = (idx - 1 + items.length) % items.length;
+      items[idx]?.classList.add('active');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (idx >= 0) {
+        items[idx]?.click();
+      }
+      hideDropdown();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+
+  // ⌘K keyboard shortcut
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+    }
+  });
+}());
+</script>
+
+{% endblock %}

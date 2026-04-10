@@ -1,0 +1,273 @@
+{% load record_filters %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Medical Record - {{ record.pet.name }}</title>
+    <link rel="stylesheet" href="{% static 'css/records/pdf_record.css' %}">
+    <style>
+        @page {
+            size: A4;
+            margin: 12mm;
+
+            {% if not is_admin %}
+            @frame watermark_logo {
+                -pdf-frame-content: watermark-logo-block;
+                left: 60mm;
+                top: 110mm;
+                width: 80mm;
+                height: 80mm;
+            }
+            @frame watermark_text1 {
+                -pdf-frame-content: wm-text-1;
+                left: 0mm;
+                top: 10mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text2 {
+                -pdf-frame-content: wm-text-2;
+                left: 0mm;
+                top: 35mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text3 {
+                -pdf-frame-content: wm-text-3;
+                left: 0mm;
+                top: 60mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text4 {
+                -pdf-frame-content: wm-text-4;
+                left: 0mm;
+                top: 85mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text5 {
+                -pdf-frame-content: wm-text-5;
+                left: 0mm;
+                top: 110mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text6 {
+                -pdf-frame-content: wm-text-6;
+                left: 0mm;
+                top: 135mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text7 {
+                -pdf-frame-content: wm-text-7;
+                left: 0mm;
+                top: 160mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text8 {
+                -pdf-frame-content: wm-text-8;
+                left: 0mm;
+                top: 185mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text9 {
+                -pdf-frame-content: wm-text-9;
+                left: 0mm;
+                top: 210mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text10 {
+                -pdf-frame-content: wm-text-10;
+                left: 0mm;
+                top: 235mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text11 {
+                -pdf-frame-content: wm-text-11;
+                left: 0mm;
+                top: 255mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            @frame watermark_text12 {
+                -pdf-frame-content: wm-text-12;
+                left: 0mm;
+                top: 275mm;
+                width: 210mm;
+                height: 12mm;
+            }
+            {% endif %}
+        }
+
+        .wm-txt {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11pt;
+            font-weight: bold;
+            color: #e0e0e0;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-align: left;
+            padding-left: 3mm;
+        }
+    </style>
+</head>
+<body>
+
+    {% if not is_admin %}
+    <!-- Watermark: center logo (rendered via @frame) -->
+    <div id="watermark-logo-block" style="text-align: center;">
+        <img src="{% static 'image/fmh-logo-watermark.png' %}" style="width: 80mm; height: 80mm;">
+    </div>
+    <!-- Watermark: subtle text rows (rendered via @frame) -->
+    <div id="wm-text-1"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-2"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-3"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-4"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-5"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-6"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-7"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-8"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-9"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-10"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-11"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    <div id="wm-text-12"><p class="wm-txt">FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FMH ANIMAL CLINIC</p></div>
+    {% endif %}
+
+    <!-- Header -->
+    <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #333; margin-bottom: 10px;">
+        <tr>
+            <td style="vertical-align: middle; text-align: center; padding-bottom: 8px;">
+                <img src="{% static 'image/fmh-logo.png' %}" style="width: 50px; height: 50px; margin-bottom: 4px;" alt="FMH Logo">
+                <div class="title" style="text-align: center;">PET MEDICAL RECORD</div>
+                <div class="subtitle" style="text-align: center;">FMH Animal Clinic — Official Document</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Owner Information -->
+    <div class="section-header">OWNER INFORMATION</div>
+    <table class="info-table">
+        <tr>
+            <td class="label">Name</td>
+            <td class="value">{{ record.pet.owner_display_name }}</td>
+            <td class="label">Contact</td>
+            <td class="value">{{ record.pet.owner_display_phone }}</td>
+        </tr>
+        <tr>
+            <td class="label">Address</td>
+            <td class="value" colspan="3">{{ record.pet.owner_display_address }}</td>
+        </tr>
+    </table>
+
+    <!-- Pet Information -->
+    <div class="section-header">PET INFORMATION</div>
+    <table class="info-table">
+        <tr>
+            <td class="label">Name</td>
+            <td class="value">{{ record.pet.name }}</td>
+            <td class="label">Species</td>
+            <td class="value">{{ record.pet.species|default:"—" }}</td>
+            <td class="label">Breed</td>
+            <td class="value">{{ record.pet.breed|default:"—" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Sex</td>
+            <td class="value">{{ record.pet.get_sex_display|default:"—" }}</td>
+            <td class="label">Age/DOB</td>
+            <td class="value">{{ record.pet.date_of_birth|date:"M j, Y"|default:"\u2014" }}</td>
+            <td class="label">Color</td>
+            <td class="value">{{ record.pet.color|default:"—" }}</td>
+        </tr>
+    </table>
+
+    <!-- Visit Information -->
+    <div class="section-header">VISIT INFORMATION</div>
+    <div class="vet-banner">
+        <strong>Attending Veterinarian:</strong> 
+        {% if record.vet %}Dr. {{ record.vet.first_name }} {{ record.vet.last_name }}{% if record.vet.license_number %} &nbsp;<span style="color:#555;">(PRC Lic. No. {{ record.vet.license_number }})</span>{% endif %}{% else %}Not Assigned{% endif %}
+        &nbsp;&nbsp;•&nbsp;&nbsp;
+        <strong>Branch:</strong> {{ record.branch.name|default:"—" }}{% if record.branch.clinic_license_number %} &nbsp;<span style="color:#555;">(Lic. No. {{ record.branch.clinic_license_number }})</span>{% endif %}
+        &nbsp;&nbsp;•&nbsp;&nbsp;
+        <strong>Status:</strong> {{ record.status }}
+    </div>
+
+    <!-- Medical Record Table -->
+    <table class="records-table">
+        <thead>
+            <tr>
+                <th class="col-date">Date</th>
+                <th class="col-vitals">Wt / Temp</th>
+                <th class="col-history">History / Clinical Signs</th>
+                <th class="col-tx">Treatment (Tx)</th>
+                <th class="col-rx">Prescription (Rx)</th>
+                <th class="col-ffup">Follow-Up</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td class="col-date">{{ entry.date_recorded|date:"M j, Y" }}</td>
+                <td class="col-vitals">
+                    {% if entry.weight %}{{ entry.weight }}kg{% else %}—{% endif %}<br>
+                    {% if entry.temperature %}{{ entry.temperature }}°C{% else %}—{% endif %}
+                </td>
+                <td class="col-history">
+                    <div class="text-cell">{{ entry.history_clinical_signs|default:"No notes recorded"|break_long_words }}</div>
+                </td>
+                <td class="col-tx">
+                    <div class="text-cell">{{ entry.treatment|default:"—"|break_long_words }}</div>
+                </td>
+                <td class="col-rx">
+                    <div class="text-cell">{{ entry.rx|default:"—"|break_long_words }}</div>
+                </td>
+                <td class="col-ffup">{{ entry.ff_up|date:"M j, Y"|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;">No visit entries recorded.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Signature Line -->
+    {% if is_admin %}
+    <table style="width: 100%; border-collapse: collapse; margin-top: 30px; margin-bottom: 10px;">
+        <tr>
+            <td style="width: 60%;"></td>
+            <td style="width: 40%; text-align: center; border-top: 1.5px solid #333; padding-top: 5px;">
+                <div style="font-size: 8pt; font-weight: bold; color: #555; text-transform: uppercase; letter-spacing: 0.5px;">Attending Veterinarian's Signature</div>
+            </td>
+        </tr>
+    </table>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="vertical-align: middle; text-align: left;">
+                    <span class="generated" style="font-size: 7.5pt; color: #555;">Record Created: {{ record.created_at|date:"M j, Y" }} at {{ record.created_at|time:"g:i A" }} &nbsp;|&nbsp; Last Updated: {{ record.updated_at|date:"M j, Y" }} at {{ record.updated_at|time:"g:i A" }}</span>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    {% if not is_admin %}
+    <!-- Disclaimer for user portal PDF -->
+    <div style="margin-top: 6px; padding: 8px 10px; border: 1px solid #ccc; background-color: #fafafa;">
+        <div style="font-size: 8pt; color: #555; text-align: center;">
+            <strong style="color: #d32f2f;">IMPORTANT:</strong> This is a digital copy for personal reference only.
+            For an official verified medical record with the attending veterinarian's signature,
+            please visit FMH Animal Clinic in person.
+        </div>
+    </div>
+    {% endif %}
+
+</body>
+</html>

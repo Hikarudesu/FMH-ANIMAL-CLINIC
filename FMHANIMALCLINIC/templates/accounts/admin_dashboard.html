@@ -1,0 +1,1872 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+{% url 'appointments:admin_list' as appt_url %}
+{% url 'patients:admin_list' as patient_url %}
+{% include "components/page_hero.html" with title="Dashboard" icon="bx-grid-alt" subtitle="Overview of clinic activities and statistics" action_url=appt_url action_label="New Appointment" action_icon="bx-calendar-plus" action_url_2=patient_url action_label_2="View Patients" action_icon_2="bx-user-plus" %}
+
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODERN ADMIN DASHBOARD - COMPLETE REDESIGN -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<!-- HERO STATS ROW -->
+<div class="hero-stats">
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon teal">
+      <i class='bx bx-calendar-check'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ today_count }}</span>
+      <span class="hero-stat-label">Today's Appointments</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item success"><i class='bx bx-check'></i> {{ today_confirmed }} confirmed</span>
+        <span class="meta-item warning"><i class='bx bx-time'></i> {{ today_pending }} pending</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon blue">
+      <i class='bx bxs-dog'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ patient_count }}</span>
+      <span class="hero-stat-label">Registered Pets</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">+{{ new_patients_this_week }} this week</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon purple">
+      <i class='bx bx-money'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">₱{{ total_revenue_this_week|floatformat:0 }}</span>
+      <span class="hero-stat-label">Weekly Revenue</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item {% if revenue_growth >= 0 %}success{% else %}danger{% endif %}">
+          <i class='bx bx-trending-{% if revenue_growth >= 0 %}up{% else %}down{% endif %}'></i> {{ revenue_growth|floatformat:1 }}% vs last week
+        </span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon orange">
+      <i class='bx bx-group'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ new_customers_this_week }}</span>
+      <span class="hero-stat-label">New Customers</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">{{ returning_customers_this_week }} returning</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ALERT BANNER (if needed) -->
+{% if low_stock_count > 0 or new_inquiry_count > 0 %}
+<div class="alert-banner-modern">
+  <div class="alert-icon">
+    <i class='bx bx-bell bx-tada'></i>
+  </div>
+  <div class="alert-content">
+    <h4>Action Required</h4>
+    <div class="alert-items">
+      {% if low_stock_count > 0 %}
+      <a href="{% url 'inventory:management' %}" class="alert-item">
+        <i class='bx bx-package'></i>
+        <span>{{ low_stock_count }} Low Stock</span>
+      </a>
+      {% endif %}
+      {% if new_inquiry_count > 0 %}
+      <a href="{% url 'inquiries:list' %}?status=NEW" class="alert-item">
+        <i class='bx bx-envelope'></i>
+        <span>{{ new_inquiry_count }} New Inquiries</span>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  <i class='bx bx-x alert-close' onclick="this.parentElement.style.display='none'"></i>
+</div>
+{% endif %}
+
+<!-- MAIN CHARTS GRID -->
+<div class="charts-section">
+  
+  <!-- ROW 1: Revenue & Branch Revenue -->
+  <div class="charts-row">
+    <div class="chart-card-modern large">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-trending-up'></i>
+          <span>Revenue Trend</span>
+        </div>
+        <div class="chart-badge purple">Last 6 Months</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="revenueChart"></canvas>
+      </div>
+    </div>
+    
+    {% if branches|length > 1 %}
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-money-withdraw'></i>
+          <span>Revenue by Branch</span>
+        </div>
+        <div class="chart-badge teal">This Week</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="branchRevenuePieChart"></canvas>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- ROW 2: Most Appointed Branches & Weekly Comparison -->
+  <div class="charts-row">
+    {% if branches|length > 1 %}
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-building-house'></i>
+          <span>Most Appointed Branches</span>
+        </div>
+        <div class="chart-badge orange">This Month</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="branchAppointmentChart"></canvas>
+      </div>
+    </div>
+    {% else %}
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-calendar-check'></i>
+          <span>Appointment Status</span>
+        </div>
+        <div class="chart-badge orange">Today</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="appointmentStatusChart"></canvas>
+      </div>
+    </div>
+    {% endif %}
+    
+    <div class="chart-card-modern large">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>Weekly Comparison</span>
+        </div>
+        <div class="chart-badge emerald">This vs Last Week</div>
+      </div>
+      <div class="chart-body tall">
+        <canvas id="weeklyComparisonChart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  {% if branches|length > 1 %}
+  <!-- ROW 3: Branch Growth Trend (Full Width) -->
+  <div class="charts-row">
+    <div class="chart-card-modern full">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-line-chart'></i>
+          <span>Branch Growth Trend</span>
+        </div>
+        <div class="chart-badge purple">Last 6 Months</div>
+        <a href="{% url 'patients:admin_list' %}" class="chart-link">
+          View Reports <i class='bx bx-right-arrow-alt'></i>
+        </a>
+      </div>
+      <div class="chart-body wide">
+        <canvas id="branchMonthlyChart"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- QUICK INSIGHTS GRID -->
+<div class="insights-section">
+  <div class="section-title">
+    <i class='bx bx-bulb'></i>
+    <span>Quick Insights</span>
+  </div>
+  
+  <div class="insights-grid">
+    <!-- Customer Metrics -->
+    <div class="insight-card">
+      <div class="insight-header">
+        <i class='bx bx-user-voice'></i>
+        <span>Customers</span>
+      </div>
+      <div class="insight-metrics">
+        <div class="metric-item">
+          <span class="metric-value success">{{ new_customers_this_week }}</span>
+          <span class="metric-label">New</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value blue">{{ returning_customers_this_week }}</span>
+          <span class="metric-label">Returning</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-value purple">{{ new_patients_this_week }}</span>
+          <span class="metric-label">Pets Added</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Top Services -->
+    <div class="insight-card">
+      <div class="insight-header">
+        <i class='bx bx-star'></i>
+        <span>Top Services</span>
+      </div>
+      <div class="service-list-modern">
+        {% if service_breakdown %}
+          {% for service in service_breakdown|slice:":4" %}
+          <div class="service-row">
+            <span class="service-rank">#{{ forloop.counter }}</span>
+            <span class="service-name">{{ service.name }}</span>
+            <span class="service-count">{{ service.usage_count }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="no-data">No data available</div>
+        {% endif %}
+      </div>
+    </div>
+    
+    {% if branches|length > 1 %}
+    <!-- Branch Summary -->
+    <div class="insight-card wide">
+      <div class="insight-header">
+        <i class='bx bx-buildings'></i>
+        <span>Branch Performance</span>
+      </div>
+      <div class="branch-bars">
+        {% for branch_data in branch_revenue_data %}
+        <div class="branch-bar-item">
+          <div class="branch-bar-label">
+            <span class="branch-name">{{ branch_data.name }}</span>
+            <span class="branch-value">₱{{ branch_data.revenue|floatformat:0 }}</span>
+          </div>
+          <div class="branch-bar-track">
+            <div class="branch-bar-fill" style="--target-width: {{ branch_data.percentage }}%; background: linear-gradient(90deg, #009688, #00bcd4);"></div>
+          </div>
+          <span class="branch-percentage">{{ branch_data.percentage }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- TODAY'S SCHEDULE -->
+<div class="schedule-section">
+  <div class="section-title">
+    <i class='bx bx-calendar'></i>
+    <span>Today's Schedule</span>
+    <a href="{% url 'appointments:admin_list' %}" class="section-link">View All <i class='bx bx-right-arrow-alt'></i></a>
+  </div>
+  
+  <div class="schedule-table-wrapper">
+    {% if todays_appointments %}
+    <table class="schedule-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Patient</th>
+          <th>Owner</th>
+          <th>Branch</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for appt in todays_appointments %}
+        <tr>
+          <td>
+            <span class="time-badge">{{ appt.appointment_time_display }}</span>
+          </td>
+          <td>
+            <div class="patient-info">
+              <i class='bx bxs-dog'></i>
+              <span>{{ appt.pet_name }}</span>
+            </div>
+          </td>
+          <td>{{ appt.owner_name }}</td>
+          <td><span class="branch-tag">{{ appt.branch.name }}</span></td>
+          <td><span class="status-pill {{ appt.status|lower }}">{{ appt.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-schedule">
+      <i class='bx bx-calendar-x'></i>
+      <h4>No appointments today</h4>
+      <p>Schedule will appear here when appointments are booked.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODERN DASHBOARD STYLES - COMPLETE REDESIGN -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<style>
+  /* ═══════════════════════════════════════════════ */
+  /* ROOT VARIABLES & ANIMATIONS */
+  /* ═══════════════════════════════════════════════ */
+  
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(0, 150, 136, 0.15); }
+    50% { box-shadow: 0 0 40px rgba(0, 150, 136, 0.3); }
+  }
+  
+  /* ═══════════════════════════════════════════════ */
+  /* SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In)   */
+  /* ═══════════════════════════════════════════════ */
+  
+  @keyframes expandWidth {
+    from { width: 0; }
+    to { width: var(--target-width, 100%); }
+  }
+  
+  /* Prevent horizontal scrollbar from translateX animations */
+  .portal-content {
+    overflow-x: hidden;
+  }
+  
+  /* Base: hidden state */
+  .dash-fade {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s cubic-bezier(0.33, 1, 0.68, 1),
+                transform 0.7s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  /* Directional variants */
+  .dash-fade.from-left {
+    transform: translateX(-24px);
+  }
+  .dash-fade.from-right {
+    transform: translateX(24px);
+  }
+
+  /* Revealed state */
+  .dash-fade.visible {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  /* Stagger delays */
+  .dash-fade.stagger-1 { transition-delay: 0.06s; }
+  .dash-fade.stagger-2 { transition-delay: 0.12s; }
+  .dash-fade.stagger-3 { transition-delay: 0.18s; }
+  .dash-fade.stagger-4 { transition-delay: 0.24s; }
+  .dash-fade.stagger-5 { transition-delay: 0.30s; }
+  .dash-fade.stagger-6 { transition-delay: 0.36s; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* HERO STATS ROW */
+  /* ═══════════════════════════════════════════════ */
+  
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  
+  @media (max-width: 1200px) {
+    .hero-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 640px) {
+    .hero-stats { grid-template-columns: 1fr; }
+  }
+  
+  .hero-stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+
+  
+  .hero-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    opacity: 0;
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hero-stat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary);
+  }
+  
+  .hero-stat-card:hover::before {
+    opacity: 1;
+  }
+  
+  .hero-stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hero-stat-icon i {
+    font-size: 26px;
+    color: white;
+  }
+  
+  .hero-stat-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+  .hero-stat-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+  .hero-stat-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+  .hero-stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  
+  .hero-stat-card:hover .hero-stat-icon {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  
+  .hero-stat-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .hero-stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-1);
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+  
+  .hero-stat-label {
+    font-size: 13px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+  
+  .hero-stat-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  
+  .meta-item.success { color: #10b981; }
+  .meta-item.warning { color: #f59e0b; }
+  .meta-item.danger { color: #ef4444; }
+  
+  .meta-item i { font-size: 14px; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* ALERT BANNER MODERN */
+  /* ═══════════════════════════════════════════════ */
+  
+  .alert-banner-modern {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #fcd34d;
+    border-radius: 16px;
+    padding: 18px 24px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    position: relative;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .alert-icon {
+    width: 48px;
+    height: 48px;
+    background: #f59e0b;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .alert-icon i {
+    font-size: 24px;
+    color: white;
+  }
+  
+  .alert-content { flex: 1; }
+  
+  .alert-content h4 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #78350f;
+  }
+  
+  .alert-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  
+  .alert-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    text-decoration: none;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+  }
+  
+  .alert-item:hover {
+    background: rgba(255,255,255,0.8);
+    transform: translateY(-2px);
+  }
+  
+  .alert-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 20px;
+    color: #92400e;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .alert-close:hover { opacity: 1; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* CHARTS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .charts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 24px;
+  }
+  
+  .charts-row:nth-child(2) {
+    grid-template-columns: 1fr 1.5fr;
+  }
+  
+  @media (max-width: 992px) {
+    .charts-row,
+    .charts-row:nth-child(2) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .chart-card-modern {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .chart-card-modern:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
+    border-color: transparent;
+  }
+  
+  .chart-card-modern.full {
+    grid-column: 1 / -1;
+  }
+  
+  .chart-card-modern.large {
+    flex: 1.5;
+  }
+  
+  .chart-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .chart-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+  
+  .chart-title i {
+    font-size: 20px;
+    color: var(--primary);
+  }
+  
+  .chart-title span {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .chart-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .chart-badge.purple {
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+  }
+  
+  .chart-badge.teal {
+    background: rgba(0, 150, 136, 0.1);
+    color: #009688;
+  }
+  
+  .chart-badge.orange {
+    background: rgba(249, 115, 22, 0.1);
+    color: #f97316;
+  }
+  
+  .chart-badge.emerald {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .chart-card-modern:hover .chart-badge {
+    transform: scale(1.05);
+  }
+  
+  .chart-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    margin-left: auto;
+    transition: all 0.2s ease;
+  }
+  
+  .chart-link:hover {
+    gap: 8px;
+  }
+  
+  .chart-body {
+    padding: 24px;
+    height: 280px;
+    position: relative;
+  }
+  
+  .chart-body.tall { height: 320px; }
+  .chart-body.wide { height: 260px; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* INSIGHTS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .insights-section {
+    margin-bottom: 32px;
+  }
+  
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .section-title i {
+    font-size: 22px;
+    color: var(--primary);
+  }
+  
+  .section-title span {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .section-link {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    transition: gap 0.2s ease;
+  }
+  
+  .section-link:hover { gap: 8px; }
+  
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  
+  @media (max-width: 1100px) {
+    .insights-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 700px) {
+    .insights-grid { grid-template-columns: 1fr; }
+  }
+  
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 24px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .insight-card.wide {
+    grid-column: span 1;
+  }
+  
+  @media (min-width: 1100px) {
+    .insight-card.wide { grid-column: span 1; }
+  }
+  
+  .insight-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+    border-color: var(--primary);
+  }
+  
+  .insight-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .insight-header i {
+    font-size: 20px;
+    color: var(--primary);
+  }
+  
+  .insight-header span {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .insight-metrics {
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+  }
+  
+  .metric-item {
+    flex: 1;
+    text-align: center;
+    padding: 14px 8px;
+    background: var(--bg);
+    border-radius: 12px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .metric-item:hover {
+    transform: translateY(-2px);
+  }
+  
+  .metric-value {
+    display: block;
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 4px;
+    letter-spacing: -1px;
+  }
+  
+  .metric-value.success { color: #10b981; }
+  .metric-value.blue { color: #3b82f6; }
+  .metric-value.purple { color: #8b5cf6; }
+  
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .service-list-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .service-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: 10px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .service-row:hover {
+    transform: translateX(4px);
+    background: rgba(0, 150, 136, 0.05);
+  }
+  
+  .service-rank {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 8px;
+  }
+  
+  .service-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .service-count {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary);
+    padding: 4px 10px;
+    background: rgba(0, 150, 136, 0.1);
+    border-radius: 8px;
+  }
+  
+  .no-data {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-3);
+    font-size: 13px;
+  }
+  
+  /* Branch Bars */
+  .branch-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .branch-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  
+  .branch-bar-label {
+    width: 140px;
+    flex-shrink: 0;
+  }
+  
+  .branch-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 2px;
+  }
+  
+  .branch-value {
+    font-size: 11px;
+    color: var(--text-3);
+  }
+  
+  .branch-bar-track {
+    flex: 1;
+    height: 10px;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  
+  .branch-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    width: 0;
+    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+  }
+  
+  .dash-fade.visible .branch-bar-fill {
+    width: var(--target-width, 100%);
+  }
+  
+  .branch-percentage {
+    width: 40px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* SCHEDULE SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .schedule-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .schedule-section > .section-title {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  
+  .schedule-table-wrapper {
+    padding: 0;
+    overflow-x: auto;
+  }
+  
+  .schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .schedule-table th,
+  .schedule-table td {
+    padding: 16px 24px;
+    text-align: left;
+    font-size: 13px;
+  }
+  
+  .schedule-table thead {
+    background: var(--bg);
+  }
+  
+  .schedule-table th {
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  
+  .schedule-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s ease;
+  }
+  
+  .schedule-table tbody tr:hover {
+    background: rgba(0, 150, 136, 0.03);
+  }
+  
+  .schedule-table tbody tr:last-child {
+    border-bottom: none;
+  }
+  
+  .time-badge {
+    display: inline-flex;
+    padding: 6px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-weight: 600;
+    color: var(--text-1);
+    font-size: 12px;
+  }
+  
+  .patient-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .patient-info i {
+    font-size: 18px;
+    color: var(--primary);
+  }
+  
+  .branch-tag {
+    display: inline-flex;
+    padding: 4px 10px;
+    background: rgba(0, 150, 136, 0.1);
+    color: #009688;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .status-pill {
+    display: inline-flex;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+  .status-pill.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .status-pill.confirmed { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .status-pill.completed { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+  .status-pill.cancelled { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+  .status-pill.no_show { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+  
+  .empty-schedule {
+    padding: 60px 24px;
+    text-align: center;
+  }
+  
+  .empty-schedule i {
+    font-size: 48px;
+    color: var(--text-3);
+    margin-bottom: 16px;
+    display: block;
+  }
+  
+  .empty-schedule h4 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .empty-schedule p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* DARK MODE ADJUSTMENTS */
+  /* ═══════════════════════════════════════════════ */
+  
+  [data-theme="dark"] .alert-banner-modern {
+    background: linear-gradient(135deg, #422006 0%, #713f12 100%);
+    border-color: #a16207;
+  }
+  
+  [data-theme="dark"] .alert-content h4 { color: #fef3c7; }
+  [data-theme="dark"] .alert-item { color: #fde68a; background: rgba(0,0,0,0.2); }
+  [data-theme="dark"] .alert-close { color: #fde68a; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In System)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  function initDashboardAnimations() {
+    // Hero stat cards — staggered fade up
+    document.querySelectorAll('.hero-stat-card').forEach((card, i) => {
+      card.classList.add('dash-fade', `stagger-${i + 1}`);
+    });
+    
+    // Chart cards — alternate left/right per row
+    document.querySelectorAll('.charts-row').forEach(row => {
+      const cards = row.querySelectorAll('.chart-card-modern');
+      cards.forEach((card, i) => {
+        card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
+        if (i > 0) card.classList.add('stagger-2');
+      });
+    });
+    
+    // Alert banner
+    const alert = document.querySelector('.alert-banner-modern');
+    if (alert) alert.classList.add('dash-fade');
+    
+    // Section titles
+    document.querySelectorAll('.insights-section > .section-title').forEach(el => {
+      el.classList.add('dash-fade', 'from-left');
+    });
+    document.querySelectorAll('.schedule-section > .section-title').forEach(el => {
+      el.classList.add('dash-fade', 'from-left');
+    });
+    
+    // Insight cards — staggered
+    document.querySelectorAll('.insight-card').forEach((card, i) => {
+      card.classList.add('dash-fade', `stagger-${i + 1}`);
+    });
+    
+    // Branch bar items
+    document.querySelectorAll('.branch-bar-item').forEach((bar, i) => {
+      bar.classList.add('dash-fade', 'from-right', `stagger-${i + 1}`);
+    });
+    
+    // Schedule section
+    const schedule = document.querySelector('.schedule-section');
+    if (schedule) schedule.classList.add('dash-fade');
+    
+    // Table rows
+    document.querySelectorAll('.schedule-table tbody tr').forEach((row, i) => {
+      row.classList.add('dash-fade', `stagger-${Math.min(i + 1, 6)}`);
+    });
+  }
+  
+  
+
+  // ─── Step 1: add .dash-fade classes (elements start hidden) ───────────
+  initDashboardAnimations();
+  
+  // ─── Step 2: createDashObserver is called AFTER all charts are ready ──
+  //     We define it here but call it at the bottom of DOMContentLoaded
+  function startDashAnimations() {
+    const allFades = Array.from(document.querySelectorAll('.dash-fade'));
+    
+    // Helper: is this element currently in the viewport?
+    function isInView(el) {
+      const r = el.getBoundingClientRect();
+      return r.top < window.innerHeight && r.bottom > 0;
+    }
+    
+    // Helper: get the stagger delay in ms from the element's CSS transition-delay
+    function getStaggerMs(el) {
+      return Math.round((parseFloat(getComputedStyle(el).transitionDelay) || 0) * 1000);
+    }
+    
+    // Helper: reveal an element and replay any chart inside it
+    function revealEl(el, extraDelay) {
+      const stagger = getStaggerMs(el);
+      const total = extraDelay + stagger;
+      setTimeout(() => el.classList.add('visible'), total);
+      el.querySelectorAll('canvas').forEach(canvas => {
+        const chart = Chart.getChart(canvas);
+        if (chart) setTimeout(() => { chart.reset(); chart.update(); }, total + 350);
+      });
+    }
+    
+    // Pass 1 — Elements already in viewport: reveal with a base delay of 80ms
+    //           so the browser paints opacity:0 before transitioning to opacity:1
+    const inView = allFades.filter(isInView);
+    const offScreen = allFades.filter(el => !isInView(el));
+    
+    inView.forEach(el => revealEl(el, 80));
+    
+    // Pass 2 — Off-screen elements: use IntersectionObserver (no extra delay needed)
+    if (offScreen.length) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            revealEl(entry.target, 0);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { root: null, threshold: 0.05, rootMargin: '0px' });
+      offScreen.forEach(el => observer.observe(el));
+    }
+  }
+  
+  // -- Global Chart Defaults & Premium Styling --
+  Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  Chart.defaults.color = 'var(--text-3, #94a3b8)';
+  
+  const commonTooltip = {
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    titleColor: '#f8fafc',
+    bodyColor: '#cbd5e1',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    padding: 12,
+    boxPadding: 6,
+    usePointStyle: true,
+    cornerRadius: 12,
+    titleFont: { size: 14, weight: '600' },
+    bodyFont: { size: 13 },
+    displayColors: true,
+    backdropFilter: 'blur(8px)'
+  };
+
+  // Branch colors for multi-branch charts (initialize early for all charts)
+  {% if branches|length > 1 %}
+  const branchColors = {{ branch_colors_json|safe }};
+  {% else %}
+  const branchColors = ['#009688', '#00BCD4', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0'];
+  {% endif %}
+
+  // 1. Revenue Chart (Last 6 months) -> Monthly Trend Line Chart
+  const revenueCtx = document.getElementById('revenueChart');
+  if (revenueCtx) {
+    // Use monthly revenue data instead of daily
+    const monthlyRevenueData = {{ monthly_revenue_data|safe }};
+    const gradient = revenueCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
+    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+    new Chart(revenueCtx, {
+      type: 'line',
+      data: {
+        labels: monthlyRevenueData.map(item => item.month),
+        datasets: [{
+          label: 'Monthly Revenue (₱)',
+          data: monthlyRevenueData.map(item => item.revenue),
+          borderColor: '#6366f1', // Indigo
+          backgroundColor: gradient,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#6366f1',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { 
+          legend: { display: false },
+          tooltip: commonTooltip
+        },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { font: { size: 12 } }
+          },
+          y: { 
+            beginAtZero: true, 
+            grid: { color: 'rgba(0, 0, 0, 0.05)', drawBorder: false, borderDash: [5, 5] },
+            ticks: { 
+              font: { size: 12 },
+              callback: function(v) { return '₱' + v.toLocaleString(); } 
+            } 
+          }
+        },
+        animation: {
+          duration: 1800,
+          easing: 'easeInOutCubic',
+          delay(ctx) {
+            return ctx.type === 'data' ? ctx.dataIndex * 100 : 0;
+          }
+        }
+      }
+    });
+    revenueCtx.parentElement.style.height = '320px';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 2: MOST APPOINTED BRANCHES (Modern Doughnut Chart)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  {% if branches|length > 1 %}
+  const branchAppointmentCtx = document.getElementById('branchAppointmentChart');
+  if (branchAppointmentCtx) {
+    const branchAppointmentData = {{ branch_appointment_data|safe }};
+    const totalAppointments = branchAppointmentData.reduce((sum, item) => sum + item.appointments, 0);
+    
+    // Center text plugin
+    const centerTextPlugin = {
+      id: 'centerText',
+      afterDraw: function(chart) {
+        const ctx = chart.ctx;
+        const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+        const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+        
+        ctx.save();
+        ctx.font = 'bold 28px Inter, sans-serif';
+        ctx.fillStyle = '#1e293b';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(totalAppointments, centerX, centerY - 8);
+        
+        ctx.font = '500 12px Inter, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Total', centerX, centerY + 16);
+        ctx.restore();
+      }
+    };
+    
+    new Chart(branchAppointmentCtx, {
+      type: 'doughnut',
+      data: {
+        labels: branchAppointmentData.map(item => item.name),
+        datasets: [{
+          label: 'Appointments',
+          data: branchAppointmentData.map(item => item.appointments),
+          backgroundColor: branchColors,
+          borderWidth: 0,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        layout: {
+          padding: {
+            top: 0,
+            bottom: 0
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle',
+              padding: 12,
+              boxWidth: 10,
+              boxHeight: 10,
+              font: { size: 11, weight: '600', family: 'Inter, sans-serif' },
+              color: '#64748b',
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => {
+                  const value = data.datasets[0].data[i];
+                  const percentage = totalAppointments > 0 ? ((value / totalAppointments) * 100).toFixed(1) : 0;
+                  return {
+                    text: `${label}: ${value} (${percentage}%)`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    strokeStyle: data.datasets[0].backgroundColor[i],
+                    lineWidth: 0,
+                    pointStyle: 'circle',
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            },
+            align: 'center'
+          },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                const value = context.raw;
+                const percentage = totalAppointments > 0 ? ((value / totalAppointments) * 100).toFixed(1) : 0;
+                return `${context.label}: ${value} appointments (${percentage}%)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: false,
+          duration: 1500,
+          easing: 'easeInOutCubic'
+        }
+      },
+      plugins: [centerTextPlugin]
+    });
+  }
+  {% else %}
+  // Single branch - show appointment status instead
+  const appointmentStatusCtx = document.getElementById('appointmentStatusChart');
+  if (appointmentStatusCtx) {
+    const statusData = {{ appointment_status_breakdown|safe }};
+    
+    // Modern gradient colors for status
+    const statusColors = {
+      'Pending': '#f59e0b',
+      'Confirmed': '#10b981', 
+      'Completed': '#6366f1',
+      'Cancelled': '#ef4444',
+      'No Show': '#64748b'
+    };
+    
+    const colors = statusData.map(item => statusColors[item.status] || '#94a3b8');
+    const totalAppts = statusData.reduce((sum, item) => sum + item.count, 0);
+    
+    // Create center text plugin for this chart
+    const appointmentCenterPlugin = {
+      id: 'appointmentCenterText',
+      beforeDraw: function(chart) {
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+        ctx.save();
+        const centerX = (chartArea.left + chartArea.right) / 2;
+        const centerY = (chartArea.top + chartArea.bottom) / 2;
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Large number
+        ctx.font = 'bold 42px Inter, sans-serif';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-1') || '#1e293b';
+        ctx.fillText(totalAppts.toString(), centerX, centerY - 8);
+        
+        // Label
+        ctx.font = '500 13px Inter, sans-serif';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-3') || '#94a3b8';
+        ctx.fillText('Total Today', centerX, centerY + 20);
+        ctx.restore();
+      }
+    };
+    
+    new Chart(appointmentStatusCtx, {
+      type: 'doughnut',
+      plugins: [appointmentCenterPlugin],
+      data: {
+        labels: statusData.map(item => item.status),
+        datasets: [{
+          data: statusData.map(item => item.count),
+          backgroundColor: colors,
+          borderColor: 'rgba(255, 255, 255, 0.8)',
+          borderWidth: 3,
+          hoverOffset: 12,
+          borderRadius: 6,
+          spacing: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle',
+              padding: 20,
+              font: { size: 12, weight: '600' },
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => ({
+                  text: `${label} (${data.datasets[0].data[i]})`,
+                  fillStyle: data.datasets[0].backgroundColor[i],
+                  strokeStyle: data.datasets[0].backgroundColor[i],
+                  lineWidth: 0,
+                  pointStyle: 'circle',
+                  hidden: false,
+                  index: i
+                }));
+              }
+            }
+          },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                const percent = totalAppts > 0 ? ((context.raw / totalAppts) * 100).toFixed(1) : 0;
+                return `${context.label}: ${context.raw} (${percent}%)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: false,
+          duration: 1500,
+          easing: 'easeInOutCubic'
+        }
+      }
+    });
+  }
+  {% endif %}
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // NEW CHART 2: WEEKLY PERFORMANCE COMPARISON (Modern Grouped Bar)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const weeklyComparisonCtx = document.getElementById('weeklyComparisonChart');
+  if (weeklyComparisonCtx) {
+    // Get data from context
+    const weeklyData = {
+      labels: ['Appointments', 'New Customers', 'Revenue (₱K)', 'Completed', 'Products Sold'],
+      thisWeek: [{{ this_week_appointments|default:0 }}, {{ new_customers_this_week|default:0 }}, {{ this_week_revenue_k|default:0 }}, {{ this_week_completed|default:0 }}, {{ this_week_products|default:0 }}],
+      lastWeek: [{{ last_week_appointments|default:0 }}, {{ last_week_customers|default:0 }}, {{ last_week_revenue_k|default:0 }}, {{ last_week_completed|default:0 }}, {{ last_week_products|default:0 }}]
+    };
+    
+    // Create gradient for this week
+    const thisWeekGradient = weeklyComparisonCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+    thisWeekGradient.addColorStop(0, '#10b981');
+    thisWeekGradient.addColorStop(1, '#059669');
+    
+    // Create gradient for last week
+    const lastWeekGradient = weeklyComparisonCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+    lastWeekGradient.addColorStop(0, '#94a3b8');
+    lastWeekGradient.addColorStop(1, '#64748b');
+    
+    new Chart(weeklyComparisonCtx, {
+      type: 'bar',
+      data: {
+        labels: weeklyData.labels,
+        datasets: [
+          {
+            label: 'This Week',
+            data: weeklyData.thisWeek,
+            backgroundColor: thisWeekGradient,
+            borderRadius: 0,
+            borderSkipped: false,
+            barPercentage: 0.7,
+            categoryPercentage: 0.8
+          },
+          {
+            label: 'Last Week',
+            data: weeklyData.lastWeek,
+            backgroundColor: lastWeekGradient,
+            borderRadius: 0,
+            borderSkipped: false,
+            barPercentage: 0.7,
+            categoryPercentage: 0.8
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'rectRounded',
+              padding: 20,
+              font: { size: 12, weight: '600' }
+            }
+          },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                const label = context.dataset.label;
+                const value = context.raw;
+                const otherDataset = context.chart.data.datasets[context.datasetIndex === 0 ? 1 : 0];
+                const otherValue = otherDataset.data[context.dataIndex];
+                const diff = value - otherValue;
+                const diffPercent = otherValue > 0 ? ((diff / otherValue) * 100).toFixed(1) : 0;
+                const arrow = diff >= 0 ? '↑' : '↓';
+                const color = diff >= 0 ? '🟢' : '🔴';
+                
+                if (context.datasetIndex === 0) {
+                  return `${label}: ${value.toLocaleString()} ${color} ${arrow}${Math.abs(diffPercent)}%`;
+                }
+                return `${label}: ${value.toLocaleString()}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { font: { size: 11, weight: '500' } }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(0, 0, 0, 0.04)', drawBorder: false, borderDash: [4, 4] },
+            ticks: { font: { size: 11 }, precision: 0 }
+          }
+        },
+        animation: {
+          duration: 1600,
+          easing: 'easeInOutCubic',
+          delay(ctx) {
+            if (ctx.type === 'data' && ctx.mode === 'default') {
+              return ctx.dataIndex * 120 + ctx.datasetIndex * 200;
+            }
+            return 0;
+          }
+        }
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MULTI-BRANCH ANALYTICS CHARTS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  {% if branches|length > 1 %}
+  
+  const branchCustomerData = {{ branch_customer_json|safe }};
+  const branchRevenueData = {{ branch_revenue_json|safe }};
+  const branchAppointmentData = {{ branch_appointment_json|safe }};
+  const branchTrendData = {{ branch_trend_json|safe }};
+  const branchMonthlyData = {{ branch_monthly_json|safe }};
+
+  // Custom plugin for doughnut center text with percentage
+  const branchCenterTextPlugin = {
+    id: 'branchCenterText',
+    beforeDraw: function(chart) {
+      if (chart.config.options.plugins && chart.config.options.plugins.branchCenter) {
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+        ctx.save();
+        const centerX = (chartArea.left + chartArea.right) / 2;
+        const centerY = (chartArea.top + chartArea.bottom) / 2;
+        
+        const { total, label } = chart.config.options.plugins.branchCenter;
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        ctx.font = 'bold 32px Inter, sans-serif';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-1') || '#1e293b';
+        ctx.fillText(total, centerX, centerY - 8);
+        
+        ctx.font = '500 12px Inter, sans-serif';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-3') || '#94a3b8';
+        ctx.fillText(label, centerX, centerY + 18);
+        ctx.restore();
+      }
+    }
+  };
+  Chart.register(branchCenterTextPlugin);
+
+  // 6. Branch Revenue Distribution Pie Chart (with percentages)
+  const branchRevenuePieCtx = document.getElementById('branchRevenuePieChart');
+  if (branchRevenuePieCtx) {
+    const totalRevenue = branchRevenueData.reduce((sum, item) => sum + item.revenue, 0);
+    
+    new Chart(branchRevenuePieCtx, {
+      type: 'pie',
+      data: {
+        labels: branchRevenueData.map(item => item.name),
+        datasets: [{
+          data: branchRevenueData.map(item => item.revenue),
+          backgroundColor: branchColors,
+          borderColor: '#ffffff',
+          borderWidth: 2,
+          hoverOffset: 12,
+          hoverBorderWidth: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: { 
+              usePointStyle: true, 
+              pointStyle: 'circle',
+              padding: 16, 
+              font: { size: 11, weight: '600' },
+              color: '#64748b',
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => {
+                  const value = data.datasets[0].data[i];
+                  const item = branchRevenueData[i];
+                  const pct = item.percentage;
+                  return {
+                    text: `${label}: ₱${value.toLocaleString()} (${pct}%)`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    strokeStyle: data.datasets[0].backgroundColor[i],
+                    lineWidth: 0,
+                    pointStyle: 'circle',
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            }
+          },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                const item = branchRevenueData[context.dataIndex];
+                return `₱${item.revenue.toLocaleString()} (${item.percentage}%)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 2000,
+          easing: 'easeInOutQuart'
+        }
+      }
+    });
+  }
+
+  // Branch Monthly Growth Chart (Multi-Line Chart - Last 6 Months)
+  const branchMonthlyCtx = document.getElementById('branchMonthlyChart');
+  if (branchMonthlyCtx) {
+    const monthlyDatasets = Object.keys(branchMonthlyData.datasets).map((branchName, index) => {
+      const gradient = branchMonthlyCtx.getContext('2d').createLinearGradient(0, 0, 0, 280);
+      gradient.addColorStop(0, branchColors[index % branchColors.length] + '40');
+      gradient.addColorStop(1, branchColors[index % branchColors.length] + '05');
+      
+      return {
+        label: branchName,
+        data: branchMonthlyData.datasets[branchName],
+        borderColor: branchColors[index % branchColors.length],
+        backgroundColor: gradient,
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        pointBackgroundColor: branchColors[index % branchColors.length],
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2
+      };
+    });
+    
+    new Chart(branchMonthlyCtx, {
+      type: 'line',
+      data: {
+        labels: branchMonthlyData.labels,
+        datasets: monthlyDatasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { 
+              usePointStyle: true, 
+              padding: 20, 
+              font: { size: 12, weight: '600' }
+            }
+          },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                return `${context.dataset.label}: ${context.parsed.y} customers`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: { 
+            beginAtZero: true, 
+            grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false, borderDash: [5,5] },
+            ticks: { precision: 0 }
+          },
+          x: { 
+            grid: { display: false, drawBorder: false },
+            ticks: { font: { size: 12, weight: '500' } }
+          }
+        },
+        animation: {
+          duration: 2000,
+          easing: 'easeInOutCubic',
+          delay(ctx) {
+            return ctx.type === 'data' ? ctx.dataIndex * 80 + ctx.datasetIndex * 250 : 0;
+          }
+        }
+      }
+    });
+  }
+  
+  {% endif %}
+
+  // ─── Step 3: Start animations AFTER all charts are initialized ────────
+  // This guarantees Chart.getChart(canvas) works for every chart card
+  startDashAnimations();
+});
+</script>
+
+{% endblock %}

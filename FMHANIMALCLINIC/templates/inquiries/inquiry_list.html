@@ -1,0 +1,904 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Contact Inquiries{% endblock %}
+
+{% block content %}
+<div class="inquiry-page">
+
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-envelope'></i> Contact Inquiries</h1>
+      <p>Manage and respond to customer inquiries from the contact form</p>
+    </div>
+    <div class="page-hero-actions">
+      {% if stats.new > 0 %}
+      <span class="inquiry-new-badge">
+        <i class='bx bx-bell'></i> {{ stats.new }} New
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="inquiry-stats">
+  <div class="inquiry-stat-card total">
+    <div class="stat-icon"><i class='bx bx-envelope'></i></div>
+    <div class="stat-info">
+      <span class="stat-value">{{ stats.total }}</span>
+      <span class="stat-label">Total</span>
+    </div>
+  </div>
+  <div class="inquiry-stat-card new">
+    <div class="stat-icon"><i class='bx bx-bell'></i></div>
+    <div class="stat-info">
+      <span class="stat-value">{{ stats.new }}</span>
+      <span class="stat-label">New</span>
+    </div>
+  </div>
+  <div class="inquiry-stat-card read">
+    <div class="stat-icon"><i class='bx bx-envelope-open'></i></div>
+    <div class="stat-info">
+      <span class="stat-value">{{ stats.read }}</span>
+      <span class="stat-label">Read</span>
+    </div>
+  </div>
+  <div class="inquiry-stat-card responded">
+    <div class="stat-icon"><i class='bx bx-check-circle'></i></div>
+    <div class="stat-info">
+      <span class="stat-value">{{ stats.responded }}</span>
+      <span class="stat-label">Responded</span>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Tabs -->
+<div class="c-tab-bar" id="inquiryTabs">
+  <div class="c-tab-bar__glow"></div>
+  <div class="c-tab-bar__indicator" id="inquiryTabs-indicator"></div>
+
+  <button class="c-tab-btn {% if not current_filters.status %}active{% endif %}" type="button" onclick="window.location.href='{% url 'inquiries:list' %}'">
+    <i class='bx bx-list-ul c-tab-btn__icon'></i>
+    <span class="c-tab-btn__label">All</span>
+    <span class="c-tab-btn__badge">{{ stats.total }}</span>
+  </button>
+  <button class="c-tab-btn {% if current_filters.status == 'NEW' %}active{% endif %}" type="button" onclick="window.location.href='?status=NEW'">
+    <i class='bx bx-bell c-tab-btn__icon'></i>
+    <span class="c-tab-btn__label">New</span>
+    {% if stats.new > 0 %}<span class="c-tab-btn__badge">{{ stats.new }}</span>{% endif %}
+  </button>
+  <button class="c-tab-btn {% if current_filters.status == 'READ' %}active{% endif %}" type="button" onclick="window.location.href='?status=READ'">
+    <i class='bx bx-envelope-open c-tab-btn__icon'></i>
+    <span class="c-tab-btn__label">Read</span>
+  </button>
+  <button class="c-tab-btn {% if current_filters.status == 'RESPONDED' %}active{% endif %}" type="button" onclick="window.location.href='?status=RESPONDED'">
+    <i class='bx bx-check-circle c-tab-btn__icon'></i>
+    <span class="c-tab-btn__label">Responded</span>
+  </button>
+  <button class="c-tab-btn {% if current_filters.status == 'ARCHIVED' %}active{% endif %}" type="button" onclick="window.location.href='?status=ARCHIVED'">
+    <i class='bx bx-archive c-tab-btn__icon'></i>
+    <span class="c-tab-btn__label">Archived</span>
+  </button>
+</div>
+
+<!-- ══════ SEARCH & FILTER BAR ══════ -->
+<div class="c-filter-bar" id="inquiryFilterBar">
+  <div class="c-filter-bar__glow"></div>
+  <form method="get" action="{% url 'inquiries:list' %}" class="c-filter-bar__form" autocomplete="off" id="inquiryFilterForm">
+    <!-- Preserve status filter -->
+    {% if current_filters.status %}
+    <input type="hidden" name="status" value="{{ current_filters.status }}">
+    {% endif %}
+
+    <!-- Search Row -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input type="text" name="q" value="{{ current_filters.q }}"
+             placeholder="Search by name, email, phone..." id="inquirySearch"
+             class="c-filter-bar__search-input" autocomplete="off">
+      <div class="search-dropdown" id="inquirySearchDropdown"></div>
+      <div class="c-filter-bar__shortcut"><span>⌘</span><span>K</span></div>
+    </div>
+
+    <!-- Filter Dropdowns Row -->
+    <div class="c-filter-bar__filters">
+      <!-- Priority Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if current_filters.priority %} active{% endif %}">
+          <i class='bx bx-flag c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if current_filters.priority %}<span class="prefix">Priority:</span> {% for code, label in priority_choices %}{% if code == current_filters.priority %}{{ label }}{% endif %}{% endfor %}{% else %}All Priorities{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select name="priority" onchange="this.form.submit()" class="c-filter-dropdown__select sd-convert">
+          <option value="">All Priorities</option>
+          {% for code, label in priority_choices %}
+            <option value="{{ code }}" {% if current_filters.priority == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Branch Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if current_filters.branch %} active{% endif %}">
+          <i class='bx bx-building-house c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if current_filters.branch %}<span class="prefix">Branch:</span> {% for branch in branches %}{% if branch.id|stringformat:"i" == current_filters.branch %}{{ branch.name }}{% endif %}{% endfor %}{% else %}All Branches{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select name="branch" onchange="this.form.submit()" class="c-filter-dropdown__select sd-convert">
+          <option value="">All Branches</option>
+          {% for branch in branches %}
+            <option value="{{ branch.id }}" {% if current_filters.branch == branch.id|stringformat:'i' %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if current_filters.q and current_filters.q|length or current_filters.priority and current_filters.priority|length or current_filters.branch and current_filters.branch|length %}
+      <a href="{% url 'inquiries:list' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if inquiries %}
+<!-- Inquiry List -->
+<div class="inquiry-list">
+  {% for inquiry in inquiries %}
+  <a href="{% url 'inquiries:detail' inquiry.pk %}" 
+     class="inquiry-card searchable-card {% if inquiry.status == 'NEW' %}unread{% endif %}"
+     data-name="{{ inquiry.full_name }}"
+     data-email="{{ inquiry.email }}"
+     data-phone="{{ inquiry.phone }}"
+     data-branch="{% if inquiry.branch %}{{ inquiry.branch.name }}{% endif %}"
+     data-href="{% url 'inquiries:detail' inquiry.pk %}">
+
+    <div class="inquiry-card-body">
+      <!-- Avatar -->
+      <div class="inquiry-avatar {% if inquiry.status == 'NEW' %}avatar-new{% endif %}">
+        {{ inquiry.full_name|make_list|first|upper }}
+      </div>
+      
+      <!-- Content -->
+      <div class="inquiry-content">
+        <div class="inquiry-header">
+          <h4 class="inquiry-name">
+            {{ inquiry.full_name }}
+            {% if inquiry.status == 'NEW' %}
+            <span class="new-badge"><span class="pulse-dot"></span> New</span>
+            {% endif %}
+          </h4>
+          <span class="inquiry-time">
+            <i class='bx bx-time-five'></i>
+            {{ inquiry.created_at|timesince }} ago
+          </span>
+        </div>
+        
+        <div class="inquiry-meta">
+          <span class="meta-item"><i class='bx bx-envelope'></i> {{ inquiry.email }}</span>
+          <span class="meta-item"><i class='bx bx-phone'></i> {{ inquiry.phone }}</span>
+          {% if inquiry.branch %}
+          <span class="meta-item"><i class='bx bx-building'></i> {{ inquiry.branch.name }}</span>
+          {% endif %}
+        </div>
+        
+        <p class="inquiry-preview">{{ inquiry.message|truncatewords:25 }}</p>
+        
+        <div class="inquiry-footer">
+          <span class="status-chip status-{{ inquiry.status|lower }}">
+            <span class="chip-dot"></span>
+            {{ inquiry.get_status_display }}
+          </span>
+          <span class="priority-chip priority-{{ inquiry.priority|lower }}">
+            {{ inquiry.get_priority_display }}
+          </span>
+        </div>
+      </div>
+      
+      <!-- Delete Button (inside card) -->
+      <button class="inquiry-delete-btn-inline" onclick="deleteInquiry(event, {{ inquiry.pk }})" title="Delete inquiry">
+        <i class='bx bx-trash'></i>
+      </button>
+
+      <!-- View Icon -->
+      <div class="inquiry-view-icon">
+        <i class='bx bx-right-arrow-alt'></i>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if inquiries.has_other_pages %}
+<div class="inquiry-pagination">
+  {% if inquiries.has_previous %}
+    <a href="?page=1{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.q %}&q={{ current_filters.q }}{% endif %}" class="page-btn">
+      <i class='bx bx-chevrons-left'></i>
+    </a>
+    <a href="?page={{ inquiries.previous_page_number }}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.q %}&q={{ current_filters.q }}{% endif %}" class="page-btn">
+      <i class='bx bx-chevron-left'></i>
+    </a>
+  {% endif %}
+  
+  <span class="page-info">
+    Page {{ inquiries.number }} of {{ inquiries.paginator.num_pages }}
+  </span>
+  
+  {% if inquiries.has_next %}
+    <a href="?page={{ inquiries.next_page_number }}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.q %}&q={{ current_filters.q }}{% endif %}" class="page-btn">
+      <i class='bx bx-chevron-right'></i>
+    </a>
+    <a href="?page={{ inquiries.paginator.num_pages }}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.q %}&q={{ current_filters.q }}{% endif %}" class="page-btn">
+      <i class='bx bx-chevrons-right'></i>
+    </a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<!-- Empty State -->
+<div class="inquiry-empty">
+  <div class="empty-visual">
+    <div class="empty-ring ring-1"></div>
+    <div class="empty-ring ring-2"></div>
+    <div class="empty-ring ring-3"></div>
+    <div class="empty-center-icon">
+      <i class='bx bx-envelope'></i>
+    </div>
+  </div>
+  <h2>No inquiries found</h2>
+  <p>{% if current_filters.status or current_filters.q %}Try adjusting your filters{% else %}Contact form submissions will appear here{% endif %}</p>
+</div>
+{% endif %}
+
+</div>
+
+<style>
+/* ══════ INQUIRY PAGE STYLES ══════ */
+.inquiry-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Stats Cards */
+.inquiry-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.inquiry-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.inquiry-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.inquiry-stat-card.total .stat-icon { background: rgba(107, 114, 128, 0.1); color: #6b7280; }
+.inquiry-stat-card.new .stat-icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.inquiry-stat-card.read .stat-icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.inquiry-stat-card.responded .stat-icon { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* New Badge in Hero */
+.inquiry-new-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border-radius: 24px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+.inquiry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inquiry-card {
+  display: flex;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.inquiry-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transform: translateX(4px);
+}
+
+.inquiry-card.unread {
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.03), var(--surface));
+}
+
+/* Delete Button Inside Card */
+.inquiry-delete-btn-inline {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.inquiry-card:hover .inquiry-delete-btn-inline {
+  opacity: 1;
+}
+
+.inquiry-delete-btn-inline:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  transform: scale(1.05);
+}
+
+.inquiry-delete-btn-inline:active {
+  transform: scale(0.95);
+}
+
+/* Card Body */
+.inquiry-card-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Avatar */
+.inquiry-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.inquiry-avatar.avatar-new {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+/* Content */
+.inquiry-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.inquiry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.inquiry-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.new-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: #fef2f2;
+  color: #ef4444;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+
+.inquiry-time {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inquiry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.meta-item {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inquiry-preview {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0 0 10px 0;
+  line-height: 1.5;
+}
+
+.inquiry-footer {
+  display: flex;
+  gap: 10px;
+}
+
+/* Status & Priority Chips */
+.status-chip, .priority-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-chip.status-new { background: #fef2f2; color: #dc2626; }
+.status-chip.status-new .chip-dot { background: #dc2626; }
+
+.status-chip.status-read { background: #eff6ff; color: #2563eb; }
+.status-chip.status-read .chip-dot { background: #2563eb; }
+
+.status-chip.status-responded { background: #f0fdf4; color: #16a34a; }
+.status-chip.status-responded .chip-dot { background: #16a34a; }
+
+.status-chip.status-archived { background: #f3f4f6; color: #6b7280; }
+.status-chip.status-archived .chip-dot { background: #6b7280; }
+
+.priority-chip.priority-low { background: #f3f4f6; color: #6b7280; }
+.priority-chip.priority-normal { background: #eff6ff; color: #2563eb; }
+.priority-chip.priority-high { background: #fff7ed; color: #ea580c; }
+.priority-chip.priority-urgent { background: #fef2f2; color: #dc2626; }
+
+/* View Icon */
+.inquiry-view-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  border-radius: 8px;
+  color: white;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.inquiry-card:hover .inquiry-view-icon {
+  transform: translateX(4px);
+  background: var(--primary-dark);
+}
+
+/* Pagination */
+.inquiry-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 16px;
+}
+
+.page-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.page-info {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  padding: 0 12px;
+}
+
+/* Empty State */
+.inquiry-empty {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.empty-visual {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 24px;
+}
+
+.empty-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px dashed var(--border-color);
+}
+
+.empty-ring.ring-1 { width: 100%; height: 100%; opacity: 0.3; }
+.empty-ring.ring-2 { width: 70%; height: 70%; top: 15%; left: 15%; opacity: 0.5; }
+.empty-ring.ring-3 { width: 40%; height: 40%; top: 30%; left: 30%; opacity: 0.7; }
+
+.empty-center-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  color: var(--text-secondary);
+}
+
+.inquiry-empty h2 {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.inquiry-empty p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .inquiry-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .inquiry-card-body {
+    flex-wrap: wrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .inquiry-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+  }
+}
+</style>
+
+<script>
+// CSRF Token helper
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+// Delete single inquiry
+function deleteInquiry(event, inquiryId) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  if (!confirm('Are you sure you want to delete this inquiry? This action cannot be undone.')) {
+    return;
+  }
+  
+  const csrftoken = getCookie('csrftoken');
+  
+  fetch('{% url "inquiries:bulk_action" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrftoken
+    },
+    body: JSON.stringify({
+      ids: [inquiryId],
+      action: 'delete'
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Remove the card with animation
+      const card = event.target.closest('.inquiry-card');
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(-20px)';
+      setTimeout(() => {
+        card.remove();
+        
+        // Check if list is empty
+        const list = document.querySelector('.inquiry-list');
+        if (list && list.children.length === 0) {
+          window.location.reload();
+        }
+      }, 300);
+    } else {
+      alert('Error deleting inquiry: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error deleting inquiry. Please try again.');
+  });
+}
+
+// ══════ INQUIRIES SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+(function initInquirySearch() {
+  const searchInput = document.getElementById('inquirySearch');
+  const dropdown    = document.getElementById('inquirySearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('.searchable-card')).map(card => ({
+      name   : card.dataset.name   || '',
+      email  : card.dataset.email  || '',
+      phone  : card.dataset.phone  || '',
+      branch : card.dataset.branch || '',
+      href   : card.dataset.href   || '#',
+      card   : card
+    }));
+  }
+
+  let inquiriesData = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No inquiries found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map((r, idx) => `
+        <a href="${r.href}" class="search-dropdown-item" style="text-decoration: none; color: inherit; display: flex; align-items: center; cursor: pointer;">
+          <i class='bx bx-envelope'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(r.name, q)}</div>
+            <div class="item-sub">${highlight(r.email, q)} &bull; ${r.branch || 'No Branch'}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </a>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
+        item.addEventListener('click', e => {
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterCards(q) {
+    let hasVisible = false;
+    inquiriesData.forEach(r => {
+      const nl = r.name.toLowerCase(); const el = r.email.toLowerCase(); 
+      const pl = r.phone.toLowerCase(); const bl = r.branch.toLowerCase();
+      const matches = !q || nl.includes(q) || el.includes(q) || pl.includes(q) || bl.includes(q);
+      r.card.style.display = matches ? '' : 'none';
+      if(matches) hasVisible = true;
+    });
+
+    const listContainer = document.querySelector('.inquiry-list');
+    let liveEmpty = document.getElementById('liveEmptyState');
+
+    if (!hasVisible && inquiriesData.length > 0) {
+      if (!liveEmpty && listContainer) {
+        liveEmpty = document.createElement('div');
+        liveEmpty.id = 'liveEmptyState';
+        liveEmpty.className = 'inquiry-empty';
+        liveEmpty.innerHTML = `
+          <div class="empty-visual">
+            <div class="empty-ring ring-1"></div>
+            <div class="empty-ring ring-2"></div>
+            <div class="empty-ring ring-3"></div>
+            <div class="empty-center-icon">
+              <i class='bx bx-search'></i>
+            </div>
+          </div>
+          <h2>No inquiries matching your search</h2>
+          <p>Please try a different term.</p>`;
+        listContainer.parentNode.insertBefore(liveEmpty, listContainer.nextSibling);
+      }
+      if (liveEmpty) liveEmpty.style.display = 'block';
+      if (listContainer) listContainer.style.display = 'none';
+    } else {
+      if (liveEmpty) liveEmpty.style.display = 'none';
+      if (listContainer) listContainer.style.display = 'flex';
+    }
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    filterCards(q);
+    if (!q) { hideDropdown(); return; }
+    const results = inquiriesData.filter(r =>
+      r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || 
+      r.phone.toLowerCase().includes(q) || r.branch.toLowerCase().includes(q));
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if(idx >= 0 && items[idx]) items[idx].classList.remove('active');
+      idx = (idx + 1) % items.length;
+      if(items[idx]) items[idx].classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if(idx >= 0 && items[idx]) items[idx].classList.remove('active');
+      idx = (idx - 1 + items.length) % items.length;
+      if(items[idx]) items[idx].classList.add('active');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (idx >= 0 && items[idx]) {
+        items[idx].click();
+      } else {
+        this.form.submit();
+      }
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+
+  // Hotkey CMD/CTRL+K to focus search
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+    }
+  });
+})();
+
+// ══════ AUTO-REFRESH FOR NEW INQUIRIES ══════
+(function initAutoRefresh() {
+  let lastTotalCount = {{ stats.total }};
+  
+  function checkForNewInquiries() {
+    fetch('/inquiries/api/stats/')
+      .then(response => response.json())
+      .then(data => {
+        if (data.total > lastTotalCount) {
+          // New inquiries have been submitted from landing page
+          lastTotalCount = data.total;
+          location.reload();
+        }
+      })
+      .catch(error => console.log('Auto-refresh check failed:', error));
+  }
+  
+  // Check for new inquiries every 10 seconds
+  setInterval(checkForNewInquiries, 10000);
+})();
+</script>
+
+{% endblock %}

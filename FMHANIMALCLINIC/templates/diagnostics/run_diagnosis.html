@@ -1,0 +1,387 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Run AI Diagnosis - {{ pet.name }}{% endblock %}
+
+{% block content %}
+
+<style>
+  .run-diag-container {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 24px;
+    margin-top: 24px;
+  }
+  @media (max-width: 1000px) {
+    .run-diag-container { grid-template-columns: 1fr; }
+  }
+
+  /* Main Form Card */
+  .run-diag-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .run-diag-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    background: var(--primary-gradient);
+    color: #fff;
+  }
+  .run-diag-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+  .run-diag-pet-info h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+  .run-diag-pet-meta {
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+  .run-diag-body {
+    padding: 24px;
+  }
+
+  /* Form Elements */
+  .diag-form-group {
+    margin-bottom: 20px;
+  }
+  .diag-form-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .diag-form-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+  .diag-form-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s;
+  }
+  .diag-form-textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99,90,255,0.12);
+  }
+
+  /* Submit Button */
+  .diag-submit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: var(--primary-gradient);
+    border: none;
+    border-radius: var(--radius-md);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s;
+    width: 100%;
+  }
+  .diag-submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99,90,255,0.3);
+  }
+  .diag-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .diag-submit-btn i {
+    font-size: 1.2rem;
+  }
+
+  /* Loading State */
+  .diag-loading {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+    background: #f0f7ff;
+    border-radius: var(--radius-md);
+    margin-top: 16px;
+  }
+  .diag-loading.active { display: flex; }
+  .diag-loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #e0e0e0;
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .diag-loading-text {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* Sidebar */
+  .run-diag-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .sidebar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .sidebar-card-header {
+    padding: 14px 18px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sidebar-card-header i {
+    color: var(--primary);
+  }
+  .sidebar-card-body {
+    padding: 14px 18px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  /* History Entry */
+  .history-entry {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .history-entry:last-child { border-bottom: none; }
+  .history-entry-date {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .history-entry-signs {
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Previous Diagnoses */
+  .prev-diag-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+  }
+  .prev-diag-item:last-child { border-bottom: none; }
+  .prev-diag-item:hover { background: var(--bg); margin: 0 -18px; padding-left: 18px; padding-right: 18px; }
+  .prev-diag-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .prev-diag-info { flex: 1; }
+  .prev-diag-condition {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+  }
+  .prev-diag-date {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  /* Empty state */
+  .sidebar-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+  .sidebar-empty i {
+    font-size: 32px;
+    color: var(--border);
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  /* Back link */
+  .diag-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+    transition: color 0.2s;
+  }
+  .diag-back-link:hover { color: var(--primary); }
+</style>
+
+<!-- Back Link -->
+<a href="{% url 'diagnostics:dashboard' %}" class="diag-back-link">
+  <i class="bx bx-arrow-back"></i> Back to AI Diagnostics
+</a>
+
+<div class="run-diag-container">
+  <!-- Main Form -->
+  <div class="run-diag-card">
+    <div class="run-diag-header">
+      <div class="run-diag-avatar" {% if pet.photo %}style="background: transparent;"{% endif %}>
+        {% if pet.photo %}
+          <img src="{{ pet.photo.url }}" alt="{{ pet.name }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+        {% else %}
+          {{ pet.name|make_list|first|upper }}
+        {% endif %}
+      </div>
+      <div class="run-diag-pet-info">
+        <h2>{{ pet.name }}</h2>
+        <div class="run-diag-pet-meta">
+          {{ pet.species|default:"Unknown" }} &middot; {{ pet.breed|default:"Unknown breed" }} &middot; {{ pet.get_sex_display|default:"Unknown" }}
+        </div>
+      </div>
+    </div>
+    <div class="run-diag-body">
+      <form method="post" id="diagForm">
+        {% csrf_token %}
+
+        <div class="diag-form-group">
+          <label class="diag-form-label">Current Symptoms / Clinical Signs</label>
+          <textarea 
+            name="current_symptoms" 
+            class="diag-form-textarea"
+            placeholder="Enter the current symptoms or clinical signs you want to analyze...
+
+Example:
+- Lethargy and decreased appetite for 2 days
+- Vomiting (yellow bile) twice today
+- Temperature: 39.5C
+- Mild dehydration"
+          >{% if latest_appointment and latest_appointment.pet_symptoms %}{{ latest_appointment.pet_symptoms }}{% endif %}</textarea>
+          <p class="diag-form-hint">
+            <i class="bx bx-info-circle"></i>
+            The AI will analyze these symptoms along with the pet's medical history (last 10 visits) to suggest potential diagnoses.
+          </p>
+        </div>
+
+        <button type="submit" class="diag-submit-btn" id="submitBtn">
+          <i class="bx bx-brain"></i>
+          Run AI Diagnosis
+        </button>
+
+        <div class="diag-loading" id="loadingState">
+          <div class="diag-loading-spinner"></div>
+          <span class="diag-loading-text">Analyzing medical data... This may take a moment.</span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="run-diag-sidebar">
+    <!-- Medical History -->
+    <div class="sidebar-card">
+      <div class="sidebar-card-header">
+        <i class="bx bx-clipboard"></i>
+        Recent Medical History
+      </div>
+      <div class="sidebar-card-body">
+        {% if entries %}
+          {% for entry in entries %}
+          <div class="history-entry">
+            <div class="history-entry-date">{{ entry.date_recorded|date:"M j, Y" }}</div>
+            <div class="history-entry-signs">
+              {{ entry.history_clinical_signs|default:"No clinical signs recorded"|truncatechars:150 }}
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="sidebar-empty">
+            <i class="bx bx-file"></i>
+            No medical history available for this pet.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Previous Diagnoses -->
+    <div class="sidebar-card">
+      <div class="sidebar-card-header">
+        <i class="bx bx-history"></i>
+        Previous AI Diagnoses
+      </div>
+      <div class="sidebar-card-body">
+        {% if previous_diagnoses %}
+          {% for diag in previous_diagnoses %}
+          <a href="{% url 'diagnostics:detail' diag.pk %}" class="prev-diag-item">
+            <div class="prev-diag-badge">
+              <i class="bx bx-brain"></i>
+            </div>
+            <div class="prev-diag-info">
+              <div class="prev-diag-condition">{{ diag.primary_condition|truncatechars:30 }}</div>
+              <div class="prev-diag-date">{{ diag.created_at|date:"M j, Y" }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        {% else %}
+          <div class="sidebar-empty">
+            <i class="bx bx-brain"></i>
+            No previous AI diagnoses for this pet.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('diagForm').addEventListener('submit', function(e) {
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('submitBtn').innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Processing...';
+  document.getElementById('loadingState').classList.add('active');
+});
+</script>
+
+{% endblock %}

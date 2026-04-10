@@ -1,0 +1,295 @@
+{% extends 'base/portal_user.html' %}
+{% load static %}
+
+{% block title %}Book Appointment{% endblock %}
+
+{% block content %}
+
+<!-- ══════ BOOKING HERO ══════ -->
+<div class="book-hero">
+  <div class="book-hero-bg">
+    <i class='bx bxs-dog hero-scatter sc-1'></i>
+    <i class='bx bx-bone hero-scatter sc-2'></i>
+    <i class='bx bx-paw hero-scatter sc-3'></i>
+    <i class='bx bxs-bone hero-scatter sc-4'></i>
+    <i class='bx bx-paw hero-scatter sc-5'></i>
+    <i class='bx bxs-dog hero-scatter sc-6'></i>
+  </div>
+  <div class="book-hero-inner">
+    <div class="book-hero-text">
+      <h1><i class='bx bx-calendar-plus'></i> Book an Appointment</h1>
+      <p>Schedule a visit for your pet at any FMH Animal Clinic branch</p>
+    </div>
+    <a href="{% url 'appointments:my_appointments' %}" class="book-hero-back-btn">
+      <i class='bx bx-arrow-back'></i> My Appointments
+    </a>
+  </div>
+</div>
+
+<!-- Emergency Banner -->
+<div class="book-emergency">
+  <i class='bx bx-error-circle'></i>
+  <span><strong>For emergencies,</strong> please call <a href="tel:+639123456789">0912-345-6789</a> or visit the nearest clinic immediately.</span>
+</div>
+
+<!-- ══════ BOOKING FORM CARD ══════ -->
+<div class="book-card">
+  <form method="POST" id="bookingForm" class="book-form">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="book-form-error">
+      {% for error in form.non_field_errors %}
+      <p><i class='bx bx-error-circle'></i> {{ error }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Section: Owner & Pet -->
+    <div class="book-section">
+      <div class="book-section-head">
+        <div class="book-section-icon"><i class='bx bx-user'></i></div>
+        <div>
+          <h3>Owner & Pet Details</h3>
+          <p>Tell us about you and your pet</p>
+        </div>
+      </div>
+
+      <div class="book-grid">
+        {{ form.selected_pet_id }}
+        <div class="book-field {% if form.owner_name.errors %}has-error{% endif %}">
+          <div class="book-field-icon"><i class='bx bx-user'></i></div>
+          {{ form.owner_name }}
+          <label for="{{ form.owner_name.id_for_label }}">Owner Name *</label>
+          {% if form.owner_name.errors %}<span class="book-field-error">{{ form.owner_name.errors.0 }}</span>{% endif %}
+        </div>
+        <div class="book-field {% if form.owner_email.errors %}has-error{% endif %}">
+          <div class="book-field-icon"><i class='bx bx-envelope'></i></div>
+          {{ form.owner_email }}
+          <label for="{{ form.owner_email.id_for_label }}">Email</label>
+          {% if form.owner_email.errors %}<span class="book-field-error">{{ form.owner_email.errors.0 }}</span>{% endif %}
+        </div>
+        <div class="book-field {% if form.owner_phone.errors %}has-error{% endif %}">
+          <div class="book-field-icon"><i class='bx bx-phone'></i></div>
+          {{ form.owner_phone }}
+          <label for="{{ form.owner_phone.id_for_label }}">Phone</label>
+        </div>
+        <div class="book-field full-width {% if form.owner_address.errors %}has-error{% endif %}">
+          <div class="book-field-icon textarea-icon"><i class='bx bx-map'></i></div>
+          {{ form.owner_address }}
+          <label for="{{ form.owner_address.id_for_label }}">Address</label>
+          {% if form.owner_address.errors %}<span class="book-field-error">{{ form.owner_address.errors.0 }}</span>{% endif %}
+        </div>
+
+        <!-- Pet Selector -->
+        {% if user_pets %}
+        <div class="book-field full-width">
+          <div class="book-field-icon"><i class='bx bx-list-ul'></i></div>
+          <select id="petSelector" class="form-control book-input">
+            <option value="">-- Add New Pet --</option>
+            {% for pet in user_pets %}
+            <option value="{{ pet.id }}" 
+                    data-name="{{ pet.name }}" 
+                    data-species="{{ pet.species }}"
+                    data-breed="{{ pet.breed }}"
+                    data-dob="{{ pet.date_of_birth|date:'Y-m-d'|default:'' }}"
+                    data-sex="{{ pet.sex }}"
+                    data-color="{{ pet.color }}">
+              {{ pet.name }} ({{ pet.species }})
+            </option>
+            {% endfor %}
+          </select>
+          <label for="petSelector">Select Existing Pet</label>
+        </div>
+        {% endif %}
+
+        <div class="book-field {% if form.pet_name.errors %}has-error{% endif %}">
+          <div class="book-field-icon"><i class='bx bx-rename'></i></i></div>
+          {{ form.pet_name }}
+          <label for="{{ form.pet_name.id_for_label }}">Pet Name *</label>
+          {% if form.pet_name.errors %}<span class="book-field-error">{{ form.pet_name.errors.0 }}</span>{% endif %}
+        </div>
+        <div class="book-field">
+          <div class="book-field-icon"><i class='bx bx-category-alt'></i></div>
+          {{ form.pet_species }}
+          <label for="{{ form.pet_species.id_for_label }}">Species</label>
+        </div>
+        <div class="book-field">
+          <div class="book-field-icon"><i class='bx bx-category'></i></div>
+          {{ form.pet_breed }}
+          <label for="{{ form.pet_breed.id_for_label }}">Breed</label>
+        </div>
+        <div class="book-field">
+          <div class="book-field-icon"><i class='bx bx-calendar'></i></div>
+          {{ form.pet_dob }}
+          <label for="{{ form.pet_dob.id_for_label }}">Date of Birth</label>
+        </div>
+        <div class="book-field">
+          <div class="book-field-icon"><i class='bx bxs-dog'></i></div>
+          {{ form.pet_sex }}
+          <label for="{{ form.pet_sex.id_for_label }}">Sex</label>
+        </div>
+        <div class="book-field">
+          <div class="book-field-icon"><i class='bx bx-palette'></i></div>
+          {{ form.pet_color }}
+          <label for="{{ form.pet_color.id_for_label }}">Color</label>
+        </div>
+        <div class="book-field {% if form.reason.errors %}has-error{% endif %}">
+          <div class="book-field-icon"><i class='bx bx-first-aid'></i></div>
+          {{ form.reason }}
+          <label for="{{ form.reason.id_for_label }}">Reason *</label>
+          {% if form.reason.errors %}<span class="book-field-error">{{ form.reason.errors.0 }}</span>{% endif %}
+        </div>
+        <div class="book-field full-width {% if form.pet_symptoms.errors %}has-error{% endif %}">
+          <div class="book-field-icon textarea-icon"><i class='bx bx-message-detail'></i></div>
+          {{ form.pet_symptoms }}
+          <label for="{{ form.pet_symptoms.id_for_label }}">Symptoms</label>
+          {% if form.pet_symptoms.errors %}<span class="book-field-error">{{ form.pet_symptoms.errors.0 }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="book-divider"></div>
+
+    <!-- Section: Schedule -->
+    <div class="book-section">
+      <div class="book-section-head">
+        <div class="book-section-icon"><i class='bx bx-calendar'></i></div>
+        <div>
+          <h3>Schedule</h3>
+          <p>Choose when and where to visit</p>
+        </div>
+      </div>
+
+      <div class="book-grid">
+        <div class="book-field-wrap">
+          <div class="book-field {% if form.branch.errors %}has-error{% endif %}">
+            <div class="book-field-icon"><i class='bx bx-building-house'></i></div>
+            {{ form.branch }}
+            <label for="{{ form.branch.id_for_label }}">Branch *</label>
+            {% if form.branch.errors %}<span class="book-field-error">{{ form.branch.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="book-field-wrap">
+          <div class="book-field {% if form.appointment_date.errors %}has-error{% endif %}">
+            <div class="book-field-icon"><i class='bx bx-calendar-event'></i></div>
+            {{ form.appointment_date }}
+            <label for="{{ form.appointment_date.id_for_label }}">Date *</label>
+            {% if form.appointment_date.errors %}<span class="book-field-error">{{ form.appointment_date.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="book-field-wrap">
+          <div class="book-field">
+            <div class="book-field-icon"><i class='bx bx-user-pin'></i></div>
+            {{ form.preferred_vet }}
+            <label for="{{ form.preferred_vet.id_for_label }}">Preferred Vet</label>
+          </div>
+          <span class="book-field-helper"><i class='bx bx-info-circle'></i> Leave blank for any available vet (time will show AM/PM options)</span>
+        </div>
+        <div class="book-field-wrap">
+          <div class="book-field {% if form.appointment_time.errors %}has-error{% endif %}">
+            <div class="book-field-icon"><i class='bx bx-time'></i></div>
+            {{ form.appointment_time }}
+            <label for="{{ form.appointment_time.id_for_label }}">Time *</label>
+            {% if form.appointment_time.errors %}<span class="book-field-error">{{ form.appointment_time.errors.0 }}</span>{% endif %}
+          </div>
+          <span class="book-field-helper" id="timeHint"><i class='bx bx-info-circle'></i> Select a branch and date to see available time slots</span>
+        </div>
+      </div>
+
+      <div class="book-grid" style="margin-top: 16px;">
+        <div class="book-field full-width">
+          <div class="book-field-icon textarea-icon"><i class='bx bx-note'></i></div>
+          {{ form.notes }}
+          <label for="{{ form.notes.id_for_label }}">Notes</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="book-actions">
+      <button type="submit" class="book-submit-btn">
+        <i class='bx bx-check'></i> Book Appointment
+      </button>
+      <a href="{% url 'appointments:my_appointments' %}" class="book-cancel-btn">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+const API_VETS = "{% url 'appointments:api_vets' %}";
+const API_TIMES = "{% url 'appointments:api_times' %}";
+const API_DATES = "{% url 'appointments:api_dates' %}";
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Pet selector auto-fill
+  const petSelector = document.getElementById('petSelector');
+  const selectedPetIdField = document.querySelector('[name="selected_pet_id"]');
+  const petNameField = document.querySelector('[name="pet_name"]');
+  const petSpeciesField = document.querySelector('[name="pet_species"]');
+  const petBreedField = document.querySelector('[name="pet_breed"]');
+  const petDobField = document.querySelector('[name="pet_dob"]');
+  const petSexField = document.querySelector('[name="pet_sex"]');
+  const petColorField = document.querySelector('[name="pet_color"]');
+
+  if (petSelector) {
+    petSelector.addEventListener('change', function() {
+      const opt = this.options[this.selectedIndex];
+      if (this.value) {
+        // Fill from selected pet
+        if (selectedPetIdField) selectedPetIdField.value = this.value;
+        if (petNameField) petNameField.value = opt.dataset.name || '';
+        if (petSpeciesField) petSpeciesField.value = opt.dataset.species || '';
+        if (petBreedField) petBreedField.value = opt.dataset.breed || '';
+        if (petDobField) petDobField.value = opt.dataset.dob || '';
+        if (petSexField) petSexField.value = opt.dataset.sex || '';
+        if (petColorField) petColorField.value = opt.dataset.color || '';
+      } else {
+        // Clear for new pet
+        if (selectedPetIdField) selectedPetIdField.value = '';
+        if (petNameField) petNameField.value = '';
+        if (petSpeciesField) petSpeciesField.value = '';
+        if (petBreedField) petBreedField.value = '';
+        if (petDobField) petDobField.value = '';
+        if (petSexField) petSexField.value = '';
+        if (petColorField) petColorField.value = '';
+      }
+    });
+  }
+});
+</script>
+
+<script src="{% static 'js/appointments/booking.js' %}"></script>
+
+<!-- Auto-Capitalize Script for Client and Pet Details -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Function to capitalize only the first letter of the text
+  function capitalizeFirstLetter(str) {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  // Fields to auto-capitalize (Client Details and Pet Details)
+  const fieldsToCapitalize = [
+    'owner_name', 'owner_address',
+    'pet_name', 'pet_species', 'pet_breed', 'pet_color'
+  ];
+
+  fieldsToCapitalize.forEach(function(fieldName) {
+    const field = document.querySelector('[name="' + fieldName + '"]');
+    if (field && (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA')) {
+      // Capitalize on input
+      field.addEventListener('input', function() {
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        this.value = capitalizeFirstLetter(this.value);
+        this.setSelectionRange(start, end);
+      });
+    }
+  });
+});
+</script>
+
+{% endblock %}

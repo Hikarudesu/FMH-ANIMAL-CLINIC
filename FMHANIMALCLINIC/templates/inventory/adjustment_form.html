@@ -1,0 +1,448 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Add Stock Adjustment{% endblock %}
+
+{% block content %}
+<style>
+  .adjustment-card-container {
+    display: flex;
+    justify-content: center;
+    padding: 24px 20px;
+  }
+
+  .adjustment-card {
+    max-width: 700px;
+    width: 100%;
+    padding: 32px !important;
+  }
+
+  .adjustment-section {
+    margin-bottom: 28px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header i {
+    font-size: 1.4rem;
+    color: var(--primary);
+  }
+
+  .section-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+
+  .section-grid {
+    display: grid;
+    gap: 20px;
+  }
+
+  .section-grid.cols-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+
+  .form-group label .req {
+    color: var(--accent);
+    margin-left: 2px;
+  }
+
+  .form-group .hint {
+    font-size: 0.75rem;
+    color: var(--text-3);
+  }
+
+  .form-group .field-err {
+    color: var(--danger, #ef4444);
+    font-size: 0.78rem;
+  }
+
+  .form-control,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+  }
+
+  .form-control:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.12);
+    outline: none;
+  }
+
+  .form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+
+  /* Adjustment Type Buttons */
+  .type-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .type-option {
+    position: relative;
+  }
+
+  .type-option input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .type-option label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--surface);
+  }
+
+  .type-option label i {
+    font-size: 2rem;
+    margin-bottom: 8px;
+    color: var(--text-3);
+    transition: color 0.2s;
+  }
+
+  .type-option label span {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .type-option input:checked + label {
+    border-color: var(--primary);
+    background: rgba(0, 150, 136, 0.05);
+  }
+
+  .type-option input:checked + label i {
+    color: var(--primary);
+  }
+
+  .type-option.add input:checked + label {
+    border-color: #2e7d32;
+    background: rgba(46, 125, 50, 0.05);
+  }
+
+  .type-option.add input:checked + label i {
+    color: #2e7d32;
+  }
+
+  .type-option.remove input:checked + label {
+    border-color: #c62828;
+    background: rgba(198, 40, 40, 0.05);
+  }
+
+  .type-option.remove input:checked + label i {
+    color: #c62828;
+  }
+
+  .type-option label:hover {
+    border-color: var(--primary);
+  }
+
+  /* Optional Fields Toggle */
+  .optional-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .optional-toggle i {
+    transition: transform 0.2s;
+  }
+
+  .optional-toggle.expanded i {
+    transform: rotate(90deg);
+  }
+
+  .optional-fields {
+    display: none;
+  }
+
+  .optional-fields.show {
+    display: block;
+  }
+
+  /* Actions */
+  .adjustment-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .save-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, #00695c 100%);
+    color: white;
+    font-weight: 600;
+    padding: 12px 28px;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.2);
+  }
+
+  .save-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 150, 136, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    .adjustment-card {
+      padding: 24px !important;
+    }
+
+    .section-grid.cols-2 {
+      grid-template-columns: 1fr;
+    }
+
+    .type-selector {
+      grid-template-columns: 1fr;
+    }
+
+    .adjustment-actions {
+      flex-direction: column-reverse;
+    }
+
+    .adjustment-actions button,
+    .adjustment-actions a {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-transfer'></i> Stock Adjustment</h1>
+      <p>Add or remove stock from inventory</p>
+    </div>
+    <div class="page-hero-actions">
+      <a href="{% url 'inventory:management' %}" class="page-hero-btn">
+        <i class='bx bx-arrow-back'></i> Back
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="adjustment-card-container">
+  <div class="dashboard-card adjustment-card">
+    <form method="POST" action="{% url 'inventory:adjustment_new' %}">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="portal-message danger" style="margin-bottom: 20px;">
+          {{ form.non_field_errors.as_text }}
+        </div>
+      {% endif %}
+
+      <!-- Product Selection -->
+      <div class="adjustment-section">
+        <div class="section-header">
+          <i class='bx bx-package'></i>
+          <h3>Select Product</h3>
+        </div>
+        <div class="section-grid cols-2">
+          <div class="form-group">
+            <label for="{{ form.branch.id_for_label }}">Branch <span class="req">*</span></label>
+            {{ form.branch }}
+            <span class="hint">Select branch first to filter products</span>
+            {% if form.branch.errors %}<small class="field-err">{{ form.branch.errors.as_text }}</small>{% endif %}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.product.id_for_label }}">Product <span class="req">*</span></label>
+            {{ form.product }}
+            {% if form.product.errors %}<small class="field-err">{{ form.product.errors.as_text }}</small>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Adjustment Type -->
+      <div class="adjustment-section">
+        <div class="section-header">
+          <i class='bx bx-transfer-alt'></i>
+          <h3>Adjustment Type</h3>
+        </div>
+        <div class="type-selector">
+          <div class="type-option add">
+            <input type="radio" name="adjustment_type" id="type_add" value="ADD" 
+                   {% if form.adjustment_type.value == 'ADD' or not form.adjustment_type.value %}checked{% endif %}>
+            <label for="type_add">
+              <i class='bx bx-plus-circle'></i>
+              <span>Add Stock</span>
+            </label>
+          </div>
+          <div class="type-option remove">
+            <input type="radio" name="adjustment_type" id="type_remove" value="REMOVE"
+                   {% if form.adjustment_type.value == 'REMOVE' %}checked{% endif %}>
+            <label for="type_remove">
+              <i class='bx bx-minus-circle'></i>
+              <span>Remove Stock</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quantity & Reason -->
+      <div class="adjustment-section">
+        <div class="section-header">
+          <i class='bx bx-edit'></i>
+          <h3>Adjustment Details</h3>
+        </div>
+        <div class="section-grid cols-2">
+          <div class="form-group">
+            <label for="{{ form.quantity.id_for_label }}">Quantity <span class="req">*</span></label>
+            {{ form.quantity }}
+            <span class="hint">Number of items to add or remove</span>
+            {% if form.quantity.errors %}<small class="field-err">{{ form.quantity.errors.as_text }}</small>{% endif %}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.date.id_for_label }}">Date <span class="req">*</span></label>
+            {{ form.date }}
+            {% if form.date.errors %}<small class="field-err">{{ form.date.errors.as_text }}</small>{% endif %}
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label for="{{ form.reason.id_for_label }}">Reason <span class="req">*</span></label>
+          {{ form.reason }}
+          <span class="hint">Describe why this adjustment is being made</span>
+          {% if form.reason.errors %}<small class="field-err">{{ form.reason.errors.as_text }}</small>{% endif %}
+        </div>
+      </div>
+
+      <!-- Optional Fields -->
+      <div class="adjustment-section">
+        <div class="optional-toggle" onclick="toggleOptional(this)">
+          <i class='bx bx-chevron-right'></i>
+          <span>Show Optional Fields</span>
+        </div>
+        <div class="optional-fields">
+          <div class="section-grid cols-2">
+            <div class="form-group">
+              <label for="{{ form.reference.id_for_label }}">Reference Number</label>
+              {{ form.reference }}
+              <span class="hint">Receipt #, Invoice ID (auto-generated if blank)</span>
+            </div>
+
+            <div class="form-group">
+              <label for="{{ form.cost_per_unit.id_for_label }}">Cost per Unit</label>
+              {{ form.cost_per_unit }}
+              <span class="hint">For purchase records (optional)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="adjustment-actions">
+        <a href="{% url 'inventory:management' %}" class="btn-action outline">
+          <i class='bx bx-x'></i> Cancel
+        </a>
+        <button type="submit" class="btn-action primary save-btn">
+          <i class='bx bx-check'></i> Save Adjustment
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const branchSelect = document.getElementById('id_branch');
+    const productSelect = document.getElementById('id_product');
+
+    if (branchSelect && productSelect) {
+        branchSelect.addEventListener('change', function() {
+            const branchId = this.value;
+            
+            if (!branchId) {
+                Array.from(productSelect.options).forEach(option => {
+                    if (option.value) option.style.display = '';
+                });
+                return;
+            }
+
+            fetch(`/inventory/get-branch-products/${branchId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    while (productSelect.options.length > 1) {
+                        productSelect.remove(1);
+                    }
+
+                    data.products.forEach(product => {
+                        const option = document.createElement('option');
+                        option.value = product.id;
+                        option.textContent = product.name;
+                        productSelect.appendChild(option);
+                    });
+
+                    productSelect.value = '';
+                })
+                .catch(error => console.error('Error fetching products:', error));
+        });
+    }
+});
+
+function toggleOptional(el) {
+    el.classList.toggle('expanded');
+    const fields = el.nextElementSibling;
+    fields.classList.toggle('show');
+    el.querySelector('span').textContent = fields.classList.contains('show') 
+        ? 'Hide Optional Fields' 
+        : 'Show Optional Fields';
+}
+</script>
+{% endblock %}

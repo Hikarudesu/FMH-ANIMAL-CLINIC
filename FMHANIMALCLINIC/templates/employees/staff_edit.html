@@ -1,0 +1,522 @@
+{% extends 'base/portal_admin.html' %}
+{% load currency_filters %}
+
+{% block title %}Edit Staff Profile{% endblock %}
+
+{% block content %}
+
+<!-- Page Hero -->
+{% url 'employees:staff_list' as back_url %}
+{% include "components/page_hero.html" with title="Staff Profile" subtitle=user.get_full_name|default:user.username icon="bx-user-check" action_url=back_url action_label="Back to Staff" action_icon="bx-arrow-back" %}
+
+<div class="dashboard-card staff-edit-card">
+  <!-- Modern Info Section -->
+  <div class="staff-info-section">
+    <div class="staff-header-grid">
+      <!-- Staff Avatar Card -->
+      <div class="staff-avatar-card">
+        <div class="avatar-display">
+          <div class="avatar-large">
+            {% if user.profile_picture %}
+            <img src="{{ user.profile_picture.url }}" alt="{{ user.get_full_name }}">
+            {% else %}
+            <span class="avatar-initials">{{ user.first_name|slice:":1"|upper|default:user.username|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper|default:"" }}</span>
+            {% endif %}
+          </div>
+          <div class="avatar-info">
+            <h2>{{ user.get_full_name|default:user.username }}</h2>
+            <p class="role-badge">
+              <i class='bx {{ user.assigned_role.code|default:"bx-user" }}'></i>
+              {{ user.assigned_role.name|default:"No Role" }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Account Details Grid -->
+      <div class="account-details-grid">
+        <div class="detail-card">
+          <div class="detail-icon email">
+            <i class='bx bx-envelope'></i>
+          </div>
+          <div class="detail-content">
+            <label>Email Address</label>
+            <p>{{ user.email }}</p>
+          </div>
+        </div>
+
+        <div class="detail-card">
+          <div class="detail-icon branch">
+            <i class='bx bx-building'></i>
+          </div>
+          <div class="detail-content">
+            <label>Branch</label>
+            <p>{{ user.branch.name|default:"—" }}</p>
+          </div>
+        </div>
+
+        <div class="detail-card">
+          <div class="detail-icon status">
+            <i class='bx {% if user.is_active %}bx-check-circle{% else %}bx-x-circle{% endif %}'></i>
+          </div>
+          <div class="detail-content">
+            <label>Status</label>
+            <p>{% if user.is_active %}<span class="status-badge active">Active</span>{% else %}<span class="status-badge inactive">Inactive</span>{% endif %}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-divider"></div>
+    <small class="form-hint">To update account details, visit <a href="{% url 'accounts:user_role_list' %}">Staff Role Management</a></small>
+  </div>
+
+  <!-- Employment Form -->
+  <form method="POST" style="padding: 24px;">
+    {% csrf_token %}
+
+    <div class="section-title">
+      <i class='bx bx-briefcase'></i>
+      <h3>Employment Details</h3>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">
+          <i class='bx bx-money'></i> Monthly Salary (₱)
+        </label>
+        <input type="number" name="salary" class="admin-input" step="0.01"
+               value="{{ staff_profile.salary|default:0 }}"
+               placeholder="0.00">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">
+          <i class='bx bx-calendar'></i> Date Hired
+        </label>
+        <input type="date" name="date_hired" class="admin-input"
+               value="{{ staff_profile.date_hired|date:'Y-m-d' }}">
+      </div>
+
+      {% if user.assigned_role.code == 'veterinarian' %}
+      <div class="form-group">
+        <label class="form-label">
+          <i class='bx bx-card'></i> PRC License Number
+        </label>
+        <input type="text" name="license_number" class="admin-input"
+               value="{{ staff_profile.license_number|default:'' }}"
+               placeholder="License number">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">
+          <i class='bx bx-calendar-event'></i> License Expiry Date
+        </label>
+        <input type="date" name="license_expiry" class="admin-input"
+               value="{{ staff_profile.license_expiry|date:'Y-m-d' }}">
+      </div>
+      {% endif %}
+
+      <div class="form-group full-width">
+        <label class="checkbox-item modern">
+          <input type="checkbox" name="is_active"
+                 {% if staff_profile.is_active or not staff_profile.pk %}checked{% endif %}>
+          <span class="checkbox-label">
+            <strong>Active Employee</strong>
+            <span class="checkbox-sub">This staff member can access the system</span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="{% url 'employees:staff_list' %}" class="btn-action outline">
+        <i class='bx bx-x'></i> Cancel
+      </a>
+      <button type="submit" class="btn-action primary">
+        <i class='bx bx-save'></i> Save Changes
+      </button>
+    </div>
+  </form>
+</div>
+
+<style>
+  /* ══════════════════════════════════════════════ */
+  /* CENTERED CARD LAYOUT */
+  /* ══════════════════════════════════════════════ */
+  .staff-edit-card {
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ══════════════════════════════════════════════ */
+  /* MODERN STAFF INFO SECTION */
+  /* ══════════════════════════════════════════════ */
+  .staff-info-section {
+    padding: 28px;
+    background: linear-gradient(135deg, rgba(0, 150, 136, 0.02) 0%, rgba(0, 150, 136, 0.01) 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 28px;
+  }
+
+  .staff-header-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  /* Staff Avatar Card */
+  .staff-avatar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.08);
+    transition: all 0.3s ease;
+  }
+
+  .staff-avatar-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 150, 136, 0.12);
+    transform: translateY(-2px);
+  }
+
+  .avatar-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .avatar-large {
+    width: 90px;
+    height: 90px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary-light) 0%, rgba(0, 150, 136, 0.15) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2px solid var(--primary-light);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-info h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0;
+  }
+
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  /* Account Details Grid */
+  .account-details-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s ease;
+  }
+
+  .detail-card:hover {
+    border-color: var(--primary);
+    background: rgba(0, 150, 136, 0.02);
+  }
+
+  .detail-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .detail-icon.email {
+    background: rgba(33, 150, 243, 0.1);
+    color: #2196f3;
+  }
+
+  .detail-icon.branch {
+    background: rgba(76, 175, 80, 0.1);
+    color: #4caf50;
+  }
+
+  .detail-icon.status {
+    background: rgba(255, 152, 0, 0.1);
+    color: #ff9800;
+  }
+
+  .detail-content label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  .detail-content p {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin: 0;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .status-badge.active {
+    background: rgba(76, 175, 80, 0.15);
+    color: #2e7d32;
+  }
+
+  .status-badge.inactive {
+    background: rgba(244, 67, 54, 0.15);
+    color: #c62828;
+  }
+
+  .info-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 24px 0;
+  }
+
+  /* ══════════════════════════════════════════════ */
+  /* FORM STYLING */
+  /* ══════════════════════════════════════════════ */
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--primary);
+  }
+
+  .section-title i {
+    font-size: 22px;
+    color: var(--primary);
+  }
+
+  .section-title h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-group.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .form-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: var(--text-1);
+  }
+
+  .form-label i {
+    font-size: 16px;
+    color: var(--primary);
+    opacity: 0.7;
+  }
+
+  .admin-input {
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-1);
+    transition: all 0.2s ease;
+  }
+
+  .admin-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.1);
+  }
+
+  .checkbox-item.modern {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    background: rgba(0, 150, 136, 0.04);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .checkbox-item.modern:hover {
+    background: rgba(0, 150, 136, 0.08);
+    border-color: var(--primary);
+  }
+
+  .checkbox-item.modern input {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    cursor: pointer;
+    accent-color: var(--primary);
+  }
+
+  .checkbox-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .checkbox-label strong {
+    font-size: 14px;
+    color: var(--text-1);
+  }
+
+  .checkbox-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .form-hint {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: block;
+  }
+
+  .form-hint a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .form-hint a:hover {
+    text-decoration: underline;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ══════════════════════════════════════════════ */
+  /* DARK MODE */
+  /* ══════════════════════════════════════════════ */
+  [data-theme="dark"] .staff-info-section {
+    background: linear-gradient(135deg, rgba(0, 150, 136, 0.04) 0%, rgba(0, 150, 136, 0.02) 100%);
+  }
+
+  [data-theme="dark"] .staff-avatar-card {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  [data-theme="dark"] .staff-avatar-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  [data-theme="dark"] .role-badge {
+    background: rgba(0, 150, 136, 0.15);
+    color: var(--primary);
+  }
+
+  [data-theme="dark"] .checkbox-item.modern {
+    background: rgba(0, 150, 136, 0.06);
+  }
+
+  [data-theme="dark"] .checkbox-item.modern:hover {
+    background: rgba(0, 150, 136, 0.12);
+  }
+
+  /* ══════════════════════════════════════════════ */
+  /* RESPONSIVE */
+  /* ══════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    .staff-header-grid {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .staff-info-section {
+      padding: 20px;
+    }
+
+    .detail-card {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .detail-icon {
+      margin: 0 auto;
+    }
+  }
+</style>
+
+{% endblock %}

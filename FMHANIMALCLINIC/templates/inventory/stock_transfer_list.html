@@ -1,0 +1,362 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Stock Transfers{% endblock %}
+
+{% block content %}
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-transfer'></i> Stock Transfers</h1>
+      <p>Manage inventory transfers between branches</p>
+    </div>
+    <div class="page-hero-actions">
+      {% if not request.user.assigned_role or request.user.assigned_role.hierarchy_level < 10 %}
+      <a href="{% url 'inventory:transfer_request' %}" class="page-hero-btn">
+        <i class='bx bx-git-pull-request'></i> Request Transfer
+      </a>
+      {% else %}
+      <span class="page-hero-btn disabled" title="Admin users can only approve transfer requests">
+        <i class='bx bx-shield-check'></i> Approval Only
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="c-filter-bar" style="margin-bottom: 22px;">
+  <div class="c-filter-bar__glow"></div>
+  <form method="GET" action="/inventory/transfers/" class="c-filter-bar__form" autocomplete="off">
+    <!-- Search Input -->
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input
+        type="text"
+        name="q"
+        value="{{ search_value }}"
+        placeholder="Search by product, branch, or requester..."
+        id="transferSearch"
+        class="c-filter-bar__search-input"
+        autocomplete="off"
+      >
+      <div class="search-dropdown" id="transferSearchDropdown"></div>
+      <div class="c-filter-bar__shortcut">
+        <span>⌘</span><span>K</span>
+      </div>
+    </div>
+
+    <!-- Filter Dropdowns Row -->
+    <div class="c-filter-bar__filters">
+      <!-- Status Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_status %} active{% endif %}">
+          <i class='bx bx-pulse c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if selected_status %}{{ selected_status }}{% else %}All Status{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="status" onchange="this.form.submit()">
+          <option value="">All Status</option>
+          <option value="Pending" {% if selected_status == 'Pending' %}selected{% endif %}>Pending</option>
+          <option value="Approved" {% if selected_status == 'Approved' %}selected{% endif %}>Approved</option>
+          <option value="Rejected" {% if selected_status == 'Rejected' %}selected{% endif %}>Rejected</option>
+          <option value="Completed" {% if selected_status == 'Completed' %}selected{% endif %}>Completed</option>
+        </select>
+      </div>
+
+      <!-- Branch Filter -->
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger">
+          <i class='bx bx-building-house c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">All Branches</span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="branch_id" onchange="this.form.submit()">
+          <option value="">All Branches</option>
+          {% for filter in status_filters %}
+            {% if filter.name == 'branch_id' %}
+              {% for option in filter.options %}
+                <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Clear Button -->
+      {% if show_clear %}
+      <a href="/inventory/transfers/" class="c-filter-bar__clear" title="Clear Filters">
+        <i class='bx bx-x'></i>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Main Table Container -->
+<div class="admin-table-card">
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+          <tr>
+            <th>Date</th>
+            <th>Source Branch</th>
+            <th>Destination Branch</th>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Requested By</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for transfer in transfers %}
+          <tr class="searchable-row"
+              data-product="{{ transfer.source_product.name }}"
+              data-source="{{ transfer.source_product.branch.name }}"
+              data-destination="{{ transfer.destination_branch.name }}"
+              data-requester="{% if transfer.requested_by %}{{ transfer.requested_by.get_full_name|default:transfer.requested_by.username }}{% else %}Unknown{% endif %}"
+              data-status="{{ transfer.status }}">
+            <td style="white-space: nowrap;">{{ transfer.created_at|date:"M j, Y g:i A" }}</td>
+            <td style="font-weight: 600;">{{ transfer.source_product.branch.name }}</td>
+            <td style="font-weight: 600;">{{ transfer.destination_branch.name }}</td>
+            <td>{{ transfer.source_product.name }}</td>
+            <td style="font-weight: 700;">{{ transfer.quantity }}</td>
+            <td>{% if transfer.requested_by %}{{ transfer.requested_by.get_full_name|default:transfer.requested_by.username }}{% else %}Unknown{% endif %}</td>
+            <td>
+                <span style="
+                    padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;
+                    {% if transfer.status == 'Pending' %}background: #fff3e0; color: #e65100;
+                    {% elif transfer.status == 'Approved' %}background: #e3f2fd; color: #1565c0;
+                    {% elif transfer.status == 'Rejected' %}background: #ffebee; color: #c62828;
+                    {% elif transfer.status == 'Completed' %}background: #e8f5e9; color: #2e7d32;
+                    {% endif %}
+                ">{{ transfer.status }}</span>
+            </td>
+            <td>
+                {# Only show action buttons based on proper status and permissions #}
+                {% with user_branch=request.user.staff_profile.branch|default:request.user.branch %}
+                {% if transfer.status == 'Pending' %}
+                    {# Pending: Source branch staff or superuser can approve/reject #}
+                    {% if user_branch == transfer.source_product.branch or request.user.is_superuser %}
+                    <div style="display: flex; gap: 5px;">
+                        <form method="POST" action="{% url 'inventory:transfer_update_status' transfer.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="approve">
+                            <button type="submit" class="btn-action primary" style="padding: 4px 10px; font-size: 0.75rem;">Approve</button>
+                        </form>
+                        <form method="POST" action="{% url 'inventory:transfer_update_status' transfer.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="reject">
+                            <button type="submit" class="btn-action text" style="padding: 4px 10px; font-size: 0.75rem; color: #c62828;">Reject</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <span style="color: var(--text-3); font-size: 0.8rem;">Awaiting approval</span>
+                    {% endif %}
+                {% elif transfer.status == 'Approved' %}
+                    {# Approved: Destination branch staff or superuser can mark as received #}
+                    {% if user_branch == transfer.destination_branch or request.user.is_superuser %}
+                    <form method="POST" action="{% url 'inventory:transfer_update_status' transfer.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="complete">
+                        <button type="submit" class="btn-action primary" style="padding: 4px 10px; font-size: 0.75rem;">Mark Received</button>
+                    </form>
+                    {% else %}
+                    <span style="color: var(--text-3); font-size: 0.8rem;">Awaiting delivery</span>
+                    {% endif %}
+                {% else %}
+                    {# Rejected or Completed: No actions available #}
+                    <span style="color: var(--text-3); font-size: 0.8rem;">—</span>
+                {% endif %}
+                {% endwith %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 50px; color: var(--text-3);">
+                <i class='bx bx-transfer' style="font-size: 2.5rem; display: block; margin-bottom: 10px; opacity: 0.5;"></i>
+                No transfers found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+</div>
+
+<script>
+// ══════ TRANSFER SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+(function initTransferSearch() {
+  const searchInput = document.getElementById('transferSearch');
+  const dropdown    = document.getElementById('transferSearchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  function buildData() {
+    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
+      product   : row.dataset.product    || '',
+      source    : row.dataset.source     || '',
+      destination : row.dataset.destination || '',
+      requester : row.dataset.requester  || '',
+      status    : row.dataset.status     || '',
+      row       : row
+    }));
+  }
+
+  let items = buildData();
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function highlight(text, q) {
+    if (!q) return text;
+    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
+      '<span class="search-dropdown-highlight">$1</span>');
+  }
+
+  function renderDropdown(results, q) {
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No transfers found</div>';
+    } else {
+      dropdown.innerHTML = results.slice(0, 8).map(item => `
+        <div class="search-dropdown-item" data-product="${item.product}">
+          <i class='bx bx-transfer'></i>
+          <div class="item-info">
+            <div class="item-name">${highlight(item.product, q)}</div>
+            <div class="item-sub">${highlight(item.source, q)} → ${item.destination} &bull; ${item.status}</div>
+          </div>
+          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+        </div>`).join('');
+      dropdown.querySelectorAll('.search-dropdown-item').forEach((elem, idx) => {
+        elem.addEventListener('mousedown', e => {
+          e.preventDefault();
+          searchInput.value = results[idx].product;
+          filterRows(results[idx].product.toLowerCase());
+          hideDropdown();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+
+  function hideDropdown() {
+    dropdown.classList.remove('active');
+    dropdown.style.display = '';
+  }
+
+  function filterRows(q) {
+    items.forEach(item => {
+      const pl = item.product.toLowerCase();
+      const sl = item.source.toLowerCase();
+      const dl = item.destination.toLowerCase();
+      const rl = (item.requester || '').toLowerCase();
+      const matchesSearch = !q || pl.includes(q) || sl.includes(q) || dl.includes(q) || rl.includes(q);
+      item.row.style.display = matchesSearch ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    filterRows(q);
+    if (!q) { hideDropdown(); return; }
+    const results = items.filter(item =>
+      item.product.toLowerCase().includes(q) ||
+      item.source.toLowerCase().includes(q) ||
+      item.destination.toLowerCase().includes(q) ||
+      (item.requester || '').toLowerCase().includes(q));
+    renderDropdown(results, q);
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideDropdown, 150);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    const items_elem = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    let idx = items_elem.findIndex(i => i.classList.contains('active'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items_elem[idx]?.classList.remove('active');
+      idx = (idx + 1) % items_elem.length;
+      items_elem[idx]?.classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items_elem[idx]?.classList.remove('active');
+      idx = (idx - 1 + items_elem.length) % items_elem.length;
+      items_elem[idx]?.classList.add('active');
+    } else if (e.key === 'Enter' && idx >= 0) {
+      e.preventDefault(); items_elem[idx]?.click();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+}());
+
+// Reinitialize searchable dropdowns for filter bar
+if (window.SearchableDropdown) {
+  SearchableDropdown.init();
+}
+</script>
+
+<style>
+/* Fix dropdown clipping - allow overflow */
+.portal-content {
+    overflow: visible !important;
+}
+
+.page-header {
+    overflow: visible !important;
+    position: relative;
+    z-index: 100;
+}
+
+.page-header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    overflow: visible !important;
+    position: relative;
+    z-index: 100;
+}
+
+.page-header-actions .c-filter-bar {
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: visible !important;
+    position: relative;
+    z-index: 100;
+}
+
+.page-header-actions .sd-wrap {
+    overflow: visible !important;
+    position: relative;
+    z-index: 1000;
+}
+
+.page-header-actions .sd-dropdown {
+    z-index: 9999 !important;
+}
+
+/* Disabled button styling */
+.page-hero-btn.disabled {
+    background: #64748b !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+
+.page-hero-btn.disabled:hover {
+    background: #64748b !important;
+    transform: none !important;
+}
+</style>
+{% endblock %}

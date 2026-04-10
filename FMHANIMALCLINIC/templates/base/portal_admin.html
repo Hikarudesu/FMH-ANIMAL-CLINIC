@@ -1,0 +1,907 @@
+{% load static %}
+{% load permission_tags %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Admin Dashboard{% endblock %} — FMHSYNC</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{% static 'image/fmh-logo.png' %}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{% static 'css/base/messages.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/base/searchable-dropdown.css' %}" />
+    <link
+      rel="stylesheet"
+      href="{% static 'css/accounts/portal_shared.css' %}"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'css/accounts/portal_admin.css' %}"
+    />
+    <link rel="stylesheet" href="{% static 'css/accounts/dashboard.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/components/tab_bar.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/components/filter_bar.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/components/modern_pagination.css' %}" />
+  </head>
+  <body class="admin-portal">
+    <!-- Global Toast Messages -->
+    {% if messages %}
+    <div class="portal-messages" id="portalMessages">
+      {% for message in messages %}
+      <div class="portal-message {{ message.tags }}">
+        {% if 'success' in message.tags %}
+        <i class="bx bx-check-circle"></i>
+        {% elif 'error' in message.tags or 'danger' in message.tags %}
+        <i class="bx bx-error-circle"></i>
+        {% elif 'warning' in message.tags %}
+        <i class="bx bx-error-alt"></i>
+        {% else %}
+        <i class="bx bx-info-circle"></i>
+        {% endif %}
+
+        <div>
+          <strong>
+            {% if 'success' in message.tags %}Success
+            {% elif 'error' in message.tags or 'danger' in message.tags %}Error
+            {% elif 'warning' in message.tags %}Warning
+            {% else %}Information
+            {% endif %}
+          </strong>
+          <span>{{ message }}</span>
+        </div>
+
+        <button
+          class="portal-message-close"
+          onclick="this.parentElement.remove()"
+        >
+          <i class="bx bx-x"></i>
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="portal-wrapper" id="portalWrapper">
+      <div class="mobile-overlay" id="mobileOverlay"></div>
+
+      <!-- ====== TOP NAVBAR (transparent, bubble type) ====== -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button
+            class="sidebar-toggle"
+            id="sidebarToggle"
+            aria-label="Toggle sidebar"
+          >
+            <i class="bx bx-menu"></i>
+          </button>
+        </div>
+
+        <div class="topbar-center"></div>
+
+        <div class="topbar-right">
+          <a
+            href="{% url 'landing_page' %}"
+            class="topbar-icon-btn"
+            title="Home"
+          >
+            <i class="bx bx-home-alt"></i>
+          </a>
+          <div class="topbar-notif-container" style="position: relative">
+            <button
+              class="topbar-icon-btn"
+              id="notifDropdownBtn"
+              title="Notifications"
+            >
+              <i class="bx bx-bell"></i>
+              {% if unread_notifications_count > 0 %}
+              <span class="notif-dot"></span>
+              {% endif %}
+            </button>
+
+            <!-- Notification Dropdown Menu -->
+            <div class="topbar-dropdown notif-dropdown" id="notifDropdown">
+              <div class="dropdown-header">
+                <strong><i class="bx bx-bell"></i> Recent Notifications</strong>
+              </div>
+              <div class="dropdown-divider"></div>
+              <div class="notif-list">
+                {% for notif in recent_notifications %}
+                <div class="notif-item">
+                  <div class="notif-icon">
+                    {% if notif.notification_type == 'APPOINTMENT' %}
+                    <i
+                      class="bx bx-calendar-event"
+                      style="color: var(--primary)"
+                    ></i>
+                    {% elif notif.notification_type == 'LOW_INVENTORY' %}
+                    <i class="bx bx-error" style="color: var(--danger)"></i>
+                    {% elif notif.notification_type == 'INVENTORY_RESTOCK' %}
+                    <i
+                      class="bx bx-check-shield"
+                      style="color: var(--success)"
+                    ></i>
+                    {% elif notif.notification_type == 'FOLLOW_UP' %}
+                    <i
+                      class="bx bx-plus-medical"
+                      style="color: var(--warning)"
+                    ></i>
+                    {% else %}
+                    <i class="bx bx-info-circle"></i>
+                    {% endif %}
+                  </div>
+                  <div class="notif-content">
+                    <div class="notif-title-row">
+                      <span class="notif-title">{{ notif.title }}</span>
+                      <span class="notif-time"
+                        >{{ notif.created_at|timesince }} ago</span
+                      >
+                    </div>
+                    <span class="notif-msg"
+                      >{{ notif.message|truncatechars:50 }}</span
+                    >
+                  </div>
+                </div>
+                  {% empty %}
+                <div class="notif-empty">No unread notifications</div>
+                  {% endfor %}
+              </div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-footer">
+                <a
+                  href="{% url 'notifications:admin_notifications' %}"
+                  class="dropdown-item"
+                  style="justify-content: center; color: var(--primary)"
+                  >View All</a
+                >
+              </div>
+            </div>
+          </div>
+          <button class="topbar-icon-btn" id="themeToggleBtn" title="Theme">
+            <i class="bx bx-sun"></i>
+          </button>
+          <div class="topbar-profile-container">
+            <div
+              class="topbar-profile"
+              id="profileDropdownBtn"
+              title="{{ user.get_full_name|default:user.username }}"
+            >
+              <div class="topbar-avatar">
+                {% if user.profile_picture %}
+                <img
+                  src="{{ user.profile_picture.url }}"
+                  alt="Profile"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    border-radius: 50%;
+                  "
+                />
+                {% elif user.first_name %}{{ user.first_name|make_list|first|upper }}{% elif user.username %}{{ user.username|make_list|first|upper }}{% else %}
+                <i class="bx bxs-user"></i>
+                {% endif %}
+              </div>
+              <span class="topbar-name">
+                {{ user.get_full_name|default:user.username }}
+              </span>
+              <i class="bx bx-chevron-down topbar-chevron"></i>
+            </div>
+
+            <!-- Profile Dropdown Menu -->
+            <div class="topbar-dropdown" id="profileDropdown">
+              <div class="dropdown-header">
+                <div class="topbar-avatar large">
+                  {% if user.profile_picture %}
+                  <img
+                    src="{{ user.profile_picture.url }}"
+                    alt="Profile"
+                    style="
+                      width: 100%;
+                      height: 100%;
+                      object-fit: cover;
+                      border-radius: 50%;
+                    "
+                  />
+                  {% elif user.first_name %}{{ user.first_name|make_list|first|upper }}{% elif user.username %}{{ user.username|make_list|first|upper }}{% else %}
+                  <i class="bx bxs-user"></i>
+                  {% endif %}
+                </div>
+                <div class="dropdown-user-info">
+                  <strong>
+                    {{ user.get_full_name|default:user.username }}
+                  </strong>
+                  <span>{{ user.email }}</span>
+                  <span class="role-badge">{{ user.get_display_role }}</span>
+                  {% if user.branch %}
+                  <span class="dropdown-clinic-name" style="margin-top: 6px; font-size: 0.72rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 4px;"><i class='bx bx-building-house' style="font-size: 0.9rem;"></i> {{ user.branch.name }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="dropdown-divider"></div>
+              <a href="{% url 'profile' %}" class="dropdown-item">
+                <i class="bx bx-user"></i> My Profile
+              </a>
+              {% if user|is_admin %}
+              <a href="{% url 'settings:admin_settings' %}" class="dropdown-item">
+                <i class="bx bx-cog"></i> Settings
+              </a>
+              {% endif %}
+              <div class="dropdown-divider"></div>
+              <form
+                action="{% url 'logout' %}"
+                method="post"
+                class="dropdown-logout-form"
+              >
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item text-danger">
+                  <i class="bx bx-log-out"></i> Log Out
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ====== LEFT SIDEBAR ====== -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          {% if user.assigned_role.code == 'veterinarian' %}
+          <a href="{% url 'vet_dashboard' %}" class="sidebar-logo">
+          {% elif user.assigned_role.code == 'receptionist' %}
+          <a href="{% url 'receptionist_dashboard' %}" class="sidebar-logo">
+          {% else %}
+          <a href="{% url 'admin_dashboard' %}" class="sidebar-logo">
+          {% endif %}
+            <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo" />
+            <span>FMHSYNC</span>
+          </a>
+        </div>
+        <nav class="sidebar-nav">
+          {# Dashboard - always visible to staff #}
+          {% if user.assigned_role.code == 'veterinarian' %}
+          <a
+            href="{% url 'vet_dashboard' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'vet_dashboard' %}active{% endif %}"
+          >
+          {% elif user.assigned_role.code == 'receptionist' %}
+          <a
+            href="{% url 'receptionist_dashboard' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'receptionist_dashboard' %}active{% endif %}"
+          >
+          {% else %}
+          <a
+            href="{% url 'admin_dashboard' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}"
+          >
+          {% endif %}
+            <i class="bx bx-grid-alt"></i><span>Dashboard</span>
+          </a>
+
+          {% if user.is_superuser %}
+          {# Overseer: Staff Management #}
+          {% if user|has_nav_module:'roles' or user|has_nav_module:'staff' or user|has_nav_module:'schedule' or user|has_nav_module:'payroll' %}
+          <div class="sidebar-item has-submenu">
+            <a
+              href="#"
+              class="sidebar-link {% if 'roles' in request.path or 'employees' in request.path or request.resolver_match.url_name == 'schedule' or 'payroll' in request.path %}active{% endif %}"
+              id="governanceDropdownToggle"
+            >
+              <i class="bx bx-shield-quarter"></i><span>Staff Management</span>
+              <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
+            </a>
+            <div class="sidebar-submenu" id="governanceSubmenu">
+              {% if user|has_nav_module:'roles' %}
+              <a
+                href="{% url 'accounts:role_list' %}"
+                class="sidebar-submenu-link {% if 'roles' in request.path %}active{% endif %}"
+              >
+                <i class="bx bx-shield"></i><span>Roles & Permissions</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'staff' %}
+              <a
+                href="{% url 'employees:staff_list' %}"
+                class="sidebar-submenu-link {% if 'staff' in request.resolver_match.url_name %}active{% endif %}"
+              >
+                <i class="bx bx-id-card"></i><span>Staff</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'schedule' %}
+              <a
+                href="{% url 'employees:schedule' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}"
+              >
+                <i class="bx bx-calendar-event"></i><span>Schedule</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'payroll' %}
+              <a
+                href="{% url 'payroll:dashboard' %}"
+                class="sidebar-submenu-link {% if 'payroll' in request.path %}active{% endif %}"
+              >
+                <i class="bx bx-money"></i><span>Payroll</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          {# Overseer: Oversight #}
+          {% if user|has_nav_module:'analytics' or user|has_nav_module:'activity_logs' %}
+          <div class="sidebar-item has-submenu">
+            <a
+              href="#"
+              class="sidebar-link {% if request.resolver_match.app_name == 'reports' or request.resolver_match.url_name == 'activity_logs' %}active{% endif %}"
+              id="oversightDropdownToggle"
+            >
+              <i class="bx bx-pulse"></i><span>Oversight</span>
+              <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
+            </a>
+            <div class="sidebar-submenu" id="oversightSubmenu">
+              {% if user|has_nav_module:'analytics' %}
+              <a
+                href="{% url 'reports:analytics_dashboard' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'analytics_dashboard' %}active{% endif %}"
+              >
+                <i class="bx bx-line-chart"></i><span>Analytics</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'activity_logs' %}
+              <a
+                href="{% url 'inventory:activity_logs' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'activity_logs' %}active{% endif %}"
+              >
+                <i class="bx bx-list-check"></i><span>Activity Logs</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          {# Overseer: Operations Control #}
+          {% if user|has_nav_module:'branches' or user|has_nav_module:'clinic_services' or user|has_nav_module:'inventory' or user|has_nav_module:'stock_monitor' or user|has_nav_module:'stock_transfers' %}
+          <div class="sidebar-item has-submenu">
+            <a
+              href="#"
+              class="sidebar-link {% if 'branches' in request.path or 'inventory' in request.path or 'transfers' in request.path or 'billing' in request.path %}active{% endif %}"
+              id="operationsDropdownToggle"
+            >
+              <i class="bx bx-briefcase-alt-2"></i><span>Operations Control</span>
+              <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
+            </a>
+            <div class="sidebar-submenu" id="operationsSubmenu">
+              {% if user|has_nav_module:'branches' %}
+              <a
+                href="{% url 'branches:list' %}"
+                class="sidebar-submenu-link {% if 'branches' in request.resolver_match.app_name %}active{% endif %}"
+              >
+                <i class="bx bx-building-house"></i><span>Manage Branches</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'clinic_services' %}
+              <a
+                href="{% url 'billing:billable_items' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'billable_items' %}active{% endif %}"
+              >
+                <i class="bx bx-briefcase"></i><span>Manage Clinic Services</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'inventory' %}
+              <a
+                href="{% url 'inventory:management' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'management' %}active{% endif %}"
+              >
+                <i class="bx bx-package"></i><span>Inventory Management</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'stock_monitor' %}
+              <a
+                href="{% url 'inventory:super_admin_stock_monitoring' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
+              >
+                <i class="bx bx-error-alt"></i><span>Stock Level Monitor</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'stock_transfers' %}
+              <a
+                href="{% url 'inventory:transfer_list' %}"
+                class="sidebar-submenu-link {% if 'transfers' in request.path %}active{% endif %}"
+              >
+                <i class="bx bx-transfer"></i><span>Manage Stock Transfers</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          {# Overseer: Support #}
+          {% if user|is_branch_admin %}
+          <a
+            href="{% url 'inquiries:list' %}"
+            class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-envelope"></i><span>Inquiries</span>
+            {% if new_inquiry_count > 0 %}
+            <span class="badge" style="background: #ef4444;">{{ new_inquiry_count }}</span>
+            {% endif %}
+          </a>
+          {% endif %}
+          {% else %}
+          {# Unified staff sidebar driven by module/special permissions #}
+          {% if user.assigned_role and user.assigned_role.code == 'receptionist' %}
+          <a
+            href="{% url 'pos:checkout' %}"
+            class="sidebar-link {% if 'pos' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-cart"></i><span>Point of Sale</span>
+          </a>
+          {% endif %}
+
+          {% if user.assigned_role and user.assigned_role.code == 'receptionist' %}
+          {% if user|has_nav_module:'appointments' %}
+          <a
+            href="{% url 'appointments:admin_list' %}"
+            class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-calendar-check"></i><span>Appointments</span>
+          </a>
+          {% endif %}
+
+          {% if user|has_nav_module:'patients' %}
+          <a
+            href="{% url 'patients:admin_list' %}"
+            class="sidebar-link {% if 'patients/admin/' in request.path or active_tab == 'patients' %}active{% endif %}"
+          >
+            <i class="bx bxs-dog"></i><span>Patients</span>
+          </a>
+          {% endif %}
+
+          {% if user|has_nav_module:'medical_records' %}
+          <a
+            href="{% url 'records:admin_list' %}"
+            class="sidebar-link {% if 'records' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-file"></i><span>Medical Records</span>
+          </a>
+          {% endif %}
+          {% endif %}
+
+          {% if not user.assigned_role or user.assigned_role.code != 'receptionist' %}
+          {% if user.assigned_role and user.assigned_role.code == 'vet_assistant' or user.assigned_role and user.assigned_role.code == 'veterinarian' %}
+          {# Veterinarian + Vet Assistant: Appointments above Patients #}
+          {% if user|has_nav_module:'appointments' %}
+          <a
+            href="{% url 'appointments:admin_list' %}"
+            class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-calendar-check"></i><span>Appointments</span>
+          </a>
+          {% endif %}
+
+          {% if user|has_nav_module:'patients' %}
+          <a
+            href="{% url 'patients:admin_list' %}"
+            class="sidebar-link {% if 'patients/admin/' in request.path or active_tab == 'patients' %}active{% endif %}"
+          >
+            <i class="bx bxs-dog"></i>
+            <span style="flex-grow: 1">Patients</span>
+            {% if total_patients_count %}
+            <span
+              class="badge"
+              style="
+                background: var(--primary);
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                margin-left: auto;
+              "
+              >{{ total_patients_count }}</span
+            >
+            {% endif %}
+          </a>
+          {% endif %}
+          {% else %}
+          {# Default non-receptionist order #}
+          {% if user|has_nav_module:'patients' %}
+          <a
+            href="{% url 'patients:admin_list' %}"
+            class="sidebar-link {% if 'patients/admin/' in request.path or active_tab == 'patients' %}active{% endif %}"
+          >
+            <i class="bx bxs-dog"></i>
+            <span style="flex-grow: 1">Patients</span>
+            {% if total_patients_count %}
+            <span
+              class="badge"
+              style="
+                background: var(--primary);
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                margin-left: auto;
+              "
+              >{{ total_patients_count }}</span
+            >
+            {% endif %}
+          </a>
+          {% endif %}
+
+          {% if user|has_nav_module:'appointments' %}
+          <a
+            href="{% url 'appointments:admin_list' %}"
+            class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-calendar-check"></i><span>Appointments</span>
+          </a>
+          {% endif %}
+          {% endif %}
+
+          {# Medical Records - filtered by permission #}
+          {% if user|has_nav_module:'medical_records' %}
+          <a
+            href="{% url 'records:admin_list' %}"
+            class="sidebar-link {% if 'records' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-file"></i><span>Medical Records</span>
+          </a>
+          {% endif %}
+
+          {# AI Diagnostics - filtered by permission #}
+          {% if user|has_nav_module:'ai_diagnostics' %}
+          <a
+            href="{% url 'diagnostics:dashboard' %}"
+            class="sidebar-link {% if 'diagnostics' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-brain"></i><span>AI Diagnostics</span>
+          </a>
+          {% endif %}
+
+          {# Finance Submenu - show if user has any finance-related permissions #}
+          {% if user|has_nav_special_permission:'can_access_pos' or user|has_nav_module:'clinic_services' or user|has_nav_module:'payroll' %}
+          <div class="sidebar-item has-submenu">
+            <a
+              href="#"
+              class="sidebar-link {% if 'billing' in request.path or 'payroll' in request.path or 'pos' in request.path %}active{% endif %}"
+              id="financeDropdownToggle"
+            >
+              <i class="bx bx-wallet"></i><span>Finance</span>
+              <span class="submenu-arrow"
+                ><i class="bx bx-chevron-right"></i
+              ></span>
+            </a>
+            <div class="sidebar-submenu" id="financeSubmenu">
+              {% if user|has_nav_special_permission:'can_access_pos' %}
+              <a
+                href="{% url 'pos:checkout' %}"
+                class="sidebar-submenu-link {% if 'pos' in request.path %}active{% endif %}"
+              >
+                <i class="bx bx-cart"></i><span>Point of Sale</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'clinic_services' %}
+              <a
+                href="{% url 'billing:billable_items' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'billable_items' %}active{% endif %}"
+              >
+                <i class="bx bx-briefcase"></i><span>Clinic Services</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'payroll' %}
+              <a
+                href="{% url 'payroll:dashboard' %}"
+                class="sidebar-submenu-link {% if 'payroll' in request.path %}active{% endif %}"
+              >
+                <i class="bx bx-money"></i><span>Payroll</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+          {% endif %}
+
+          {# Staff Management Submenu - show only for Admin roles (Branch Admin or higher) #}
+          {% if user|is_branch_admin %}
+          {% if user|has_nav_module:'staff' or user|has_nav_module:'schedule' or user|has_nav_module:'branches' or user|has_nav_module:'roles' %}
+          <div class="sidebar-item has-submenu">
+            <a
+              href="#"
+              class="sidebar-link {% if 'employees' in request.path or 'schedule' in request.resolver_match.url_name or 'staff' in request.resolver_match.url_name or 'payslips' in request.resolver_match.url_name or 'branches' in request.path or 'roles' in request.path or request.resolver_match.url_name == 'admin_create_account' %}active{% endif %}"
+              id="staffDropdownToggle"
+            >
+              <i class="bx bx-group"></i><span>Staff Management</span>
+              <span class="submenu-arrow"
+                ><i class="bx bx-chevron-right"></i
+              ></span>
+            </a>
+            <div class="sidebar-submenu" id="staffSubmenu">
+              {% if user|has_nav_module:'staff' %}
+              <a
+                href="{% url 'employees:staff_list' %}"
+                class="sidebar-submenu-link {% if 'staff' in request.resolver_match.url_name %}active{% endif %}"
+              >
+                <i class="bx bx-id-card"></i><span>Staff</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'schedule' %}
+              <a
+                href="{% url 'employees:schedule' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}"
+              >
+                <i class="bx bx-calendar-event"></i><span>Schedule</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'branches' %}
+              <a
+                href="{% url 'branches:list' %}"
+                class="sidebar-submenu-link {% if 'branches' in request.resolver_match.app_name %}active{% endif %}"
+              >
+                <i class="bx bx-building-house"></i><span>Manage Branches</span>
+              </a>
+              {% endif %}
+              {% if user|is_admin and user|has_nav_module:'roles' %}
+              <a
+                href="{% url 'accounts:role_list' %}"
+                class="sidebar-submenu-link {% if 'roles' in request.path or request.resolver_match.url_name == 'admin_create_account' %}active{% endif %}"
+              >
+                <i class="bx bx-shield-quarter"></i><span>Roles & Permissions</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+          {% else %}
+          {# Direct Schedule link for non-admin staff (Veterinarian, Receptionist, etc.) #}
+          {% if user|has_nav_module:'schedule' %}
+          <a
+            href="{% url 'employees:schedule' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}"
+          >
+            <i class="bx bx-calendar-event"></i><span>Schedule</span>
+          </a>
+          {% endif %}
+
+          {# Inventory Section - Different display based on role #}
+          {% if user.assigned_role and user.assigned_role.code == 'receptionist' %}
+          {% if user|has_nav_module:'inventory' %}
+          <a
+            href="{% url 'inventory:management' %}"
+            class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-package"></i><span>Inventory Management</span>
+          </a>
+          {% endif %}
+          {% if user|has_nav_module:'stock_monitor' or user|has_nav_special_permission:'can_access_stock_monitor' %}
+          <a
+            href="{% url 'inventory:super_admin_stock_monitoring' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
+          >
+            <i class="bx bx-error-alt"></i><span>Stock Level Monitor</span>
+          </a>
+          {% endif %}
+          {% elif user|has_nav_module:'inventory' or user|has_nav_module:'stock_monitor' or user|has_nav_module:'stock_transfers' %}
+
+          {# Check if user has multiple inventory-related modules (needs dropdown) #}
+          {% with has_inv=user|has_nav_module:'inventory' has_stock=user|has_nav_module:'stock_monitor' has_transfer=user|has_nav_module:'stock_transfers' %}
+          {% if has_inv and not has_stock and not has_transfer %}
+          {# Single module access: Direct link without dropdown #}
+          <a
+            href="{% url 'inventory:management' %}"
+            class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-package"></i><span>Inventory Management</span>
+          </a>
+
+          {% else %}
+          {# Multiple modules: Show dropdown with submenu #}
+          <div class="sidebar-item has-submenu">
+            <a
+              href="#"
+              class="sidebar-link {% if 'inventory' in request.path and 'logs' not in request.path %}active{% endif %}"
+              id="inventoryDropdownToggle"
+            >
+              <i class="bx bx-package"></i><span>Inventory</span>
+              <span class="submenu-arrow"
+                ><i class="bx bx-chevron-right"></i
+              ></span>
+            </a>
+            <div class="sidebar-submenu" id="inventorySubmenu">
+              {% if has_inv %}
+              <a
+                href="{% url 'inventory:management' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' %}active{% endif %}"
+              >
+                <i class="bx bx-package"></i><span>Inventory Management</span>
+              </a>
+              {% endif %}
+              {% if has_stock %}
+              <a
+                href="{% url 'inventory:super_admin_stock_monitoring' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
+              >
+                <i class="bx bx-error-alt"></i><span>Stock Level Monitor</span>
+              </a>
+              {% endif %}
+              {% if has_transfer %}
+              <a
+                href="{% url 'inventory:transfer_list' %}"
+                class="sidebar-submenu-link {% if 'transfers' in request.path %}active{% endif %}"
+              >
+                <i class="bx bx-transfer"></i><span>Stock Transfers</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+          {% endwith %}
+
+          {% endif %}
+
+          {# Analytics - filtered by permission #}
+          {% if user.assigned_role and user.assigned_role.code != 'receptionist' and user|has_nav_module:'analytics' %}
+          <a
+            href="{% url 'reports:analytics_dashboard' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'analytics_dashboard' %}active{% endif %}"
+          >
+            <i class="bx bx-line-chart"></i><span>Analytics Dashboard</span>
+          </a>
+          {% endif %}
+
+          {# Inquiries - visible to admin roles #}
+          {% if user|is_branch_admin %}
+          <a
+            href="{% url 'inquiries:list' %}"
+            class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-envelope"></i><span>Inquiries</span>
+            {% if new_inquiry_count > 0 %}
+            <span class="badge" style="background: #ef4444;">{{ new_inquiry_count }}</span>
+            {% endif %}
+          </a>
+          {% endif %}
+
+          {# Activity Logs - filtered by permission #}
+          {% if user|has_nav_module:'activity_logs' %}
+          <a
+            href="{% url 'inventory:activity_logs' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'activity_logs' %}active{% endif %}"
+          >
+            <i class="bx bx-list-check"></i><span>Activity Logs</span>
+          </a>
+          {% endif %}
+          {% endif %}
+          {% endif %}
+
+          {% if user|has_nav_module:'notifications' %}
+          <a
+            href="{% url 'notifications:admin_notifications' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'admin_notifications' %}active{% endif %}"
+          >
+            <i class="bx bx-bell"></i><span>Notifications</span>
+            {% if unread_notifications_count > 0 %}
+            <span class="badge">{{ unread_notifications_count }}</span>
+            {% endif %}
+          </a>
+          {% endif %}
+
+          {# My Profile - always accessible #}
+          <a
+            href="{% url 'profile' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
+          >
+            <i class="bx bx-user"></i><span>My Profile</span>
+          </a>
+
+          {# Settings - admin only #}
+          {% if user|is_admin and user|has_nav_module:'settings' %}
+          <a
+            href="{% url 'settings:admin_settings' %}"
+            class="sidebar-link {% if 'settings' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-cog"></i><span>Settings</span>
+          </a>
+          {% endif %}
+
+        </nav>
+        <div class="sidebar-footer">
+          <a href="{% url 'logout' %}" class="sidebar-link">
+            <i class="bx bx-log-out"></i><span>Logout</span>
+          </a>
+        </div>
+      </aside>
+
+      <!-- ====== CONTENT ====== -->
+      <main class="portal-content">{% block content %}{% endblock %}</main>
+    </div>
+
+    <!-- Portal JS -->
+    <script src="{% static 'js/accounts/portal.js' %}"></script>
+    <!-- Searchable Dropdown -->
+    <script src="{% static 'js/base/searchable-dropdown.js' %}"></script>
+    <!-- Global Messages JS -->
+    <script src="{% static 'js/base/messages.js' %}"></script>
+    <!-- Component: Tab Bar -->
+    <script src="{% static 'js/components/tab_bar.js' %}"></script>
+    <!-- Component: Filter Bar -->
+    <script src="{% static 'js/components/filter_bar.js' %}"></script>
+    
+    <!-- Dashboard Auto-Refresh: Keeps all portals synchronized -->
+    <script>
+    (function() {
+      // Auto-refresh dashboard pages every 60 seconds to sync data across portals
+      const isDashboardPage = window.location.pathname.includes('dashboard');
+      const REFRESH_INTERVAL = 60000; // 60 seconds
+      let lastActivity = Date.now();
+      let refreshTimer = null;
+      
+      // Track user activity to avoid refreshing during active use
+      function updateActivity() {
+        lastActivity = Date.now();
+      }
+      
+      // Check if user has been idle for at least 30 seconds before refreshing
+      function shouldRefresh() {
+        const idleTime = Date.now() - lastActivity;
+        return idleTime >= 30000; // 30 seconds idle
+      }
+      
+      // Refresh dashboard data without full page reload (if AJAX endpoint available)
+      // Falls back to soft page reload for complete sync
+      function refreshDashboard() {
+        if (!shouldRefresh()) {
+          // User is active, skip this refresh cycle
+          return;
+        }
+        
+        // Show subtle refresh indicator
+        const indicator = document.createElement('div');
+        indicator.id = 'sync-indicator';
+        indicator.innerHTML = '<i class="bx bx-refresh bx-spin"></i> Syncing...';
+        indicator.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--primary,#009688);color:white;padding:8px 16px;border-radius:20px;font-size:12px;z-index:9999;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+        document.body.appendChild(indicator);
+        
+        // Reload page to get fresh data from all sources
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
+      
+      // Only enable auto-refresh on dashboard pages
+      if (isDashboardPage) {
+        // Track user activity
+        ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(event => {
+          document.addEventListener(event, updateActivity, { passive: true });
+        });
+        
+        // Start refresh timer
+        refreshTimer = setInterval(refreshDashboard, REFRESH_INTERVAL);
+        
+        // Also refresh when tab becomes visible (user returns to tab)
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible') {
+            const timeSinceActivity = Date.now() - lastActivity;
+            // If user has been away for more than 2 minutes, refresh immediately
+            if (timeSinceActivity > 120000) {
+              refreshDashboard();
+            }
+          }
+        });
+        
+        console.log('[FMH-SYNC] Dashboard auto-refresh enabled (60s interval)');
+      }
+    })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,41 @@
+<!-- ============================================
+     MOBILE BOTTOM NAVIGATION BAR
+     ============================================ -->
+{% load static %}
+<nav class="bottom-nav" id="bottomNav">
+  <a href="{% url 'landing_page' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'landing_page' %}active{% endif %}" aria-label="Home">
+    <i class='bx {% if request.resolver_match.url_name == "landing_page" %}bxs-home{% else %}bx-home-alt{% endif %}'></i>
+  </a>
+
+  <a href="{% url 'services_page' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'services_page' %}active{% endif %}" aria-label="Services">
+    <i class='bx {% if request.resolver_match.url_name == "services_page" %}bxs-grid-alt{% else %}bx-grid-alt{% endif %}'></i>
+  </a>
+
+  <a href="{% url 'appointments:public_book' %}" class="bottom-nav-item" aria-label="Book Now">
+    <i class='bx bx-calendar-plus'></i>
+  </a>
+
+  <a href="{% url 'aboutus_page' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'aboutus_page' %}active{% endif %}" aria-label="About Us">
+    <i class='bx {% if request.resolver_match.url_name == "aboutus_page" %}bxs-info-circle{% else %}bx-info-circle{% endif %}'></i>
+  </a>
+
+  <a href="{% url 'contact_page' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'contact_page' %}active{% endif %}" aria-label="Contact">
+    <i class='bx {% if request.resolver_match.url_name == "contact_page" %}bxs-phone{% else %}bx-phone{% endif %}'></i>
+  </a>
+
+  {% if request.user.is_authenticated %}
+  <a href="{% if request.user.is_clinic_staff %}{% url 'admin_dashboard' %}{% else %}{% url 'user_dashboard' %}{% endif %}" class="bottom-nav-item" aria-label="Profile">
+    <div class="bottom-nav-avatar">
+      {% if request.user.first_name %}
+        {{ request.user.first_name|make_list|first|upper }}
+      {% else %}
+        <i class='bx bxs-user'></i>
+      {% endif %}
+    </div>
+  </a>
+  {% else %}
+  <a href="{% url 'login_page' %}" class="bottom-nav-item" aria-label="Account">
+    <i class='bx bx-user'></i>
+  </a>
+  {% endif %}
+</nav>

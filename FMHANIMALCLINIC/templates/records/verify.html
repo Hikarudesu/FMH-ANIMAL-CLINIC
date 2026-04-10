@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Record Verification — FMH Animal Clinic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #009688; /* Teal theme */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .verify-card {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+            width: 100%;
+            max-width: 520px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .verify-banner {
+            padding: 40px 32px 32px;
+            text-align: center;
+            position: relative;
+            background: #fdfdfd;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .verify-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            display: block;
+        }
+        .verify-icon.valid { color: #009688; }
+        .verify-icon.invalid { color: #c62828; }
+        .verify-status {
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+        }
+        .verify-status.valid   { color: #009688; }
+        .verify-status.invalid { color: #c62828; }
+        .verify-tagline {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.5;
+            max-width: 90%;
+            margin: 0 auto;
+        }
+        .verify-body {
+            padding: 32px 32px 24px;
+            background: #fff;
+        }
+        .verify-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+        .verify-row:last-child { border-bottom: none; }
+        .verify-row:hover { background: #fdfdfd; }
+        .verify-row-icon {
+            width: 42px;
+            height: 42px;
+            background: #e0f2f1;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #009688;
+            font-size: 20px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: transform 0.2s;
+        }
+        .verify-row:hover .verify-row-icon {
+             transform: scale(1.05);
+        }
+        .verify-row-label { 
+            font-size: 11px; 
+            color: #888; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            margin-bottom: 4px;
+            display: block;
+        }
+        .verify-row-value { 
+            font-size: 15px; 
+            font-weight: 600; 
+            color: #222; 
+        }
+        .verify-hash {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            background: #f5f5f5;
+            padding: 6px 12px;
+            border-radius: 6px;
+            letter-spacing: 2px;
+            color: #333;
+            display: inline-block;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+            font-weight: 600;
+        }
+        .verify-footer {
+            background: #f8f8f8;
+            padding: 16px 32px;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            border-top: 1px solid #eee;
+        }
+        .verify-footer strong { color: #009688; }
+        .clinic-logo-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .clinic-logo-text img {
+            height: 40px;
+            width: auto;
+        }
+        .clinic-logo-text span {
+            font-size: 26px;
+            font-weight: 800;
+            color: #009688;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        /* Responsive styles */
+        @media (max-width: 576px) {
+            body { padding: 16px; }
+            .verify-card { border-radius: 16px; }
+            .verify-banner { padding: 28px 20px 24px; }
+            .verify-icon { font-size: 50px; margin-bottom: 16px; }
+            .verify-status { font-size: 20px; }
+            .verify-tagline { font-size: 13px; }
+            .clinic-logo-text img { height: 38px; }
+            .clinic-logo-text span { font-size: 18px; }
+            .clinic-logo-text { gap: 8px; margin-bottom: 20px; }
+            .verify-details { padding: 20px 18px; }
+            .verify-row-label { font-size: 10px; }
+            .verify-row-value { font-size: 13px; }
+            .verify-hash { font-size: 11px; padding: 5px 8px; letter-spacing: 1px; word-break: break-all; }
+            .verify-footer { padding: 14px 20px; font-size: 11px; }
+        }
+        
+        @media (max-width: 400px) {
+            body { padding: 12px; }
+            .verify-banner { padding: 22px 16px 20px; }
+            .verify-icon { font-size: 42px; }
+            .verify-status { font-size: 18px; }
+            .clinic-logo-text img { height: 32px; }
+            .clinic-logo-text span { font-size: 15px; letter-spacing: 0.5px; }
+            .verify-details { padding: 16px 14px; }
+            .verify-row { padding: 8px 0; }
+            .verify-hash { font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="verify-card">
+    <div class="verify-banner {% if is_valid %}valid{% else %}invalid{% endif %}">
+        <div class="clinic-logo-text">
+            {% load static %}
+            <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo" style="height: 50px; width: auto; object-fit: contain;">
+            <span>FMH ANIMAL CLINIC</span>
+        </div>
+        <div class="verify-icon {% if is_valid %}valid{% else %}invalid{% endif %}">
+            {% if is_valid %}
+                <i class='bx bxs-check-circle'></i>
+            {% else %}
+                <i class='bx bxs-x-circle'></i>
+            {% endif %}
+        </div>
+        <div class="verify-status {% if is_valid %}valid{% else %}invalid{% endif %}">
+            {% if is_valid %}VERIFIED AUTHENTIC{% else %}VERIFICATION FAILED{% endif %}
+        </div>
+        <div class="verify-tagline">
+            {% if is_valid %}
+                This medical record has been verified as an official FMH Animal Clinic document.
+            {% else %}
+                This code does not match our records. The document may have been altered.
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="verify-body">
+        <div class="verify-row">
+            <div class="verify-row-icon"><i class='bx bxs-dog'></i></div>
+            <div>
+                <div class="verify-row-label">Pet Name</div>
+                <div class="verify-row-value">{{ record.pet.name }}</div>
+            </div>
+        </div>
+        <div class="verify-row">
+            <div class="verify-row-icon"><i class='bx bx-id-card'></i></div>
+            <div>
+                <div class="verify-row-label">Owner</div>
+                <div class="verify-row-value">{% if record.pet.owner %}{{ record.pet.owner.get_full_name }}{% else %}{{ record.pet.guest_owner_name|default:"—" }}{% endif %}</div>
+            </div>
+        </div>
+        <div class="verify-row">
+            <div class="verify-row-icon"><i class='bx bx-building-house'></i></div>
+            <div>
+                <div class="verify-row-label">Branch</div>
+                <div class="verify-row-value">{{ record.branch.name|default:"—" }}</div>
+            </div>
+        </div>
+        <div class="verify-row">
+            <div class="verify-row-icon"><i class='bx bx-calendar-check'></i></div>
+            <div>
+                <div class="verify-row-label">Record Date</div>
+                <div class="verify-row-value">{{ record.date_recorded|date:"F j, Y" }}</div>
+            </div>
+        </div>
+        <div class="verify-row">
+            <div class="verify-row-icon"><i class='bx bx-hash'></i></div>
+            <div>
+                <div class="verify-row-label">Verification Code</div>
+                <div class="verify-hash">{{ expected_hash }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="verify-footer">
+        Last Updated on {{ record.updated_at|date:"F j, Y" }} at {{ record.updated_at|time:"g:i A" }}<br>
+        <strong>FMH Animal Clinic Official Record System</strong>
+    </div>
+</div>
+
+</body>
+</html>

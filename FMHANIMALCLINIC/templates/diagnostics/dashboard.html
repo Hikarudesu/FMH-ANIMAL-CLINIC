@@ -1,0 +1,392 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}AI Diagnostics{% endblock %}
+
+{% block content %}
+
+<style>
+  /* Dashboard specific styles */
+  .diag-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 24px;
+  }
+  @media (max-width: 1100px) {
+    .diag-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Section Cards */
+  .diag-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .diag-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .diag-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .diag-section-title i {
+    font-size: 1.3rem;
+    color: var(--primary);
+  }
+  .diag-section-body {
+    padding: 16px;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+
+  /* Pet Cards */
+  .pet-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+  }
+  .pet-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(99,90,255,0.12);
+    transform: translateY(-1px);
+  }
+  .pet-card-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #635aff 0%, #00bfa5 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .pet-card-info { flex: 1; }
+  .pet-card-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+  }
+  .pet-card-meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .pet-card-action {
+    background: var(--primary-gradient);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+  }
+  .pet-card:hover .pet-card-action {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(99,90,255,0.3);
+  }
+
+  /* Diagnosis History Items */
+  .diag-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+  }
+  .diag-item:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(99,90,255,0.08);
+  }
+  .diag-item-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .diag-item-content { flex: 1; }
+  .diag-item-title {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .diag-item-pet {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 3px;
+  }
+  .diag-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+
+  .reviewed-badge {
+    background: #e3f2fd;
+    color: #1565c0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  /* Search */
+  .diag-search-wrap {
+    position: relative;
+    margin-bottom: 16px;
+  }
+  .diag-search-input {
+    width: 100%;
+    padding: 12px 16px 12px 42px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    background: var(--surface);
+    transition: all 0.2s;
+  }
+  .diag-search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99,90,255,0.12);
+  }
+  .diag-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    font-size: 18px;
+  }
+
+  /* Empty State */
+  .diag-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+  }
+  .diag-empty i {
+    font-size: 48px;
+    color: var(--border);
+    margin-bottom: 12px;
+  }
+  .diag-empty p {
+    font-size: 0.9rem;
+  }
+
+  /* Disclaimer Banner */
+  .diag-disclaimer {
+    background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+    border: 1px solid #ffe082;
+    border-radius: var(--radius-md);
+    padding: 14px 20px;
+    margin-top: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .diag-disclaimer i {
+    font-size: 20px;
+    color: #f57f17;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .diag-disclaimer-text {
+    font-size: 0.85rem;
+    color: #795548;
+    line-height: 1.5;
+  }
+  .diag-disclaimer-text strong {
+    color: #5d4037;
+  }
+</style>
+
+<!-- Page Hero -->
+{% include "components/page_hero.html" with title="AI Diagnostics" icon="bx-brain" subtitle="AI-powered diagnostic suggestions for pet health analysis" icons_theme="medical" %}
+
+<!-- Disclaimer Banner -->
+<div class="diag-disclaimer">
+  <i class="bx bx-info-circle"></i>
+  <div class="diag-disclaimer-text">
+    <strong>Important:</strong> AI Diagnostics is a decision-support tool only. All suggestions must be reviewed and confirmed by a licensed veterinarian. AI-generated diagnoses should never replace professional clinical judgment.
+  </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="diag-grid">
+  <!-- Select Pet Section -->
+  <div class="diag-section">
+    <div class="diag-section-header">
+      <div class="diag-section-title">
+        <i class="bx bxs-dog"></i>
+        Select a Pet to Analyze
+      </div>
+    </div>
+    <div class="diag-section-body">
+      <!-- Search Box -->
+      <form method="get" class="diag-search-wrap">
+        <i class="bx bx-search diag-search-icon"></i>
+        <input type="text" name="search" value="{{ search }}" placeholder="Search pet by name..." class="diag-search-input">
+      </form>
+
+      {% if pets %}
+        {% for pet in pets %}
+        {% if can_create %}
+        <a href="{% url 'diagnostics:run_diagnosis' pet.pk %}" class="pet-card">
+        {% else %}
+        <div class="pet-card" style="cursor: default;">
+        {% endif %}
+          <div class="pet-card-avatar" {% if pet.photo %}style="background: transparent;"{% endif %}>
+            {% if pet.photo %}
+              <img src="{{ pet.photo.url }}" alt="{{ pet.name }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            {% else %}
+              {{ pet.name|make_list|first|upper }}
+            {% endif %}
+          </div>
+          <div class="pet-card-info">
+            <div class="pet-card-name">{{ pet.name }}</div>
+            <div class="pet-card-meta">
+              {{ pet.species|default:"Unknown" }} &middot; {{ pet.breed|default:"Unknown breed" }} &middot; {{ pet.owner_display_name }}
+            </div>
+          </div>
+          {% if can_create %}
+          <div class="pet-card-action">
+            <i class="bx bx-analyse"></i> Analyze
+          </div>
+          {% endif %}
+        {% if can_create %}
+        </a>
+        {% else %}
+        </div>
+        {% endif %}
+        {% endfor %}
+        
+        <!-- Pagination -->
+        <div style="margin-top: 20px;">
+            {% include "components/modern_pagination.html" %}
+        </div>
+      {% else %}
+        <div class="diag-empty">
+          <i class="bx bx-search-alt"></i>
+          <p>No pets found. Try a different search term.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent Diagnoses Section -->
+  <div class="diag-section">
+    <div class="diag-section-header">
+      <div class="diag-section-title">
+        <i class="bx bx-history"></i>
+        Recent AI Diagnoses
+      </div>
+    </div>
+    <div class="diag-section-body">
+      {% if recent_diagnoses %}
+        {% for diag in recent_diagnoses %}
+        <div class="diag-item-wrapper" style="display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px;">
+          <a href="{% url 'diagnostics:detail' diag.pk %}" class="diag-item" style="flex: 1; margin-bottom: 0;">
+            <div class="diag-item-icon">
+              <i class="bx bx-brain"></i>
+            </div>
+            <div class="diag-item-content">
+              <div class="diag-item-title">
+                {{ diag.primary_condition|truncatechars:40 }}
+                {% if diag.is_reviewed %}<span class="reviewed-badge">Reviewed</span>{% endif %}
+              </div>
+              <div class="diag-item-pet">
+                <i class="bx bx-paw"></i> {{ diag.pet.name }} ({{ diag.pet.species }})
+              </div>
+              <div class="diag-item-meta">
+                <span><i class="bx bx-calendar"></i> {{ diag.created_at|date:"M j, Y g:i A" }}</span>
+                {% if diag.requested_by %}
+                <span><i class="bx bx-user"></i> {{ diag.requested_by.first_name }} {{ diag.requested_by.last_name }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+          {% if can_delete %}
+          <form method="post" action="{% url 'diagnostics:delete' diag.pk %}" style="display: flex; align-items: center;" onsubmit="return confirm('Delete this AI diagnosis? {% if diag.is_reviewed and diag.linked_record_entry %}The linked medical record will be preserved.{% endif %}');">
+            {% csrf_token %}
+            <button type="submit" class="diag-delete-btn" title="Delete Diagnosis">
+              <i class="bx bx-trash"></i>
+            </button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="diag-empty">
+          <i class="bx bx-brain"></i>
+          <p>No AI diagnoses yet. {% if can_create %}Select a pet to run your first analysis.{% endif %}</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+  .diag-delete-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .diag-delete-btn:hover {
+    background: var(--danger, #dc3545);
+    border-color: var(--danger, #dc3545);
+    color: #fff;
+  }
+  .diag-delete-btn i {
+    font-size: 1.1rem;
+  }
+</style>
+
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- ============================================
+     SERVICES HERO SECTION
+     ============================================ -->
+<section class="services-hero" id="services-hero">
+  <!-- Video Background -->
+  <video class="hero-video" autoplay muted loop playsinline preload="metadata">
+    <source src="{% static 'image/services-hero.mp4' %}" type="video/mp4">
+  </video>
+  
+  <!-- Video Overlay -->
+  <div class="hero-video-overlay"></div>
+  
+  <div class="container">
+    <div class="services-hero-content">
+      <h1>
+        <span class="line"><span class="line-inner">Comprehensive</span></span>
+        <span class="line"><span class="line-inner">Veterinary <span class="highlight serif">Services</span></span></span>
+      </h1>
+      
+      <p>Expert medical care and wellness solutions for your beloved pets across all FMH Animal Clinic branches.</p>
+      
+      <div class="hero-buttons">
+        <a href="#services" class="btn btn-red btn-lg">
+          <i class='bx bx-chevron-down'></i> Explore Services
+        </a>
+        <a href="{% url 'contact_page' %}" class="btn btn-outline btn-lg">
+          <i class='bx bx-calendar-check'></i> Book Now
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================
+     SERVICES SECTION
+     ============================================ -->
+<section class="services" id="services">
+  <div class="container">
+    <h2 class="section-title fade-in" id="services-title">{% if services_intro %}{{ services_intro.title }}{% else %}Our <span class="teal-text">Services</span>{% endif %}</h2>
+    <p class="section-subtitle fade-in">{% if services_intro %}{{ services_intro.subtitle }}{% else %}Comprehensive veterinary care for your beloved pets across all FMH Animal Clinic branches.{% endif %}</p>
+
+    <div class="services-grid">
+
+      {% for service in services %}
+      <div class="service-card fade-in">
+        {% if service.image %}
+          <img src="{{ service.image.url }}" alt="{{ service.title }}" class="service-card-bg">
+        {% else %}
+          <img src="{% static 'image/health.png' %}" alt="{{ service.title }}" class="service-card-bg">
+        {% endif %}
+        <div class="service-card-overlay"></div>
+        <div class="service-card-content">
+          <div class="service-icon"><i class='bx {{ service.icon }}'></i></div>
+          <h3>{{ service.title }}</h3>
+        </div>
+        <p class="service-card-desc">{{ service.description }}</p>
+      </div>
+      {% empty %}
+      <!-- Fallback if no services in database -->
+      <div class="service-card fade-in">
+        <img src="{% static 'image/health.png' %}" alt="Services" class="service-card-bg">
+        <div class="service-card-overlay"></div>
+        <div class="service-card-content">
+          <div class="service-icon"><i class='bx bx-plus-medical'></i></div>
+          <h3>Our Services</h3>
+        </div>
+        <p class="service-card-desc">Check back soon for our list of veterinary services.</p>
+      </div>
+      {% endfor %}
+
+    </div>
+  </div>
+</section>
+
+{% endblock %}

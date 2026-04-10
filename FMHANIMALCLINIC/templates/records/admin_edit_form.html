@@ -1,0 +1,269 @@
+{% extends 'base/portal_admin.html' %}
+{% load i18n %}
+
+{% block title %}Edit Medical Record{% endblock %}
+
+{% block content %}
+<!-- Page Hero -->
+{% url 'records:download_pdf' record.pk as pdf_url %}
+{% url 'records:admin_list' as back_url %}
+{% blocktrans with petname=record.pet.name date=record.date_recorded|date:"F jS, Y" asvar edit_subtitle %}Update record for <strong>{{ petname }}</strong> — {{ date }}{% endblocktrans %}
+{% include "components/page_hero.html" with title="Edit Medical Record" subtitle=edit_subtitle icon="bxs-file-doc" action_url=pdf_url action_label="Download PDF" action_icon="bx-download" action_url_2=back_url action_label_2="Back to List" action_icon_2="bx-arrow-back" %}
+
+<div class="dashboard-card" style="padding: 32px; max-width: 900px; margin: 0 auto; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);">
+    
+    <div style="border-bottom: 2px solid var(--primary); padding-bottom: 16px; margin-bottom: 24px; position: relative;">
+        <h2 style="color: var(--primary); font-family: monospace; font-size: 18px; letter-spacing: 1px; margin: 0;">
+            VETERINARY MEDICAL RECORD
+        </h2>
+    </div>
+
+    <form method="post" style="display: flex; flex-direction: column; gap: 24px;">
+        {% csrf_token %}
+        
+        <style>
+            .section-title {
+                font-size: 14px;
+                font-weight: 700;
+                color: var(--primary);
+                text-transform: uppercase;
+                margin-bottom: 16px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid var(--border);
+                letter-spacing: 0.5px;
+            }
+            .form-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+                margin-bottom: 32px;
+            }
+            .form-group {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .form-label {
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--text-secondary);
+                text-transform: uppercase;
+            }
+            .form-control-custom {
+                width: 100%;
+                padding: 10px 12px;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                background-color: var(--bg);
+                color: var(--text-primary);
+                font-size: 14px;
+                font-family: inherit;
+                transition: all 0.2s;
+            }
+            .form-control-custom:focus {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 3px rgba(44, 122, 123, 0.1);
+                outline: none;
+            }
+            textarea.form-control-custom {
+                min-height: 80px;
+                resize: vertical;
+            }
+            
+            @media (max-width: 768px) {
+                .dashboard-card { padding: 24px 20px !important; }
+                .form-grid { gap: 12px; }
+                .section-title { font-size: 13px; }
+            }
+            @media (max-width: 576px) {
+                .dashboard-card { padding: 18px 16px !important; border-radius: var(--radius) !important; }
+                .form-grid { grid-template-columns: 1fr !important; gap: 12px; }
+                .form-label { font-size: 11px; }
+                .form-control-custom { padding: 10px; font-size: 14px; }
+                .section-title { font-size: 12px; padding-bottom: 6px; margin-bottom: 12px; }
+            }
+        </style>
+
+        <!-- Owner & Contact Information -->
+        <div>
+            <h3 class="section-title">Owner & Contact Information</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label class="form-label">Name of Owner</label>
+                    <input type="text" id="ro-owner-name" name="owner_name" class="form-control-custom"
+                           value="{% if record.pet.owner %}{{ record.pet.owner.get_full_name }}{% else %}{{ record.pet.guest_owner_name|default:'' }}{% endif %}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contact #</label>
+                    <input type="text" id="ro-owner-contact" name="owner_contact" class="form-control-custom"
+                           inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11"
+                           oninput="this.value=this.value.replace(/\D/g,'')"
+                           value="{% if record.pet.owner %}{{ record.pet.owner.phone_number|default:'' }}{% else %}{{ record.pet.guest_owner_phone|default:'' }}{% endif %}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <input type="text" id="ro-owner-address" name="owner_address" class="form-control-custom"
+                           value="{% if record.pet.owner %}{{ record.pet.owner.address|default:'' }}{% else %}{{ record.pet.guest_owner_address|default:'' }}{% endif %}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Branch / Location</label>
+                    {{ form.branch }}
+                    {% if form.branch.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.branch.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Attending Veterinarian</label>
+                    <select name="vet" id="id_vet" class="form-control-custom">
+                        <option value="">— Select Veterinarian —</option>
+                        {% for vet in vets %}
+                        <option value="{{ vet.id }}" data-branch="{{ vet.branch_id }}" {% if record.vet_id == vet.id %}selected{% endif %}>Dr. {{ vet.first_name }} {{ vet.last_name }}{% if vet.license_number %} (PRC {{ vet.license_number }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="grid-column: 1 / -1; background: #eef5ff; border: 1px solid #c3d9ff; border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #2d5fa6;">
+                    <i class='bx bx-info-circle' style="font-size:16px; margin-top:1px; flex-shrink:0;"></i>
+                    <span><strong>Tip:</strong> Select a <strong>Branch</strong> first — the Veterinarian list will automatically filter to show only vets assigned to that branch. Changing the branch or vet here updates the record’s attending information.</span>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        (function(){
+            const vetsData = {{ vets_json|safe }};
+            const branchSel = document.getElementById('id_branch');
+            const vetSel    = document.getElementById('id_vet');
+            function filterVets(branchId) {
+                const cur = vetSel.value;
+                vetSel.innerHTML = '<option value="">— Select Veterinarian —</option>';
+                vetsData.forEach(function(v) {
+                    // Show vet if: no branch selected, OR vet's branch matches selected branch
+                    // Also include vets with no assigned branch (they can work at any branch)
+                    const vetBranchId = v.branch_id ? String(v.branch_id) : null;
+                    const shouldShow = !branchId || !vetBranchId || vetBranchId === String(branchId);
+                    if (shouldShow) {
+                        const o = document.createElement('option');
+                        o.value = v.id;
+                        o.textContent = v.name + (v.license_number ? ' (PRC ' + v.license_number + ')' : '');
+                        if (String(v.id) === String(cur)) o.selected = true;
+                        vetSel.appendChild(o);
+                    }
+                });
+            }
+            if (branchSel) {
+                branchSel.addEventListener('change', function(){ filterVets(branchSel.value); });
+                filterVets(branchSel.value);
+            }
+        })();
+        </script>
+
+        <!-- Pet Identification -->
+        <div>
+            <h3 class="section-title">Pet Identification</h3>
+            <div class="form-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Name of Pet</label>
+                    <input type="text" name="pet_name" id="ro-pet-name" class="form-control-custom"
+                           value="{{ record.pet.name }}" readonly
+                           style="background-color: var(--surface-hover); cursor: not-allowed;" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" id="ro-pet-age" name="pet_age" class="form-control-custom"
+                           value="{{ record.pet.date_of_birth|date:'Y-m-d'|default:'' }}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Color</label>
+                    <input type="text" id="ro-pet-color" name="pet_color" class="form-control-custom"
+                           value="{{ record.pet.color|default:'' }}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Breed</label>
+                    <input type="text" id="ro-pet-breed" name="pet_breed" class="form-control-custom"
+                           value="{{ record.pet.breed|default:'' }}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sex</label>
+                    <input type="text" id="ro-pet-sex" name="pet_sex" class="form-control-custom"
+                           value="{{ record.pet.get_sex_display }}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Species</label>
+                    <input type="text" id="ro-pet-species" name="pet_species" class="form-control-custom"
+                           value="{{ record.pet.species|default:'' }}" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Clinical Tracking -->
+        <div>
+            <h3 class="section-title">Clinical Tracking</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                 <div class="form-group">
+                    <label class="form-label">Date</label>
+                    {{ form.date_recorded }}
+                    {% if form.date_recorded.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.date_recorded.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">FF-UP (Follow-Up Date)</label>
+                    {{ form.ff_up }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Weight (kg)</label>
+                    {{ form.weight }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Temperature (°C)</label>
+                    {{ form.temperature }}
+                </div>
+                
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">History / Clinical Signs</label>
+                    {{ form.history_clinical_signs }}
+                    {% if form.history_clinical_signs.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.history_clinical_signs.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">TX (Treatment)</label>
+                    {{ form.treatment }}
+                    {% if form.treatment.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.treatment.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">RX (Prescription)</label>
+                    {{ form.rx }}
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            document.querySelectorAll('input, select, textarea').forEach(el => {
+                if (!el.classList.contains('form-control-custom')) {
+                    el.classList.add('form-control-custom');
+                }
+            });
+        </script>
+
+        {% if form.non_field_errors %}
+        <div style="background: rgba(255, 77, 77, 0.1); border: 1px solid #ff4d4d; border-radius: 8px; padding: 12px 16px; color: #ff4d4d; font-size: 14px;">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div style="margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 12px;">
+            <a href="{% url 'records:admin_list' %}" style="padding: 12px 24px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-weight: 500; font-size: 15px; transition: background-color 0.2s;">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary" style="background: var(--primary); color: white; padding: 12px 32px; border-radius: var(--radius-sm); font-weight: 600; border: none; font-size: 15px; cursor: pointer; transition: background-color 0.2s;">
+                <i class='bx bx-save'></i> Update Record
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

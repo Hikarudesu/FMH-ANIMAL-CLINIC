@@ -1,0 +1,748 @@
+<!-- Scheduling & Clinical Settings -->
+<div class="scheduling-sections">
+  <!-- Appointment Settings Section -->
+  <div class="settings-card">
+    <form method="POST" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="appointments">
+
+      <div class="admin-grid">
+        <div class="form-section-title">
+          <i class='bx bx-calendar'></i> Appointment Scheduling
+        </div>
+
+        <div class="admin-field">
+          <label for="id_slot_duration">Appointment Duration</label>
+          {{ forms.scheduling.appointments.slot_duration }}
+          <p class="form-hint">{{ forms.scheduling.appointments.slot_duration.help_text }}</p>
+          {% if forms.scheduling.appointments.slot_duration.errors %}
+            <div class="error-text">{{ forms.scheduling.appointments.slot_duration.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="admin-field">
+          <label for="id_daily_limit">Daily Appointment Limit</label>
+          {{ forms.scheduling.appointments.daily_limit }}
+          <p class="form-hint">{{ forms.scheduling.appointments.daily_limit.help_text }}</p>
+          {% if forms.scheduling.appointments.daily_limit.errors %}
+            <div class="error-text">{{ forms.scheduling.appointments.daily_limit.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-section-title">
+          <i class='bx bx-calendar-check'></i> Booking Rules
+        </div>
+
+        <div class="admin-field">
+          <label for="id_max_advance_days">Max Advance Booking</label>
+          {{ forms.scheduling.appointments.max_advance_days }}
+          <p class="form-hint">{{ forms.scheduling.appointments.max_advance_days.help_text }}</p>
+          {% if forms.scheduling.appointments.max_advance_days.errors %}
+            <div class="error-text">{{ forms.scheduling.appointments.max_advance_days.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="admin-field">
+          <label for="id_min_advance_hours">Minimum Notice Required</label>
+          {{ forms.scheduling.appointments.min_advance_hours }}
+          <p class="form-hint">{{ forms.scheduling.appointments.min_advance_hours.help_text }}</p>
+          {% if forms.scheduling.appointments.min_advance_hours.errors %}
+            <div class="error-text">{{ forms.scheduling.appointments.min_advance_hours.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="admin-field">
+          <label for="id_auto_cancel_hours">Auto-Cancel Unconfirmed After</label>
+          {{ forms.scheduling.appointments.auto_cancel_hours }}
+          <p class="form-hint">{{ forms.scheduling.appointments.auto_cancel_hours.help_text }}</p>
+          {% if forms.scheduling.appointments.auto_cancel_hours.errors %}
+            <div class="error-text">{{ forms.scheduling.appointments.auto_cancel_hours.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="admin-field">
+          <label for="id_reminder_hours">Send Reminder Before</label>
+          {{ forms.scheduling.appointments.reminder_hours }}
+          <p class="form-hint">{{ forms.scheduling.appointments.reminder_hours.help_text }}</p>
+          {% if forms.scheduling.appointments.reminder_hours.errors %}
+            <div class="error-text">{{ forms.scheduling.appointments.reminder_hours.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-section-title">
+          <i class='bx bx-toggle-right'></i> Booking Options
+        </div>
+
+        <div class="admin-field admin-field-full">
+          <div class="checkbox-field">
+            {{ forms.scheduling.appointments.allow_walk_ins }}
+            <div class="checkbox-content">
+              <label for="id_allow_walk_ins">Allow Walk-in Appointments</label>
+              <p class="form-hint">{{ forms.scheduling.appointments.allow_walk_ins.help_text }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-field admin-field-full">
+          <div class="checkbox-field">
+            {{ forms.scheduling.appointments.require_confirmation }}
+            <div class="checkbox-content">
+              <label for="id_require_confirmation">Require Admin Confirmation</label>
+              <p class="form-hint">{{ forms.scheduling.appointments.require_confirmation.help_text }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-actions">
+        <button type="submit" class="btn-submit">
+          <i class='bx bx-save'></i> Save Appointment Settings
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Medical Records Settings Section -->
+  <div class="settings-card">
+    <form method="POST" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="medical">
+
+      <div class="admin-grid">
+        <div class="form-section-title">
+          <i class='bx bx-plus-medical'></i> Clinical & Medical Records
+        </div>
+
+        <div class="admin-field admin-field-full">
+          <p class="form-hint" style="margin-top: -8px; margin-bottom: 12px;">Configure medical record requirements and patient care policies</p>
+        </div>
+
+        <div class="form-section-title">
+          <i class='bx bx-calendar-check'></i> Follow-up Settings
+        </div>
+
+        <div class="admin-field">
+          <label for="id_default_followup_days">Default Follow-up Period (days)</label>
+          {{ forms.scheduling.medical.default_followup_days }}
+          <p class="form-hint">{{ forms.scheduling.medical.default_followup_days.help_text }}</p>
+          {% if forms.scheduling.medical.default_followup_days.errors %}
+            <div class="error-text">{{ forms.scheduling.medical.default_followup_days.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="admin-field admin-field-full">
+          <div class="checkbox-field">
+            {{ forms.scheduling.medical.require_diagnosis }}
+            <div class="checkbox-content">
+              <label for="id_require_diagnosis">Require Diagnosis to Close Record</label>
+              <p class="form-hint">{{ forms.scheduling.medical.require_diagnosis.help_text }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section-title">
+          <i class='bx bx-injection'></i> Vaccination Reminders
+        </div>
+
+        <div class="admin-field admin-field-full">
+          <div class="checkbox-field">
+            {{ forms.scheduling.medical.vaccination_reminders }}
+            <div class="checkbox-content">
+              <label for="id_vaccination_reminders">Enable Vaccination Reminders</label>
+              <p class="form-hint">{{ forms.scheduling.medical.vaccination_reminders.help_text }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-field">
+          <label for="id_reminder_days_before">Reminder Notice Period (days)</label>
+          {{ forms.scheduling.medical.reminder_days_before }}
+          <p class="form-hint">{{ forms.scheduling.medical.reminder_days_before.help_text }}</p>
+          {% if forms.scheduling.medical.reminder_days_before.errors %}
+            <div class="error-text">{{ forms.scheduling.medical.reminder_days_before.errors.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="admin-actions">
+        <button type="submit" class="btn-submit">
+          <i class='bx bx-save'></i> Save Medical Records Settings
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Reasons for Visit Section -->
+  <div class="simple-section">
+    <h3 class="simple-title">Reasons for Visit</h3>
+    <p class="simple-hint">These options appear in appointment forms. Drag to reorder.</p>
+
+    <!-- Reasons List -->
+    <div id="reasonsList" class="sortable-list">
+      {% for reason in forms.scheduling.reasons %}
+      <div class="simple-row sortable-item" data-id="{{ reason.pk }}" draggable="true">
+        <div class="drag-handle">⋮⋮</div>
+        <span class="simple-name">{{ reason.name }}</span>
+        <div class="simple-actions">
+          <button type="button" class="simple-btn" onclick="editReason({{ reason.pk }}, '{{ reason.name|escapejs }}')" title="Edit">Edit</button>
+          <form method="POST" style="display: inline;" onsubmit="return confirm('Delete this reason?');">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="delete_reason">
+            <input type="hidden" name="item_id" value="{{ reason.pk }}">
+            <button type="submit" class="simple-btn-danger" title="Delete">Delete</button>
+          </form>
+        </div>
+      </div>
+      {% empty %}
+      <p class="simple-empty">No reasons configured yet</p>
+      {% endfor %}
+    </div>
+
+    <!-- Add/Edit Reason Form -->
+    <form method="POST" autocomplete="off" id="reasonForm" class="simple-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="reason_for_visit">
+      <input type="hidden" name="item_id" id="reason_item_id" value="">
+      
+      <h4 class="simple-form-title" id="reasonFormTitle">Add New Reason</h4>
+      
+      <div class="simple-single-field">
+        <label>Name *</label>
+        <input type="text" name="name" id="reason_name" required placeholder="e.g., General Consultation">
+      </div>
+      
+      <div class="simple-form-actions">
+        <button type="button" onclick="resetReasonForm()" id="reasonCancelBtn" style="display: none;">Cancel</button>
+        <button type="submit" id="reasonSubmitBtn">Add Reason</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Clinical Statuses Section -->
+  <div class="simple-section">
+    <h3 class="simple-title">Clinical Statuses</h3>
+    <p class="simple-hint">These options appear in patient forms and filter lists. Drag to reorder.</p>
+
+    <!-- Statuses List -->
+    <div id="statusesList" class="sortable-list">
+      {% for status in forms.scheduling.statuses %}
+      <div class="simple-row sortable-item" data-id="{{ status.pk }}" draggable="true">
+        <div class="drag-handle">⋮⋮</div>
+        <span class="simple-name">{{ status.name }}</span>
+        <div class="simple-actions">
+          <button type="button" class="simple-btn" onclick="editStatus({{ status.pk }}, '{{ status.name|escapejs }}')" title="Edit">Edit</button>
+          <form method="POST" style="display: inline;" onsubmit="return confirm('Delete this status?');">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="delete_status">
+            <input type="hidden" name="item_id" value="{{ status.pk }}">
+            <button type="submit" class="simple-btn-danger" title="Delete">Delete</button>
+          </form>
+        </div>
+      </div>
+      {% empty %}
+      <p class="simple-empty">No statuses configured yet</p>
+      {% endfor %}
+    </div>
+
+    <!-- Add/Edit Status Form -->
+    <form method="POST" autocomplete="off" id="statusForm" class="simple-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="clinical_status">
+      <input type="hidden" name="item_id" id="status_item_id" value="">
+      
+      <h4 class="simple-form-title" id="statusFormTitle">Add New Status</h4>
+      
+      <div class="simple-single-field">
+        <label>Name *</label>
+        <input type="text" name="name" id="status_name" required placeholder="e.g., Healthy">
+      </div>
+      
+      <div class="simple-form-actions">
+        <button type="button" onclick="resetStatusForm()" id="statusCancelBtn" style="display: none;">Cancel</button>
+        <button type="submit" id="statusSubmitBtn">Add Status</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .scheduling-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  /* Simple Section Styles */
+  .simple-section {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 20px;
+  }
+  
+  .simple-title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .simple-hint {
+    margin: 0 0 20px 0;
+    font-size: 13px;
+    color: #666;
+  }
+  
+  .simple-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: grab;
+    transition: all 0.2s ease;
+  }
+  
+  .simple-row:hover {
+    background-color: #f8f9fa;
+  }
+  
+  .simple-row.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    transform: rotate(3deg);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    border: 2px solid #00897b;
+    background-color: #fff;
+  }
+  
+  .simple-row:last-of-type {
+    border-bottom: none;
+  }
+  
+  .drag-handle {
+    font-size: 16px;
+    color: #999;
+    cursor: grab;
+    margin-right: 10px;
+    user-select: none;
+    padding: 5px;
+  }
+  
+  .drag-handle:hover {
+    color: #00897b;
+  }
+  
+  .sortable-list {
+    min-height: 50px;
+  }
+  
+  .drop-indicator {
+    height: 3px;
+    background-color: #00897b;
+    border-radius: 2px;
+    margin: 2px 0;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .drop-indicator.show {
+    opacity: 1;
+  }
+  
+  .simple-name {
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .simple-name small {
+    color: #999;
+    font-size: 12px;
+    margin-left: 5px;
+  }
+  
+  .color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  
+  .simple-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  
+  .tag-inactive {
+    font-size: 11px;
+    padding: 2px 6px;
+    background: #999;
+    color: #fff;
+    border-radius: 3px;
+  }
+  
+  .simple-btn, .simple-btn-danger {
+    padding: 5px 12px;
+    font-size: 13px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .simple-btn:hover {
+    background: #f5f5f5;
+  }
+  
+  .simple-btn-danger {
+    border-color: #f44336;
+    color: #f44336;
+  }
+  
+  .simple-btn-danger:hover {
+    background: #ffebee;
+  }
+  
+  .simple-empty {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+    font-size: 14px;
+  }
+  
+  .simple-form {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #f0f0f0;
+  }
+  
+  .simple-form-title {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .simple-single-field {
+    margin-bottom: 16px;
+  }
+  
+  .simple-single-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 4px;
+  }
+  
+  .simple-single-field input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+  
+  .simple-single-field input[type="text"]:focus {
+    outline: none;
+    border-color: #00897b;
+    box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.1);
+  }
+  
+  .simple-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  
+  /* Drag and Drop Styles */
+  .sortable-item {
+    transition: all 0.2s ease;
+    position: relative;
+  }
+  
+  .sortable-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    z-index: 1000;
+  }
+  
+  .sortable-item.drag-over {
+    background-color: rgba(0, 137, 123, 0.1);
+    border-color: #00897b;
+  }
+  
+  .drag-handle {
+    cursor: grab;
+    transition: color 0.2s ease;
+  }
+  
+  .drag-handle:hover {
+    color: #00897b;
+  }
+  
+  .drag-handle:active {
+    cursor: grabbing;
+  }
+  
+  .drop-indicator {
+    height: 3px;
+    background: #00897b;
+    border-radius: 2px;
+    margin: 2px 0;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .drop-indicator.show {
+    opacity: 1;
+  }
+  
+  .simple-grid label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 4px;
+  }
+  
+  .simple-grid input[type="text"],
+  .simple-grid input[type="number"],
+  .simple-grid input[type="color"],
+  .simple-grid textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 14px;
+  }
+  
+  .simple-grid input[type="checkbox"] {
+    margin-right: 6px;
+  }
+  
+  .simple-form-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  
+  .simple-form-actions button {
+    padding: 10px 20px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .simple-form-actions button[type="submit"] {
+    background: #00897b;
+    color: #fff;
+    border-color: #00897b;
+  }
+  
+  .simple-form-actions button[type="submit"]:hover {
+    background: #00695c;
+  }
+  
+  .simple-form-actions button[type="button"]:hover {
+    background: #f5f5f5;
+  }
+  
+  @media (max-width: 768px) {
+    .simple-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    
+    .simple-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+  }
+</style>
+
+
+<script>
+// Reason for Visit Form Handlers
+function editReason(id, name) {
+  document.getElementById('reason_item_id').value = id;
+  document.getElementById('reason_name').value = name;
+  
+  document.getElementById('reasonFormTitle').innerHTML = 'Edit Reason';
+  document.getElementById('reasonSubmitBtn').innerHTML = 'Update Reason';
+  document.getElementById('reasonCancelBtn').style.display = 'inline-block';
+  
+  document.getElementById('reasonForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function resetReasonForm() {
+  document.getElementById('reason_item_id').value = '';
+  document.getElementById('reason_name').value = '';
+  
+  document.getElementById('reasonFormTitle').innerHTML = 'Add New Reason';
+  document.getElementById('reasonSubmitBtn').innerHTML = 'Add Reason';
+  document.getElementById('reasonCancelBtn').style.display = 'none';
+}
+
+// Clinical Status Form Handlers
+function editStatus(id, name) {
+  document.getElementById('status_item_id').value = id;
+  document.getElementById('status_name').value = name;
+  
+  document.getElementById('statusFormTitle').innerHTML = 'Edit Status';
+  document.getElementById('statusSubmitBtn').innerHTML = 'Update Status';
+  document.getElementById('statusCancelBtn').style.display = 'inline-block';
+  
+  document.getElementById('statusForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function resetStatusForm() {
+  document.getElementById('status_item_id').value = '';
+  document.getElementById('status_name').value = '';
+  
+  document.getElementById('statusFormTitle').innerHTML = 'Add New Status';
+  document.getElementById('statusSubmitBtn').innerHTML = 'Add Status';
+  document.getElementById('statusCancelBtn').style.display = 'none';
+}
+
+// Drag and Drop Functionality
+document.addEventListener('DOMContentLoaded', function() {
+  setupDragAndDrop('reasonsList', 'reason');
+  setupDragAndDrop('statusesList', 'status');
+});
+
+function setupDragAndDrop(listId, type) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  
+  let draggedElement = null;
+  let dropIndicator = null;
+  
+  // Create drop indicator
+  function createDropIndicator() {
+    if (!dropIndicator) {
+      dropIndicator = document.createElement('div');
+      dropIndicator.className = 'drop-indicator';
+    }
+    return dropIndicator;
+  }
+  
+  // Add event listeners to all sortable items
+  const items = list.querySelectorAll('.sortable-item');
+  items.forEach(item => {
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragend', handleDragEnd);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('drop', handleDrop);
+    item.addEventListener('dragenter', handleDragEnter);
+    item.addEventListener('dragleave', handleDragLeave);
+  });
+  
+  function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.outerHTML);
+  }
+  
+  function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    // Clean up drop indicators
+    const indicators = list.querySelectorAll('.drop-indicator');
+    indicators.forEach(indicator => indicator.remove());
+    draggedElement = null;
+  }
+  
+  function handleDragOver(e) {
+    if (e.preventDefault) {
+      e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    
+    const indicator = createDropIndicator();
+    const rect = this.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    
+    if (e.clientY < midY) {
+      this.parentNode.insertBefore(indicator, this);
+    } else {
+      this.parentNode.insertBefore(indicator, this.nextSibling);
+    }
+    indicator.classList.add('show');
+    
+    return false;
+  }
+  
+  function handleDragEnter(e) {
+    this.classList.add('drag-over');
+  }
+  
+  function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+  }
+  
+  function handleDrop(e) {
+    if (e.stopPropagation) {
+      e.stopPropagation();
+    }
+    
+    if (draggedElement !== this) {
+      const indicator = list.querySelector('.drop-indicator.show');
+      if (indicator) {
+        indicator.parentNode.insertBefore(draggedElement, indicator);
+        indicator.remove();
+        
+        // Update order in database
+        updateOrder(type);
+      }
+    }
+    
+    this.classList.remove('drag-over');
+    return false;
+  }
+}
+
+function updateOrder(type) {
+  const listId = type === 'reason' ? 'reasonsList' : 'statusesList';
+  const items = document.querySelectorAll(`#${listId} .sortable-item`);
+  const orderData = [];
+  
+  items.forEach((item, index) => {
+    orderData.push({
+      id: item.getAttribute('data-id'),
+      order: index + 1
+    });
+  });
+  
+  // Send to server
+  fetch(`/admin/settings/api/reorder-${type}/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+    },
+    body: JSON.stringify({items: orderData})
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      console.log(`${type} order updated successfully`);
+    } else {
+      console.error(`Error updating ${type} order:`, data.error);
+      // Could show user notification here
+    }
+  })
+  .catch(error => {
+    console.error(`Error updating ${type} order:`, error);
+    // Could show user notification here
+  });
+}
+</script>

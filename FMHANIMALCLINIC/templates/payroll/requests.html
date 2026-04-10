@@ -1,0 +1,427 @@
+﻿{% extends 'payroll/base.html' %}
+{% load currency_filters %}
+{% load static %}
+
+{% block title %}Send Payslips - Payroll{% endblock %}
+
+{% block payroll_content %}
+<style>
+  /* ═══════════════════════════════════════════════════════════════
+     SEND PAYSLIPS - Enterprise SaaS Interface
+     ═══════════════════════════════════════════════════════════════ */
+  
+  .requests-page {
+    padding: 24px;
+  }
+  
+  /* Stats Row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+  }
+  
+  .stat-icon.total { background: rgba(0, 150, 136, 0.1); color: var(--primary); }
+  .stat-icon.released { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .stat-icon.generated { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+  .stat-icon.draft { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  
+  .stat-info h4 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .stat-info p {
+    font-size: 0.85rem;
+    color: var(--text-3);
+  }
+  
+  /* Year Sections */
+  .year-section {
+    margin-bottom: 24px;
+  }
+  
+  .year-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .year-badge {
+    background: var(--primary);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  
+  .year-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  
+  /* Period Cards Grid */
+  .periods-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  
+  .period-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  
+  .period-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.1);
+  }
+  
+  .period-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .period-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .period-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  
+  .status-released {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+  }
+  
+  .status-generated {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+  
+  .status-draft {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+  }
+  
+  .period-body {
+    padding: 16px 20px;
+  }
+  
+  .period-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .period-stat {
+    text-align: center;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  
+  .period-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .period-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+  
+  .period-meta {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-bottom: 16px;
+  }
+  
+  .period-meta i {
+    margin-right: 4px;
+  }
+  
+  .period-actions {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .btn-action {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: #00796b;
+  }
+  
+  .btn-secondary {
+    background: var(--bg);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+  }
+  
+  .btn-secondary:hover {
+    background: var(--border);
+  }
+  
+  .btn-success {
+    background: #10b981;
+    color: white;
+  }
+  
+  .btn-success:hover {
+    background: #059669;
+  }
+  
+  .btn-danger {
+    background: #ef4444;
+    color: white;
+  }
+  
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+  
+  .btn-icon {
+    width: 36px;
+    flex: none;
+    padding: 10px;
+  }
+  
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  
+  .empty-state i {
+    font-size: 3.5rem;
+    color: var(--text-3);
+    opacity: 0.3;
+    margin-bottom: 16px;
+  }
+  
+  .empty-state h3 {
+    font-size: 1.1rem;
+    color: var(--text-2);
+    margin-bottom: 8px;
+  }
+  
+  .empty-state p {
+    color: var(--text-3);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 768px) {
+    .requests-page { padding: 16px; }
+    .stats-row { grid-template-columns: 1fr; }
+    .periods-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="requests-page">
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon total">
+        <i class='bx bx-calendar'></i>
+      </div>
+      <div class="stat-info">
+        <h4>{{ total_periods }}</h4>
+        <p>Total Periods</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon released">
+        <i class='bx bx-check-circle'></i>
+      </div>
+      <div class="stat-info">
+        <h4>{{ released_count }}</h4>
+        <p>Released</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon generated">
+        <i class='bx bx-file'></i>
+      </div>
+      <div class="stat-info">
+        <h4>{{ generated_count }}</h4>
+        <p>Generated</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon draft">
+        <i class='bx bx-edit'></i>
+      </div>
+      <div class="stat-info">
+        <h4>{{ draft_count }}</h4>
+        <p>Draft</p>
+      </div>
+    </div>
+  </div>
+  
+  {% if periods_by_year %}
+    {% for year, periods in periods_by_year.items %}
+    <div class="year-section">
+      <div class="year-header">
+        <span class="year-badge">{{ year }}</span>
+        <div class="year-line"></div>
+      </div>
+      
+      <div class="periods-grid">
+        {% for period in periods %}
+        <div class="period-card">
+          <div class="period-header">
+            <span class="period-title">{{ period.month_name }} {{ period.year }}</span>
+            <span class="period-status 
+              {% if period.status == 'RELEASED' %}status-released
+              {% elif period.status == 'GENERATED' %}status-generated
+              {% else %}status-draft{% endif %}">
+              {% if period.status == 'RELEASED' %}
+                <i class='bx bx-check-circle'></i> Sent
+              {% elif period.status == 'GENERATED' %}
+                <i class='bx bx-file'></i> Ready
+              {% else %}
+                <i class='bx bx-edit'></i> Draft
+              {% endif %}
+            </span>
+          </div>
+          
+          <div class="period-body">
+            <div class="period-stats">
+              <div class="period-stat">
+                <div class="period-stat-value">{{ period.payslips.count }}</div>
+                <div class="period-stat-label">Payslips</div>
+              </div>
+              <div class="period-stat">
+                <div class="period-stat-value">₱{{ period.total_net_pay|default:0|peso }}</div>
+                <div class="period-stat-label">Total Net Pay</div>
+              </div>
+            </div>
+            
+            <div class="period-meta">
+              {% if period.status == 'RELEASED' and period.released_at %}
+                <i class='bx bx-time'></i> Sent on {{ period.released_at|date:"M d, Y \a\t h:i A" }}
+              {% elif period.created_at %}
+                <i class='bx bx-time'></i> Created {{ period.created_at|date:"M d, Y" }}
+              {% endif %}
+            </div>
+            
+            <div class="period-actions">
+              <a href="{% url 'payroll:payslips' period.id %}" class="btn-action btn-secondary">
+                <i class='bx bx-list-ul'></i> View
+              </a>
+              {% if period.status == 'GENERATED' %}
+                <a href="{% url 'payroll:release' period.id %}" class="btn-action btn-success" onclick="return confirm('Release payroll for {{ period.month_name }} {{ period.year }}? This will send emails to all staff.');">
+                  <i class='bx bx-check-circle'></i> Release
+                </a>
+              {% elif period.status == 'DRAFT' %}
+                <a href="{% url 'payroll:generate' %}?period={{ period.id }}" class="btn-action btn-primary">
+                  <i class='bx bx-cog'></i> Generate
+                </a>
+              {% endif %}
+              {% if period.status != 'RELEASED' or can_delete_released %}
+              <a href="{% url 'payroll:delete_period' period.id %}" class="btn-action btn-danger btn-icon" 
+                 title="Delete Period" 
+                 onclick="return confirm('Delete {{ period.month_name }} {{ period.year }} payroll{% if period.status == 'RELEASED' %} (RELEASED){% endif %}? This will delete all {{ period.payslips.count }} payslips. This action cannot be undone.');">
+                <i class='bx bx-trash'></i>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    
+    <!-- Always show generate button for new payroll periods -->
+    <div style="text-align: center; padding: 40px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); margin-top: 24px;">
+      <h4 style="color: var(--text-1); margin-bottom: 12px;">Generate New Payroll Period</h4>
+      <p style="color: var(--text-3); margin-bottom: 20px; font-size: 0.9rem;">Create payslips for the current month.</p>
+      <a href="{% url 'payroll:generate' %}" class="btn-action btn-primary" style="display: inline-flex; padding: 8px 16px; font-size: 0.9rem;">
+        <i class='bx bx-plus'></i> Generate Payroll
+      </a>
+    </div>
+  {% else %}
+    <!-- Always show generate button for new payroll periods -->
+    <div style="text-align: center; padding: 40px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); margin-top: 24px;">
+      <h4 style="color: var(--text-1); margin-bottom: 12px;">Generate New Payroll Period</h4>
+      <p style="color: var(--text-3); margin-bottom: 20px; font-size: 0.9rem;">Create payslips for the current month.</p>
+      <a href="{% url 'payroll:generate' %}" class="btn-action btn-primary" style="display: inline-flex; padding: 8px 16px; font-size: 0.9rem;">
+        <i class='bx bx-plus'></i> Generate Payroll
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

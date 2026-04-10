@@ -1,0 +1,449 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Statement of Account - {{ statement_number }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #009688;
+      --primary-dark: #00796b;
+      --primary-light: #e0f2f1;
+      --text-1: #1e1e2d;
+      --text-2: #5e6278;
+      --text-3: #a1a5b7;
+      --border: #e2e5ea;
+      --surface: #ffffff;
+      --bg: #f8fafc;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-1);
+      background: var(--surface);
+    }
+
+    .statement-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 30px;
+      background: white;
+    }
+
+    /* Header Section */
+    .statement-header {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 30px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    .header-image {
+      text-align: center;
+      margin-bottom: 25px;
+      width: 100%;
+    }
+
+    .soa-logo {
+      max-height: 130px;
+      width: 100%;
+      max-width: 500px;
+      object-fit: contain;
+    }
+
+    .header-details-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      width: 100%;
+    }
+
+    .clinic-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .clinic-info p {
+      margin: 2px 0;
+      color: var(--text-2);
+      font-size: 12px;
+    }
+
+    .document-title-box {
+      text-align: right;
+    }
+
+    .document-title-box p {
+      margin: 4px 0;
+      color: var(--text-2);
+    }
+    
+    .document-title-box strong {
+      color: var(--text-1);
+      font-weight: 600;
+    }
+
+    /* Info Section */
+    .info-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 25px;
+      padding: 20px;
+      background: var(--bg);
+      border-radius: 12px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .customer-info, .statement-info {
+      line-height: 1.6;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: var(--primary-dark);
+      display: inline-block;
+      width: 100px;
+    }
+
+    /* Services Table */
+    .section-title {
+      color: var(--primary);
+      margin: 30px 0 15px 0;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .services-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .services-table th {
+      background: var(--bg);
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .services-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      font-size: 12px;
+    }
+
+    .services-table .date-col {
+      width: 15%;
+    }
+
+    .services-table .description-col {
+      width: 50%;
+    }
+
+    .services-table .pet-col {
+      width: 20%;
+    }
+
+    .services-table .amount-col {
+      width: 15%;
+      text-align: right;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: 600;
+      color: var(--text-1);
+    }
+
+    /* Service Categories */
+    .category-row {
+      background: var(--primary-light);
+    }
+
+    .category-header {
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: var(--primary-dark);
+      padding: 8px 15px !important;
+    }
+
+    /* Total Section */
+    .total-row {
+      background: var(--bg);
+    }
+
+    .total-row td {
+      border-top: 2px solid var(--border) !important;
+      padding: 15px !important;
+      font-size: 14px;
+    }
+    
+    /* Summary Grid */
+    .categories-box {
+      margin: 25px 0;
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    
+    .categories-box strong {
+      color: var(--text-1);
+      display: block;
+      margin-bottom: 12px;
+    }
+    
+    .categories-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    
+    .category-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 15px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      border-left: 3px solid var(--primary);
+    }
+
+    /* Footer */
+    .statement-footer {
+      margin-top: 40px;
+      padding: 20px;
+      background: var(--primary-light);
+      border-radius: 12px;
+      color: var(--primary-dark);
+      text-align: center;
+      page-break-inside: avoid;
+    }
+
+    .statement-footer p {
+      margin-bottom: 8px;
+    }
+
+    .print-info {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(0,0,0,0.1);
+    }
+
+    /* Print Controls */
+    .print-controls {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: inherit;
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(0, 150, 136, 0.2);
+    }
+    
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text-1);
+      border: 1px solid var(--border);
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        margin: 0;
+        padding: 0;
+        background: white;
+      }
+
+      .no-print {
+        display: none;
+      }
+
+      .statement-container {
+        max-width: 100%;
+        margin: 0;
+        padding: 10px;
+      }
+      
+      .info-section, .statement-footer, .category-row, .total-row {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Print Controls -->
+<div class="print-controls no-print">
+  <button onclick="window.print()" class="btn-action btn-primary" style="margin-right: 10px;">
+    🖨️ Print Statement
+  </button>
+  <button onclick="window.close()" class="btn-action btn-secondary">
+    ✕ Close
+  </button>
+</div>
+
+<div class="statement-container">
+  <!-- Header -->
+  <div class="statement-header">
+    <div class="header-image">
+      <img class="soa-logo" src="{% static 'image/SOA-LOGO.png' %}" alt="FMH Animal Clinic Statement of Account">
+    </div>
+    <div class="header-details-row">
+      <div class="clinic-info">
+        <p><strong>Complete Veterinary Care Services</strong></p>
+        <p>Multi-Branch Animal Healthcare System</p>
+      </div>
+      <div class="document-title-box">
+        <p><strong>Statement #:</strong> {{ statement_number }}</p>
+        <p><strong>Period:</strong> {{ start_date|date:"M j, Y" }} - {{ end_date|date:"M j, Y" }}</p>
+        <p><strong>Generated:</strong> {{ generated_date|date:"M j, Y" }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer & Statement Information -->
+  <div class="info-section">
+    <div class="customer-info">
+      <div><span class="info-label">Customer:</span> {{ customer.get_full_name|default:customer.email }}</div>
+      <div><span class="info-label">Email:</span> {{ customer.email }}</div>
+      <div><span class="info-label">Phone:</span> {{ customer.phone_number|default:"Not provided" }}</div>
+      <div><span class="info-label">Address:</span> {{ customer.address|default:"Not provided" }}</div>
+    </div>
+
+    <div class="statement-info">
+      <div><span class="info-label">Total Items:</span> {{ statement_items|length }} Services</div>
+    </div>
+  </div>
+
+  <!-- Services Table -->
+  <h3 class="section-title">Itemized Services</h3>
+  <table class="services-table">
+    <thead>
+      <tr>
+        <th class="date-col">DATE</th>
+        <th class="description-col">SERVICE DESCRIPTION</th>
+        <th class="pet-col">PET NAME</th>
+        <th class="amount-col">AMOUNT</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if statement_items %}
+        <!-- Group items by category -->
+        {% regroup statement_items by category as categorized_items %}
+
+        {% for category_group in categorized_items %}
+          <!-- Category Header -->
+          <tr class="category-row">
+            <td colspan="4" class="category-header">
+              {{ category_group.grouper|default:"OTHER SERVICES" }}
+            </td>
+          </tr>
+
+          <!-- Category Items -->
+          {% for item in category_group.list %}
+          <tr>
+            <td class="date-col">{{ item.date|date:"m/d/Y" }}</td>
+            <td class="description-col">{{ item.description }}</td>
+            <td class="pet-col">{{ item.pet_name }}</td>
+            <td class="amount-col">₱{{ item.amount|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+
+        <!-- Total Row -->
+        <tr class="total-row">
+          <td colspan="3" style="text-align: right; font-weight: 800; color: var(--primary-dark);">
+            TOTAL AMOUNT DUE:
+          </td>
+          <td class="amount-col" style="font-weight: 800; font-size: 16px; color: var(--primary-dark);">
+            ₱{{ total_amount|floatformat:2 }}
+          </td>
+        </tr>
+
+      {% else %}
+        <tr>
+          <td colspan="4" style="text-align: center; padding: 30px; color: var(--text-3); font-style: italic;">
+            No services found for the selected period.
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <!-- Categories Summary -->
+  {% if categories_summary %}
+  <div class="categories-box">
+    <strong>Service Categories Summary</strong>
+    <div class="categories-grid">
+      {% for category, amount in categories_summary.items %}
+      <div class="category-item">
+        <span style="font-weight: 500;">{{ category }}</span>
+        <span style="font-family: 'Courier New', Courier, monospace; font-weight: 600;">₱{{ amount|floatformat:2 }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="statement-footer">
+    <p><strong>Thank you for choosing FMH Animal Clinic for your pet's healthcare needs.</strong></p>
+    <p>For inquiries regarding this statement, please contact your nearest branch.</p>
+    <div class="print-info">
+      This statement was generated on {{ generated_date|date:"F j, Y g:i A" }} and reflects completed services only.
+    </div>
+  </div>
+</div>
+
+<script>
+// Auto-focus print dialog if format=print in URL
+if (window.location.search.includes('format=print')) {
+  window.onload = function() {
+    setTimeout(function() { window.print(); }, 500);
+  };
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,902 @@
+{% extends 'base/portal_user.html' %} {% load static %} {% block title %}Digital
+{% load currency_filters %}
+Catalog{% endblock %} {% block content %}
+
+<!-- ══════ CATALOG HERO ══════ -->
+<div class="cat-hero">
+  <div class="cat-hero-inner">
+    <div class="cat-hero-text">
+      <h1><i class="bx bx-store-alt"></i> Digital Catalog</h1>
+      <p>Browse products &amp; supplies available across our clinic branches</p>
+    </div>
+  </div>
+</div>
+
+<!-- Tab Bar (Component) -->
+<div class="c-tab-bar" id="catalogTabs">
+  <div class="c-tab-bar__glow"></div>
+  <div class="c-tab-bar__indicator" id="catalogTabs-indicator"></div>
+
+  <button class="c-tab-btn active" data-tab="products" type="button" onclick="switchCatalogTab('products')">
+    <i class="bx bx-store-alt c-tab-btn__icon"></i>
+    <span class="c-tab-btn__label">Products</span>
+  </button>
+  <button class="c-tab-btn" data-tab="reservations" type="button" onclick="switchCatalogTab('reservations')">
+    <i class="bx bx-receipt c-tab-btn__icon"></i>
+    <span class="c-tab-btn__label">My Reservations</span>
+    {% if user_reservations %}
+    <span class="c-tab-btn__badge">{{ user_reservations|length }}</span>
+    {% endif %}
+  </button>
+</div>
+
+<div id="catProductsSection">
+  <!-- ── Filter & Search Bar ── -->
+  <div class="c-filter-bar" style="margin-bottom: 22px;">
+    <div class="c-filter-bar__glow"></div>
+    <form method="GET" action="{% url 'inventory:catalog' %}" class="c-filter-bar__form" autocomplete="off">
+      <!-- Search Input -->
+      <div class="c-filter-bar__search">
+        <i class='bx bx-search c-filter-bar__search-icon'></i>
+        <input
+          type="text"
+          placeholder="Search products..."
+          id="catalogSearch"
+          class="c-filter-bar__search-input"
+          autocomplete="off"
+        >
+        <div class="search-dropdown" id="catalogSearchDropdown"></div>
+        <div class="c-filter-bar__shortcut">
+          <span>⌘</span><span>K</span>
+        </div>
+      </div>
+
+      <!-- Filter Dropdowns Row -->
+      <div class="c-filter-bar__filters">
+        <!-- Branch Filter -->
+        <div class="c-filter-dropdown">
+          <div class="c-filter-dropdown__trigger{% if selected_branch %} active{% endif %}">
+            <i class='bx bx-building-house c-filter-dropdown__icon'></i>
+            <span class="c-filter-dropdown__label">
+              {% if selected_branch %}{{ selected_branch.name }}{% else %}All Branches{% endif %}
+            </span>
+            <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+          </div>
+          <select class="c-filter-dropdown__select sd-convert" name="branch" onchange="this.form.submit()">
+            <option value="">All Branches</option>
+            {% for branch in branches %}
+              <option value="{{ branch.id }}" {% if selected_branch.id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {% if selected_branch %}
+        <a href="{% url 'inventory:catalog' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+        {% endif %}
+      </div>
+    </form>
+  </div> {% if products %}
+  <!-- Product Stats -->
+  <div class="cat-stats-row">
+    <div class="cat-stat">
+      <div class="cat-stat-icon"><i class="bx bx-package"></i></div>
+      <div>
+        <span class="cat-stat-num">{{ products|length }}</span>
+        <span class="cat-stat-label">Products</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Grid -->
+  <div class="cat-grid" id="catalogGrid">
+    {% for product in products %}
+    <div
+      class="cat-card"
+      data-name="{{ product.name|lower }}"
+      data-desc="{{ product.description|lower }}"
+    >
+      <!-- Availability indicator -->
+      <div
+        class="cat-card-status {% if product.is_available %}available{% else %}out-of-stock{% endif %}"
+      >
+        {% if product.is_available %}
+        <i class="bx bx-check-circle"></i> In Stock {% else %}
+        <i class="bx bx-x-circle"></i> Out of Stock {% endif %}
+      </div>
+
+      <!-- Card body -->
+      <div class="cat-card-body">
+        <div
+          class="cat-card-icon-wrap {% if product.is_available %}available{% else %}unavailable{% endif %}"
+        >
+          {% if product.item_type == 'Medication' %}
+          <i class="bx bx-capsule"></i>
+          {% else %}
+          <i class="bx bx-package"></i>
+          {% endif %}
+        </div>
+        <h3 class="cat-card-name">{{ product.name }}</h3>
+        <p class="cat-card-desc">
+          {{ product.description|default:"No description provided." }}
+        </p>
+      </div>
+
+      <!-- Card footer -->
+      <div class="cat-card-foot">
+        <div class="cat-card-price">
+          <span class="cat-price-symbol">&#8369;</span>
+          <span class="cat-price-value">{{ product.price|peso }}</span>
+        </div>
+        <div class="cat-card-meta">
+          <span class="cat-meta-branch"><i class="bx bx-building-house"></i> {{ product.branch.name }}</span>
+          {% if product.is_available %}
+          <span class="cat-meta-stock"><i class="bx bx-box"></i> {{ product.stock_quantity }} in stock</span>
+          {% endif %}
+        </div>
+        {% if product.is_available %}
+        <button
+          type="button"
+          class="cat-reserve-btn"
+          onclick="openReserveModal({{ product.pk }}, '{{ product.name|escapejs }}', {{ product.stock_quantity }}, '{{ product.price }}')"
+        >
+          <i class="bx bx-cart-add"></i> Reserve
+        </button>
+        {% else %}
+        <button type="button" class="cat-reserve-btn disabled" disabled>
+          <i class="bx bx-x"></i> Unavailable
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Reservation Modal -->
+  <div class="rsv-modal-overlay" id="rsvModal" style="display: none">
+    <div class="rsv-modal">
+      <div class="rsv-modal-header">
+        <h3><i class="bx bx-cart-add"></i> Reserve Product</h3>
+        <button
+          type="button"
+          class="rsv-modal-close"
+          onclick="closeReserveModal()"
+        >
+          &times;
+        </button>
+      </div>
+      <form method="POST" id="rsvForm">
+        {% csrf_token %}
+        <div class="rsv-modal-body">
+          <p class="rsv-product-name" id="rsvProductName"></p>
+          <div class="rsv-field">
+            <label>Quantity</label>
+            <div style="display: flex; align-items: center; gap: 10px">
+              <button type="button" class="rsv-qty-btn" onclick="changeQty(-1)">
+                −
+              </button>
+              <input
+                type="number"
+                name="quantity"
+                id="rsvQty"
+                value="1"
+                min="1"
+                class="rsv-qty-input"
+              />
+              <button type="button" class="rsv-qty-btn" onclick="changeQty(1)">
+                +
+              </button>
+              <span
+                style="font-size: 0.8rem; color: var(--text-3)"
+                id="rsvStockHint"
+              ></span>
+            </div>
+          </div>
+          <div class="rsv-field">
+            <label>Pickup Date</label>
+            <input
+              type="date"
+              name="pickup_date"
+              class="form-control"
+              required
+              style="width: 100%; box-sizing: border-box"
+            />
+          </div>
+          <div class="rsv-field">
+            <label
+              >Notes
+              <span style="color: var(--text-3); font-weight: 400"
+                >(optional)</span
+              ></label
+            >
+            <textarea
+              name="notes"
+              rows="2"
+              placeholder="E.g., Need by Friday, specific brand preference..."
+              class="form-control"
+            ></textarea>
+          </div>
+        </div>
+        <div class="rsv-modal-footer">
+          <button
+            type="button"
+            class="btn-action outline"
+            onclick="closeReserveModal()"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn-action primary">
+            <i class="bx bx-check"></i> Confirm Reservation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ══════ SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+    document.addEventListener("DOMContentLoaded", function () {
+      const searchInput = document.getElementById("catalogSearch");
+      const dropdown = document.getElementById("catalogSearchDropdown");
+      if (!searchInput || !dropdown) return;
+
+      function buildData() {
+        return Array.from(document.querySelectorAll('.cat-card')).map(card => {
+          const searchName = card.dataset.name || "";
+          const searchDesc = card.dataset.desc || "";
+          const displayName = card.querySelector('.cat-card-name')?.textContent.trim() || searchName;
+          const branch = card.querySelector('.cat-meta-branch')?.textContent.trim() || "";
+          let stock = "";
+          const stockEl = card.querySelector('.cat-meta-stock');
+          if (stockEl) stock = stockEl.textContent.trim();
+          const isAvailable = card.querySelector('.cat-card-status.available') !== null;
+          
+          return {
+            searchName: searchName,
+            searchDesc: searchDesc,
+            displayName: displayName,
+            branch: branch,
+            stock: stock,
+            isAvailable: isAvailable,
+            card: card
+          };
+        });
+      }
+
+      let products = buildData();
+
+      function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+      function highlight(text, q) {
+        if (!q) return text;
+        text = String(text);
+        return text.replace(new RegExp('(' + esc(q) + ')', 'gi'), '<span class="search-dropdown-highlight">$1</span>');
+      }
+
+      function renderDropdown(results, q) {
+        if (!results.length) {
+          dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No products found</div>';
+        } else {
+          dropdown.innerHTML = results.slice(0, 6).map((p, idx) => `
+            <div class="search-dropdown-item" data-index="${idx}">
+              <i class='bx ${p.isAvailable ? 'bx-package' : 'bx-x-circle'}' style="color: ${p.isAvailable ? 'var(--primary)' : 'var(--text-3)'}"></i>
+              <div class="item-info">
+                <div class="item-name">${highlight(p.displayName, q)}</div>
+                <div class="item-sub">${p.branch} ${p.stock ? '&bull; ' + p.stock : '&bull; Out of Stock'}</div>
+              </div>
+              <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
+            </div>`).join('');
+            
+          dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
+            item.addEventListener('mousedown', e => {
+              e.preventDefault();
+              searchInput.value = results[idx].displayName;
+              filterCards(results[idx].searchName);
+              hideDropdown();
+            });
+          });
+        }
+        dropdown.style.display = 'block';
+        dropdown.classList.add('active');
+      }
+
+      function hideDropdown() {
+        dropdown.classList.remove('active');
+        dropdown.style.display = '';
+      }
+
+      function filterCards(q) {
+        products.forEach(p => {
+          const matchesSearch = !q || p.searchName.includes(q) || p.searchDesc.includes(q);
+          p.card.style.display = matchesSearch ? '' : 'none';
+        });
+      }
+
+      searchInput.addEventListener('input', function () {
+        const q = this.value.toLowerCase().trim();
+        filterCards(q);
+        
+        if (!q) { 
+          hideDropdown(); 
+          return; 
+        }
+        
+        const results = products.filter(p => 
+          p.searchName.includes(q) || 
+          p.searchDesc.includes(q)
+        );
+        renderDropdown(results, q);
+      });
+
+      searchInput.addEventListener('focus', function () {
+        if (this.value.trim()) this.dispatchEvent(new Event('input'));
+      });
+
+      searchInput.addEventListener('blur', function () {
+        setTimeout(hideDropdown, 150);
+      });
+
+      searchInput.addEventListener('keydown', function (e) {
+        const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+        let idx = items.findIndex(i => i.classList.contains('active'));
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if(idx >= 0) items[idx].classList.remove('active');
+          idx = (idx + 1) % items.length;
+          if(items.length > 0) items[idx].classList.add('active');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if(idx >= 0) items[idx].classList.remove('active');
+          idx = (idx - 1 + items.length) % items.length;
+          if(items.length > 0) items[idx].classList.add('active');
+        } else if (e.key === 'Enter' && idx >= 0) {
+          e.preventDefault(); 
+          items[idx].click(); // or mousedown event trigger since we used mousedown
+          
+          // Triggers the mousedown logic manually
+          searchInput.value = products[items[idx].dataset.index].displayName;
+          filterCards(products[items[idx].dataset.index].searchName);
+          hideDropdown();
+        } else if (e.key === 'Escape') {
+          hideDropdown();
+        }
+      });
+      
+      /* Stagger animation */
+      document.querySelectorAll(".cat-card").forEach(function (card, i) {
+        card.style.animationDelay = i * 0.06 + "s";
+      });
+    });
+
+    let maxStock = 1;
+
+    function openReserveModal(productId, productName, stock, price) {
+      maxStock = stock;
+      document.getElementById("rsvProductName").textContent =
+        productName + " — ₱" + price;
+      document.getElementById("rsvStockHint").textContent =
+        stock + " available";
+      document.getElementById("rsvQty").value = 1;
+      document.getElementById("rsvQty").max = stock;
+      document.getElementById("rsvForm").action =
+        "/inventory/product/" + productId + "/reserve/";
+      document.getElementById("rsvModal").style.display = "flex";
+    }
+
+    function closeReserveModal() {
+      document.getElementById("rsvModal").style.display = "none";
+    }
+
+    function changeQty(delta) {
+      const input = document.getElementById("rsvQty");
+      let val = parseInt(input.value) + delta;
+      if (val < 1) val = 1;
+      if (val > maxStock) val = maxStock;
+      input.value = val;
+    }
+
+    // Close modal on overlay click
+    document.addEventListener("click", function (e) {
+      if (e.target.id === "rsvModal") closeReserveModal();
+    });
+  </script>
+
+  <style>
+    /* Reserve button on catalog cards */
+    .cat-reserve-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px;
+      border: none;
+      border-radius: var(--radius-sm, 8px);
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition:
+        background 0.2s,
+        transform 0.15s;
+      font-family: inherit;
+    }
+    .cat-reserve-btn:hover {
+      background: var(--primary-dark, #00796b);
+      transform: translateY(-1px);
+    }
+    .cat-reserve-btn.disabled {
+      background: var(--border, #ddd);
+      color: var(--text-3, #999);
+      cursor: not-allowed;
+    }
+
+    /* Reservation Modal */
+    .rsv-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s;
+    }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .rsv-modal {
+      background: var(--surface, #fff);
+      border-radius: var(--radius, 12px);
+      width: 420px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from {
+        transform: translateY(30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .rsv-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .rsv-modal-header h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .rsv-modal-header h3 i {
+      color: var(--primary);
+    }
+    .rsv-modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-3);
+      cursor: pointer;
+      line-height: 1;
+    }
+    .rsv-modal-close:hover {
+      color: var(--text-1);
+    }
+
+    .rsv-modal-body {
+      padding: 20px 24px;
+    }
+    .rsv-product-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-1);
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .rsv-field {
+      margin-bottom: 16px;
+    }
+    .rsv-field label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+    .rsv-field .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm, 8px);
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: var(--surface, #fff);
+      color: var(--text-1);
+    }
+    .rsv-field .form-control:focus {
+      border-color: var(--primary);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.12);
+    }
+
+    .rsv-qty-input {
+      width: 60px;
+      text-align: center;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm, 8px);
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      color: var(--text-1);
+      background: var(--surface, #fff);
+    }
+    .rsv-qty-input:focus {
+      border-color: var(--primary);
+      outline: none;
+    }
+
+    .rsv-qty-btn {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm, 8px);
+      background: var(--bg, #f5f5f5);
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+    }
+    .rsv-qty-btn:hover {
+      background: var(--border);
+    }
+
+    .rsv-modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+
+    /* Reservation cards in catalog */
+    .my-rsv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .my-rsv-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface, #fff);
+      border: 1px solid var(--border, #e0e0e0);
+      border-radius: var(--radius, 12px);
+      padding: 18px 24px;
+      transition: box-shadow 0.2s;
+    }
+    .my-rsv-card:hover {
+      box-shadow: var(--shadow-sm);
+    }
+    .my-rsv-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .my-rsv-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #e0f2f1;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+    .my-rsv-icon.med {
+      background: #e8eaf6;
+      color: #3949ab;
+    }
+    .my-rsv-product {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-1);
+      margin: 0 0 4px;
+    }
+    .my-rsv-meta {
+      font-size: 0.8rem;
+      color: var(--text-3, #999);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .my-rsv-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .my-rsv-qty {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+    .my-rsv-price {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+    .my-rsv-status {
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .my-rsv-status.pending {
+      background: #fff3e0;
+      color: #e65100;
+    }
+    .my-rsv-status.released {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .my-rsv-status.cancelled {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .my-rsv-countdown {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e65100;
+      background: #fff3e0;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .my-rsv-cancel-btn {
+      padding: 5px 14px;
+      border-radius: var(--radius-sm, 8px);
+      background: #ffebee;
+      color: #c62828;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.2s;
+    }
+    .my-rsv-cancel-btn:hover {
+      background: #ffcdd2;
+    }
+
+    @media (max-width: 700px) {
+      .my-rsv-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .my-rsv-right {
+        width: 100%;
+        justify-content: flex-start;
+      }
+    }
+  </style>
+
+  {% else %}
+  <div class="pets-empty-hero">
+    <div class="pets-empty-visual">
+      <div class="pets-empty-ring ring-1"></div>
+      <div class="pets-empty-ring ring-2"></div>
+      <div class="pets-empty-ring ring-3"></div>
+      <div class="pets-empty-center-icon">
+        <i class="bx bx-package"></i>
+      </div>
+    </div>
+    <h2>No products found</h2>
+    <p>
+      No products are currently listed {% if selected_branch %} for this branch
+      {% endif %}.
+      <br />Check back later for updates.
+    </p>
+  </div>
+  {% endif %}
+</div>
+<!-- end catProductsSection -->
+
+<!-- My Reservations Section (hidden by default) -->
+<div id="catReservationsSection" style="display: none">
+  {% if user_reservations %}
+  <p
+    style="
+      color: var(--text-2);
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    "
+  >
+    <i
+      class="bx bx-info-circle"
+      style="font-size: 1.2rem; color: var(--primary)"
+    ></i>
+    For cancellation purposes, please call the clinic.
+  </p>
+  <div class="my-rsv-list">
+    {% for rsv in user_reservations %}
+    <div class="my-rsv-card">
+      <div class="my-rsv-left">
+        <div
+          class="my-rsv-icon {% if rsv.product.item_type == 'Medication' %}med{% endif %}"
+        >
+          {% if rsv.product.item_type == 'Medication' %}
+          <i class="bx bx-capsule"></i>
+          {% else %}
+          <i class="bx bx-package"></i>
+          {% endif %}
+        </div>
+        <div>
+          <h3 class="my-rsv-product">{{ rsv.product.name }}</h3>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              font-size: 0.8rem;
+              color: var(--text-3);
+              margin-top: 4px;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 4px">
+              <i class="bx bx-building-house"></i>
+              {{ rsv.product.branch.name }}
+            </div>
+            <!-- created str -->
+            <div style="display: flex; align-items: center; gap: 4px">
+              <i class="bx bx-calendar"></i>
+              <!-- date str -->
+              Reserved: {{ rsv.created_at|date:"M j, Y" }}
+            </div>
+            <!-- pickup date condition -->
+            {% if rsv.pickup_date %}
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                color: var(--primary);
+                font-weight: 600;
+              "
+            >
+              <i class="bx bx-package"></i>
+              <!-- date str -->
+              Pickup target: {{ rsv.pickup_date|date:"F j, Y" }}
+            </div>
+            <!-- condition close -->
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="my-rsv-right">
+        {% if rsv.status == 'Pending' %}
+        <div
+          class="my-rsv-countdown"
+          data-created="{{ rsv.created_at|date:'c' }}"
+        >
+          <i class="bx bx-time-five"></i>
+          <span class="time-left">Calculating...</span>
+        </div>
+        {% endif %}
+        <div class="my-rsv-qty">x{{ rsv.quantity }}</div>
+        <div class="my-rsv-price">&#8369;{{ rsv.product.price|peso }}</div>
+        <span
+          class="my-rsv-status {% if rsv.status == 'Pending' %}pending {% elif rsv.status == 'Released' %}released {% else %}cancelled{% endif %}"
+          >{{ rsv.status }}</span
+        >
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align: center; padding: 60px 20px; color: var(--text-3)">
+    <i
+      class="bx bx-receipt"
+      style="
+        font-size: 2.5rem;
+        display: block;
+        margin-bottom: 10px;
+        opacity: 0.5;
+      "
+    ></i>
+    No reservations yet.<br />
+    <span style="font-size: 0.85rem"
+      >Browse the products tab and click <strong>Reserve</strong> to get
+      started!</span
+    >
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  function switchCatalogTab(tab) {
+    document.getElementById("catProductsSection").style.display =
+      tab === "products" ? "block" : "none";
+    document.getElementById("catReservationsSection").style.display =
+      tab === "reservations" ? "block" : "none";
+    document
+      .getElementById("catTabProducts")
+      .classList.toggle("active", tab === "products");
+    document
+      .getElementById("catTabReservations")
+      .classList.toggle("active", tab === "reservations");
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const countdowns = document.querySelectorAll(".my-rsv-countdown");
+
+    function updateTimers() {
+      countdowns.forEach((el) => {
+        const createdStr = el.getAttribute("data-created");
+        if (!createdStr) return;
+
+        const createdDate = new Date(createdStr);
+        const expireDate = new Date(
+          createdDate.getTime() + 24 * 60 * 60 * 1000,
+        );
+        const now = new Date();
+        const diff = expireDate - now;
+
+        const timeSpan = el.querySelector(".time-left");
+
+        if (diff <= 0) {
+          timeSpan.textContent = "Expired";
+          el.style.color = "#c62828";
+          el.style.background = "#ffebee";
+        } else {
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          timeSpan.textContent = `Expires in: ${hours}h ${minutes}m`;
+        }
+      });
+    }
+
+    if (countdowns.length > 0) {
+      updateTimers();
+      setInterval(updateTimers, 60000);
+    }
+  });
+</script>
+{% endblock %}
