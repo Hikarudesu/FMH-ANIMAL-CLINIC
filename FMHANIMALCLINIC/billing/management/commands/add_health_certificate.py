@@ -20,13 +20,15 @@ class Command(BaseCommand):
 
         if created:
             self.stdout.write(
-                self.style.SUCCESS('SUCCESS: Health Certificate service created successfully!')
+                self.style.SUCCESS(
+                    'SUCCESS: Health Certificate service created successfully!')
             )
             self.stdout.write(f"   Name: {health_cert.name}")
             self.stdout.write(f"   Price: P{health_cert.price}")
             self.stdout.write(f"   Category: {health_cert.category}")
         else:
             self.stdout.write(
-                self.style.WARNING('INFO: Health Certificate service already exists')
+                self.style.WARNING(
+                    'INFO: Health Certificate service already exists')
             )
             self.stdout.write(f"   Current price: P{health_cert.price}")

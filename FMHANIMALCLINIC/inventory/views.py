@@ -1,6 +1,5 @@
-"""
-Views for handling inventory catalog display.
-"""
+"""Views for handling inventory catalog display."""
+# pylint: disable=no-member, unused-argument, too-many-lines
 from datetime import date, timedelta
 from collections import defaultdict
 
@@ -13,7 +12,7 @@ from django.utils import timezone
 from django.http import JsonResponse
 
 from accounts.models import User, ActivityLog
-from accounts.decorators import module_permission_required, special_permission_required
+from accounts.decorators import module_permission_required
 from branches.models import Branch
 from notifications.models import Notification
 from notifications.email_utils import send_reservation_notification
@@ -85,7 +84,8 @@ def catalog_view(request):
 
     # pylint: disable=no-member
     branches = Branch.objects.filter(is_active=True)
-    products = Product.objects.all().select_related('branch')
+    products = Product.objects.exclude(
+        item_type='Medication').select_related('branch')
 
     selected_branch_id = request.GET.get('branch')
 
@@ -126,7 +126,8 @@ def inventory_management_view(request):
     auto_cancel_expired_reservations()
 
     # Check if user is branch-restricted
-    is_branch_restricted = request.user.is_module_branch_restricted('inventory')
+    is_branch_restricted = request.user.is_module_branch_restricted(
+        'inventory')
     user_branch = getattr(request.user, 'branch', None)
 
     # pylint: disable=no-member
@@ -136,6 +137,7 @@ def inventory_management_view(request):
     branches = Branch.objects.filter(is_active=True)
     selected_branch_id = request.GET.get('branch')
     selected_status = request.GET.get('status', '')
+    selected_type = request.GET.get('type', '')
     search_query = request.GET.get('q', '').strip()
     products = Product.objects.all().select_related('branch')
 
@@ -148,9 +150,12 @@ def inventory_management_view(request):
         adjustments = adjustments.filter(branch_id=selected_branch_id)
         products = products.filter(branch_id=selected_branch_id)
 
+    # Apply type filter
+    if selected_type:
+        products = products.filter(item_type=selected_type)
+
     # Apply search filter
     if search_query:
-        from django.db.models import Q
         products = products.filter(
             Q(name__icontains=search_query) |
             Q(sku__icontains=search_query) |
@@ -192,19 +197,37 @@ def inventory_management_view(request):
     # Build filter list for filter_bar component
     status_filters = [
         {
+            'name': 'type',
+            'icon': 'bx-box',
+            'default_label': 'All Types',
+            'has_value': bool(selected_type),
+            'selected_label': selected_type,
+            'options': [
+                {'value': 'Product', 'label': 'Products',
+                    'selected': selected_type == 'Product'},
+                {'value': 'Medication', 'label': 'Medications',
+                    'selected': selected_type == 'Medication'},
+                {'value': 'Accessories', 'label': 'Accessories',
+                    'selected': selected_type == 'Accessories'},
+            ]
+        },
+        {
             'name': 'status',
             'icon': 'bx-pulse',
             'default_label': 'All Status',
             'has_value': bool(selected_status),
             'selected_label': selected_status,
             'options': [
-                {'value': 'In Stock', 'label': 'In Stock', 'selected': selected_status == 'In Stock'},
-                {'value': 'Low Stock', 'label': 'Low Stock', 'selected': selected_status == 'Low Stock'},
-                {'value': 'Out of Stock', 'label': 'Out of Stock', 'selected': selected_status == 'Out of Stock'},
+                {'value': 'In Stock', 'label': 'In Stock',
+                    'selected': selected_status == 'In Stock'},
+                {'value': 'Low Stock', 'label': 'Low Stock',
+                    'selected': selected_status == 'Low Stock'},
+                {'value': 'Out of Stock', 'label': 'Out of Stock',
+                    'selected': selected_status == 'Out of Stock'},
             ]
         },
     ]
-    
+
     # Only add branch filter if user is NOT branch-restricted
     if not is_branch_restricted:
         status_filters.append({
@@ -217,7 +240,8 @@ def inventory_management_view(request):
         })
         # Populate branch filter options
         for branch in branches:
-            is_selected = str(branch.id) == str(selected_branch_id) if selected_branch_id else False
+            is_selected = str(branch.id) == str(
+                selected_branch_id) if selected_branch_id else False
             status_filters[-1]['options'].append({
                 'value': branch.id,
                 'label': branch.name,
@@ -226,7 +250,8 @@ def inventory_management_view(request):
             if is_selected:
                 status_filters[-1]['selected_label'] = branch.name
 
-    show_clear = bool(search_query or selected_status or (selected_branch_id and not is_branch_restricted))
+    show_clear = bool(search_query or selected_type or selected_status or (
+        selected_branch_id and not is_branch_restricted))
 
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('inventory', 'CREATE')
@@ -239,6 +264,7 @@ def inventory_management_view(request):
         'branches': [] if is_branch_restricted else branches,
         'selected_branch_id': selected_branch_id,
         'selected_status': selected_status,
+        'selected_type': selected_type,
         'search_value': search_query,
         'status_filters': status_filters,
         'show_clear': show_clear,
@@ -261,7 +287,7 @@ def product_create_view(request):
         form = ProductForm(request.POST)
         if form.is_valid():
             product = form.save()
-            
+
             # Create initial stock adjustment if stock_quantity > 0
             if product.stock_quantity > 0:
                 StockAdjustment.objects.create(
@@ -274,7 +300,7 @@ def product_create_view(request):
                     cost_per_unit=product.unit_cost,
                     reason=f"Initial stock for new item: {product.name}",
                 )
-            
+
             messages.success(request, "Item created successfully.")
             return redirect('inventory:management')
     else:
@@ -340,7 +366,7 @@ def reserve_product_view(request, pk):
     except (ValueError, TypeError):
         messages.error(request, "Invalid quantity.")
         return redirect('inventory:catalog')
-    
+
     pickup_date_str = request.POST.get('pickup_date')
 
     # Validate stock
@@ -558,7 +584,8 @@ def stock_transfer_list_view(request):
             Q(destination_branch__name__icontains=search_query) |
             Q(requested_by__isnull=False, requested_by__username__icontains=search_query) |
             Q(requested_by__isnull=False, requested_by__first_name__icontains=search_query) |
-            Q(requested_by__isnull=False, requested_by__last_name__icontains=search_query)
+            Q(requested_by__isnull=False,
+              requested_by__last_name__icontains=search_query)
         ).distinct()
 
     # Apply status filter
@@ -584,10 +611,14 @@ def stock_transfer_list_view(request):
             'has_value': bool(selected_status),
             'selected_label': selected_status,
             'options': [
-                {'value': 'Pending', 'label': 'Pending', 'selected': selected_status == 'Pending'},
-                {'value': 'Approved', 'label': 'Approved', 'selected': selected_status == 'Approved'},
-                {'value': 'Rejected', 'label': 'Rejected', 'selected': selected_status == 'Rejected'},
-                {'value': 'Completed', 'label': 'Completed', 'selected': selected_status == 'Completed'},
+                {'value': 'Pending', 'label': 'Pending',
+                    'selected': selected_status == 'Pending'},
+                {'value': 'Approved', 'label': 'Approved',
+                    'selected': selected_status == 'Approved'},
+                {'value': 'Rejected', 'label': 'Rejected',
+                    'selected': selected_status == 'Rejected'},
+                {'value': 'Completed', 'label': 'Completed',
+                    'selected': selected_status == 'Completed'},
             ]
         },
         {
@@ -602,7 +633,8 @@ def stock_transfer_list_view(request):
 
     # Populate branch filter options
     for branch in branches:
-        is_selected = str(branch.id) == str(selected_branch_id) if selected_branch_id else False
+        is_selected = str(branch.id) == str(
+            selected_branch_id) if selected_branch_id else False
         status_filters[1]['options'].append({
             'value': branch.id,
             'label': branch.name,
@@ -635,11 +667,11 @@ def stock_transfer_request_view(request):
 
     # Prevent admin users from creating transfer requests
     # They can only approve requests made by other branches
-    if (hasattr(request.user, 'assigned_role') and 
-        request.user.assigned_role and 
-        request.user.assigned_role.hierarchy_level >= 10):
+    if (hasattr(request.user, 'assigned_role') and
+        request.user.assigned_role and
+            request.user.assigned_role.hierarchy_level >= 10):
         messages.warning(
-            request, 
+            request,
             "Admin users cannot create transfer requests. You can only approve transfer requests made by other branches."
         )
         return redirect('inventory:transfer_list')
@@ -741,7 +773,8 @@ def super_admin_stock_view(request):
         or request.user.has_special_permission('can_access_stock_monitor')
     )
     if not can_view_stock_monitor:
-        messages.warning(request, 'You do not have VIEW permission for this section.')
+        messages.warning(
+            request, 'You do not have VIEW permission for this section.')
         return redirect('admin_dashboard')
 
     # Stock Monitor rule:
@@ -777,7 +810,6 @@ def super_admin_stock_view(request):
 
     # Apply search filter
     if search_query:
-        from django.db.models import Q
         products = products.filter(
             Q(name__icontains=search_query) |
             Q(sku__icontains=search_query)
@@ -792,11 +824,6 @@ def super_admin_stock_view(request):
 
     # Out of Stock: quantity = 0
     out_of_stock = products.filter(stock_quantity=0).order_by('name')
-
-    # In Stock: quantity > min_stock_level
-    in_stock = products.filter(
-        stock_quantity__gt=F('min_stock_level')
-    ).order_by('name')
 
     # Apply status filter
     if selected_status == 'Low Stock':
@@ -833,7 +860,8 @@ def super_admin_stock_view(request):
             'inventory_value': total_inventory_value,
         }
     elif not is_branch_restricted:
-        visible_branch_ids = products.values_list('branch_id', flat=True).distinct()
+        visible_branch_ids = products.values_list(
+            'branch_id', flat=True).distinct()
         for branch in branches.filter(id__in=visible_branch_ids):
             branch_products = products.filter(branch=branch)
             branch_low = branch_products.filter(
@@ -858,9 +886,12 @@ def super_admin_stock_view(request):
             'has_value': bool(selected_status),
             'selected_label': selected_status,
             'options': [
-                {'value': 'In Stock', 'label': 'In Stock', 'selected': selected_status == 'In Stock'},
-                {'value': 'Low Stock', 'label': 'Low Stock', 'selected': selected_status == 'Low Stock'},
-                {'value': 'Out of Stock', 'label': 'Out of Stock', 'selected': selected_status == 'Out of Stock'},
+                {'value': 'In Stock', 'label': 'In Stock',
+                    'selected': selected_status == 'In Stock'},
+                {'value': 'Low Stock', 'label': 'Low Stock',
+                    'selected': selected_status == 'Low Stock'},
+                {'value': 'Out of Stock', 'label': 'Out of Stock',
+                    'selected': selected_status == 'Out of Stock'},
             ]
         }
     ]
@@ -955,7 +986,8 @@ def activity_logs_view(request):
     Comprehensive Activity Log with filtering by Date, Branch, and Category.
     """
     # Get all logs
-    logs = ActivityLog.objects.select_related('user', 'branch').all().order_by('-timestamp')
+    logs = ActivityLog.objects.select_related(
+        'user', 'branch').all().order_by('-timestamp')
 
     # Filter by branch
     branch_id = request.GET.get('branch_id')
@@ -1006,9 +1038,10 @@ def activity_logs_view(request):
         context['grouped_logs'] = group_logs_by_branch(logs)
         context['group_key'] = 'branch'
     elif group_by == 'category':
-        context['grouped_logs'] = [(cat_label, logs.filter(category=cat_value)) 
-                                    for cat_value, cat_label in ActivityLog.Category.choices]
-        context['grouped_logs'] = [(name, logs_qs) for name, logs_qs in context['grouped_logs'] if logs_qs.exists()]
+        context['grouped_logs'] = [(cat_label, logs.filter(category=cat_value))
+                                   for cat_value, cat_label in ActivityLog.Category.choices]
+        context['grouped_logs'] = [(name, logs_qs)
+                                   for name, logs_qs in context['grouped_logs'] if logs_qs.exists()]
         context['group_key'] = 'category'
     else:  # default: group by date
         context['grouped_logs'] = group_logs_by_date(logs)
@@ -1073,7 +1106,8 @@ def clear_activity_logs(request):
         count = logs.count()
         logs.delete()
 
-        messages.success(request, f'Successfully cleared {count} activity log(s).')
+        messages.success(
+            request, f'Successfully cleared {count} activity log(s).')
 
     return redirect('inventory:activity_logs')
 
@@ -1086,12 +1120,12 @@ def get_branch_products(request, branch_id):
     Returns JSON with list of products in the branch.
     """
     branch = get_object_or_404(Branch, pk=branch_id, is_active=True)
-    
+
     products = Product.objects.filter(
         branch=branch,
         is_deleted=False
     ).order_by('name').values('id', 'name')
-    
+
     return JsonResponse({
         'branch_id': branch_id,
         'branch_name': branch.name,

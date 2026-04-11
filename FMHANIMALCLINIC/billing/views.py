@@ -1,4 +1,6 @@
-"""Views for the billing app — clinic services and owner statement modules."""
+"""Views for the billing app — clinic services and owner statement modules.
+# pylint: disable=no-member
+"""
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView, UpdateView
@@ -39,19 +41,22 @@ def service_list(request):
             Q(description__icontains=search)
         )
 
-    # Get all categories for dropdown
-    all_categories = Service.objects.values_list('category', flat=True).distinct().filter(category__isnull=False, category__gt='')
+    # Get all categories for dropdown (use set to ensure distinctness regardless of default model ordering)
+    all_categories = set(Service.objects.values_list('category', flat=True))
     categories = sorted([c for c in all_categories if c])
 
     services = services.order_by('-created_at')
 
     # Check permissions for CRUD buttons
-    can_create = request.user.has_module_permission('clinic_services', 'CREATE')
+    can_create = request.user.has_module_permission(
+        'clinic_services', 'CREATE')
     can_edit = request.user.has_module_permission('clinic_services', 'EDIT')
-    can_delete = request.user.has_module_permission('clinic_services', 'DELETE')
-    
+    can_delete = request.user.has_module_permission(
+        'clinic_services', 'DELETE')
+
     # Check if user is branch-restricted
-    is_branch_restricted = request.user.is_module_branch_restricted('clinic_services')
+    is_branch_restricted = request.user.is_module_branch_restricted(
+        'clinic_services')
 
     context = {
         'items': services,
@@ -127,4 +132,3 @@ def my_statement_detail(request, pk):
         )
 
     return render(request, 'billing/my_statement_detail.html', {'statement': statement})
-

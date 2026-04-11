@@ -174,6 +174,7 @@
   .pos-item-type.service { background: var(--grad-green); color: #2e7d32; }
   .pos-item-type.product { background: var(--grad-blue); color: #1565c0; }
   .pos-item-type.medication { background: var(--grad-purple); color: #7b1fa2; }
+  .pos-item-type.accessory { background: linear-gradient(135deg, #ffd54f 0%, #ffa726 100%); color: #ef6c00; }
 
   /* Right Panel - Cart */
   .pos-cart-panel {
@@ -758,12 +759,13 @@
       <button class="pos-category-tab" data-category="service">Services</button>
       <button class="pos-category-tab" data-category="product">Products</button>
       <button class="pos-category-tab" data-category="medication">Medications</button>
+      <button class="pos-category-tab" data-category="accessory">Accessories</button>
     </div>
 
     <div class="pos-items-grid" id="posItemsGrid">
       <!-- Services -->
       {% for service in services %}
-      <div class="pos-item-card" data-type="SERVICE" data-id="{{ service.pk }}" data-name="{{ service.name }}" data-price="{{ service.price }}">
+      <div class="pos-item-card" data-type="SERVICE" data-category="service" data-id="{{ service.pk }}" data-name="{{ service.name }}" data-price="{{ service.price }}">
         <span class="pos-item-type service">Service</span>
         <div class="pos-item-name">{{ service.name }}</div>
         <div class="pos-item-meta">
@@ -1001,11 +1003,12 @@ function populateItemsGrid(items) {
     const itemHtml = `
       <div class="pos-item-card ${outOfStock}"
            data-type="${item.type}"
+           data-category="${item.category || item.type.toLowerCase()}"
            data-id="${item.id}"
            data-name="${item.name}"
            data-price="${item.price}"
            data-stock="${item.stock}">
-        <span class="pos-item-type ${item.type.toLowerCase()}">${item.type}</span>
+        <span class="pos-item-type ${item.category ? item.category.toLowerCase() : item.type.toLowerCase()}">${item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : item.type}</span>
         <div class="pos-item-name">${item.name}</div>
         ${item.branch_name ? `<small style="color: var(--text-3); font-size: 0.75rem;">${item.branch_name}</small>` : ''}
         <div class="pos-item-meta">
@@ -1404,7 +1407,7 @@ document.querySelectorAll('.pos-category-tab').forEach(tab => {
       if (category === 'all') {
         card.style.display = 'flex';
       } else {
-        card.style.display = card.dataset.type.toLowerCase() === category ? 'flex' : 'none';
+        card.style.display = (card.dataset.category || card.dataset.type).toLowerCase() === category ? 'flex' : 'none';
       }
     });
   });

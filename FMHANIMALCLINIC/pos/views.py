@@ -1,4 +1,6 @@
 """Views for POS module."""
+# pylint: disable=no-member, unused-import, line-too-long, unused-variable
+
 
 from decimal import Decimal, InvalidOperation
 
@@ -31,7 +33,9 @@ from .services import create_or_release_soa_for_sale
 @special_permission_required('can_access_pos')
 def checkout(request):
     """Main POS checkout interface."""
-    branch = request.user.branch
+    branch = getattr(request.user, 'branch', None)
+    if not branch:
+        branch = Branch.objects.first()
 
     # Create new pending sale or get existing one
     pending_sale = Sale.objects.filter(
@@ -56,14 +60,15 @@ def checkout(request):
     # POS users are always branch-restricted (no dropdown)
     # Only show items from their assigned branch
     branches = []  # Hide branch dropdown for POS users
-    
+
     # Products filtered to user's branch only
     if branch:
         products = Product.objects.filter(
             branch=branch,
+            item_type='Product',
             stock_quantity__gt=0
-        ).exclude(item_type='Services').order_by('name')
-        
+        ).order_by('name')
+
         medications = Product.objects.filter(
             branch=branch,
             item_type='Medication',
@@ -83,8 +88,9 @@ def checkout(request):
     # Build pets mapping for dynamic dropdown in frontend
     pets_map = {}
     for customer in customers:
-        pets_map[customer.id] = [{'id': pet.id, 'name': pet.name} for pet in customer.pets.all()]
-    
+        pets_map[customer.id] = [{'id': pet.id, 'name': pet.name}
+                                 for pet in customer.pets.all()]
+
     import json
 
     context = {
@@ -122,7 +128,8 @@ def add_item(request):
         if item_type == 'SERVICE':
             try:
                 item = Service.objects.get(pk=item_id, active=True)
-                existing_item = sale.items.filter(item_type=SaleItem.ItemType.SERVICE, service=item).first()
+                existing_item = sale.items.filter(
+                    item_type=SaleItem.ItemType.SERVICE, service=item).first()
                 if existing_item:
                     existing_item.quantity += quantity
                     existing_item.save()
@@ -142,8 +149,10 @@ def add_item(request):
         elif item_type in ['PRODUCT', 'MEDICATION']:
             try:
                 item = Product.objects.get(pk=item_id, is_available=True)
-                existing_item = sale.items.filter(item_type=item_type, product=item).first()
-                new_quantity = (existing_item.quantity if existing_item else 0) + quantity
+                existing_item = sale.items.filter(
+                    item_type=item_type, product=item).first()
+                new_quantity = (
+                    existing_item.quantity if existing_item else 0) + quantity
 
                 if item.stock_quantity < new_quantity:
                     return JsonResponse({
@@ -262,7 +271,8 @@ def update_sale_info(request):
         return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
     # Track which fields to save
-    update_fields = ['customer_type', 'guest_name', 'guest_phone', 'guest_email', 'guest_pet_name', 'notes']
+    update_fields = ['customer_type', 'guest_name',
+                     'guest_phone', 'guest_email', 'guest_pet_name', 'notes']
 
     # Update customer info
     customer_type = request.POST.get('customer_type', 'WALKIN')
@@ -275,7 +285,8 @@ def update_sale_info(request):
                 sale.customer = User.objects.get(pk=customer_id)
                 # Auto-fill guest fields from customer
                 sale.guest_name = sale.customer.get_full_name()
-                sale.guest_phone = getattr(sale.customer, 'phone_number', '') or ''
+                sale.guest_phone = getattr(
+                    sale.customer, 'phone_number', '') or ''
                 sale.guest_email = sale.customer.email
                 update_fields.append('customer')
             except User.DoesNotExist:
@@ -302,9 +313,11 @@ def update_sale_info(request):
         discount_pct = request.POST.get('discount_percent', '0')
         discount_reason = request.POST.get('discount_reason', '').strip()
         try:
-            discount_pct_value = Decimal(str(discount_pct)) if discount_pct else Decimal('0.00')
+            discount_pct_value = Decimal(
+                str(discount_pct)) if discount_pct else Decimal('0.00')
             # Clamp between 0-100
-            discount_pct_value = max(Decimal('0'), min(Decimal('100'), discount_pct_value))
+            discount_pct_value = max(Decimal('0'), min(
+                Decimal('100'), discount_pct_value))
         except (ValueError, InvalidOperation):
             discount_pct_value = Decimal('0.00')
 
@@ -409,7 +422,8 @@ def void_sale(request, sale_id):
     reason = request.POST.get('reason', '')
     try:
         sale.void_sale(request.user, reason)
-        messages.success(request, f'Sale {sale.transaction_id} has been voided.')
+        messages.success(
+            request, f'Sale {sale.transaction_id} has been voided.')
     except ValueError as e:
         messages.error(request, str(e))
 
@@ -439,8 +453,9 @@ def cancel_sale(request, sale_id):
 def sales_list(request):
     """View list of sales - always restricted to user's branch (POS is branch-restricted)."""
     # POS is always branch-restricted - only show sales from user's branch
-    branch = request.user.branch
-    sales = Sale.objects.filter(branch=branch).exclude(status=Sale.Status.PENDING)
+    branch = getattr(request.user, 'branch', None) or Branch.objects.first()
+    sales = Sale.objects.filter(branch=branch).exclude(
+        status=Sale.Status.PENDING)
 
     # Filters (no branch filter since POS is branch-restricted)
     status = request.GET.get('status')
@@ -528,7 +543,9 @@ def search_items(request):
     """Search for items (products, medications, services) via AJAX."""
     query = request.GET.get('q', '').strip()
     category = request.GET.get('category', 'all')
-    branch = request.user.branch
+    branch = getattr(request.user, 'branch', None)
+    if not branch:
+        branch = Branch.objects.first()
 
     results = []
 
@@ -566,6 +583,22 @@ def search_items(request):
                 'category': 'Product',
                 'price': str(p.price),
                 'stock': p.stock_quantity,
+            })
+
+    # Search accessories
+    if category in ['all', 'accessory']:
+        accessories = Product.objects.filter(
+            item_type='Accessories',
+            name__icontains=query
+        ).select_related('branch')[:10]
+        for a in accessories:
+            results.append({
+                'id': a.pk,
+                'type': 'PRODUCT',
+                'name': a.name,
+                'category': 'Accessory',
+                'price': str(a.price),
+                'stock': a.stock_quantity,
             })
 
     # Search medications from all branches
@@ -609,7 +642,8 @@ def search_customers(request):
 
     results = []
     for c in customers:
-        pets = list(c.pets.filter(is_active=True).values('id', 'name', 'species'))
+        pets = list(c.pets.filter(is_active=True).values(
+            'id', 'name', 'species'))
         results.append({
             'id': c.pk,
             'name': c.get_full_name() or c.email,
@@ -635,29 +669,21 @@ def filter_items_by_branch(request):
         try:
             branch = Branch.objects.get(pk=branch_id)
             products = Product.objects.filter(
-                item_type='Product',
-                branch=branch,
-                is_available=True
-            ).select_related('branch')
-
+                item_type='Product', branch=branch, is_available=True).select_related('branch')
             medications = Product.objects.filter(
-                item_type='Medication',
-                branch=branch,
-                is_available=True
-            ).select_related('branch')
+                item_type='Medication', branch=branch, is_available=True).select_related('branch')
+            accessories = Product.objects.filter(
+                item_type='Accessories', branch=branch, is_available=True).select_related('branch')
         except Branch.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Branch not found'}, status=404)
     else:
         # All branches
         products = Product.objects.filter(
-            item_type='Product',
-            is_available=True
-        ).select_related('branch')
-
+            item_type='Product', is_available=True).select_related('branch')
         medications = Product.objects.filter(
-            item_type='Medication',
-            is_available=True
-        ).select_related('branch')
+            item_type='Medication', is_available=True).select_related('branch')
+        accessories = Product.objects.filter(
+            item_type='Accessories', is_available=True).select_related('branch')
 
     # Add products to results
     for p in products.order_by('name'):
@@ -668,6 +694,7 @@ def filter_items_by_branch(request):
             'price': str(p.price),
             'stock': p.stock_quantity,
             'branch_name': p.branch.name if p.branch else 'Unknown',
+            'category': 'product'
         })
 
     # Add medications to results
@@ -679,6 +706,19 @@ def filter_items_by_branch(request):
             'price': str(m.price),
             'stock': m.stock_quantity,
             'branch_name': m.branch.name if m.branch else 'Unknown',
+            'category': 'medication'
+        })
+
+    # Add accessories to results
+    for a in accessories.order_by('name'):
+        results.append({
+            'id': a.pk,
+            'type': 'PRODUCT',
+            'name': a.name,
+            'price': str(a.price),
+            'stock': a.stock_quantity,
+            'branch_name': a.branch.name if a.branch else 'Unknown',
+            'category': 'accessory'
         })
 
     return JsonResponse({'success': True, 'results': results})
@@ -713,7 +753,8 @@ def refund_request(request, sale_id):
             })
 
     if not refundable_items:
-        messages.error(request, 'All items in this sale have already been refunded.')
+        messages.error(
+            request, 'All items in this sale have already been refunded.')
         return redirect('pos:sale_detail', sale_id=sale_id)
 
     if request.method == 'POST':
@@ -729,7 +770,8 @@ def refund_request(request, sale_id):
             if refund_type == 'FULL':
                 # Full refund - refund all refundable items
                 items_data = [
-                    {'sale_item_id': ri['item'].pk, 'quantity': ri['refundable_qty']}
+                    {'sale_item_id': ri['item'].pk,
+                        'quantity': ri['refundable_qty']}
                     for ri in refundable_items
                 ]
                 refund = Refund.create_partial_refund(
@@ -760,7 +802,8 @@ def refund_request(request, sale_id):
                             pass
 
                 if not items_data:
-                    messages.error(request, 'Please select at least one item to refund.')
+                    messages.error(
+                        request, 'Please select at least one item to refund.')
                     return redirect('pos:refund_request', sale_id=sale_id)
 
                 refund = Refund.create_partial_refund(
@@ -803,7 +846,8 @@ def refund_list(request):
     """View and manage refund requests - always restricted to user's branch."""
     # POS is always branch-restricted - only show refunds from user's branch
     branch = request.user.branch
-    refunds = Refund.objects.filter(sale__branch=branch).order_by('-created_at')
+    refunds = Refund.objects.filter(
+        sale__branch=branch).order_by('-created_at')
 
     # Filters (no branch filter since POS is branch-restricted)
     status = request.GET.get('status')
@@ -925,7 +969,7 @@ def sale_soa(request, sale_id):
         lab_items = soa_data['items'].get('lab_items', [])
         grooming_items = soa_data['items'].get('grooming_items', [])
         other_items = soa_data['items'].get('other_items', [])
-        
+
         consultation_total = Decimal(soa_data.get('consultation_total', '0'))
         treatment_total = Decimal(soa_data.get('treatment_total', '0'))
         boarding_total = Decimal(soa_data.get('boarding_total', '0'))
@@ -935,7 +979,7 @@ def sale_soa(request, sale_id):
         grooming_total = Decimal(soa_data.get('grooming_total', '0'))
         others_total = Decimal(soa_data.get('others_total', '0'))
         total_paid = Decimal(soa_data.get('deposit', '0'))
-        
+
         # Convert dict items to objects for template compatibility
         class ItemObj:
             def __init__(self, data):
@@ -943,7 +987,7 @@ def sale_soa(request, sale_id):
                 self.quantity = data['quantity']
                 self.unit_price = Decimal(str(data['price']))
                 self.line_total = Decimal(str(data['total']))
-        
+
         consultation_items = [ItemObj(item) for item in consultation_items]
         treatment_items = [ItemObj(item) for item in treatment_items]
         boarding_items = [ItemObj(item) for item in boarding_items]
@@ -952,7 +996,7 @@ def sale_soa(request, sale_id):
         lab_items = [ItemObj(item) for item in lab_items]
         grooming_items = [ItemObj(item) for item in grooming_items]
         other_items = [ItemObj(item) for item in other_items]
-        
+
         # For template, we need product_items and other_items combined
         product_items = other_items
     else:
@@ -975,7 +1019,7 @@ def sale_soa(request, sale_id):
 
         for item in items:
             name_lower = item.name.lower()
-            
+
             # Categorize based on name/type
             if item.item_type in ['PRODUCT', 'MEDICATION']:
                 product_items.append(item)
@@ -1043,18 +1087,21 @@ def send_soa(request, sale_id):
     Manually send Statement of Account notification to registered customer.
     """
     sale = get_object_or_404(Sale, pk=sale_id)
-    
+
     if not sale.customer:
-        messages.error(request, 'Cannot send SOA: This sale has no registered customer.')
+        messages.error(
+            request, 'Cannot send SOA: This sale has no registered customer.')
         return redirect('pos:sale_detail', pk=sale_id)
-    
+
     statement = create_or_release_soa_for_sale(sale)
 
     if statement:
-        messages.success(request, f'Statement of Account sent to {sale.customer.email}')
+        messages.success(
+            request, f'Statement of Account sent to {sale.customer.email}')
     else:
-        messages.error(request, 'Failed to send Statement of Account. Please try again.')
-    
+        messages.error(
+            request, 'Failed to send Statement of Account. Please try again.')
+
     # Redirect back to referrer or sale detail
     referer = request.META.get('HTTP_REFERER')
     if referer and 'sales' in referer:
@@ -1070,10 +1117,10 @@ def edit_soa(request, sale_id):
     Allows adding, editing, and removing individual items per category.
     """
     sale = get_object_or_404(Sale, pk=sale_id)
-    
+
     if request.method == 'POST':
         import json
-        
+
         # Initialize custom SOA items structure
         soa_items = {
             'consultation_items': [],
@@ -1085,50 +1132,59 @@ def edit_soa(request, sale_id):
             'grooming_items': [],
             'other_items': []
         }
-        
+
         # Process each category
-        categories = ['consultation', 'treatment', 'boarding', 'vaccination', 'surgery', 'lab', 'grooming', 'other']
-        
+        categories = ['consultation', 'treatment', 'boarding',
+                      'vaccination', 'surgery', 'lab', 'grooming', 'other']
+
         for category in categories:
             # Get item count for this category
             item_count_key = f'{category}_item_count'
             item_count = int(request.POST.get(item_count_key, 0))
-            
+
             for i in range(item_count):
-                name = request.POST.get(f'{category}_item_{i}_name', '').strip()
-                quantity = request.POST.get(f'{category}_item_{i}_quantity', '1')
+                name = request.POST.get(
+                    f'{category}_item_{i}_name', '').strip()
+                quantity = request.POST.get(
+                    f'{category}_item_{i}_quantity', '1')
                 price = request.POST.get(f'{category}_item_{i}_price', '0')
-                
+
                 if name:  # Only add items with names
                     try:
                         quantity = int(quantity) if quantity else 1
                         price = float(price) if price else 0
                         total = quantity * price
-                        
+
                         item_data = {
                             'name': name,
                             'quantity': quantity,
                             'price': price,
                             'total': total
                         }
-                        
+
                         soa_items[f'{category}_items'].append(item_data)
                     except (ValueError, TypeError):
                         continue
-        
+
         # Get deposit amount
         deposit = Decimal(request.POST.get('deposit', '0') or '0')
-        
+
         # Calculate totals from items
-        consultation_total = sum(item['total'] for item in soa_items['consultation_items'])
-        treatment_total = sum(item['total'] for item in soa_items['treatment_items'])
-        boarding_total = sum(item['total'] for item in soa_items['boarding_items'])
-        vaccination_total = sum(item['total'] for item in soa_items['vaccination_items'])
-        surgery_total = sum(item['total'] for item in soa_items['surgery_items'])
+        consultation_total = sum(item['total']
+                                 for item in soa_items['consultation_items'])
+        treatment_total = sum(item['total']
+                              for item in soa_items['treatment_items'])
+        boarding_total = sum(item['total']
+                             for item in soa_items['boarding_items'])
+        vaccination_total = sum(item['total']
+                                for item in soa_items['vaccination_items'])
+        surgery_total = sum(item['total']
+                            for item in soa_items['surgery_items'])
         lab_total = sum(item['total'] for item in soa_items['lab_items'])
-        grooming_total = sum(item['total'] for item in soa_items['grooming_items'])
+        grooming_total = sum(item['total']
+                             for item in soa_items['grooming_items'])
         others_total = sum(item['total'] for item in soa_items['other_items'])
-        
+
         # Store complete SOA data
         soa_data = {
             'custom_soa': True,
@@ -1143,19 +1199,19 @@ def edit_soa(request, sale_id):
             'others_total': str(others_total),
             'deposit': str(deposit)
         }
-        
+
         # Save to database
         sale.soa_data = json.dumps(soa_data)
         sale.save(update_fields=['soa_data'])
-        
+
         messages.success(request, 'Statement of Account updated successfully.')
-        
+
         # Auto-send to registered customer
         if sale.customer:
             create_or_release_soa_for_sale(sale)
-        
+
         return redirect('pos:sale_soa', sale_id=sale_id)
-    
+
     # GET request - show edit form with current values
     import json
     soa_data = {}
@@ -1164,7 +1220,7 @@ def edit_soa(request, sale_id):
             soa_data = json.loads(sale.soa_data)
         except (json.JSONDecodeError, TypeError):
             pass
-    
+
     # Prepare items for editing
     if soa_data.get('custom_soa') and 'items' in soa_data:
         # Load custom items
@@ -1179,7 +1235,7 @@ def edit_soa(request, sale_id):
     else:
         # Build from sale items using categorization logic
         items = list(sale.items.all())
-        
+
         consultation_items = []
         treatment_items = []
         boarding_items = []
@@ -1188,7 +1244,7 @@ def edit_soa(request, sale_id):
         lab_items = []
         grooming_items = []
         other_items = []
-        
+
         for item in items:
             name_lower = item.name.lower()
             item_data = {
@@ -1197,7 +1253,7 @@ def edit_soa(request, sale_id):
                 'price': float(item.unit_price),
                 'total': float(item.line_total)
             }
-            
+
             if item.item_type in ['PRODUCT', 'MEDICATION']:
                 other_items.append(item_data)
             elif 'consult' in name_lower or 'fee' in name_lower or 'checkup' in name_lower:
@@ -1216,17 +1272,18 @@ def edit_soa(request, sale_id):
                 treatment_items.append(item_data)
             else:
                 other_items.append(item_data)
-    
+
     # Get payment info
     payments = sale.payments.filter(status='COMPLETED')
-    total_paid = Decimal(soa_data.get('deposit', '0')) or sum(p.amount for p in payments)
-    
+    total_paid = Decimal(soa_data.get('deposit', '0')) or sum(
+        p.amount for p in payments)
+
     # Customer info
     if sale.customer:
         customer_name = sale.customer.get_full_name() or sale.customer.email
     else:
         customer_name = sale.guest_name or 'Walk-in Customer'
-    
+
     context = {
         'sale': sale,
         'customer_name': customer_name,
@@ -1241,5 +1298,5 @@ def edit_soa(request, sale_id):
         'total_paid': total_paid,
         'balance_due': sale.total - total_paid,
     }
-    
+
     return render(request, 'pos/edit_soa.html', context)
