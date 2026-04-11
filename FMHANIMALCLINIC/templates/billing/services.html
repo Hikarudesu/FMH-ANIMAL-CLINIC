@@ -1,4 +1,60 @@
 {% extends 'base/portal_admin.html' %} {% load static %} {% block title %}Clinic Services{% endblock %} {% block content %}
+<style>
+/* Responsive layout adjustments for Manage Clinic Services */
+@media (max-width: 1024px) {
+  .admin-table th, .admin-table td {
+    padding: 12px 10px;
+    font-size: 0.85rem;
+  }
+  .rec-action-grid {
+    gap: 4px;
+  }
+  .action-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  .c-filter-bar__form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .c-filter-bar__filters {
+    justify-content: space-between;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .c-filter-dropdown {
+    flex: 1 1 48%;
+    min-width: 0;
+  }
+  .c-filter-bar__clear {
+    width: 100%;
+    margin-top: 8px;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+  }
+  .admin-table {
+    min-width: 800px; /* Force scroll on small screens */
+  }
+  .admin-table th, .admin-table td {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .c-filter-dropdown {
+    flex: 1 1 100%;
+  }
+}
+</style>
 <!-- ══════ CLINIC SERVICES HERO ══════ -->
 {% url 'billing:billable_item_create' as add_service_url %}
 {% if can_create %}
@@ -148,12 +204,7 @@
   <div
     style="
       padding: 16px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: var(--text-2);
-      font-size: 0.9rem;
+      display: none;
     "
   >
     <div>Showing 1 to {{ items.count }} of {{ items.count }} entries</div>
@@ -188,6 +239,12 @@
     </div>
   </div>
 </div>
+
+{% if items %}
+<div style="margin-top: 16px;">
+  {% include "components/modern_pagination.html" %}
+</div>
+{% endif %}
 
 <script>
 // ══════ SERVICES SEARCH AUTOCOMPLETE + LIVE FILTER ══════

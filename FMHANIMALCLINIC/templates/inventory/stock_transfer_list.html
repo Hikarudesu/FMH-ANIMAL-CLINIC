@@ -97,7 +97,7 @@
 </div>
 
 <!-- Main Table Container -->
-<div class="admin-table-card">
+<div class="admin-table-card" id="inv-transfers-section">
   <div class="table-responsive">
     <table class="admin-table">
       <thead>
@@ -186,6 +186,12 @@
         </tbody>
       </table>
     </div>
+    
+    {% if transfers %}
+    <div id="inv-transfers-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
+      {% include "components/modern_pagination.html" with page_obj=transfers url_fragment="inv-transfers-section" %}
+    </div>
+    {% endif %}
 </div>
 
 <script>

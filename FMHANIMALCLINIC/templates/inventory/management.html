@@ -119,6 +119,12 @@
             </tbody>
           </table>
         </div>
+        
+        {% if products %}
+        <div id="inv-items-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
+          {% include "components/modern_pagination.html" with page_obj=products url_fragment="inv-items-section" %}
+        </div>
+        {% endif %}
       </div>
     </div>
 </div>
@@ -180,6 +186,12 @@
             </tbody>
           </table>
         </div>
+        
+        {% if adjustments %}
+        <div id="inv-movements-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
+          {% include "components/modern_pagination.html" with page_obj=adjustments url_fragment="inv-movements-section" %}
+        </div>
+        {% endif %}
       </div>
     </div>
 </div>
@@ -251,6 +263,12 @@
             </tbody>
           </table>
         </div>
+
+        {% if pending_reservations %}
+        <div id="inv-reservations-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
+          {% include "components/modern_pagination.html" with page_obj=pending_reservations url_fragment="inv-reservations-section" %}
+        </div>
+        {% endif %}
       </div>
     </div>
 </div>
@@ -260,8 +278,11 @@ function switchInvMode(mode) {
     const sections = ['items', 'movements', 'reservations'];
     sections.forEach(function(s) {
         const section = document.getElementById('inv-' + s + '-section');
+        const pagination = document.getElementById('inv-' + s + '-pagination');
         const tab = document.querySelector(`.c-tab-btn[data-tab="${s}"]`);
+        
         if (section) section.style.display = (s === mode) ? 'block' : 'none';
+        if (pagination) pagination.style.display = (s === mode) ? 'block' : 'none';
         if (tab) {
             tab.classList.toggle('active', s === mode);
         }

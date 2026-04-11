@@ -1,6 +1,7 @@
 """Views for the billing app — clinic services and owner statement modules.
 # pylint: disable=no-member
 """
+from django.core.paginator import Paginator
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView, UpdateView
@@ -58,8 +59,14 @@ def service_list(request):
     is_branch_restricted = request.user.is_module_branch_restricted(
         'clinic_services')
 
+    # Pagination
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(services, 15)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'items': services,
+        'items': page_obj,
+        'page_obj': page_obj,
         'categories': categories,
         'status_choices': [('active', 'Active'), ('inactive', 'Inactive')],
         'can_create': can_create,
@@ -103,13 +110,21 @@ def service_delete(request, pk):
 @login_required
 def my_statements(request):
     """Pet owner statement module: released statements tied to current user."""
-    statements = (
+    statements_list = (
         CustomerStatement.objects
         .filter(customer=request.user, status__in=['RELEASED', 'SENT'])
         .select_related('branch', 'sale')
         .order_by('-created_at')
     )
-    return render(request, 'billing/my_statements.html', {'statements': statements})
+    
+    paginator = Paginator(statements_list, 9)
+    page_number = request.GET.get('page')
+    statements = paginator.get_page(page_number)
+    
+    return render(request, 'billing/my_statements.html', {
+        'statements': statements,
+        'page_obj': statements
+    })
 
 
 @login_required

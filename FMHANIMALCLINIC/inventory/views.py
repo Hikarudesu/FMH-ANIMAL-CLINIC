@@ -107,7 +107,7 @@ def catalog_view(request):
 
     # Pagination for products
     page_number = request.GET.get('page', 1)
-    paginator = Paginator(products, 24)
+    paginator = Paginator(products, 12)
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'inventory/catalog.html', {
@@ -258,9 +258,21 @@ def inventory_management_view(request):
     can_edit = request.user.has_module_permission('inventory', 'EDIT')
     can_delete = request.user.has_module_permission('inventory', 'DELETE')
 
+    # Pagination for 20 items per page across all 3 lists
+    page_number = request.GET.get('page', 1)
+    
+    paginator_products = Paginator(products, 20)
+    page_products = paginator_products.get_page(page_number)
+    
+    paginator_adjustments = Paginator(adjustments, 20)
+    page_adjustments = paginator_adjustments.get_page(page_number)
+    
+    paginator_reservations = Paginator(pending_reservations, 20)
+    page_reservations = paginator_reservations.get_page(page_number)
+
     return render(request, 'inventory/management.html', {
-        'adjustments': adjustments,
-        'products': products,
+        'adjustments': page_adjustments,
+        'products': page_products,
         'branches': [] if is_branch_restricted else branches,
         'selected_branch_id': selected_branch_id,
         'selected_status': selected_status,
@@ -271,7 +283,7 @@ def inventory_management_view(request):
         'total_value': total_value,
         'low_stock_count': low_stock_count,
         'out_of_stock_count': out_of_stock_count,
-        'pending_reservations': pending_reservations,
+        'pending_reservations': page_reservations,
         'can_create': can_create,
         'can_edit': can_edit,
         'can_delete': can_delete,
@@ -644,9 +656,14 @@ def stock_transfer_list_view(request):
             status_filters[1]['selected_label'] = branch.name
 
     show_clear = bool(selected_status or selected_branch_id)
+    
+    paginator = Paginator(transfers, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
 
     context = {
-        'transfers': transfers,
+        'transfers': page_obj,
+        'page_obj': page_obj,
         'page_title': 'Stock Transfers',
         'search_value': search_query,
         'selected_status': selected_status,

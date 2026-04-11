@@ -151,6 +151,13 @@ Catalog{% endblock %} {% block content %}
     {% endfor %}
   </div>
 
+  <!-- Modern Pagination -->
+  {% if products %}
+    <div style="margin-top: 32px;">
+      {% include "components/modern_pagination.html" %}
+    </div>
+  {% endif %}
+
   <!-- Reservation Modal -->
   <div class="rsv-modal-overlay" id="rsvModal" style="display: none">
     <div class="rsv-modal">

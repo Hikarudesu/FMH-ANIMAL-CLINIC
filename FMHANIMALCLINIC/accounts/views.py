@@ -1402,10 +1402,15 @@ def receptionist_dashboard_view(request):
 
 
     # ── Recent sales (branch-specific) ──
-    recent_sales = Sale.objects.filter(
+    recent_sales_qs = Sale.objects.filter(
         status__in=['COMPLETED', 'REFUNDED'],
         **branch_filter
-    ).select_related('customer', 'pet').order_by('-created_at')[:5]
+    ).select_related('customer', 'pet').order_by('-created_at')
+    
+    # Pagination for recent sales
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(recent_sales_qs, 5)
+    recent_sales = paginator.get_page(page_number)
 
     # ── Upcoming appointments (next 3 days, branch-specific) ──
     upcoming_appointments = Appointment.objects.filter(
@@ -1665,6 +1670,7 @@ def receptionist_dashboard_view(request):
         'todays_appointments': todays_appointments[:10],
         'upcoming_appointments': upcoming_appointments,
         'recent_sales': recent_sales,
+        'page_obj': recent_sales,
 
         # Notifications
         'unread_notif_count': unread_notif_count,
