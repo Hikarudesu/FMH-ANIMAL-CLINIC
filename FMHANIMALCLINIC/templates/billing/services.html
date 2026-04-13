@@ -147,7 +147,9 @@
           <th style="text-align: center;">Price</th>
           <th style="text-align: center;">Duration</th>
           <th style="text-align: center;">Status</th>
+          {% if can_edit or can_delete %}
           <th style="text-align: center;">Actions</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -166,6 +168,7 @@
               {% if item.active %}Active{% else %}Inactive{% endif %}
           </span>
         </td>
+        {% if can_edit or can_delete %}
         <td style="text-align: center;">
           <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
             {% if can_edit %}
@@ -183,11 +186,12 @@
             {% endif %}
           </div>
         </td>
+        {% endif %}
       </tr>
       {% empty %}
       <tr>
         <td
-          colspan="7"
+          colspan="{% if can_edit or can_delete %}7{% else %}6{% endif %}"
           style="padding: 40px; text-align: center; color: var(--text-3)"
         >
           <i

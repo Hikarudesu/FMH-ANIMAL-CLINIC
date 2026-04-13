@@ -1082,7 +1082,7 @@ def vet_dashboard_view(request):
             appointment_date=today,
             preferred_vet=staff_profile,
             pet__isnull=False,
-        ).exclude(status='CANCELLED').select_related('pet', 'branch').order_by('appointment_time')
+        ).exclude(status='CANCELLED').select_related('pet', 'branch').order_by('appointment_time')[:5]
     else:
         todays_appointments = Appointment.objects.none()
 
@@ -1137,7 +1137,7 @@ def vet_dashboard_view(request):
             staff=staff_profile,
             date__gte=today,
             date__lte=week_end,
-        ).select_related('branch').order_by('date', 'start_time')
+        ).select_related('branch').order_by('date', 'start_time')[:5]
     else:
         this_week_schedule = VetSchedule.objects.none()
 

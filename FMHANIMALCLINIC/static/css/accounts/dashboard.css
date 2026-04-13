@@ -1183,3 +1183,37 @@
     flex-wrap: wrap;
   }
 }
+
+/* Schedule Entry Responsive Centering */
+@media (max-width: 1024px) {
+  .schedule-entry {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .schedule-entry-left {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+  }
+  
+  .schedule-entry-info {
+    align-items: center;
+    text-align: center;
+  }
+  
+  .schedule-entry-details {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .schedule-entry-details > div,
+  .schedule-entry-time,
+  .schedule-entry-branch {
+    justify-content: center;
+  }
+}

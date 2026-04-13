@@ -163,9 +163,11 @@ document.addEventListener("DOMContentLoaded", function () {
       const vetCol = getVetColor(e.vetId);
       const statusCol = STATUS_COLORS[e.status] || "#9e9e9e";
       html += `
-        <a href="/appointments/admin/${e.id}/edit/" class="schedule-entry" style="border-left: 4px solid ${vetCol}; text-decoration: none; color: inherit;">
+        <div onclick="openAppointmentDetail(${e.id})" class="schedule-entry" style="cursor: pointer; text-decoration: none; color: inherit;">
           <div class="schedule-entry-left">
-            <div class="schedule-entry-avatar" style="background: ${vetCol};">${e.ownerName.charAt(0).toUpperCase()}</div>
+            <div class="schedule-entry-avatar" style="background: var(--primary); overflow: hidden;">
+              ${e.ownerProfilePicture ? `<img src="${e.ownerProfilePicture}" style="width: 100%; height: 100%; object-fit: cover;" alt="Profile">` : `${e.ownerName.charAt(0).toUpperCase()}`}
+            </div>
             <div class="schedule-entry-info">
               <strong>${e.ownerName}</strong>
               <span>${e.petName}${e.petBreed ? " (" + e.petBreed + ")" : ""}</span>
@@ -184,7 +186,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <span class="source-badge source-${e.source.toLowerCase()}">${e.source === 'PORTAL' ? '🌐 Portal' : '🚶 Walk-in'}</span>
             </div>
           </div>
-        </a>
+        </div>
       `;
     });
     html += "</div>";
@@ -223,7 +225,7 @@ document.addEventListener("DOMContentLoaded", function () {
       weeklyVisible.forEach((e) => {
         const vetCol = getVetColor(e.vetId);
         html += `
-          <div class="weekly-event" onclick="openAppointmentDetail(${e.id})" style="border-left: 3px solid ${vetCol}; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px;">
+          <div class="weekly-event" onclick="openAppointmentDetail(${e.id})" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px;">
             <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
               <span class="weekly-event-time" style="font-size: 0.75rem; color: var(--text-2); margin-bottom: 2px;">${e.timeLabel}</span>
               <strong style="font-size: 0.85rem; color: var(--text-1); overflow: hidden; text-overflow: ellipsis;">${e.ownerName}</strong>
@@ -312,7 +314,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 .slice(0, 2)
                 .map(
                   (e) => `
-                <div class="weekly-event" onclick="openAppointmentDetail(${e.id})" style="border-left: 3px solid ${getVetColor(e.vetId)}; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 5px 7px; margin-bottom: 3px; border-radius: 4px;">
+                <div class="weekly-event" onclick="openAppointmentDetail(${e.id})" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 5px 7px; margin-bottom: 3px; border-radius: 4px;">
                   <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0;">
                     <span style="font-size: 0.72rem; color: var(--text-2); margin-bottom: 1px;">${e.timeLabel}</span>
                     <strong style="font-size: 0.80rem; color: var(--text-1); overflow: hidden; text-overflow: ellipsis;">${e.ownerName}</strong>
@@ -400,11 +402,11 @@ document.addEventListener("DOMContentLoaded", function () {
     paginatedEvents.forEach((e) => {
       const vetCol = getVetColor(e.vetId);
       html += `
-        <div style="display: flex; align-items: center; border: 1px solid var(--border); border-left: 4px solid ${vetCol}; border-radius: 8px; padding: 12px 16px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.08)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';" onclick="openAppointmentDetail(${e.id})">
+        <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.08)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';" onclick="openAppointmentDetail(${e.id})">
 
           <div style="display: flex; align-items: center; flex: 1;">
-            <div style="width: 40px; height: 40px; border-radius: 8px; background: ${vetCol}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 1.2rem; margin-right: 16px;">
-              ${e.ownerName.charAt(0).toUpperCase()}
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 1.2rem; margin-right: 16px; overflow: hidden;">
+              ${e.ownerProfilePicture ? `<img src="${e.ownerProfilePicture}" style="width: 100%; height: 100%; object-fit: cover;" alt="Profile">` : `${e.ownerName.charAt(0).toUpperCase()}`}
             </div>
             <div>
               <div style="font-weight: 600; color: var(--text-1); font-size: 0.95rem;">${e.ownerName}</div>
@@ -615,9 +617,11 @@ document.addEventListener("DOMContentLoaded", function () {
       notesContainer.style.display = "none";
     }
 
-    // Set Edit Link Path
-    document.getElementById("detailEditBtn").href =
-      `/appointments/admin/${eventData.id}/edit/`;
+    // Set Edit Link Path (if button exists / user has edit permissions)
+    const detailEditBtn = document.getElementById("detailEditBtn");
+    if (detailEditBtn) {
+      detailEditBtn.href = `/appointments/admin/${eventData.id}/edit/`;
+    }
 
     // Open Modal
     modal.classList.add("active");

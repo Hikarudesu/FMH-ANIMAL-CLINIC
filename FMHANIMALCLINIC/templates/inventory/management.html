@@ -66,7 +66,9 @@
                 <th style="text-align: center;">Margin</th>
                 <th style="text-align: center;">Stock</th>
                 <th style="text-align: center;">Status</th>
+                {% if can_edit %}
                 <th style="text-align: center;">Actions</th>
+                {% endif %}
               </tr>
             </thead>
             <tbody>
@@ -101,19 +103,19 @@
                         {{ item.status }}
                     </span>
                 </td>
+                {% if can_edit %}
                 <td style="text-align: center;">
                   <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
-                    {% if can_edit %}
                     <a href="{% url 'inventory:product_edit' item.pk %}" class="action-btn" title="Edit">
                       <i class='bx bx-edit-alt'></i>
                     </a>
-                    {% endif %}
                   </div>
                 </td>
+                {% endif %}
               </tr>
               {% empty %}
               <tr>
-                <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-3);">No stock items found.{% if can_create %} Click "Register Item" to add one.{% endif %}</td>
+                <td colspan="{% if can_edit %}9{% else %}8{% endif %}" style="text-align: center; padding: 40px; color: var(--text-3);">No stock items found.{% if can_create %} Click "Register Item" to add one.{% endif %}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -211,7 +213,9 @@
                 <th style="text-align: center;">Date</th>
                 <th style="text-align: center;">Notes</th>
                 <th style="text-align: center;">Status</th>
+                {% if can_edit %}
                 <th style="text-align: center;">Actions</th>
+                {% endif %}
               </tr>
             </thead>
             <tbody>
@@ -235,6 +239,7 @@
                         {% endif %}
                     ">{{ rsv.status }}</span>
                 </td>
+                {% if can_edit %}
                 <td style="text-align: center;">
                     {% if rsv.status == 'Pending' %}
                     <a href="{% url 'inventory:confirm_reservation' rsv.pk %}"
@@ -251,10 +256,11 @@
                     <span style="color: var(--text-3); font-size: 0.8rem;">—</span>
                     {% endif %}
                 </td>
+                {% endif %}
               </tr>
               {% empty %}
               <tr>
-                <td colspan="8" style="text-align: center; padding: 50px; color: var(--text-3);">
+                <td colspan="{% if can_edit %}8{% else %}7{% endif %}" style="text-align: center; padding: 50px; color: var(--text-3);">
                     <i class='bx bx-cart' style="font-size: 2.5rem; display: block; margin-bottom: 10px; opacity: 0.5;"></i>
                     No reservations yet.
                 </td>

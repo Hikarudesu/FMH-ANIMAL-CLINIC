@@ -772,6 +772,7 @@
     align-items: center;
     gap: 12px;
     margin-bottom: 20px;
+    background: transparent !important;
   }
   
   .section-title i {
@@ -1026,6 +1027,7 @@
     padding: 20px 24px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 0;
+    background: transparent !important;
   }
   
   .schedule-table-wrapper {
@@ -1040,13 +1042,15 @@
   
   .schedule-table th,
   .schedule-table td {
-    padding: 16px 24px;
-    text-align: left;
+    padding: 16px 12px;
+    text-align: center;
+    vertical-align: middle;
     font-size: 13px;
   }
   
   .schedule-table thead {
-    background: var(--bg);
+    background: transparent;
+    border-bottom: 1px solid var(--border);
   }
   
   .schedule-table th {
@@ -1083,6 +1087,7 @@
   .patient-info {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     font-weight: 600;
     color: var(--text-1);
