@@ -1,5 +1,6 @@
 """Views for managing appointments, availability, and scheduling."""
 from datetime import date, timedelta, datetime, time
+import calendar as cal_mod
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -323,7 +324,7 @@ def admin_list(request):
         user__assigned_role__code__in=['veterinarian', 'vet_assistant'],
         is_active=True,
     ).select_related('user', 'user__assigned_role')
-    quick_form = AdminQuickCreateForm()
+    quick_form = AdminQuickCreateForm(initial={'status': 'CONFIRMED'})
 
     # Pagination (only for table view)
     page_number = request.GET.get('page', 1)

@@ -144,6 +144,12 @@ def _check_double_booking(cleaned_data, allow_past=False, instance_id=None):
 class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
     """Booking form for public visitors (no login required)."""
     
+    # Use CharField to intercept "MORNING"/"AFTERNOON" text before TimeField validation
+    appointment_time = forms.CharField(
+        widget=forms.Select(choices=[('', '-- Select a time slot --')]),
+        required=True,
+    )
+
     # Explicitly declare reason as ModelChoiceField to work with ReasonForVisit ForeignKey
     reason = forms.ModelChoiceField(
         queryset=None,  # Will be set in __init__
@@ -248,6 +254,13 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Handle MORNING/AFTERNOON markers for any available vet mode
+        time_str = self.data.get('appointment_time')
+        if time_str == 'MORNING':
+            cleaned_data['appointment_time'] = time(8, 0)
+        elif time_str == 'AFTERNOON':
+            cleaned_data['appointment_time'] = time(13, 0)
+            
         _check_double_booking(cleaned_data)
         return cleaned_data
 
@@ -337,6 +350,12 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
     # Hidden field for selected pet ID
     selected_pet_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
     
+    # Use CharField to intercept "MORNING"/"AFTERNOON" text before TimeField validation
+    appointment_time = forms.CharField(
+        widget=forms.Select(choices=[('', '-- Select a time slot --')]),
+        required=True,
+    )
+
     # Explicitly declare reason as ModelChoiceField to work with ReasonForVisit ForeignKey
     reason = forms.ModelChoiceField(
         queryset=None,  # Will be set in __init__
@@ -450,6 +469,13 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Handle MORNING/AFTERNOON markers for any available vet mode
+        time_str = self.data.get('appointment_time')
+        if time_str == 'MORNING':
+            cleaned_data['appointment_time'] = time(8, 0)
+        elif time_str == 'AFTERNOON':
+            cleaned_data['appointment_time'] = time(13, 0)
+            
         _check_double_booking(cleaned_data)
         return cleaned_data
 
@@ -616,6 +642,10 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         # Set minimum date to today to prevent past date selection
         today = timezone.localdate().isoformat()
         self.fields['appointment_date'].widget.attrs['min'] = today
+        
+        # Set default status to CONFIRMED, instead of PENDING
+        if 'status' in self.fields and not self.initial.get('status'):
+            self.initial['status'] = Appointment.Status.CONFIRMED
         
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
         self.fields['preferred_vet'].queryset = StaffMember.objects.filter(

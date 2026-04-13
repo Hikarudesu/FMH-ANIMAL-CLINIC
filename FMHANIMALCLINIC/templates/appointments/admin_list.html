@@ -317,7 +317,9 @@
         <th style="text-align: center;">Date & Time</th>
         <th style="text-align: center;">Source</th>
         <th style="text-align: center;">Status</th>
+        {% if can_edit or can_delete %}
         <th style="text-align: center;">Actions</th>
+        {% endif %}
       </tr>
     </thead>
     <tbody>
@@ -344,6 +346,7 @@
         </td>
         <td style="text-align: center;"><span class="admin-badge source-{{ appt.source|lower }}">{{ appt.get_source_display }}</span></td>
         <td style="text-align: center;"><span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span></td>
+        {% if can_edit or can_delete %}
         <td style="text-align: center;">
           <div class="actions-cell">
             {% if can_edit %}
@@ -357,10 +360,11 @@
             {% endif %}
           </div>
         </td>
+        {% endif %}
       </tr>
       <!-- Expandable Details Row -->
       <tr class="accordion-details" id="details-{{ appt.pk }}" style="display: none;">
-        <td colspan="7" style="padding: 0; background: var(--bg);">
+        <td colspan="{% if can_edit or can_delete %}7{% else %}6{% endif %}" style="padding: 0; background: var(--bg);">
           <div style="padding: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
             <div>
               <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;"><i class='bx bx-id-card'></i> Contact Information</h4>
@@ -653,7 +657,6 @@ document.querySelectorAll('.accordion-row').forEach(row => {
         <div class="dm-header-title">
           <h2 id="detailOwnerName">Owner Name</h2>
           <p id="detailPetInfo" class="dm-pet-subtitle">
-            <i class='bx bxs-dog'></i>
             <span id="detailPetNameText">Pet Name</span>
             <span class="dm-clinical-badge" id="detailPetClinicalStatus" style="display: none;"></span>
           </p>
@@ -666,7 +669,7 @@ document.querySelectorAll('.accordion-row').forEach(row => {
     </div>
 
     <!-- Clinical Alert Banner (if needed) -->
-    <div id="detailClinicalAlert" style="display: none; margin: 0; padding: 14px 18px; background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%); border-left: 4px solid #ff9800; color: #e65100; font-size: 0.85rem; display: flex; align-items: center; gap: 10px;">
+    <div id="detailClinicalAlert" style="display: none; margin: 16px 0; padding: 14px 18px; background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%); border-left: 4px solid #ff9800; color: #e65100; font-size: 0.85rem; display: flex; align-items: center; gap: 10px;">
       <i class='bx bx-info-circle' style="font-size: 1.2rem; flex-shrink: 0;"></i>
       <span id="detailClinicalAlertText"></span>
     </div>

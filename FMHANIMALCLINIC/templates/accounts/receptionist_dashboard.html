@@ -909,28 +909,6 @@
 </div>
 {% endif %}
 
-<!-- QUICK ACTIONS -->
-<div class="quick-actions">
-  <a href="{% url 'appointments:admin_list' %}" class="quick-action-btn">
-    <div class="quick-action-icon teal">
-      <i class='bx bx-calendar-plus'></i>
-    </div>
-    <span class="quick-action-label">New Appointment</span>
-  </a>
-  <a href="{% url 'pos:checkout' %}" class="quick-action-btn">
-    <div class="quick-action-icon blue">
-      <i class='bx bx-cart-add'></i>
-    </div>
-    <span class="quick-action-label">New Sale</span>
-  </a>
-  <a href="{% url 'patients:admin_list' %}" class="quick-action-btn">
-    <div class="quick-action-icon purple">
-      <i class='bx bxs-dog'></i>
-    </div>
-    <span class="quick-action-label">View Patients</span>
-  </a>
-</div>
-
 <!-- MAIN CHARTS SECTION -->
 <div class="charts-section">
   
@@ -1115,7 +1093,7 @@
 </div>
 
 <!-- RECENT SALES -->
-<div class="charts-row" style="margin-top: 20px;">
+<div class="charts-row" style="margin-top: 20px;" id="recent-sales">
   <div class="recent-sales-card chart-card-modern large">
     <div class="chart-header">
       <div class="chart-title">
@@ -1147,6 +1125,14 @@
         </div>
         {% endfor %}
       </div>
+      
+      <!-- Modern Pagination -->
+      {% if recent_sales %}
+      <div style="margin-top: 16px;">
+        {% include "components/modern_pagination.html" with url_fragment="recent-sales" %}
+      </div>
+      {% endif %}
+      
       {% else %}
       <div class="empty-schedule">
         <i class='bx bx-shopping-bag'></i>

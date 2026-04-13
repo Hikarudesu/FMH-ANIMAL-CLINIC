@@ -339,13 +339,13 @@
 
 <!-- UPCOMING APPOINTMENTS SECTION - Modern Timeline Design -->
 <div class="upcoming-modern">
+  {% if upcoming_appointments %}
   <div class="section-title">
     <i class='bx bx-calendar-event'></i>
     <span>Upcoming Appointments</span>
     <span class="section-badge">{{ upcoming_count }} in next 7 days</span>
   </div>
   
-  {% if upcoming_appointments %}
   <div class="upcoming-timeline">
     {% for appt in upcoming_appointments %}
     <div class="upcoming-timeline-item">
@@ -382,12 +382,19 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty-modern-card">
-    <div class="empty-icon success">
-      <i class='bx bx-check-circle'></i>
+  <div class="empty-modern-card dash-fade visible" style="padding: 24px; text-align: left;">
+    <div class="section-title" style="margin-top: 0; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 30px;">
+      <i class='bx bx-calendar-event'></i>
+      <span>Upcoming Appointments</span>
+      <span class="section-badge">{{ upcoming_count }} in next 7 days</span>
     </div>
-    <h4>All caught up!</h4>
-    <p>No upcoming appointments scheduled for the next 7 days.</p>
+    <div style="text-align: center; padding: 20px 0 30px;">
+      <div class="empty-icon success" style="margin: 0 auto 16px;">
+        <i class='bx bx-check-circle'></i>
+      </div>
+      <h4 style="margin-bottom: 8px;">All caught up!</h4>
+      <p style="margin: 0; color: var(--text-light);">No upcoming appointments scheduled for the next 7 days.</p>
+    </div>
   </div>
   {% endif %}
 </div>
@@ -847,6 +854,7 @@
     align-items: center;
     gap: 12px;
     margin-bottom: 20px;
+    background: transparent !important;
   }
   
   .section-title i {
@@ -1053,6 +1061,7 @@
     padding: 20px 24px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 0;
+    background: transparent !important;
   }
   
   .schedule-table-wrapper {
@@ -1067,13 +1076,15 @@
   
   .schedule-table th,
   .schedule-table td {
-    padding: 16px 24px;
-    text-align: left;
+    padding: 16px 12px;
+    text-align: center;
+    vertical-align: middle;
     font-size: 13px;
   }
   
   .schedule-table thead {
-    background: var(--bg);
+    background: transparent;
+    border-bottom: 1px solid var(--border);
   }
   
   .schedule-table th {
@@ -1110,6 +1121,7 @@
   .patient-info {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     font-weight: 600;
     color: var(--text-1);
@@ -1170,6 +1182,7 @@
   .day-name {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     font-size: 14px;
     font-weight: 600;
@@ -1480,6 +1493,10 @@
   
   .upcoming-modern {
     margin-bottom: 32px;
+  }
+  
+  .upcoming-modern > .section-title {
+    background: transparent !important;
   }
   
   .upcoming-timeline {

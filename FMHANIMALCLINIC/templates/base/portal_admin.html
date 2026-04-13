@@ -399,7 +399,7 @@
               {% if user|has_nav_module:'inventory' %}
               <a
                 href="{% url 'inventory:management' %}"
-                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'management' %}active{% endif %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}"
               >
                 <i class="bx bx-package"></i><span>Inventory Management</span>
               </a>
@@ -678,7 +678,7 @@
           {% if user|has_nav_module:'inventory' %}
           <a
             href="{% url 'inventory:management' %}"
-            class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}"
+            class="sidebar-link {% if 'inventory' in request.path and request.resolver_match.url_name != 'super_admin_stock_monitoring' %}active{% endif %}"
           >
             <i class="bx bx-package"></i><span>Inventory Management</span>
           </a>
@@ -699,7 +699,7 @@
           {# Single module access: Direct link without dropdown #}
           <a
             href="{% url 'inventory:management' %}"
-            class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}"
+            class="sidebar-link {% if 'inventory' in request.path and request.resolver_match.url_name != 'super_admin_stock_monitoring' %}active{% endif %}"
           >
             <i class="bx bx-package"></i><span>Inventory Management</span>
           </a>
@@ -721,7 +721,7 @@
               {% if has_inv %}
               <a
                 href="{% url 'inventory:management' %}"
-                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' %}active{% endif %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}"
               >
                 <i class="bx bx-package"></i><span>Inventory Management</span>
               </a>
