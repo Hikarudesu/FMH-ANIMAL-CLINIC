@@ -170,10 +170,10 @@
     const profitEl = document.getElementById("profitReadout");
 
     function calc() {
-      const cost = parseFloat(costEl.value) || 0;
-      const price = parseFloat(priceEl.value) || 0;
+      const cost = parseFloat(costEl.value.replace(/,/g, '')) || 0;
+      const price = parseFloat(priceEl.value.replace(/,/g, '')) || 0;
       const profit = price - cost;
-      profitEl.textContent = "₱" + profit.toFixed(2);
+      profitEl.textContent = "₱" + profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       profitEl.style.color =
         profit > 0 ? "#2e7d32" : profit < 0 ? "#c62828" : "var(--text-1)";
     }
@@ -606,4 +606,60 @@
     }
   }
 </style>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const formatInput = (input) => {
+      let val = input.value;
+      if (!val) return;
+      
+      let endsWithDecimal = val.endsWith('.');
+      let numStr = val.replace(/[^0-9.]/g, '');
+      const parts = numStr.split('.');
+      if (parts.length > 2) {
+        numStr = parts[0] + '.' + parts.slice(1).join('');
+      }
+      if (!numStr) {
+        input.value = '';
+        return;
+      }
+
+      if (parts.length === 2) {
+        input.value = Number(parts[0]).toLocaleString('en-US') + '.' + parts[1].slice(0, 2);
+      } else {
+        input.value = Number(numStr).toLocaleString('en-US') + (endsWithDecimal ? '.' : '');
+      }
+    };
+
+    const costInput = document.getElementById('id_unit_cost');
+    const priceInput = document.getElementById('id_price');
+
+    [costInput, priceInput].forEach(input => {
+      if (!input) return;
+      
+      // Convert to text to prevent HTML5 wiping commas
+      input.type = 'text';
+      formatInput(input);
+      
+      input.addEventListener('input', function(e) {
+        let cursor = this.selectionStart;
+        const lengthBefore = this.value.length;
+        
+        formatInput(this);
+        
+        const lengthAfter = this.value.length;
+        cursor += (lengthAfter - lengthBefore);
+        this.setSelectionRange(cursor, cursor);
+      });
+    });
+
+    const form = document.getElementById('productForm');
+    if (form) {
+      form.addEventListener('submit', function() {
+        if (costInput) costInput.value = costInput.value.replace(/,/g, '');
+        if (priceInput) priceInput.value = priceInput.value.replace(/,/g, '');
+      });
+    }
+  });
+</script>
+
 {% endblock %}

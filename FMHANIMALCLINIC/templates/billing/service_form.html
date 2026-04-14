@@ -272,8 +272,9 @@
 </style>
 
 <div class="service-form-container">
-  <form method="POST">
+  <form method="POST" id="serviceForm">
     {% csrf_token %}
+    {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
     {% if form.non_field_errors %}
     <div class="non-field-errors">
       {{ form.non_field_errors.as_text }}
@@ -432,4 +433,65 @@
     background-color: var(--primary);
   }
 </style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const formatInput = (input) => {
+      let val = input.value;
+      if (!val) return;
+      
+      // Preserve decimal ending while typing e.g. "1,000."
+      let endsWithDecimal = val.endsWith('.');
+      
+      // Strip out everything except digits and dot
+      let numStr = val.replace(/[^0-9.]/g, '');
+      const parts = numStr.split('.');
+      if (parts.length > 2) {
+        numStr = parts[0] + '.' + parts.slice(1).join('');
+      }
+      if (!numStr) {
+        input.value = '';
+        return;
+      }
+
+      if (parts.length === 2) {
+        input.value = Number(parts[0]).toLocaleString('en-US') + '.' + parts[1].slice(0, 2);
+      } else {
+        input.value = Number(numStr).toLocaleString('en-US') + (endsWithDecimal ? '.' : '');
+      }
+    };
+
+    const costInput = document.getElementById('id_cost');
+    const priceInput = document.getElementById('id_price');
+
+    [costInput, priceInput].forEach(input => {
+      if (!input) return;
+      
+      // Convert to text so browser doesn't wipe commas
+      input.type = 'text';
+      
+      // Format initially
+      formatInput(input);
+      
+      input.addEventListener('input', function(e) {
+        let cursor = this.selectionStart;
+        const lengthBefore = this.value.length;
+        
+        formatInput(this);
+        
+        const lengthAfter = this.value.length;
+        cursor += (lengthAfter - lengthBefore);
+        this.setSelectionRange(cursor, cursor);
+      });
+    });
+
+    const form = document.getElementById('serviceForm');
+    if (form) {
+      form.addEventListener('submit', function() {
+        if (costInput) costInput.value = costInput.value.replace(/,/g, '');
+        if (priceInput) priceInput.value = priceInput.value.replace(/,/g, '');
+      });
+    }
+  });
+</script>
 {% endblock %}

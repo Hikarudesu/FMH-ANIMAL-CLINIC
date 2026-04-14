@@ -58,7 +58,7 @@
 <!-- ══════ CLINIC SERVICES HERO ══════ -->
 {% url 'billing:billable_item_create' as add_service_url %}
 {% if can_create %}
-{% include "components/page_hero.html" with title="Clinic Services" icon="bx-briefcase" subtitle="Configure and manage clinic services, pricing models, and service categories" action_url=add_service_url action_icon="bx-plus" action_label="Add Service" %}
+{% include "components/page_hero.html" with title="Clinic Services" icon="bx-briefcase" subtitle="Configure and manage clinic services, pricing models, and service categories" action_url=add_service_url|add:next_url_qs action_icon="bx-plus" action_label="Add Service" %}
 {% else %}
 {% include "components/page_hero.html" with title="Clinic Services" icon="bx-briefcase" subtitle="Configure and manage clinic services, pricing models, and service categories" %}
 {% endif %}
@@ -172,12 +172,12 @@
         <td style="text-align: center;">
           <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
             {% if can_edit %}
-            <a href="{% url 'billing:billable_item_update' item.pk %}" class="action-btn" title="Edit">
+            <a href="{% url 'billing:billable_item_update' item.pk %}{{ next_url_qs }}" class="action-btn" title="Edit">
               <i class='bx bx-edit-alt'></i>
             </a>
             {% endif %}
             {% if can_delete %}
-            <form method="POST" action="{% url 'billing:billable_item_delete' item.pk %}" style="display: inline" onsubmit="return confirm('Are you sure you want to delete this service?');">
+            <form method="POST" action="{% url 'billing:billable_item_delete' item.pk %}{{ next_url_qs }}" style="display: inline" onsubmit="return confirm('Are you sure you want to delete this service?');">
               {% csrf_token %}
               <button type="submit" class="action-btn danger" title="Delete">
                 <i class='bx bx-trash'></i>
@@ -267,6 +267,21 @@
   }
 
   let items = buildData();
+  
+  // Load full database context so autocomplete can find items not on current page
+  let allItems = [];
+  try {
+    const rawJson = '{{ all_services_json|escapejs }}';
+    if (rawJson) {
+      allItems = JSON.parse(rawJson).map(x => ({
+        service_name: x.name,
+        category: x.category,
+        status: x.status
+      }));
+    }
+  } catch(e) {}
+  
+  if (!allItems.length) allItems = items;
 
   function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
@@ -293,8 +308,7 @@
         elem.addEventListener('mousedown', e => {
           e.preventDefault();
           searchInput.value = results[idx].service_name;
-          filterRows(results[idx].service_name.toLowerCase());
-          hideDropdown();
+          document.querySelector('form.c-filter-bar').submit();
         });
       });
     }
@@ -320,7 +334,9 @@
     const q = this.value.toLowerCase().trim();
     filterRows(q);
     if (!q) { hideDropdown(); return; }
-    const results = items.filter(item =>
+    
+    // Search entire database context for auto-complete dropdown
+    const results = allItems.filter(item =>
       item.service_name.toLowerCase().includes(q) ||
       item.category.toLowerCase().includes(q));
     renderDropdown(results, q);
@@ -348,7 +364,9 @@
       idx = (idx - 1 + items_elem.length) % items_elem.length;
       items_elem[idx]?.classList.add('active');
     } else if (e.key === 'Enter' && idx >= 0) {
-      e.preventDefault(); items_elem[idx]?.click();
+      e.preventDefault(); 
+      searchInput.value = items_elem[idx].dataset.serviceName;
+      document.querySelector('form.c-filter-bar').submit();
     } else if (e.key === 'Escape') {
       hideDropdown();
     }

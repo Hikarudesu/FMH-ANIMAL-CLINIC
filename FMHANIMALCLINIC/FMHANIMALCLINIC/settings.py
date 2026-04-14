@@ -145,8 +145,12 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
+USE_L10N = True
 
 USE_TZ = True
+
+# Enable thousands grouping globally (for floatformat)
+USE_THOUSAND_SEPARATOR = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -240,5 +244,5 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'noreply@fmhanimalclinic.com')
-
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'EMAIL_HOST_USER', 'noreply@fmhanimalclinic.com')
