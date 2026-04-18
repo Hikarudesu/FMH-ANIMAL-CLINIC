@@ -51,7 +51,6 @@
     <div class="appt-card-list">
     {% for appt in pending_appts %}
       <div class="appt-card" style="animation-delay: {{ forloop.counter0 }}s;">
-        <div class="appt-card-accent pending"></div>
         <div class="appt-card-inner">
           <div class="appt-card-header">
             <div class="appt-card-icon pending">
@@ -138,7 +137,6 @@
     <div class="appt-card-list">
     {% for appt in confirmed_appts %}
       <div class="appt-card">
-        <div class="appt-card-accent confirmed"></div>
         <div class="appt-card-inner">
           <div class="appt-card-header">
             <div class="appt-card-icon confirmed">
@@ -225,7 +223,6 @@
     <div class="appt-card-list">
     {% for followup in follow_ups %}
       <div class="appt-card">
-        <div class="appt-card-accent followup"></div>
         <div class="appt-card-inner">
           <div class="appt-card-header" style="cursor: default;">
             <div class="appt-card-icon followup">
@@ -269,7 +266,6 @@
     <div class="appt-card-list">
     {% for appt in completed_appts %}
       <div class="appt-card">
-        <div class="appt-card-accent completed"></div>
         <div class="appt-card-inner">
           <div class="appt-card-header">
             <div class="appt-card-icon completed">
@@ -356,7 +352,6 @@
     <div class="appt-card-list">
     {% for appt in cancelled_appts %}
       <div class="appt-card">
-        <div class="appt-card-accent cancelled"></div>
         <div class="appt-card-inner">
           <div class="appt-card-header">
             <div class="appt-card-icon cancelled">

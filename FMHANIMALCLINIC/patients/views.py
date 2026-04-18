@@ -130,6 +130,12 @@ def admin_detail_view(request, pk):
         pet=pet
     ).select_related('branch', 'preferred_vet').order_by('-appointment_date')[:10]
 
+    # Clinical status history logs
+    from patients.models import ClinicalStatusLog
+    clinical_logs = ClinicalStatusLog.objects.filter(
+        pet=pet
+    ).select_related('status').order_by('-created_at')[:20]
+
     # Latest entry for action_required display
     from records.models import RecordEntry
     latest_entry = RecordEntry.objects.filter(
@@ -141,6 +147,7 @@ def admin_detail_view(request, pk):
         'owner': pet.owner,  # may be None for walk-in patients
         'medical_records': medical_records,
         'appointments': appointments,
+        'clinical_logs': clinical_logs,
         'latest_entry': latest_entry,
     })
 
