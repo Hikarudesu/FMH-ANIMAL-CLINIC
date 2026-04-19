@@ -1150,18 +1150,32 @@ def vet_dashboard_view(request):
 
     # Patient status distribution
     if staff_profile:
-        patient_status_distribution = Pet.objects.filter(
-            appointments__preferred_vet=staff_profile
-        ).distinct().values('clinical_status__name').annotate(count=Count('id')).order_by('-count')
-        patient_status_distribution = [
-            {
-                'status': row['clinical_status__name'] or 'Unassigned',
-                'count': row['count'],
-            }
-            for row in patient_status_distribution
-        ]
-    else:
-        patient_status_distribution = []
+          # Get distinctly pets assigned to this vet to avoid wrong counts
+          assigned_pets = Pet.objects.filter(
+              appointments__preferred_vet=staff_profile
+          ).distinct().select_related('clinical_status')
+
+          status_counts = {}
+          for pet in assigned_pets:
+              name = pet.clinical_status.name if pet.clinical_status else 'Unassigned'
+              code = pet.clinical_status.code if pet.clinical_status else 'UNKNOWN'
+              color = pet.clinical_status.color if pet.clinical_status else '#94a3b8'
+              
+              key = (name, code, color)
+              if key not in status_counts:
+                  status_counts[key] = 0
+              status_counts[key] += 1
+          
+          patient_status_distribution = [
+              {
+                  'status': name,
+                  'code': code,
+                  'color': color,
+                  'count': count,
+              }
+              for (name, code, color), count in status_counts.items()
+          ]
+          patient_status_distribution.sort(key=lambda x: x['count'], reverse=True)
 
     # Consultation reasons breakdown
     if staff_profile:

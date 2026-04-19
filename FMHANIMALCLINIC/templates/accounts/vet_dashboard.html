@@ -1894,28 +1894,28 @@ document.addEventListener('DOMContentLoaded', function() {
       card.classList.add('dash-fade', `stagger-${i + 1}`);
     });
     
-    // Schedule sections
+    // Schedule sections — whole section fades in as one unit
     document.querySelectorAll('.schedule-section').forEach(el => {
       el.classList.add('dash-fade');
     });
     
-    // Table rows
-    document.querySelectorAll('.schedule-table tbody tr').forEach((row, i) => {
-      row.classList.add('dash-fade', `stagger-${Math.min(i + 1, 6)}`);
+    // Table wrappers — fade in the whole table together (no per-row stagger)
+    document.querySelectorAll('.schedule-table-wrapper').forEach(wrapper => {
+      wrapper.classList.add('dash-fade');
     });
     
-    // Upcoming timeline items (new modern design)
+    // Upcoming timeline — fade the whole timeline container as one unit
     document.querySelectorAll('.upcoming-modern').forEach(el => {
       el.classList.add('dash-fade');
     });
     
-    document.querySelectorAll('.upcoming-timeline-item').forEach((item, i) => {
-      item.classList.add('dash-fade', 'from-right', `stagger-${Math.min(i + 1, 6)}`);
+    document.querySelectorAll('.upcoming-timeline').forEach(timeline => {
+      timeline.classList.add('dash-fade');
     });
     
-    // Followup items
-    document.querySelectorAll('.followup-item').forEach((item, i) => {
-      item.classList.add('dash-fade', 'from-right', `stagger-${Math.min(i + 1, 6)}`);
+    // Followup list — fade the whole list as one unit
+    document.querySelectorAll('.followups-list').forEach(list => {
+      list.classList.add('dash-fade');
     });
     
     // Empty state cards
@@ -2029,8 +2029,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return 'rgba(0, 150, 136, 0.5)';
           },
-          borderRadius: 8,
-          borderSkipped: false,
+          borderRadius: 4,
+          borderSkipped: 'bottom',
           barThickness: 36,
           maxBarThickness: 44
         }]
@@ -2194,120 +2194,82 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // CHART 3: PATIENT HEALTH STATUS (Doughnut)
+  // CHART 3: PATIENT HEALTH STATUS (Pie Chart)
   // ═══════════════════════════════════════════════════════════════════════
   
   const patientHealthCtx = document.getElementById('patientHealthChart');
   if (patientHealthCtx) {
     const healthData = [
       {% for status in patient_status_distribution %}
-      { label: '{{ status.status }}', value: {{ status.count }} },
+      { label: '{{ status.status }}', value: {{ status.count }}, color: '{{ status.color }}' },
       {% endfor %}
     ];
     
-    const healthColors = {
-      'HEALTHY': '#10b981',
-      'UNDER_TREATMENT': '#f59e0b',
-      'RECOVERING': '#3b82f6',
-      'CRITICAL': '#ef4444',
-      'DECEASED': '#64748b'
-    };
-    
-    const totalPatients = healthData.reduce((sum, item) => sum + item.value, 0);
-    
-    // Center text plugin for health chart
-    const healthCenterPlugin = {
-      id: 'healthCenterText',
-      afterDraw: function(chart) {
-        const ctx = chart.ctx;
-        const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
-        const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
-        
-        ctx.save();
-        ctx.font = 'bold 28px Inter, sans-serif';
-        ctx.fillStyle = '#1e293b';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(totalPatients.toString(), centerX, centerY - 8);
-        
-        ctx.font = '500 12px Inter, sans-serif';
-        ctx.fillStyle = '#64748b';
-        ctx.fillText('Patients', centerX, centerY + 16);
-        ctx.restore();
-      }
-    };
-    
-    new Chart(patientHealthCtx, {
-      type: 'doughnut',
-      data: {
-        labels: healthData.map(item => item.label.replace('_', ' ')),
-        datasets: [{
-          data: healthData.map(item => item.value),
-          backgroundColor: healthData.map(item => healthColors[item.label] || '#94a3b8'),
-          borderWidth: 0,
-          hoverOffset: 8
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '70%',
-        layout: {
-          padding: {
-            top: 0,
-            bottom: 0
-          }
+    if (healthData.length > 0) {
+      const totalPatients = healthData.reduce((sum, item) => sum + item.value, 0);
+      
+      new Chart(patientHealthCtx, {
+        type: 'pie',
+        data: {
+          labels: healthData.map(item => item.label),
+          datasets: [{
+            data: healthData.map(item => item.value),
+            backgroundColor: healthData.map(item => item.color),
+            borderColor: '#ffffff',
+            borderWidth: 3,
+            hoverOffset: 12
+          }]
         },
-        plugins: {
-          legend: {
-            display: true,
-            position: 'bottom',
-            labels: {
-              usePointStyle: true,
-              pointStyle: 'circle',
-              padding: 12,
-              boxWidth: 10,
-              boxHeight: 10,
-              font: { size: 11, weight: '600', family: 'Inter, sans-serif' },
-              color: '#64748b',
-              generateLabels: function(chart) {
-                const data = chart.data;
-                return data.labels.map((label, i) => {
-                  const value = data.datasets[0].data[i];
-                  const percentage = totalPatients > 0 ? ((value / totalPatients) * 100).toFixed(1) : 0;
-                  return {
-                    text: `${label}: ${value} (${percentage}%)`,
-                    fillStyle: data.datasets[0].backgroundColor[i],
-                    strokeStyle: data.datasets[0].backgroundColor[i],
-                    lineWidth: 0,
-                    pointStyle: 'circle',
-                    hidden: false,
-                    index: i
-                  };
-                });
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 2000,
+            easing: 'easeInOutQuart'
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                font: { size: 12, weight: '600' },
+                color: '#64748b',
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  return data.labels.map((label, i) => {
+                    const value = data.datasets[0].data[i];
+                    const pct = totalPatients > 0 ? ((value / totalPatients) * 100).toFixed(0) : 0;
+                    return {
+                      text: `${label}: ${value} (${pct}%)`,
+                      fillStyle: data.datasets[0].backgroundColor[i],
+                      strokeStyle: data.datasets[0].backgroundColor[i],
+                      lineWidth: 0,
+                      pointStyle: 'circle',
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
               }
             },
-            align: 'center'
-          },
-          tooltip: {
-            ...commonTooltip,
-            callbacks: {
-              label: function(context) {
-                const percent = totalPatients > 0 ? ((context.raw / totalPatients) * 100).toFixed(1) : 0;
-                return `${context.label}: ${context.raw} (${percent}%)`;
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: function(context) {
+                  const pct = totalPatients > 0 ? ((context.raw / totalPatients) * 100).toFixed(1) : 0;
+                  return `${context.label}: ${context.raw} patients (${pct}%)`;
+                }
               }
             }
           }
-        },
-        animation: {
-          animateRotate: true,
-          animateScale: false,
-          duration: 1500,
-          easing: 'easeInOutCubic'
         }
-      },
-      plugins: [healthCenterPlugin]
-    });
+      });
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
