@@ -429,8 +429,11 @@
     </div>
   </div>
   <div class="pd-header-actions">
-    <a href="{% url 'patients:admin_edit_pet' pet.pk %}" class="admin-btn primary"><i class='bx bx-edit-alt'></i> Edit Patient</a>
-    <a href="{% url 'records:admin_create' %}" class="admin-btn secondary"><i class='bx bx-plus'></i> New Record</a>
+    <a href="{% url 'appointments:admin_list' %}?auto_qc=1&qc_source={% if owner %}PORTAL&qc_owner_id={{ owner.id }}{% else %}WALKIN{% endif %}&qc_pet_id={{ pet.id }}&qc_pet_name={{ pet.name|urlencode }}&qc_pet_species={{ pet.species|default:''|urlencode }}&qc_pet_breed={{ pet.breed|default:''|urlencode }}&qc_pet_dob={{ pet.date_of_birth|date:'Y-m-d'|default:'' }}&qc_pet_sex={{ pet.sex|default:'' }}&qc_pet_color={{ pet.color|default:''|urlencode }}&qc_owner_name={{ pet.guest_owner_name|default:''|urlencode }}&qc_owner_phone={{ pet.guest_owner_phone|default:''|urlencode }}&qc_owner_email={{ pet.guest_owner_email|default:''|urlencode }}&qc_owner_address={{ pet.guest_owner_address|default:''|urlencode }}" class="admin-btn primary">
+      <i class='bx bx-calendar-plus'></i> Book Appointment
+    </a>
+    <a href="{% url 'records:admin_create' %}?pet={{ pet.pk }}" class="admin-btn secondary"><i class='bx bx-plus'></i> New Record</a>
+    <a href="{% url 'patients:admin_edit_pet' pet.pk %}" class="admin-btn secondary"><i class='bx bx-edit-alt'></i> Edit</a>
   </div>
 </div>
 
@@ -536,7 +539,7 @@
           <div class="pd-list-info">
             <div class="list-title">{{ appt.appointment_date|date:"M j, Y" }} at {{ appt.appointment_time_display }}</div>
             <div class="list-meta">
-              {{ appt.get_reason_display }} · {{ appt.branch.name|default:"—" }}
+              {{ appt.reason_display }} · {{ appt.branch.name|default:"—" }}
               <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
             </div>
           </div>

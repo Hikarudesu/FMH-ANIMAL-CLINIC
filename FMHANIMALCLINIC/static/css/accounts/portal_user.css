@@ -812,7 +812,7 @@
 
 .mp-card-v2 {
   position: relative;
-  background: #ffffff;
+  background: var(--surface)fff;
   border-radius: 20px;
   overflow: hidden;
   cursor: pointer;
@@ -2044,7 +2044,7 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   overflow: hidden;
   flex-shrink: 0;
-  background: white;
+  background: var(--surface);
 }
 .pf-photo-preview-modern img {
   width: 100%;
@@ -3357,7 +3357,7 @@
 .pulse-dot {
   width: 6px;
   height: 6px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 50%;
   animation: pulseDot 1.5s ease-in-out infinite;
 }

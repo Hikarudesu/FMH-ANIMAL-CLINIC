@@ -656,6 +656,11 @@
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     box-shadow: var(--shadow-card);
+    --text-color: var(--text-1);
+  }
+  
+  [data-theme='dark'] .chart-card-modern {
+    --text-color: #ffffff;
   }
   
   .chart-card-modern:hover {
@@ -696,6 +701,10 @@
     font-size: 15px;
     font-weight: 700;
     color: var(--text-1);
+  }
+
+  [data-theme="dark"] .chart-title span {
+    color: #ffffff !important;
   }
   
   .chart-badge {
@@ -1160,7 +1169,36 @@
   
   [data-theme="dark"] .alert-content h4 { color: #fef3c7; }
   [data-theme="dark"] .alert-item { color: #fde68a; background: rgba(0,0,0,0.2); }
+  [data-theme="dark"] .alert-item:hover { color: #fef3c7; background: rgba(255,255,255,0.1); }
   [data-theme="dark"] .alert-close { color: #fde68a; }
+
+  /* Dark mode table hover states */
+  [data-theme="dark"] .schedule-table tbody tr:hover {
+    background: rgba(0, 150, 136, 0.08);
+  }
+
+  [data-theme="dark"] .simple-row:hover,
+  [data-theme="dark"] .service-row:hover,
+  [data-theme="dark"] tr:hover td {
+    background: var(--bg);
+  }
+
+  [data-theme="dark"] .metric-item {
+    background: rgba(255,255,255,0.05);
+  }
+
+  [data-theme="dark"] .metric-item:hover {
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* Chart legend text color in dark mode */
+  [data-theme="dark"] .chartjs-render-monitor {
+    color: #ffffff !important;
+  }
+
+  [data-theme="dark"] canvas + * {
+    color: #ffffff !important;
+  }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1273,12 +1311,16 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // -- Global Chart Defaults & Premium Styling --
   Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
-  Chart.defaults.color = 'var(--text-3, #94a3b8)';
+  const isGlobalDark = document.body.getAttribute('data-theme') === 'dark';
+  Chart.defaults.color = isGlobalDark ? '#ffffff' : '#64748b';
+  
+  // Set legend label colors for dark mode
+  Chart.defaults.plugins.legend.labels.color = isGlobalDark ? '#ffffff' : '#64748b';
   
   const commonTooltip = {
     backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    titleColor: '#f8fafc',
-    bodyColor: '#cbd5e1',
+    titleColor: '#ffffff',
+    bodyColor: 'var(--text-2, #cbd5e1)',
     borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
     padding: 12,
@@ -1322,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function() {
           pointRadius: 0,
           pointHoverRadius: 6,
           pointBackgroundColor: '#6366f1',
-          pointBorderColor: '#fff',
+          pointBorderColor: 'var(--surface, #fff)',
           pointBorderWidth: 2
         }]
       },
@@ -1380,13 +1422,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         ctx.save();
         ctx.font = 'bold 28px Inter, sans-serif';
-        ctx.fillStyle = '#1e293b';
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+        ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(totalAppointments, centerX, centerY - 8);
         
         ctx.font = '500 12px Inter, sans-serif';
-        ctx.fillStyle = '#64748b';
+        ctx.fillStyle = isDark ? '#ffffff' : '#64748b';
         ctx.fillText('Total', centerX, centerY + 16);
         ctx.restore();
       }
@@ -1425,7 +1468,7 @@ document.addEventListener('DOMContentLoaded', function() {
               boxWidth: 10,
               boxHeight: 10,
               font: { size: 11, weight: '600', family: 'Inter, sans-serif' },
-              color: '#64748b',
+              color: isGlobalDark ? '#ffffff' : '#64748b',
               generateLabels: function(chart) {
                 const data = chart.data;
                 return data.labels.map((label, i) => {
@@ -1436,6 +1479,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     fillStyle: data.datasets[0].backgroundColor[i],
                     strokeStyle: data.datasets[0].backgroundColor[i],
                     lineWidth: 0,
+                    fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                    color: isGlobalDark ? '#ffffff' : '#64748b',
                     pointStyle: 'circle',
                     hidden: false,
                     index: i
@@ -1537,6 +1582,7 @@ document.addEventListener('DOMContentLoaded', function() {
               pointStyle: 'circle',
               padding: 20,
               font: { size: 12, weight: '600' },
+              color: isGlobalDark ? '#ffffff' : '#64748b',
               generateLabels: function(chart) {
                 const data = chart.data;
                 return data.labels.map((label, i) => ({
@@ -1544,6 +1590,8 @@ document.addEventListener('DOMContentLoaded', function() {
                   fillStyle: data.datasets[0].backgroundColor[i],
                   strokeStyle: data.datasets[0].backgroundColor[i],
                   lineWidth: 0,
+                  fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                  color: isGlobalDark ? '#ffffff' : '#64748b',
                   pointStyle: 'circle',
                   hidden: false,
                   index: i
@@ -1752,7 +1800,7 @@ document.addEventListener('DOMContentLoaded', function() {
               pointStyle: 'circle',
               padding: 16, 
               font: { size: 11, weight: '600' },
-              color: '#64748b',
+              color: isGlobalDark ? '#ffffff' : '#64748b',
               generateLabels: function(chart) {
                 const data = chart.data;
                 return data.labels.map((label, i) => {
@@ -1764,6 +1812,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     fillStyle: data.datasets[0].backgroundColor[i],
                     strokeStyle: data.datasets[0].backgroundColor[i],
                     lineWidth: 0,
+                    fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                    color: isGlobalDark ? '#ffffff' : '#64748b',
                     pointStyle: 'circle',
                     hidden: false,
                     index: i
@@ -1811,7 +1861,7 @@ document.addEventListener('DOMContentLoaded', function() {
         pointRadius: 5,
         pointHoverRadius: 8,
         pointBackgroundColor: branchColors[index % branchColors.length],
-        pointBorderColor: '#fff',
+        pointBorderColor: 'var(--surface, #fff)',
         pointBorderWidth: 2
       };
     });

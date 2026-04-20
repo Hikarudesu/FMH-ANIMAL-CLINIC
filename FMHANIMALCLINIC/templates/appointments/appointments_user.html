@@ -98,7 +98,7 @@
                   <p class="appt-detail-row"><strong>Schedule:</strong> {{ appt.appointment_date|date:"M d, Y" }}</p>
                   <p class="appt-detail-row"><strong>Time:</strong> {{ appt.appointment_time_display }}</p>
                   <p class="appt-detail-row"><strong>Branch:</strong> {{ appt.branch.name|default:"-" }}</p>
-                  <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.get_reason_display|default:"-" }}</p>
+                  <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.reason_display|default:"-" }}</p>
                   <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Any available{% endif %}</p>
                   
                   {% if appt.pet_symptoms %}
@@ -184,7 +184,7 @@
                   <p class="appt-detail-row"><strong>Schedule:</strong> {{ appt.appointment_date|date:"M d, Y" }}</p>
                   <p class="appt-detail-row"><strong>Time:</strong> {{ appt.appointment_time_display }}</p>
                   <p class="appt-detail-row"><strong>Branch:</strong> {{ appt.branch.name|default:"-" }}</p>
-                  <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.get_reason_display|default:"-" }}</p>
+                  <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.reason_display|default:"-" }}</p>
                   <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Any available{% endif %}</p>
                   
                   {% if appt.pet_symptoms %}
@@ -313,7 +313,7 @@
                   <p class="appt-detail-row"><strong>Schedule:</strong> {{ appt.appointment_date|date:"M d, Y" }}</p>
                   <p class="appt-detail-row"><strong>Time:</strong> {{ appt.appointment_time_display }}</p>
                   <p class="appt-detail-row"><strong>Branch:</strong> {{ appt.branch.name|default:"-" }}</p>
-                  <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.get_reason_display|default:"-" }}</p>
+                  <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.reason_display|default:"-" }}</p>
                   <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Any available{% endif %}</p>
                   
                   {% if appt.pet_symptoms %}
@@ -416,7 +416,7 @@
                   </div>
                   <div class="appt-detail-row">
                     <span class="appt-detail-label">Reason:</span>
-                    <span class="appt-detail-value">{{ appt.get_reason_display|default:"-" }}</span>
+                    <span class="appt-detail-value">{{ appt.reason_display|default:"-" }}</span>
                   </div>
                 </div>
               </div>

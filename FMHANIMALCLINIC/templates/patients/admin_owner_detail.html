@@ -413,7 +413,7 @@
         <div class="od-list-item appt-item" data-index="{{ forloop.counter0 }}">
           <div class="od-list-icon appt"><i class='bx bx-calendar-event'></i></div>
           <div class="od-list-info">
-            <div class="list-title">{{ appt.pet_name }} — {{ appt.get_reason_display }}</div>
+            <div class="list-title">{{ appt.pet_name }} — {{ appt.reason_display }}</div>
             <div class="list-meta">
               {{ appt.appointment_date|date:"M j, Y" }} · {{ appt.branch.name|default:"—" }}
               <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>

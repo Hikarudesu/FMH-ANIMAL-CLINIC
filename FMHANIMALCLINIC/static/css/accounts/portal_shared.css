@@ -2411,3 +2411,20 @@
     width: 100%;
   }
 }
+
+[data-theme='dark'] {
+  --grad-teal: linear-gradient(135deg, rgba(0, 150, 136, 0.15) 0%, rgba(0, 150, 136, 0.05) 100%), var(--surface);
+  --grad-blue: linear-gradient(135deg, rgba(30, 136, 229, 0.15) 0%, rgba(30, 136, 229, 0.05) 100%), var(--surface);
+  --grad-orange: linear-gradient(135deg, rgba(245, 124, 0, 0.15) 0%, rgba(245, 124, 0, 0.05) 100%), var(--surface);
+  --grad-purple: linear-gradient(135deg, rgba(142, 36, 170, 0.15) 0%, rgba(142, 36, 170, 0.05) 100%), var(--surface);
+  --grad-green: linear-gradient(135deg, rgba(46, 125, 50, 0.15) 0%, rgba(46, 125, 50, 0.05) 100%), var(--surface);
+  --grad-red: linear-gradient(135deg, rgba(198, 40, 40, 0.15) 0%, rgba(198, 40, 40, 0.05) 100%), var(--surface);
+  --primary-light: rgba(0, 150, 136, 0.15); /* A dark-mode safe translucent version of primary */
+  --bg-hover: rgba(255, 255, 255, 0.05); /* additional hover */
+}
+
+[data-theme='dark'] {
+  --surface-light: #1e293b; /* A darker card surface alternative */
+}
+
+

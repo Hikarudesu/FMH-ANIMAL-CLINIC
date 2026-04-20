@@ -1044,94 +1044,62 @@ def admin_dashboard_view(request):
 @login_required
 @staff_only
 def vet_dashboard_view(request):
-    """
-    Veterinarian / Vet-Assistant dashboard.
-
-    Design principles
-    ─────────────────
-    • A vet's patient universe = pets reached via Appointment.preferred_vet
-      UNION pets reached via MedicalRecord.vet.  This single queryset
-      (`vet_pet_qs`) is built once and reused everywhere.
-    • Calendar months use the exact `get_month_offset()` helper (no timedelta
-      approximation) to guarantee correct labels and zero duplicates.
-    • Every context variable is always initialised so the template never
-      crashes, even when `staff_profile` is None.
-    """
+    """Veterinarian and Vet Assistant dashboard with comprehensive statistics."""
     from appointments.models import Appointment
     from patients.models import Pet
     from employees.models import StaffMember, VetSchedule
     from notifications.models import Notification, FollowUp
-    from records.models import MedicalRecord, RecordEntry
+    from records.models import MedicalRecord
 
     today = date.today()
     week_end = today + timedelta(days=7)
     month_start = date(today.year, today.month, 1)
-    if today.month == 12:
-        month_end = date(today.year + 1, 1, 1) - timedelta(days=1)
-    else:
-        month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # ROLE & PROFILE
-    # ═══════════════════════════════════════════════════════════════════════
-
+    # Determine dashboard title based on role
     is_vet_assistant = (
-        request.user.assigned_role
-        and request.user.assigned_role.code == 'vet_assistant'
+        request.user.assigned_role and 
+        request.user.assigned_role.code == 'vet_assistant'
     )
-    dashboard_title = (
-        "Vet Assistant Dashboard" if is_vet_assistant
-        else "Veterinarian Dashboard"
-    )
+    dashboard_title = "Vet Assistant Dashboard" if is_vet_assistant else "Veterinarian Dashboard"
 
+    # Get the vet's staff profile
     try:
         staff_profile = request.user.staff_profile
     except StaffMember.DoesNotExist:
         staff_profile = None
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # VET'S PATIENT UNIVERSE  (single queryset, reused everywhere)
-    # ═══════════════════════════════════════════════════════════════════════
-    # A pet belongs to this vet if:
-    #   – it has at least one Appointment with preferred_vet = this vet, OR
-    #   – it has at least one MedicalRecord written by this vet.
-    # Using a Q-union avoids materialising IDs into Python sets.
-
+    # ── Total assigned patients (get distinct pets from vet's appointments) ──
     if staff_profile:
-        vet_pet_qs = Pet.objects.filter(
-            Q(appointments__preferred_vet=staff_profile)
-            | Q(medical_records__vet=staff_profile)
-            | Q(owner__branch=staff_profile.branch)
-            | Q(owner__isnull=True, source='WALKIN')
-        ).distinct()
+        assigned_patients = Pet.objects.all().count()
     else:
-        vet_pet_qs = Pet.objects.none()
+        assigned_patients = 0
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # HERO STAT CARDS
-    # ═══════════════════════════════════════════════════════════════════════
-
-    # 1) Today's appointments ──────────────────────────────────────────────
+    # ── Today's appointments for this vet ──
     if staff_profile:
-        todays_appointments = (
-            Appointment.objects.filter(
-                appointment_date=today,
-                preferred_vet=staff_profile,
-                pet__isnull=False,
-            )
-            .exclude(status='CANCELLED')
-            .select_related('pet', 'branch')
-            .order_by('appointment_time')
-        )
+        todays_appointments = Appointment.objects.filter(
+            appointment_date=today,
+            preferred_vet=staff_profile,
+            pet__isnull=False,
+        ).exclude(status='CANCELLED').select_related('pet', 'branch').order_by('appointment_time')[:5]
     else:
         todays_appointments = Appointment.objects.none()
 
     today_count = todays_appointments.count()
 
-    # 2) Assigned patients (all-time) ─────────────────────────────────────
-    assigned_patients = vet_pet_qs.count()
+    # ── Upcoming appointments (next 7 days) ──
+    if staff_profile:
+        upcoming_appointments = Appointment.objects.filter(
+            appointment_date__gt=today,
+            appointment_date__lte=week_end,
+            preferred_vet=staff_profile,
+            pet__isnull=False,
+        ).exclude(status='CANCELLED').select_related('pet', 'branch').order_by('appointment_date', 'appointment_time')
+    else:
+        upcoming_appointments = Appointment.objects.none()
 
-    # 3) Completed consultations (all-time) ───────────────────────────────
+    upcoming_count = upcoming_appointments.count()
+
+    # ── Completed consultations (past appointments with status COMPLETED) ──
     if staff_profile:
         completed_consultations = Appointment.objects.filter(
             preferred_vet=staff_profile,
@@ -1141,302 +1109,245 @@ def vet_dashboard_view(request):
     else:
         completed_consultations = 0
 
-    # 4) Medical records (all-time) ───────────────────────────────────────
+    # ── Medical records created by this vet ──
     if staff_profile:
-        medical_records_count = RecordEntry.objects.filter(
-            Q(vet=staff_profile) | Q(record__branch=staff_profile.branch, vet__isnull=True)
+        medical_records_count = MedicalRecord.objects.filter(
+            vet=staff_profile
         ).count()
     else:
         medical_records_count = 0
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # SCHEDULE, UPCOMING & FOLLOW-UPS
-    # ═══════════════════════════════════════════════════════════════════════
-
-    # Upcoming appointments (next 7 days) ─────────────────────────────────
+    # ── Pending follow-ups for this vet's patients ──
     if staff_profile:
-        upcoming_appointments = (
-            Appointment.objects.filter(
-                appointment_date__gt=today,
-                appointment_date__lte=week_end,
-                preferred_vet=staff_profile,
-                pet__isnull=False,
-            )
-            .exclude(status='CANCELLED')
-            .select_related('pet', 'branch')
-            .order_by('appointment_date', 'appointment_time')
-        )
-    else:
-        upcoming_appointments = Appointment.objects.none()
-
-    upcoming_count = upcoming_appointments.count()
-
-    # This week's schedule ────────────────────────────────────────────────
-    if staff_profile:
-        this_week_schedule = (
-            VetSchedule.objects.filter(
-                staff=staff_profile,
-                date__gte=today,
-                date__lte=week_end,
-            )
-            .select_related('branch')
-            .order_by('date', 'start_time')[:7]
-        )
-    else:
-        this_week_schedule = VetSchedule.objects.none()
-
-    # Pending follow-ups (includes overdue — sorted earliest-first) ───────
-    if staff_profile:
-        follow_ups = (
-            FollowUp.objects.filter(
-                appointment__preferred_vet=staff_profile,
-                is_completed=False,
-            )
-            .select_related('appointment', 'appointment__pet')
-            .order_by('follow_up_date')[:10]
-        )
+        follow_ups = FollowUp.objects.filter(
+            appointment__preferred_vet=staff_profile,
+            is_completed=False,
+            follow_up_date__gte=today,
+        ).select_related('appointment', 'appointment__pet').order_by('follow_up_date')[:10]
     else:
         follow_ups = FollowUp.objects.none()
 
     follow_up_count = follow_ups.count()
 
-    # Unread notifications ────────────────────────────────────────────────
+    # ── This week's schedule ──
+    if staff_profile:
+        this_week_schedule = VetSchedule.objects.filter(
+            staff=staff_profile,
+            date__gte=today,
+            date__lte=week_end,
+        ).select_related('branch').order_by('date', 'start_time')[:5]
+    else:
+        this_week_schedule = VetSchedule.objects.none()
+
+    # ── Unread notifications ──
     unread_notif_count = Notification.scoped_for_user(request.user).filter(
-        is_read=False,
+        is_read=False
     ).count()
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # CHART 1 — PATIENT HEALTH STATUS  (pie chart)
-    # ═══════════════════════════════════════════════════════════════════════
-    # Groups ALL clinic pets by their current clinical_status FK.
-    # Showing all pets ensures newly registered pets reflect immediately on the dashboard.
+    # ─── COMPREHENSIVE ANALYTICS ───
 
-    patient_status_distribution = []
+    # Patient status distribution
     if staff_profile:
-        status_counts = {}
-        for pet in Pet.objects.select_related('clinical_status').iterator():
-            cs = pet.clinical_status
-            name  = cs.name  if cs else 'Unassigned'
-            code  = cs.code  if cs else 'UNKNOWN'
-            color = cs.color if cs else '#94a3b8'
-            key = (name, code, color)
-            status_counts[key] = status_counts.get(key, 0) + 1
+          # Get distinctly pets assigned to this vet to avoid wrong counts
+          assigned_pets = Pet.objects.all().select_related('clinical_status')
 
-        patient_status_distribution = sorted(
-            [
-                {'status': n, 'code': c, 'color': cl, 'count': ct}
-                for (n, c, cl), ct in status_counts.items()
-            ],
-            key=lambda x: x['count'],
-            reverse=True,
-        )
+          status_counts = {}
+          for pet in assigned_pets:
+              name = pet.clinical_status.name if pet.clinical_status else 'Unassigned'
+              code = pet.clinical_status.code if pet.clinical_status else 'UNKNOWN'
+              color = pet.clinical_status.color if pet.clinical_status else '#94a3b8'
+              
+              key = (name, code, color)
+              if key not in status_counts:
+                  status_counts[key] = 0
+              status_counts[key] += 1
+          
+          patient_status_distribution = [
+              {
+                  'status': name,
+                  'code': code,
+                  'color': color,
+                  'count': count,
+              }
+              for (name, code, color), count in status_counts.items()
+          ]
+          patient_status_distribution.sort(key=lambda x: x['count'], reverse=True)
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # CHART 2 — APPOINTMENT TYPES  (doughnut chart)
-    # ═══════════════════════════════════════════════════════════════════════
-    # All-time breakdown of appointment reasons for this vet.
-
-    consultation_reasons = []
+    # Consultation reasons breakdown
     if staff_profile:
-        reasons_qs = (
-            Appointment.objects.filter(
-                preferred_vet=staff_profile,
-                pet__isnull=False,
-            )
-            .values('reason_for_visit__name')
-            .annotate(count=Count('id'))
-            .order_by('-count')
-        )
-        consultation_reasons = list(reasons_qs)
+        consultation_reasons_query = Appointment.objects.filter(
+            pet__isnull=False
+        ).exclude(status='CANCELLED').values('reason_for_visit__name').annotate(count=Count('id')).order_by('-count')
+        
+        # Convert to list and calculate percentages
+        consultation_reasons = list(consultation_reasons_query)
         if consultation_reasons:
-            total_reasons = sum(r['count'] for r in consultation_reasons)
-            for r in consultation_reasons:
-                r['reason'] = r.pop('reason_for_visit__name') or 'Unspecified'
-                r['percentage'] = (
-                    round(r['count'] / total_reasons * 100, 1)
-                    if total_reasons > 0 else 0
-                )
+            for reason in consultation_reasons:
+                reason['reason'] = reason.pop('reason_for_visit__name') or 'General Consultation'
+            max_count = consultation_reasons[0]['count'] or 1
+            for reason in consultation_reasons:
+                reason['percentage'] = (reason['count'] / max_count * 100) if max_count > 0 else 0
+    else:
+        consultation_reasons = []
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # CHART 3 — WEEKLY WORKLOAD  (bar chart, Sun–Sat)
-    # ═══════════════════════════════════════════════════════════════════════
-    # Index 0 = Sunday … 6 = Saturday, matching JS `new Date().getDay()`.
-
-    weekly_workload = [0] * 7
+    # Average daily consultations (last 30 days)
     if staff_profile:
-        # Sunday-aligned start of the current week
-        py_dow = today.weekday()                   # Mon=0 … Sun=6
-        days_since_sunday = (py_dow + 1) % 7
-        start_of_week = today - timedelta(days=days_since_sunday)
-        end_of_week = start_of_week + timedelta(days=6)
-
-        # Single aggregate query for the whole week (including branch walk-ins & future limits)
-        week_daily = (
-            Appointment.objects.filter(
-                pet__isnull=False,
-                appointment_date__gte=start_of_week,
-                appointment_date__lte=end_of_week,
-            )
-            .filter(Q(preferred_vet=staff_profile) | Q(branch=staff_profile.branch, preferred_vet__isnull=True))
-            .exclude(status='CANCELLED')
-            .values('appointment_date')
-            .annotate(cnt=Count('id'))
-        )
-        for row in week_daily:
-            # Convert DB date → Sun-based index
-            d = row['appointment_date']
-            idx = (d.weekday() + 1) % 7             # Sun=0 … Sat=6
-            weekly_workload[idx] = row['cnt']
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # CHART 4 — MONTHLY PERFORMANCE  (line graph, last 6 calendar months)
-    # ═══════════════════════════════════════════════════════════════════════
-    monthly_labels     = []
-    monthly_registered = []
-    monthly_walkin     = []
-
-    for months_back in range(5, -1, -1):
-        m_start = get_month_offset(today, months_back)
-        if m_start.month == 12:
-            m_end = date(m_start.year + 1, 1, 1) - timedelta(days=1)
-        else:
-            m_end = date(m_start.year, m_start.month + 1, 1) - timedelta(days=1)
-
-        monthly_labels.append(m_start.strftime('%b'))
-
-        if staff_profile:
-            # Count pets CREATED in this month belonging to the branch universe
-            month_pets = vet_pet_qs.filter(created_at__range=[m_start, m_end])
-            monthly_registered.append(month_pets.filter(source='PORTAL').count())
-            monthly_walkin.append(month_pets.filter(source='WALKIN').count())
-        else:
-            monthly_registered.append(0)
-            monthly_walkin.append(0)
-
-
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # INSIGHT CARDS
-    # ═══════════════════════════════════════════════════════════════════════
-
-    # ── Average daily consultations (last 30 days) ───────────────────────
-    # Divide by actual working days (days that had at least 1 appt), not always 30.
-    if staff_profile:
-        last_30_appts = Appointment.objects.filter(
-            Q(preferred_vet=staff_profile) | Q(branch=staff_profile.branch, preferred_vet__isnull=True),
+        consultations_last_30_days = Appointment.objects.filter(
+            preferred_vet=staff_profile,
             appointment_date__range=[today - timedelta(days=30), today],
             status='COMPLETED',
-            pet__isnull=False,
-        )
-        last_30_count = last_30_appts.count()
-        working_days = last_30_appts.values('appointment_date').distinct().count()
-        avg_daily_consultations = round(last_30_count / working_days, 1) if working_days > 0 else 0
+            pet__isnull=False
+        ).count()
+        avg_daily_consultations = consultations_last_30_days / 30 if consultations_last_30_days > 0 else 0
     else:
         avg_daily_consultations = 0
 
-    # ── Patient Flow (this month) ────────────────────────────────────────
+    # New vs returning patients (this month)
     if staff_profile:
-        # Count pets strictly registered this month belonging to the branch's universe
-        new_patients_this_month = vet_pet_qs.filter(
-            created_at__range=[month_start, today + timedelta(days=1)]
+        new_patients_this_month = Pet.objects.filter(
+            created_at__date__range=[month_start, today]
         ).count()
 
-        # Total unique patients seen this month (new + returning combined, scheduled/arrived/completed)
-        total_patients_this_month = Appointment.objects.filter(
-            Q(preferred_vet=staff_profile) | Q(branch=staff_profile.branch, preferred_vet__isnull=True),
+        returning_patients_this_month = Appointment.objects.filter(
+            preferred_vet=staff_profile,
             appointment_date__range=[month_start, today],
-            pet__isnull=False,
-        ).exclude(status='CANCELLED').values('pet').distinct().count()
+            is_returning_customer=True,
+            pet__isnull=False
+        ).values('pet').distinct().count()
     else:
         new_patients_this_month = 0
-        total_patients_this_month = 0
+        returning_patients_this_month = 0
 
-    # ── Clinical Activity (this month) ───────────────────────────────────
-    # Uses ALL non-cancelled appointments this month (not just completed)
-    # so that pending/confirmed appointments are also counted.
-    _month_appts_all = Appointment.objects.none()
-    _month_appts_completed = Appointment.objects.none()
+    # Surgeries count (this month)
     if staff_profile:
-        _base_filter = dict(
+        surgeries_this_month = Appointment.objects.filter(
+            preferred_vet=staff_profile,
             appointment_date__range=[month_start, today],
-            pet__isnull=False,
-        )
-        _vet_q = Q(preferred_vet=staff_profile) | Q(branch=staff_profile.branch, preferred_vet__isnull=True)
-
-        _month_appts_all = Appointment.objects.filter(
-            _vet_q, **_base_filter
-        ).exclude(status='CANCELLED')
-
-        _month_appts_completed = Appointment.objects.filter(
-            _vet_q, status='COMPLETED', **_base_filter
-        )
-
-    clinical_activities = list(
-        _month_appts_all.exclude(reason_for_visit__isnull=True)
-        .values('reason_for_visit__name')
-        .annotate(count=Count('id'))
-        .order_by('-count')[:3]
-    )
-
-    # ── Monthly Summary ──────────────────────────────────────────────────
-    if staff_profile:
-        medical_records_this_month = RecordEntry.objects.filter(
-            Q(vet=staff_profile) | Q(record__branch=staff_profile.branch, vet__isnull=True),
-            date_recorded__range=[month_start, today],
+            reason_for_visit__code='SURGERY',
+            pet__isnull=False
         ).count()
+    else:
+        surgeries_this_month = 0
 
-        consultations_this_month = _month_appts_completed.count()
+    # Emergency cases count
+    if staff_profile:
+        emergency_cases = Appointment.objects.filter(
+            preferred_vet=staff_profile,
+            reason_for_visit__code='EMERGENCY',
+            pet__isnull=False
+        ).count()
+    else:
+        emergency_cases = 0
 
-        # Branch-level cancelled: any appt at this vet's branch OR assigned to this vet
-        cancelled_this_month = Appointment.objects.filter(
-            Q(preferred_vet=staff_profile) | Q(branch=staff_profile.branch),
-            appointment_date__range=[month_start, month_end],
-            status='CANCELLED',
-            pet__isnull=False,
-        ).distinct().count()
+    # Vaccinations count
+    if staff_profile:
+        vaccinations_count = Appointment.objects.filter(
+            preferred_vet=staff_profile,
+            reason_for_visit__code='VACCINATION',
+            pet__isnull=False
+        ).count()
+    else:
+        vaccinations_count = 0
+
+    # Medical records created this month
+    if staff_profile:
+        medical_records_this_month = MedicalRecord.objects.filter(
+            vet=staff_profile,
+            date_recorded__range=[month_start, today]
+        ).count()
     else:
         medical_records_this_month = 0
-        consultations_this_month = 0
-        cancelled_this_month = 0
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # RENDER
-    # ═══════════════════════════════════════════════════════════════════════
+    # ── Weekly workload data (appointments per day this week) ──
+    weekly_workload = []
+    # Calculate start of the week (Sunday)
+    day_of_week = today.weekday()  # Monday=0, Sunday=6
+    # Adjust to make Sunday = 0
+    days_since_sunday = (day_of_week + 1) % 7
+    start_of_week = today - timedelta(days=days_since_sunday)
+    
+    for i in range(7):
+        day_date = start_of_week + timedelta(days=i)
+        if staff_profile and day_date <= today:
+            day_count = Appointment.objects.filter(
+                appointment_date=day_date,
+                preferred_vet=staff_profile,
+                pet__isnull=False,
+            ).exclude(status='CANCELLED').count()
+        else:
+            day_count = 0
+        weekly_workload.append(day_count)
+
+    # ── Monthly performance data (last 6 months) ──
+    monthly_consultations = []
+    monthly_patients = []
+    monthly_labels = []
+    
+    for i in range(5, -1, -1):  # 5 months ago to current month
+        # Calculate the first and last day of each month
+        target_date = today - timedelta(days=i * 30)  # Approximate
+        target_month_start = date(target_date.year, target_date.month, 1)
+        if target_date.month == 12:
+            target_month_end = date(target_date.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            target_month_end = date(target_date.year, target_date.month + 1, 1) - timedelta(days=1)
+        
+        # Don't query future dates
+        if target_month_end > today:
+            target_month_end = today
+        
+        monthly_labels.append(target_month_start.strftime('%b'))
+        
+        if staff_profile:
+            # Consultations (completed appointments)
+            consultations = Appointment.objects.filter(
+                preferred_vet=staff_profile,
+                appointment_date__range=[target_month_start, target_month_end],
+                status='COMPLETED',
+                pet__isnull=False
+            ).count()
+            monthly_consultations.append(consultations)
+            
+            # Patients seen (unique pets)
+            patients = Pet.objects.filter(
+                appointments__preferred_vet=staff_profile,
+                appointments__appointment_date__range=[target_month_start, target_month_end]
+            ).distinct().count()
+            monthly_patients.append(patients)
+        else:
+            monthly_consultations.append(0)
+            monthly_patients.append(0)
 
     return render(request, 'accounts/vet_dashboard.html', {
-        # Hero stats
-        'today_count': today_count,
+        'staff_profile': staff_profile,
         'assigned_patients': assigned_patients,
+        'today_count': today_count,
+        'todays_appointments': todays_appointments[:10],
+        'upcoming_count': upcoming_count,
+        'upcoming_appointments': upcoming_appointments[:10],
         'completed_consultations': completed_consultations,
         'medical_records_count': medical_records_count,
-        # Schedule & lists
-        'todays_appointments': todays_appointments[:10],
-        'upcoming_appointments': upcoming_appointments[:10],
-        'upcoming_count': upcoming_count,
-        'this_week_schedule': this_week_schedule,
-        'follow_ups': follow_ups,
         'follow_up_count': follow_up_count,
+        'follow_ups': follow_ups,
+        'this_week_schedule': this_week_schedule,
         'unread_notif_count': unread_notif_count,
-        # Charts
         'patient_status_distribution': patient_status_distribution,
         'consultation_reasons': consultation_reasons,
-        'weekly_workload': weekly_workload,
-        'monthly_labels': monthly_labels,
-        'monthly_registered': monthly_registered,
-        'monthly_walkin': monthly_walkin,
-        # Insight cards
         'avg_daily_consultations': avg_daily_consultations,
         'new_patients_this_month': new_patients_this_month,
-        'total_patients_this_month': total_patients_this_month,
-        'clinical_activities': clinical_activities,
+        'returning_patients_this_month': returning_patients_this_month,
+        'surgeries_this_month': surgeries_this_month,
+        'emergency_cases': emergency_cases,
+        'vaccinations_count': vaccinations_count,
         'medical_records_this_month': medical_records_this_month,
-        'consultations_this_month': consultations_this_month,
-        'cancelled_this_month': cancelled_this_month,
-        # Meta
-        'staff_profile': staff_profile,
-        'today': today,
-        'dashboard_title': dashboard_title,
+        'today': today,  # For follow-up date comparison
+        'dashboard_title': dashboard_title,  # Dynamic title for vet/vet assistant
         'is_vet_assistant': is_vet_assistant,
+        # Weekly and monthly chart data
+        'weekly_workload': weekly_workload,
+        'monthly_consultations': monthly_consultations,
+        'monthly_patients': monthly_patients,
+        'monthly_labels': monthly_labels,
     })
 
 

@@ -604,6 +604,7 @@
   z-index: 1002;
   display: none;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .nav-mobile.active {
@@ -847,6 +848,11 @@
 @media (max-width: 480px) {
   .navbar .container {
     padding: 0 1rem;
+  }
+
+  .nav-mobile {
+    max-width: 100%; /* Take full width on very small screens */
+    padding: 2rem 1rem;
   }
 
   .btn {

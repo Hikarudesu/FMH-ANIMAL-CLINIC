@@ -1217,3 +1217,254 @@
     justify-content: center;
   }
 }
+/* ----------------------------------------------------------- */
+/* DARK MODE OVERRIDES */
+/* ----------------------------------------------------------- */
+
+[data-theme='dark'] {
+  --surface: #1e1e2d;
+  --bg: #151521;
+  --border: #2b2b40;
+  --text-1: #e2e8f0;
+  --text-2: #cbd5e1;
+  --text-3: #94a3b8;
+}
+
+/* Table hover states in dark mode */
+[data-theme='dark'] .stats-grid tr:hover,
+[data-theme='dark'] .dashboard-grid tr:hover,
+[data-theme='dark'] .schedule-table tbody tr:hover,
+[data-theme='dark'] .simple-row:hover,
+[data-theme='dark'] tr.simple-row:hover td,
+[data-theme='dark'] tbody tr:hover td {
+  background: rgba(0, 150, 136, 0.08);
+  color: var(--text-1);
+}
+
+/* Service/product list items */
+[data-theme='dark'] .service-item:hover,
+[data-theme='dark'] .product-item:hover {
+  background: rgba(0, 150, 136, 0.1);
+}
+
+/* Activity list items */
+[data-theme='dark'] .activity-item:hover {
+  background: rgba(0, 150, 136, 0.08);
+}
+
+/* Health status grid items */
+[data-theme='dark'] .health-item {
+  background: rgba(255,255,255,0.03);
+}
+
+[data-theme='dark'] .health-item:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+/* Stock items */
+[data-theme='dark'] .stock-item:hover {
+  background: rgba(255, 152, 0, 0.1);
+}
+
+/* Branch cards */
+[data-theme='dark'] .branch-card:hover {
+  background: rgba(0, 150, 136, 0.05);
+}
+
+/* Metric items */
+[data-theme='dark'] .metric-row,
+[data-theme='dark'] .metric-item {
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+[data-theme='dark'] .metric-item:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+/* Status badges in dark mode */
+[data-theme='dark'] .status-badge.pending { 
+  background: rgba(245, 158, 11, 0.15); 
+  color: #fbbf24;
+}
+
+[data-theme='dark'] .status-badge.confirmed,
+[data-theme='dark'] .status-badge.scheduled { 
+  background: rgba(16, 185, 129, 0.15); 
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .status-badge.completed { 
+  background: rgba(99, 102, 241, 0.15); 
+  color: #a5b4fc;
+}
+
+[data-theme='dark'] .status-badge.cancelled { 
+  background: rgba(239, 68, 68, 0.15); 
+  color: #fca5a5;
+}
+
+[data-theme='dark'] .detail-card,
+[data-theme='dark'] .calendar-card {
+    background: var(--surface);
+    border-color: var(--border);
+}
+
+[data-theme='dark'] {
+  --text-primary: var(--text-1);
+  --text-secondary: var(--text-2);
+}
+
+/* More table overrides */
+[data-theme='dark'] .portal-table tbody tr:hover td,
+[data-theme='dark'] .admin-table tbody tr:hover {
+  background-color: rgba(0, 150, 136, 0.08) !important;
+  color: var(--text-1);
+}
+[data-theme='dark'] .admin-table tbody tr:hover {
+  background: rgba(0, 150, 136, 0.08) !important;
+}
+
+[data-theme='dark'] .schedule-entry:hover {
+  background-color: rgba(0, 150, 136, 0.08);
+}
+
+[data-theme='dark'] .cal-day:hover,
+[data-theme='dark'] .weekly-day:hover {
+  background-color: var(--sidebar-hover-bg) !important;
+  border-color: var(--primary) !important;
+}
+
+[data-theme='dark'] {
+  --surface-light: #212133;
+}
+
+[data-theme='dark'] .cal-grid {
+  background: var(--bg);
+  scrollbar-color: var(--primary) var(--bg);
+}
+
+[data-theme='dark'] .cal-grid::-webkit-scrollbar-track {
+  background: var(--border);
+}
+
+[data-theme='dark'] { --text: var(--text-1); }
+
+
+[data-theme='dark'] .cal-day-number { color: var(--text-1); }
+
+
+[data-theme='dark'] .cal-day, [data-theme='dark'] .cal-day.has-events { background: var(--surface); border-color: var(--border); }
+[data-theme='dark'] .cal-day.today { background: rgba(0, 150, 136, 0.15) !important; border-color: var(--primary) !important; }
+[data-theme='dark'] .cal-day.empty { background: transparent; border-color: transparent; }
+
+
+/* Patient/Owner detail specific dark mode overrides */
+[data-theme='dark'] .pd-card-header, [data-theme='dark'] .od-card-header { background: var(--surface-light) !important; color: var(--text-1) !important; border-bottom: 1px solid var(--border) !important; }
+[data-theme='dark'] .pd-info-row, [data-theme='dark'] .od-info-row { border-bottom: 1px solid var(--border) !important; }
+[data-theme='dark'] .pd-timeline-content { background: var(--surface-light) !important; border: 1px solid var(--border) !important; }
+[data-theme='dark'] .pd-timeline-item { border-left-color: var(--border) !important; }
+[data-theme='dark'] .pd-status-badge.healthy { background: rgba(46, 125, 50, 0.15) !important; color: #81c784 !important; }
+[data-theme='dark'] .pd-status-badge.monitor { background: rgba(230, 81, 0, 0.15) !important; color: #ffb74d !important; }
+[data-theme='dark'] .pd-status-badge.treatment { background: rgba(21, 101, 192, 0.15) !important; color: #64b5f6 !important; }
+[data-theme='dark'] .pd-status-badge.surgery { background: rgba(198, 40, 40, 0.15) !important; color: #e57373 !important; }
+[data-theme='dark'] .pd-status-badge.diagnostics { background: rgba(106, 27, 154, 0.15) !important; color: #ba68c8 !important; }
+[data-theme='dark'] .pd-status-badge.critical { background: rgba(183, 28, 28, 0.15) !important; color: #ef5350 !important; }
+[data-theme='dark'] .pd-timeline-action-badge.surgery { background: rgba(198, 40, 40, 0.15) !important; color: #e57373 !important; }
+[data-theme='dark'] .pd-timeline-action-badge.monitor { background: rgba(230, 81, 0, 0.15) !important; color: #ffb74d !important; }
+[data-theme='dark'] .pd-timeline-action-badge.critical { background: rgba(183, 28, 28, 0.15) !important; color: #ef5350 !important; }
+[data-theme='dark'] .pd-timeline-action-badge.treatment { background: rgba(21, 101, 192, 0.15) !important; color: #64b5f6 !important; }
+[data-theme='dark'] .pd-timeline-action-badge.diagnostics { background: rgba(106, 27, 154, 0.15) !important; color: #ba68c8 !important; }
+
+
+[data-theme='dark'] .pd-card-footer { background: var(--surface-light) !important; border-top: 1px solid var(--border) !important;}
+[data-theme='dark'] .pd-btn-load-more { background: var(--surface) !important; color: var(--text-2) !important; }
+[data-theme='dark'] .pd-btn-load-more:hover { background: rgba(0, 150, 136, 0.15) !important; color: var(--text-1) !important; }
+[data-theme='dark'] .pd-walkin-badge { background: rgba(245, 127, 23, 0.15) !important; border-color: rgba(245, 127, 23, 0.3) !important; color: #ffb300 !important; }
+
+/* Make sure .od-timeline (owner history) matches if it exists */
+[data-theme='dark'] .od-timeline-content { background: var(--surface-light) !important; border: 1px solid var(--border) !important; }
+
+
+
+/* Owner detail specific dark mode overrides */
+[data-theme='dark'] .od-header { background: var(--surface-light) !important; border: 1px solid var(--border) !important; }
+[data-theme='dark'] .od-header-bg { opacity: 0.1; }
+[data-theme='dark'] .od-info-badge { background: rgba(0,0,0,0.4) !important; border-color: rgba(255,255,255,0.1) !important; }
+[data-theme='dark'] .od-card { background: var(--surface) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .od-pet-card { background: var(--surface-light) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .od-pet-card:hover { background: rgba(0, 150, 136, 0.15) !important; border-color: var(--primary) !important; }
+[data-theme='dark'] .od-list-item { border-bottom: 1px solid var(--border) !important; }
+[data-theme='dark'] .od-list-item:hover { background: rgba(255,255,255,0.03) !important; }
+[data-theme='dark'] .od-list-icon { background: var(--bg) !important; color: var(--text-2) !important; }
+[data-theme='dark'] .od-list-icon.appt { background: rgba(30, 136, 229, 0.15) !important; color: #64b5f6 !important; }
+[data-theme='dark'] .od-list-icon.notif { background: rgba(245, 124, 0, 0.15) !important; color: #ffb74d !important; }
+[data-theme='dark'] .od-list-icon.activity { background: rgba(142, 36, 170, 0.15) !important; color: #ba68c8 !important; }
+[data-theme='dark'] .od-empty { background: var(--surface-light) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .od-btn-load-more { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text-2) !important; }
+[data-theme='dark'] .od-btn-load-more:hover { background: rgba(0, 150, 136, 0.15) !important; color: var(--text-1) !important; }
+/* Comprehensive pd-* (Patient Detail) and od-* (Owner Detail) dark mode overrides */
+[data-theme='dark'] .pd-status-badge { background: rgba(255,255,255,0.05) !important; border: 1px solid var(--border) !important; color: var(--text-2) !important; }
+[data-theme='dark'] .pd-status-badge.healthy { background: rgba(46, 125, 50, 0.15) !important; color: #81c784 !important; border-color: rgba(76, 175, 80, 0.3) !important; }
+[data-theme='dark'] .pd-status-badge.monitor { background: rgba(230, 81, 0, 0.15) !important; color: #ffb300 !important; border-color: rgba(255, 179, 0, 0.3) !important; }
+[data-theme='dark'] .pd-status-badge.treatment { background: rgba(21, 101, 192, 0.15) !important; color: #64b5f6 !important; border-color: rgba(100, 181, 246, 0.3) !important; }
+[data-theme='dark'] .pd-status-badge.surgery { background: rgba(198, 40, 40, 0.15) !important; color: #ef5350 !important; border-color: rgba(239, 83, 80, 0.3) !important; }
+[data-theme='dark'] .pd-status-badge.diagnostics { background: rgba(106, 27, 154, 0.15) !important; color: #ba68c8 !important; border-color: rgba(186, 104, 200, 0.3) !important; }
+[data-theme='dark'] .pd-status-badge.critical { background: rgba(183, 28, 28, 0.15) !important; color: #e57373 !important; border-color: rgba(229, 115, 115, 0.3) !important; }
+
+[data-theme='dark'] .pd-list-item:hover { background: rgba(255,255,255,0.03) !important; }
+[data-theme='dark'] .pd-list-icon { background: var(--bg) !important; color: var(--text-2) !important; }
+[data-theme='dark'] .pd-list-icon.appt { background: rgba(30, 136, 229, 0.15) !important; color: #64b5f6 !important; }
+[data-theme='dark'] .pd-list-icon.notif { background: rgba(245, 124, 0, 0.15) !important; color: #ffb74d !important; }
+[data-theme='dark'] .pd-list-icon.surgery { background: rgba(198, 40, 40, 0.15) !important; color: #ef5350 !important; }
+[data-theme='dark'] .pd-list-icon.monitor { background: rgba(230, 81, 0, 0.15) !important; color: #ffb300 !important; }
+[data-theme='dark'] .pd-list-icon.treatment { background: rgba(21, 101, 192, 0.15) !important; color: #64b5f6 !important; }
+[data-theme='dark'] .pd-list-icon.diagnostics { background: rgba(106, 27, 154, 0.15) !important; color: #ba68c8 !important; }
+[data-theme='dark'] .pd-list-icon.critical { background: rgba(183, 28, 28, 0.15) !important; color: #e57373 !important; }
+
+[data-theme='dark'] .pd-timeline-action-badge { background: rgba(255,255,255,0.05) !important; border: 1px solid var(--border) !important; color: var(--text-2) !important; }
+[data-theme='dark'] .pd-timeline-action-badge.surgery { background: rgba(198, 40, 40, 0.15) !important; color: #ef5350 !important; }
+[data-theme='dark'] .pd-timeline-action-badge.monitor { background: rgba(230, 81, 0, 0.15) !important; color: #ffb300 !important; }
+[data-theme='dark'] .pd-timeline-action-badge.critical { background: rgba(183, 28, 28, 0.15) !important; color: #e57373 !important; }
+[data-theme='dark'] .pd-timeline-action-badge.treatment { background: rgba(21, 101, 192, 0.15) !important; color: #64b5f6 !important; }
+[data-theme='dark'] .pd-timeline-action-badge.diagnostics { background: rgba(106, 27, 154, 0.15) !important; color: #ba68c8 !important; }
+
+[data-theme='dark'] .pd-breadcrumb { background: var(--surface) !important; }
+[data-theme='dark'] .pd-breadcrumb a { color: var(--text-1) !important; }
+[data-theme='dark'] .pd-breadcrumb a:hover { color: var(--primary) !important; }
+
+
+[data-theme='dark'] .pd-pagination, [data-theme='dark'] .od-pagination { background: var(--surface-light) !important; border-top: 1px solid var(--border) !important; }
+[data-theme='dark'] .pd-page-btn, [data-theme='dark'] .od-page-btn { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text-2) !important; }
+[data-theme='dark'] .pd-page-btn:hover:not(:disabled), [data-theme='dark'] .od-page-btn:hover:not(:disabled) { background: rgba(0, 150, 136, 0.15) !important; border-color: var(--primary) !important; color: var(--primary) !important; }
+
+/* Vet Dashboard Comprehensive Dark Mode Fixes */
+[data-theme='dark'] .hero-stat-card { background: var(--surface) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .hero-stat-value { color: var(--text-1) !important; }
+[data-theme='dark'] .hero-stat-label { color: var(--text-2) !important; }
+
+[data-theme='dark'] .chart-card-modern { background: var(--surface) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .chart-title, [data-theme='dark'] .chart-title span { color: var(--text-1) !important; }
+[data-theme='dark'] .chart-description { color: var(--text-3) !important; }
+[data-theme='dark'] .chart-header { border-color: var(--border) !important; }
+
+[data-theme='dark'] .insight-card { background: var(--surface) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .insight-title { color: var(--text-1) !important; }
+[data-theme='dark'] .insight-text { color: var(--text-2) !important; }
+[data-theme='dark'] .insight-header { border-color: var(--border) !important; }
+
+[data-theme='dark'] .schedule-table-wrapper { background: var(--surface) !important; }
+[data-theme='dark'] .schedule-modern-table th { background: var(--bg) !important; color: var(--text-2) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .schedule-modern-table td { border-color: var(--border) !important; color: var(--text-1) !important; }
+[data-theme='dark'] .schedule-modern-table tr:hover { background: rgba(0,0,0,0.2) !important; }
+
+[data-theme='dark'] .timeline-item-modern { border-left-color: var(--border) !important; }
+[data-theme='dark'] .timeline-content-modern { background: var(--surface) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .timeline-details-modern { color: var(--text-2) !important; border-color: var(--border) !important; }
+[data-theme='dark'] .timeline-time-modern { color: var(--text-3) !important; }
+[data-theme='dark'] .timeline-title-modern { color: var(--text-1) !important; }
+
+[data-theme='dark'] .empty-modern-card { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text-1) !important; }
+[data-theme='dark'] .empty-modern-card p, [data-theme='dark'] .empty-modern-card span { color: var(--text-2) !important; }
+[data-theme='dark'] .empty-modern-card h4 { color: var(--text-1) !important; }
+
+[data-theme='dark'] .section-title { color: var(--text-1) !important; }
+[data-theme='dark'] .metric-label { color: var(--text-3) !important; }

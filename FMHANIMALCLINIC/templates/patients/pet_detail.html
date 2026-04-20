@@ -340,7 +340,7 @@
           <div class="upd-appt-info">
             <div class="upd-appt-date">{{ appt.appointment_date|date:"M j, Y" }} at {{ appt.appointment_time_display }}</div>
             <div class="upd-appt-meta">
-              {{ appt.get_reason_display }} · {{ appt.branch.name|default:"—" }}
+              {{ appt.reason_display }} · {{ appt.branch.name|default:"—" }}
               {% if appt.preferred_vet %} · Dr. {{ appt.preferred_vet.first_name }} {{ appt.preferred_vet.last_name }}{% endif %}
             </div>
           </div>

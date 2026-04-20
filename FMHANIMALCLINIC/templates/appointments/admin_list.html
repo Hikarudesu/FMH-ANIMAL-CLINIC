@@ -385,8 +385,8 @@
             <div>
               <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;"><i class='bx bx-file'></i> Appointment Details</h4>
               <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Created:</strong> {{ appt.created_at|date:"M d, Y, g:i A" }}</p>
-              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Reason:</strong> {{ appt.get_reason_display|default:"-" }}</p>
-              <p style="margin-bottom: 0; font-size: 0.875rem;"><strong>Returning Client:</strong> {% if appt.is_returning_customer %}Yes{% else %}No{% endif %}</p>
+              <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Reason:</strong> {{ appt.reason_display|default:"-" }}</p>
+              <p style="margin-bottom: 0; font-size: 0.875rem;"><strong>Source:</strong> {{ appt.get_source_display }}</p>
               {% if appt.pet_symptoms %}
               <div style="margin-top: 12px; background: var(--surface); padding: 12px; border-radius: 8px; border-left: 3px solid var(--accent);">
                 <strong style="font-size: 0.8rem;">Symptoms:</strong>
@@ -882,7 +882,7 @@ document.querySelectorAll('.accordion-row').forEach(row => {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: white;
+  background: var(--surface, white);
   border: 1.5px solid var(--border);
   color: var(--text-primary, #333);
   font-size: 1.1rem;
@@ -921,7 +921,7 @@ document.querySelectorAll('.accordion-row').forEach(row => {
   height: 38px;
   padding: 0 12px;
   border-radius: 10px;
-  background: white;
+  background: var(--surface, white);
   border: 1.5px solid transparent;
   color: var(--text-primary, #333);
   font-size: 0.9rem;
