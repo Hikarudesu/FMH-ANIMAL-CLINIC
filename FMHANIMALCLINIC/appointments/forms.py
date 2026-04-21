@@ -311,28 +311,7 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
         is_returning = self.data.get('is_returning') == 'yes'
         instance.is_returning_customer = is_returning
 
-        # Auto-assign an available vet if none was selected
-        if not instance.preferred_vet and instance.branch and instance.appointment_date and instance.appointment_time:
-            # Get a list of vets scheduled at this branch on this date
-            scheduled_vets = VetSchedule.objects.filter(
-                branch=instance.branch,
-                date=instance.appointment_date,
-                is_available=True,
-            ).values_list('staff_id', flat=True).distinct()
-
-            if scheduled_vets:
-                # Find a vet who is NOT already booked at this time
-                for vet_id in scheduled_vets:
-                    is_booked = Appointment.objects.filter(
-                        preferred_vet_id=vet_id,
-                        appointment_date=instance.appointment_date,
-                        appointment_time=instance.appointment_time,
-                    ).exclude(status='CANCELLED').exists()
-
-                    if not is_booked:
-                        # Assign this available vet
-                        instance.preferred_vet_id = vet_id
-                        break
+        # Do not auto-assign vet if none was selected to preserve ANY VET option
 
         if commit:
             instance.save()
@@ -540,28 +519,7 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
             except Pet.DoesNotExist:
                 pass
 
-        # Auto-assign an available vet if none was selected
-        if not instance.preferred_vet and instance.branch and instance.appointment_date and instance.appointment_time:
-            # Get a list of vets scheduled at this branch on this date
-            scheduled_vets = VetSchedule.objects.filter(
-                branch=instance.branch,
-                date=instance.appointment_date,
-                is_available=True,
-            ).values_list('staff_id', flat=True).distinct()
-
-            if scheduled_vets:
-                # Find a vet who is NOT already booked at this time
-                for vet_id in scheduled_vets:
-                    is_booked = Appointment.objects.filter(
-                        preferred_vet_id=vet_id,
-                        appointment_date=instance.appointment_date,
-                        appointment_time=instance.appointment_time,
-                    ).exclude(status='CANCELLED').exists()
-
-                    if not is_booked:
-                        # Assign this available vet
-                        instance.preferred_vet_id = vet_id
-                        break
+        # Do not auto-assign vet if none was selected to preserve ANY VET option
 
         if commit:
             instance.save()

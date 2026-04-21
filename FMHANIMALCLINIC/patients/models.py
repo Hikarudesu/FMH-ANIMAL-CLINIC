@@ -249,3 +249,38 @@ def sync_pet_to_appointments(sender, instance, **kwargs):
 
     # Bulk update all related appointments
     appointments.update(**updates)
+
+class ClinicalStatusLog(models.Model):
+    """Tracks every time a pet's clinical status is updated."""
+    pet = models.ForeignKey('patients.Pet', on_delete=models.CASCADE, related_name='status_logs')
+    status = models.ForeignKey('settings.ClinicalStatus', on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.pet.name} -> {self.status.name if self.status else 'None'}"
+
+from django.db.models.signals import pre_save, post_save
+from django.dispatch import receiver
+
+@receiver(pre_save, sender=Pet)
+def track_pet_status_change(sender, instance, **kwargs):
+    if instance.pk:
+        old_pet = Pet.objects.filter(pk=instance.pk).first()
+        if old_pet and old_pet.clinical_status_id != instance.clinical_status_id:
+            instance._status_changed = True
+        else:
+            instance._status_changed = False
+    else:
+        if instance.clinical_status_id:
+            instance._status_changed = True
+
+@receiver(post_save, sender=Pet)
+def create_clinical_status_log(sender, instance, created, **kwargs):
+    if getattr(instance, '_status_changed', False):
+        ClinicalStatusLog.objects.create(
+            pet=instance,
+            status=instance.clinical_status
+        )

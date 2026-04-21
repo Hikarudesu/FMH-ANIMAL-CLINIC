@@ -26,6 +26,17 @@
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
+  [data-theme="dark"] {
+    --surface: #1e1e2d;
+    --bg: #151521;
+    --border: #2b2b40;
+    --text-1: #e2e8f0;
+    --text-2: #cbd5e1;
+    --text-3: #94a3b8;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.24);
+  }
+
+
   /* ═══════════════════════════════════════════════ */
   /* SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In)   */
   /* ═══════════════════════════════════════════════ */
@@ -248,7 +259,7 @@
     color: #92400e;
     text-decoration: none;
     padding: 10px 18px;
-    background: rgba(255,255,255,0.6);
+    background: rgba(125,125,125,0.1);
     border-radius: 10px;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -258,7 +269,7 @@
   }
   
   .alert-action:hover {
-    background: rgba(255,255,255,0.9);
+    background: rgba(125,125,125,0.3);
     transform: translateY(-2px);
   }
   
@@ -316,6 +327,11 @@
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     box-shadow: var(--shadow-card);
+    --text-color: var(--text-1);
+  }
+  
+  [data-theme='dark'] .chart-card-modern {
+    --text-color: #ffffff;
   }
   
   .chart-card-modern:hover {
@@ -355,8 +371,19 @@
   .chart-title span {
     font-size: 15px;
     font-weight: 700;
-    color: var(--text-1);
+    color: var(--text-color, var(--text-1));
   }
+
+  [data-theme="dark"] .chart-title span {
+    color: #ffffff !important;
+  }
+  
+  [data-theme="dark"] .chart-card-modern {
+    color: #ffffff;
+  }
+  
+  [data-theme="dark"] canvas + * { color: #ffffff !important; }
+  [data-theme="dark"] .chartjs-render-monitor { color: #ffffff !important; }
   
   .chart-badge {
     display: inline-flex;
@@ -892,7 +919,7 @@
   }
   
   .followup-action:hover {
-    background: white;
+    background: var(--surface, white);
     transform: translateY(-2px);
   }
 
@@ -1065,15 +1092,19 @@
   .empty-state-modern h4 {
     font-size: 16px;
     font-weight: 700;
-    color: var(--text-2);
+    color: var(--text-color, var(--text-2));
     margin: 0 0 8px;
   }
   
+  [data-theme="dark"] .empty-state-modern h4 { color: #ffffff; }
+
   .empty-state-modern p {
     font-size: 13px;
-    color: var(--text-3);
+    color: var(--text-color, var(--text-3));
     margin: 0;
   }
+
+  [data-theme="dark"] .empty-state-modern p { color: #cbd5e1; }
   
   /* ═══════════════════════════════════════════════ */
   /* GLASS BUTTONS (ACTIVITY) */
@@ -1801,7 +1832,7 @@
             <div class="schedule-date">
               <i class='bx bx-calendar'></i> {{ appt.appointment_date|date:"M d, Y" }}
             </div>
-            <div class="schedule-time">{{ appt.get_reason_display|default:"General Visit" }}</div>
+            <div class="schedule-time">{{ appt.reason_display|default:"General Visit" }}</div>
           </div>
           <span class="status-badge-modern completed">Completed</span>
         </div>
@@ -1826,6 +1857,8 @@
 // CHART.JS CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════
 
+const isGlobalDark = document.body.getAttribute('data-theme') === 'dark';
+
 // Common chart options
 const commonOptions = {
   responsive: true,
@@ -1843,7 +1876,7 @@ const commonOptions = {
         usePointStyle: true,
         pointStyle: 'circle',
         font: { size: 11, weight: '600', family: 'Inter, sans-serif' },
-        color: '#64748b'
+        color: isGlobalDark ? '#ffffff' : '#64748b'
       }
     }
   }
@@ -1903,11 +1936,11 @@ if (appointmentHistoryCtx) {
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, color: '#64748b', font: { size: 11 } },
-          grid: { color: 'rgba(0,0,0,0.05)' }
+          ticks: { stepSize: 1, color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
+          grid: { color: isGlobalDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
         },
         x: {
-          ticks: { color: '#64748b', font: { size: 11 } },
+          ticks: { color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
           grid: { display: false }
         }
       }
@@ -1947,13 +1980,13 @@ if (petHealthCtx) {
       
       ctx.save();
       ctx.font = 'bold 28px Inter, sans-serif';
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = isGlobalDark ? '#ffffff' : '#1e293b';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(total, centerX, centerY - 8);
       
       ctx.font = '500 12px Inter, sans-serif';
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = isGlobalDark ? '#ffffff' : '#64748b';
       ctx.fillText('Total Pets', centerX, centerY + 16);
       ctx.restore();
     }
@@ -2035,7 +2068,7 @@ if (appointmentStatusCtx) {
             usePointStyle: true,
             pointStyle: 'circle',
             font: { size: 11, weight: '600' },
-            color: '#64748b',
+            color: isGlobalDark ? '#ffffff' : '#64748b',
             generateLabels: function(chart) {
               const data = chart.data;
               return data.labels.map((label, i) => {
@@ -2046,6 +2079,8 @@ if (appointmentStatusCtx) {
                   fillStyle: data.datasets[0].backgroundColor[i],
                   strokeStyle: data.datasets[0].backgroundColor[i],
                   lineWidth: 0,
+                  fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                  color: isGlobalDark ? '#ffffff' : '#64748b',
                   pointStyle: 'circle',
                   hidden: false,
                   index: i
@@ -2180,11 +2215,11 @@ if (visitsPerPetCtx) {
         scales: {
           x: {
             beginAtZero: true,
-            ticks: { stepSize: 1, color: '#64748b', font: { size: 11 } },
-            grid: { color: 'rgba(0,0,0,0.05)' }
+            ticks: { stepSize: 1, color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
+            grid: { color: isGlobalDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
           },
           y: {
-            ticks: { color: '#1e293b', font: { size: 12, weight: '600' } },
+            ticks: { color: '#94a3b8', font: { size: 12, weight: '600' } }, // Neutral color visible on both light and dark backgrounds
             grid: { display: false }
           }
         }

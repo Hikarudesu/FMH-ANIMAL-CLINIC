@@ -41,33 +41,6 @@
   .pd-breadcrumb i.bx-chevron-right { color: var(--border); font-size: 1rem; }
 
   /* ══════════════════════════════════════════════════════════════════════════
-     CLINICAL ACTION ALERT - Modern Banner
-     ══════════════════════════════════════════════════════════════════════════ */
-  .pd-action-alert {
-    display: flex; align-items: center; gap: 16px;
-    padding: 18px 24px; border-radius: var(--radius-lg);
-    margin-bottom: 24px; font-size: 0.95rem;
-    box-shadow: var(--shadow-md);
-    position: relative;
-    overflow: hidden;
-  }
-  .pd-action-alert::before {
-    content: '';
-    position: absolute;
-    width: 100px; height: 100px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 50%;
-    top: -30px; right: 20px;
-  }
-  .pd-action-alert.surgery { background: linear-gradient(135deg, #ef5350 0%, #e53935 100%); color: #fff; }
-  .pd-action-alert.monitor { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: #fff; }
-  .pd-action-alert.diagnostics { background: linear-gradient(135deg, #ab47bc 0%, #8e24aa 100%); color: #fff; }
-  .pd-action-alert.treatment { background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%); color: #fff; }
-  .pd-action-alert.critical { background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%); color: #fff; }
-  .pd-action-alert i { font-size: 1.8rem; }
-  .pd-action-alert strong { margin-right: 4px; }
-
-  /* ══════════════════════════════════════════════════════════════════════════
      HEADER SECTION - Gradient with Bubble Design
      ══════════════════════════════════════════════════════════════════════════ */
   .pd-header {
@@ -427,18 +400,6 @@
   <span>{{ pet.name }}</span>
 </div>
 
-<!-- Clinical Action Alert -->
-{% if latest_entry and latest_entry.action_required != 'HEALTHY' %}
-<div class="pd-action-alert {{ latest_entry.action_required|lower }}">
-  <i class='bx {% if latest_entry.action_required == "SURGERY" %}bx-plus-medical{% elif latest_entry.action_required == "MONITOR" %}bx-show{% elif latest_entry.action_required == "CRITICAL" %}bx-error{% elif latest_entry.action_required == "TREATMENT" %}bx-pulse{% else %}bx-test-tube{% endif %}'></i>
-  <div>
-    <strong>Active Clinical Action:</strong>
-    {{ latest_entry.get_action_required_display }}
-    <span style="opacity:0.8;">— since {{ latest_entry.date_recorded|date:"M j, Y" }}</span>
-  </div>
-</div>
-{% endif %}
-
 <div class="pd-header">
   <div class="pd-avatar">
     {% if pet.photo %}
@@ -468,8 +429,11 @@
     </div>
   </div>
   <div class="pd-header-actions">
-    <a href="{% url 'patients:admin_edit_pet' pet.pk %}" class="admin-btn primary"><i class='bx bx-edit-alt'></i> Edit Patient</a>
-    <a href="{% url 'records:admin_create' %}" class="admin-btn secondary"><i class='bx bx-plus'></i> New Record</a>
+    <a href="{% url 'appointments:admin_list' %}?auto_qc=1&qc_source={% if owner %}PORTAL&qc_owner_id={{ owner.id }}{% else %}WALKIN{% endif %}&qc_pet_id={{ pet.id }}&qc_pet_name={{ pet.name|urlencode }}&qc_pet_species={{ pet.species|default:''|urlencode }}&qc_pet_breed={{ pet.breed|default:''|urlencode }}&qc_pet_dob={{ pet.date_of_birth|date:'Y-m-d'|default:'' }}&qc_pet_sex={{ pet.sex|default:'' }}&qc_pet_color={{ pet.color|default:''|urlencode }}&qc_owner_name={{ pet.guest_owner_name|default:''|urlencode }}&qc_owner_phone={{ pet.guest_owner_phone|default:''|urlencode }}&qc_owner_email={{ pet.guest_owner_email|default:''|urlencode }}&qc_owner_address={{ pet.guest_owner_address|default:''|urlencode }}" class="admin-btn primary">
+      <i class='bx bx-calendar-plus'></i> Book Appointment
+    </a>
+    <a href="{% url 'records:admin_create' %}?pet={{ pet.pk }}" class="admin-btn secondary"><i class='bx bx-plus'></i> New Record</a>
+    <a href="{% url 'patients:admin_edit_pet' pet.pk %}" class="admin-btn secondary"><i class='bx bx-edit-alt'></i> Edit</a>
   </div>
 </div>
 
@@ -575,7 +539,7 @@
           <div class="pd-list-info">
             <div class="list-title">{{ appt.appointment_date|date:"M j, Y" }} at {{ appt.appointment_time_display }}</div>
             <div class="list-meta">
-              {{ appt.get_reason_display }} · {{ appt.branch.name|default:"—" }}
+              {{ appt.reason_display }} · {{ appt.branch.name|default:"—" }}
               <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
             </div>
           </div>
@@ -599,35 +563,48 @@
     {% endif %}
   </div>
 
-  <!-- Clinical Alerts -->
+  <!-- Clinical History -->
   <div class="pd-card">
     <div class="pd-card-header">
-      <i class='bx bx-bell'></i> Clinical Action Alerts
+      <i class='bx bx-history'></i> Clinical Actions History
     </div>
     <div class="pd-card-body" style="padding: 8px 24px;">
       <div id="alerts-container">
-        {% for record in medical_records %}
-          {% for entry in record.entries.all %}
-            {% if entry.action_required != 'HEALTHY' %}
-            <div class="pd-list-item alert-item" data-index="{{ forloop.counter0 }}">
-              <div class="pd-list-icon {{ entry.action_required|lower }}">
-                <i class='bx {% if entry.action_required == "SURGERY" %}bx-plus-medical{% elif entry.action_required == "MONITOR" %}bx-show{% elif entry.action_required == "CRITICAL" %}bx-error{% elif entry.action_required == "TREATMENT" %}bx-pulse{% else %}bx-test-tube{% endif %}'></i>
-              </div>
-              <div class="pd-list-info">
-                <div class="list-title">{{ entry.get_action_required_display }}</div>
-                <div class="list-meta">{{ entry.date_recorded|date:"M j, Y" }}</div>
-              </div>
+        {% for log in clinical_logs %}
+          {% if log.status %}
+          <div class="pd-list-item alert-item" data-index="{{ forloop.counter0 }}">
+            <div class="pd-list-icon {{ log.status.code|lower }}">
+              <i class='bx {% if log.status.code == "SURGERY" %}bx-plus-medical{% elif log.status.code == "MONITOR" %}bx-show{% elif log.status.code == "CRITICAL" %}bx-error{% elif log.status.code == "TREATMENT" %}bx-pulse{% else %}bx-test-tube{% endif %}'></i>
             </div>
-            {% endif %}
-          {% endfor %}
+            <div class="pd-list-info">
+              <div class="list-title">{{ log.status.name }}</div>
+              <div class="list-meta">{{ log.created_at|date:"M j, Y h:i A" }}</div>
+            </div>
+          </div>
+          {% endif %}
         {% empty %}
-        <div class="pd-empty">
-          <i class='bx bx-bell-off'></i>
-          <p>No clinical action alerts</p>
-        </div>
+          <div class="pd-empty" style="display: flex;">
+            <i class='bx bx-folder-open'></i>
+            <p>No clinical actions history yet</p>
+          </div>
         {% endfor %}
       </div>
     </div>
+    {% if clinical_logs|length > 5 %}
+    <div class="modern-pagination" id="alerts-pagination" style="border-top: none; padding-top: 0;">
+      <div class="pagination-controls">
+        <button class="pagination-btn pagination-btn-disabled" id="alerts-prev" onclick="changePage('alerts', -1)">
+          <i class='bx bx-chevron-left'></i>
+        </button>
+        <div class="pagination-pages" id="alerts-pages">
+          <!-- JS injected -->
+        </div>
+        <button class="pagination-btn" id="alerts-next" onclick="changePage('alerts', 1)">
+          <i class='bx bx-chevron-right'></i>
+        </button>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -684,7 +661,8 @@
 <script>
   const ITEMS_PER_PAGE = 5;
   const state = {
-    appt: { page: 1, total: {{ appointments|length }} }
+    appt: { page: 1, total: {{ appointments|length }} },
+    alerts: { page: 1, total: {{ clinical_logs|length }} }
   };
 
   function updateListVisibility(type) {
@@ -693,6 +671,9 @@
     if (type === 'appt') {
       selector = '.appt-item';
       prefix = 'appt';
+    } else if (type === 'alerts') {
+      selector = '.alert-item';
+      prefix = 'alerts';
     }
 
     const items = document.querySelectorAll(selector);
@@ -714,8 +695,36 @@
 
       if (startSpan) startSpan.textContent = startIndex + 1;
       if (endSpan) endSpan.textContent = Math.min(endIndex, state[type].total);
-      if (prevBtn) prevBtn.disabled = currentPage === 1;
-      if (nextBtn) nextBtn.disabled = endIndex >= state[type].total;
+      
+      // Update basic buttons if they exist
+      if (prevBtn) {
+        prevBtn.disabled = currentPage === 1;
+        if (currentPage === 1) prevBtn.classList.add('pagination-btn-disabled'); else prevBtn.classList.remove('pagination-btn-disabled');
+      }
+      if (nextBtn) {
+        nextBtn.disabled = endIndex >= state[type].total;
+        if (endIndex >= state[type].total) nextBtn.classList.add('pagination-btn-disabled'); else nextBtn.classList.remove('pagination-btn-disabled');
+      }
+
+      // Update modern-pagination specific pages if the element exists
+      const pagesContainer = document.getElementById(`${prefix}-pages`);
+      if (pagesContainer) {
+        pagesContainer.innerHTML = '';
+        const totalPages = Math.ceil(state[type].total / ITEMS_PER_PAGE);
+        for (let i = 1; i <= totalPages; i++) {
+          const pageSpan = document.createElement('span');
+          pageSpan.className = 'pagination-page';
+          if (i === currentPage) {
+            pageSpan.classList.add('active');
+          }
+          pageSpan.textContent = i;
+          pageSpan.onclick = () => {
+            state[type].page = i;
+            updateListVisibility(type);
+          };
+          pagesContainer.appendChild(pageSpan);
+        }
+      }
     }
   }
 
@@ -728,9 +737,21 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       updateListVisibility('appt');
+      updateListVisibility('alerts');
+      checkClinicalAlerts();
     });
   } else {
     updateListVisibility('appt');
+    updateListVisibility('alerts');
+    checkClinicalAlerts();
+  }
+
+  function checkClinicalAlerts() {
+    const alertItems = document.querySelectorAll('.alert-item');
+    const emptyMsg = document.getElementById('no-alerts-msg');
+    if (alertItems.length === 0 && emptyMsg) {
+      emptyMsg.style.display = 'flex';
+    }
   }
 </script>
 

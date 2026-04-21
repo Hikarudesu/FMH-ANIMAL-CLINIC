@@ -729,6 +729,36 @@
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  /* Pagination */
+  .pos-page-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-2);
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .pos-page-btn:hover:not(:disabled) {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .pos-page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pos-page-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
 </style>
 
 <!-- ══════ POINT OF SALE HERO ══════ -->
@@ -775,6 +805,13 @@
       {% endfor %}
 
       <!-- Products and Medications will be loaded via AJAX based on branch selection -->
+    </div>
+    
+    <!-- Modern Pagination Controls -->
+    <div class="pos-pagination-controls" id="posPagination" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding-bottom: 12px; margin-top: auto;">
+      <button class="pos-page-btn" id="prevPageBtn" onclick="changePage(-1)" disabled><i class='bx bx-chevron-left'></i></button>
+      <div id="pageNumbers" style="display: flex; gap: 4px;"></div>
+      <button class="pos-page-btn" id="nextPageBtn" onclick="changePage(1)"><i class='bx bx-chevron-right'></i></button>
     </div>
   </div>
 
@@ -951,6 +988,11 @@ let paymentMethod = 'CASH';
 let customerType = 'WALKIN';
 let lastCompletedSaleId = null;
 
+// Pagination vars
+let currentPage = 1;
+const itemsPerPage = 21;
+let currentCategory = 'all';
+
 // CSRF Token
 function getCookie(name) {
   let cookieValue = null;
@@ -1022,6 +1064,10 @@ function populateItemsGrid(items) {
 
   // Re-attach click handlers to all cards
   attachItemCardListeners();
+  
+  // Apply pagination
+  currentPage = 1;
+  applyFiltersAndPagination();
 }
 
 function attachItemCardListeners() {
@@ -1386,14 +1432,91 @@ function printReceipt() {
   }
 }
 
+function applyFiltersAndPagination() {
+  const query = document.getElementById('posSearch').value.toLowerCase();
+  const allCards = Array.from(document.querySelectorAll('.pos-item-card'));
+  
+  // 1. Filter cards
+  const filteredCards = allCards.filter(card => {
+    const name = card.dataset.name.toLowerCase();
+    const itemCat = (card.dataset.category || card.dataset.type).toLowerCase();
+    
+    const matchesSearch = name.includes(query);
+    const matchesCat = (currentCategory === 'all' || itemCat === currentCategory);
+    
+    return matchesSearch && matchesCat;
+  });
+
+  // 2. Calculate pagination
+  const totalPages = Math.ceil(filteredCards.length / itemsPerPage) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+
+  // 3. Hide all, show paginated
+  allCards.forEach(card => card.style.display = 'none');
+  
+  filteredCards.slice(startIndex, endIndex).forEach(card => {
+    card.style.display = 'flex';
+  });
+
+  // 4. Update Pagination UI
+  renderPaginationLimits(totalPages);
+}
+
+function changePage(delta) {
+  currentPage += delta;
+  applyFiltersAndPagination();
+}
+
+function goToPage(page) {
+  currentPage = page;
+  applyFiltersAndPagination();
+}
+
+function renderPaginationLimits(totalPages) {
+  document.getElementById('prevPageBtn').disabled = (currentPage === 1);
+  document.getElementById('nextPageBtn').disabled = (currentPage === totalPages);
+  
+  const pageNumbers = document.getElementById('pageNumbers');
+  pageNumbers.innerHTML = '';
+  
+  let startBtn = Math.max(1, currentPage - 2);
+  let endBtn = Math.min(totalPages, currentPage + 2);
+  
+  if (currentPage <= 3) {
+    endBtn = Math.min(totalPages, 5);
+  }
+  if (currentPage >= totalPages - 2) {
+    startBtn = Math.max(1, totalPages - 4);
+  }
+  
+  // Make sure we don't go out of bounds
+  endBtn = Math.min(totalPages, Math.max(startBtn, endBtn));
+
+  for (let i = startBtn; i <= endBtn; i++) {
+    const btn = document.createElement('button');
+    btn.className = `pos-page-btn ${i === currentPage ? 'active' : ''}`;
+    btn.textContent = i;
+    btn.onclick = () => goToPage(i);
+    pageNumbers.appendChild(btn);
+  }
+  
+  const paginationControls = document.getElementById('posPagination');
+  if (totalPages <= 1) {
+    paginationControls.style.display = 'none';
+  } else {
+    paginationControls.style.display = 'flex';
+  }
+}
+
 // Search functionality
 const searchInput = document.getElementById('posSearch');
 searchInput.addEventListener('input', function() {
-  const query = this.value.toLowerCase();
-  document.querySelectorAll('.pos-item-card').forEach(card => {
-    const name = card.dataset.name.toLowerCase();
-    card.style.display = name.includes(query) ? 'flex' : 'none';
-  });
+  currentPage = 1;
+  applyFiltersAndPagination();
 });
 
 // Category filter
@@ -1402,14 +1525,9 @@ document.querySelectorAll('.pos-category-tab').forEach(tab => {
     document.querySelectorAll('.pos-category-tab').forEach(t => t.classList.remove('active'));
     this.classList.add('active');
 
-    const category = this.dataset.category;
-    document.querySelectorAll('.pos-item-card').forEach(card => {
-      if (category === 'all') {
-        card.style.display = 'flex';
-      } else {
-        card.style.display = (card.dataset.category || card.dataset.type).toLowerCase() === category ? 'flex' : 'none';
-      }
-    });
+    currentCategory = this.dataset.category;
+    currentPage = 1;
+    applyFiltersAndPagination();
   });
 });
 

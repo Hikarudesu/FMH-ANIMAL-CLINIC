@@ -209,8 +209,8 @@
           <span class="ae-meta-value">{{ appointment.created_at|date:"M d, Y · g:i A" }}</span>
         </div>
         <div class="ae-meta-item">
-          <span class="ae-meta-label">Returning Client</span>
-          <span class="ae-meta-value">{% if appointment.is_returning_customer %}Yes{% else %}No{% endif %}</span>
+          <span class="ae-meta-label">Source</span>
+          <span class="ae-meta-value">{{ appointment.get_source_display }}</span>
         </div>
         {% if appointment.user %}
         <div class="ae-meta-item">

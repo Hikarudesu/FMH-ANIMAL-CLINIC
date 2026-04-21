@@ -312,7 +312,14 @@
   position: relative;
   box-shadow: var(--shadow-card);
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  --text-color: var(--text-1);
 }
+
+[data-theme='dark'] .chart-card-modern {
+  --text-color: #ffffff;
+}
+[data-theme='dark'] canvas + * { color: #ffffff !important; }
+[data-theme='dark'] .chartjs-render-monitor { color: #ffffff !important; }
 
 .chart-card-modern:hover {
   transform: translateY(-8px);
@@ -351,10 +358,7 @@
 .chart-title span {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text-1);
-}
-
-.chart-badge {
+    color: var(--text-color, var(--text-1));
   display: inline-flex;
   align-items: center;
   padding: 6px 14px;
@@ -1037,7 +1041,13 @@
             <td class="schedule-time">{{ appointment.appointment_time_display }}</td>
             <td>
               <div class="schedule-patient">{{ appointment.pet.name }}</div>
-              <div class="schedule-owner">{{ appointment.pet.owner.get_full_name }}</div>
+              <div class="schedule-owner">
+                {% if appointment.pet.owner %}
+                  {{ appointment.pet.owner.get_full_name|default:appointment.pet.owner.username }}
+                {% else %}
+                  {{ appointment.pet.guest_owner_name }} (Guest)
+                {% endif %}
+              </div>
             </td>
             <td class="schedule-reason">{{ appointment.reason|truncatewords:3 }}</td>
             <td>
@@ -1243,7 +1253,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Global Chart Defaults
   Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
-  Chart.defaults.color = 'var(--text-3, #94a3b8)';
+  const isGlobalDark = document.body.getAttribute('data-theme') === 'dark';
+  Chart.defaults.color = isGlobalDark ? '#ffffff' : '#64748b';
 
   const commonTooltip = {
     backgroundColor: 'rgba(30, 41, 59, 0.95)',
@@ -1572,7 +1583,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 usePointStyle: true,
                 pointStyle: 'circle',
                 font: { size: 11, weight: '600' },
-                color: '#64748b',
+                color: isGlobalDark ? '#ffffff' : '#64748b',
                 generateLabels: function(chart) {
                   const data = chart.data;
                   return data.labels.map((label, i) => {
@@ -1583,6 +1594,8 @@ document.addEventListener('DOMContentLoaded', function() {
                       fillStyle: data.datasets[0].backgroundColor[i],
                       strokeStyle: data.datasets[0].backgroundColor[i],
                       lineWidth: 0,
+                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                      color: isGlobalDark ? '#ffffff' : '#64748b',
                       pointStyle: 'circle',
                       hidden: false,
                       index: i
@@ -1655,7 +1668,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 usePointStyle: true,
                 pointStyle: 'circle',
                 font: { size: 12, weight: '600' },
-                color: '#64748b',
+                color: isGlobalDark ? '#ffffff' : '#64748b',
                 generateLabels: function(chart) {
                   const data = chart.data;
                   return data.labels.map((label, i) => {
@@ -1666,6 +1679,8 @@ document.addEventListener('DOMContentLoaded', function() {
                       fillStyle: sourceColors[label] || '#94a3b8',
                       strokeStyle: sourceColors[label] || '#94a3b8',
                       lineWidth: 0,
+                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                      color: isGlobalDark ? '#ffffff' : '#64748b',
                       pointStyle: 'circle',
                       hidden: false,
                       index: i

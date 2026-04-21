@@ -270,11 +270,7 @@
     </div>
     <div class="metric-label">Avg. Transaction</div>
     <div class="metric-value">
-      {% if transaction_count > 0 %}
-        ₱{{ net_sales|divisibleby:transaction_count|default_if_none:"0.00" }}
-      {% else %}
-        ₱0.00
-      {% endif %}
+      ₱{{ avg_transaction|peso|default_if_none:"0.00" }}
     </div>
     <div class="metric-sub">Per completed sale</div>
   </div>

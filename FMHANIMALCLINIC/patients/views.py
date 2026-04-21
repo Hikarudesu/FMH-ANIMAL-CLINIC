@@ -41,9 +41,13 @@ def admin_list_view(request):
 
     pets_qs = Pet.objects.select_related('owner', 'owner__branch', 'clinical_status').all().order_by('-id')
     
-    # Apply branch restriction first if user is restricted
+    # Apply branch restriction first if user is restricted.
+    # Walk-In pets have no owner, so owner__branch would silently exclude them.
+    # We include Walk-Ins (owner=None) so they are always visible at all branches.
     if is_branch_restricted and user_branch:
-        pets_qs = pets_qs.filter(owner__branch=user_branch)
+        pets_qs = pets_qs.filter(
+            Q(owner__branch=user_branch) | Q(owner__isnull=True)
+        )
 
     # Apply Search — covers both portal owners and walk-in guest names
     if query:
@@ -65,7 +69,10 @@ def admin_list_view(request):
             pass
     # Branch filter only if not already restricted
     if branch_filter and not is_branch_restricted:
-        pets_qs = pets_qs.filter(owner__branch_id=branch_filter)
+        # Same walk-in fix: include pets with no owner when filtering by branch
+        pets_qs = pets_qs.filter(
+            Q(owner__branch_id=branch_filter) | Q(owner__isnull=True)
+        )
     if species_filter:
         pets_qs = pets_qs.filter(species__iexact=species_filter)
     if source_filter:
@@ -130,6 +137,12 @@ def admin_detail_view(request, pk):
         pet=pet
     ).select_related('branch', 'preferred_vet').order_by('-appointment_date')[:10]
 
+    # Clinical status history logs
+    from patients.models import ClinicalStatusLog
+    clinical_logs = ClinicalStatusLog.objects.filter(
+        pet=pet
+    ).select_related('status').order_by('-created_at')[:20]
+
     # Latest entry for action_required display
     from records.models import RecordEntry
     latest_entry = RecordEntry.objects.filter(
@@ -141,6 +154,7 @@ def admin_detail_view(request, pk):
         'owner': pet.owner,  # may be None for walk-in patients
         'medical_records': medical_records,
         'appointments': appointments,
+        'clinical_logs': clinical_logs,
         'latest_entry': latest_entry,
     })
 

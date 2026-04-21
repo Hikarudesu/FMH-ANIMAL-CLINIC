@@ -653,3 +653,26 @@
     font-weight: 600;
   }
 }
+
+/* Dark Mode Overrides for consistency with dashboard */
+[data-theme="dark"] .c-filter-bar {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .c-filter-bar__search {
+  background: var(--surface-light) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .c-filter-dropdown__trigger {
+  background: var(--surface-light) !important;
+  border-color: var(--border) !important;
+  color: var(--text-2) !important;
+}
+
+[data-theme="dark"] .c-filter-dropdown__trigger:hover {
+  background: rgba(0, 150, 136, 0.15) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}

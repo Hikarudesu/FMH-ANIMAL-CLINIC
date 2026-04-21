@@ -185,6 +185,9 @@ def analytics_dashboard(request):
     new_clients = period_appts.filter(is_returning_customer=False).count()
     returning_clients = period_appts.filter(is_returning_customer=True).count()
 
+    # Calculate average transaction
+    avg_transaction = float(net_sales) / transaction_count if transaction_count > 0 else 0.00
+
     # ── Branches for filter dropdown ──────────────────────────────────
     branches = Branch.objects.filter(is_active=True).order_by('name')
 
@@ -204,6 +207,7 @@ def analytics_dashboard(request):
         'net_sales': net_sales,
         'total_discount': total_discount,
         'transaction_count': transaction_count,
+        'avg_transaction': avg_transaction,
         # Metric 3
         'new_clients': new_clients,
         'returning_clients': returning_clients,

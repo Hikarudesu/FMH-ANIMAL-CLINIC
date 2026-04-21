@@ -288,18 +288,6 @@
   </div>
 </div>
 
-<!-- Clinical Action Alert -->
-{% if latest_entry and latest_entry.action_required != 'HEALTHY' %}
-<div class="upd-alert {{ latest_entry.action_required|lower }}" style="margin-bottom:20px;">
-  <i class='bx {% if latest_entry.action_required == "SURGERY" %}bx-plus-medical{% elif latest_entry.action_required == "MONITOR" %}bx-show{% elif latest_entry.action_required == "CRITICAL" %}bx-error{% else %}bx-info-circle{% endif %}'></i>
-  <div>
-    <strong>Clinical Alert:</strong>
-    {{ latest_entry.get_action_required_display }}
-    <span class="upd-alert-date">— since {{ latest_entry.date_recorded|date:"M j, Y" }}</span>
-  </div>
-</div>
-{% endif %}
-
 <!-- Info Grid -->
 <div class="upd-grid">
 
@@ -352,7 +340,7 @@
           <div class="upd-appt-info">
             <div class="upd-appt-date">{{ appt.appointment_date|date:"M j, Y" }} at {{ appt.appointment_time_display }}</div>
             <div class="upd-appt-meta">
-              {{ appt.get_reason_display }} · {{ appt.branch.name|default:"—" }}
+              {{ appt.reason_display }} · {{ appt.branch.name|default:"—" }}
               {% if appt.preferred_vet %} · Dr. {{ appt.preferred_vet.first_name }} {{ appt.preferred_vet.last_name }}{% endif %}
             </div>
           </div>

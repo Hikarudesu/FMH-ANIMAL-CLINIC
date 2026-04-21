@@ -402,7 +402,7 @@ document.addEventListener("DOMContentLoaded", function () {
     paginatedEvents.forEach((e) => {
       const vetCol = getVetColor(e.vetId);
       html += `
-        <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.08)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';" onclick="openAppointmentDetail(${e.id})">
+        <div style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; background: var(--surface); color: var(--text-1); box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.1)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';" onclick="openAppointmentDetail(${e.id})">
 
           <div style="display: flex; align-items: center; flex: 1;">
             <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 1.2rem; margin-right: 16px; overflow: hidden;">
@@ -1151,4 +1151,79 @@ document.addEventListener("DOMContentLoaded", function () {
       toggleClientSource();
     });
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUTO-POPULATE QUICK CREATE FROM URL (From Patient Profile)
+  // ═══════════════════════════════════════════════════════════════
+  const autoQc = urlParams.get('auto_qc');
+  if (autoQc === '1' && quickCreateModal) {
+    // Open modal
+    openModal(quickCreateModal);
+    
+    const source = urlParams.get('qc_source');
+    if (clientSourceSelect && source) {
+      clientSourceSelect.value = source;
+      toggleClientSource();
+    }
+    
+    // Helper to extract and fill text parameters
+    const fillField = (name, urlParamName) => {
+        const val = urlParams.get(urlParamName);
+        if (val) {
+            const el = document.querySelector(`#quickCreateModal [name="${name}"]`);
+            if (el) el.value = val;
+        }
+    };
+    
+    fillField("owner_name", "qc_owner_name");
+    fillField("owner_phone", "qc_owner_phone");
+    fillField("owner_email", "qc_owner_email");
+    fillField("owner_address", "qc_owner_address");
+    fillField("pet_name", "qc_pet_name");
+    fillField("pet_species", "qc_pet_species");
+    fillField("pet_breed", "qc_pet_breed");
+    fillField("pet_dob", "qc_pet_dob");
+    fillField("pet_sex", "qc_pet_sex");
+    fillField("pet_color", "qc_pet_color");
+
+    if (source === 'PORTAL') {
+      const ownerId = urlParams.get('qc_owner_id');
+      const petId = urlParams.get('qc_pet_id');
+      
+      loadOwners();
+      let attempts = 0;
+      const interval = setInterval(() => {
+        if (ownerSelect && ownerSelect.options.length > 1) {
+          clearInterval(interval);
+          if (ownerId) {
+             ownerSelect.value = ownerId;
+             // Trigger change to load pets
+             ownerSelect.dispatchEvent(new Event("change"));
+             
+             let petAttempts = 0;
+             const petInterval = setInterval(() => {
+               if (petSelect && !petSelect.disabled && petSelect.options.length > 1) {
+                 clearInterval(petInterval);
+                 if (petId) {
+                   petSelect.value = petId;
+                   petSelect.dispatchEvent(new Event("change"));
+                 }
+               } else if (petAttempts++ > 30) {
+                 clearInterval(petInterval);
+               }
+             }, 100);
+          }
+        } else if (attempts++ > 30) {
+          clearInterval(interval);
+        }
+      }, 100);
+    } else {
+        // Walkin sets values directly; link the pet ID for DB consistency
+        if (selectedPetIdField && urlParams.get("qc_pet_id")) {
+             selectedPetIdField.value = urlParams.get("qc_pet_id");
+        }
+    }
+  }
+
 });
+
