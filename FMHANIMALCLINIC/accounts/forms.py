@@ -87,7 +87,8 @@ class PetOwnerRegistrationForm(FormControlMixin, UserCreationForm):
         """Ensure the username is unique (case-insensitive check)."""
         username = self.cleaned_data.get('username')
         if User.objects.filter(username__iexact=username).exists():
-            raise forms.ValidationError("This username is already in use. Please choose another.")
+            raise forms.ValidationError(
+                "This username is already in use. Please choose another.")
         return username
 
     def clean_phone_number(self):
@@ -218,9 +219,12 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
 
         # Customize fields
-        self.fields['username'].widget.attrs.update({'placeholder': 'Username'})
-        self.fields['password1'].widget.attrs.update({'placeholder': 'Password'})
-        self.fields['password2'].widget.attrs.update({'placeholder': 'Confirm password'})
+        self.fields['username'].widget.attrs.update(
+            {'placeholder': 'Username'})
+        self.fields['password1'].widget.attrs.update(
+            {'placeholder': 'Password'})
+        self.fields['password2'].widget.attrs.update(
+            {'placeholder': 'Confirm password'})
 
     def clean_username(self):
         """Ensure the username is unique (case-insensitive check)."""
@@ -229,7 +233,8 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
             raise forms.ValidationError("Username is required.")
 
         if User.objects.filter(username__iexact=username).exists():
-            raise forms.ValidationError("This username is already in use. Please choose another.")
+            raise forms.ValidationError(
+                "This username is already in use. Please choose another.")
         return username  # Preserve original casing
 
     def clean_phone_number(self):
@@ -239,7 +244,8 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
         """Ensure the email is unique."""
         email = self.cleaned_data.get('email')
         if User.objects.filter(email=email).exists():
-            raise forms.ValidationError("A user with this email already exists.")
+            raise forms.ValidationError(
+                "A user with this email already exists.")
         return email
 
     def save(self, commit=True):
