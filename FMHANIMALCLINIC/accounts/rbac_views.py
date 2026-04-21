@@ -119,6 +119,15 @@ def role_create(request):
         if Role.objects.filter(name=name).exists():
             errors.append(f'Role name "{name}" already exists.')
 
+        # Dashboard mutual exclusivity validation
+        has_staff_dash = bool(request.POST.get('special_can_access_staff_dashboard'))
+        has_admin_dash = bool(request.POST.get('special_can_access_admin_dashboard'))
+        if has_staff_dash and has_admin_dash:
+            errors.append(
+                'A role cannot have both Staff Dashboard and Admin Dashboard access. '
+                'Please select only one.'
+            )
+
         if errors:
             for error in errors:
                 messages.error(request, error)
@@ -235,6 +244,15 @@ def role_edit(request, role_id):
             errors.append('Role name is required.')
         if Role.objects.filter(name=name).exclude(pk=role_id).exists():
             errors.append(f'Role name "{name}" already exists.')
+
+        # Dashboard mutual exclusivity validation
+        has_staff_dash = bool(request.POST.get('special_can_access_staff_dashboard'))
+        has_admin_dash = bool(request.POST.get('special_can_access_admin_dashboard'))
+        if has_staff_dash and has_admin_dash:
+            errors.append(
+                'A role cannot have both Staff Dashboard and Admin Dashboard access. '
+                'Please select only one.'
+            )
 
         if errors:
             for error in errors:
@@ -614,3 +632,64 @@ def module_list_api(request):
         })
 
     return JsonResponse({'modules': data})
+
+
+@login_required
+@admin_only
+def get_hierarchy_presets(request):
+    """API endpoint to get permission presets for a hierarchy level or role code.
+
+    Dynamically fetches the current permissions from an existing role in the DB
+    rather than using static hardcoded presets.  Accepts either:
+      - ?level=<int>          — find the first role at that hierarchy level
+      - ?role_code=<string>   — find the role by its code (for Quick Preset buttons)
+      - &exclude_role=<int>   — optional role ID to exclude (the role being edited)
+    """
+    level = request.GET.get('level')
+    role_code = request.GET.get('role_code', '').strip()
+    exclude_id = request.GET.get('exclude_role')
+
+    qs = Role.objects.all()
+
+    # Exclude the role currently being edited so it doesn't reference itself
+    if exclude_id:
+        try:
+            qs = qs.exclude(pk=int(exclude_id))
+        except (ValueError, TypeError):
+            pass
+
+    # Determine which role to use as the preset source
+    reference_role = None
+    if role_code:
+        reference_role = qs.filter(code=role_code).first()
+    elif level is not None:
+        try:
+            reference_role = qs.filter(hierarchy_level=int(level)).first()
+        except (ValueError, TypeError):
+            pass
+
+    if not reference_role:
+        return JsonResponse({'found': False})
+
+    # Build the permissions dict (same structure as get_role_permissions)
+    permissions = {}
+    branch_restrictions = {}
+    for mp in reference_role.module_permissions.select_related('module').all():
+        if mp.module.code not in permissions:
+            permissions[mp.module.code] = []
+        permissions[mp.module.code].append(mp.permission_type)
+        if mp.restrict_to_branch:
+            branch_restrictions[mp.module.code] = True
+
+    special = list(
+        reference_role.special_permissions.values_list('permission__code', flat=True)
+    )
+
+    return JsonResponse({
+        'found': True,
+        'permissions': permissions,
+        'special_permissions': special,
+        'branch_restrictions': branch_restrictions,
+        'hierarchy_level': reference_role.hierarchy_level,
+        'role_name': reference_role.name,
+    })

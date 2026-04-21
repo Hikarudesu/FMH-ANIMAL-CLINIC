@@ -29,7 +29,7 @@
   <button class="c-tab-btn {% if request.resolver_match.url_name == 'vets' or request.resolver_match.url_name == 'vet_detail' %}active{% endif %}" data-tab="vets" type="button" onclick="window.location.href='{% url 'payroll:vets' %}'">
       <i class='bx bx-group c-tab-btn__icon'></i> <span class="c-tab-btn__label">Active Staff</span>
   </button>
-  <button class="c-tab-btn {% if request.resolver_match.url_name == 'requests' or 'payslip' in request.resolver_match.url_name %}active{% endif %}" data-tab="send" type="button" onclick="window.location.href='{% url 'payroll:requests' %}'">
+  <button class="c-tab-btn {% if request.resolver_match.url_name == 'requests' or 'generate' in request.resolver_match.url_name or 'payslip' in request.resolver_match.url_name %}active{% endif %}" data-tab="send" type="button" onclick="window.location.href='{% url 'payroll:requests' %}'">
       <i class='bx bx-send c-tab-btn__icon'></i> <span class="c-tab-btn__label">Send Payslips</span>
   </button>
   <button class="c-tab-btn {% if 'audit' in request.resolver_match.url_name %}active{% endif %}" data-tab="audit" type="button" onclick="window.location.href='{% url 'payroll:audit_log' %}'">

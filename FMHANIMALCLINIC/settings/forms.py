@@ -294,65 +294,86 @@ class NotificationSettingsForm(AdminInputMixin, forms.Form):
 class PayrollSettingsForm(AdminInputMixin, forms.Form):
     """Form for payroll-related settings."""
 
-    period_type = forms.ChoiceField(
-        label='Payroll Period Type',
-        choices=[
-            ('WEEKLY', 'Weekly'),
-            ('BI_WEEKLY', 'Bi-Weekly (Every 2 Weeks)'),
-            ('SEMI_MONTHLY', 'Semi-Monthly (1st-15th, 16th-End)'),
-            ('MONTHLY', 'Monthly'),
-        ],
-        widget=forms.Select(),
-        help_text='How often payroll is processed'
-    )
-    work_hours_per_day = forms.IntegerField(
-        label='Standard Work Hours Per Day',
+    # ─── Payroll Defaults ───
+    default_work_days = forms.IntegerField(
+        label='Default Working Days Per Month',
         min_value=1,
-        max_value=24,
+        max_value=31,
         widget=forms.NumberInput(),
-        help_text='Normal working hours per day'
+        help_text='Default number of working days used when generating payslips (e.g. 22)'
     )
-    overtime_threshold = forms.IntegerField(
-        label='Overtime Threshold (hours)',
-        min_value=1,
-        max_value=24,
-        widget=forms.NumberInput(),
-        help_text='Hours after which overtime pay applies'
+    default_staff_allowance = forms.DecimalField(
+        label='Default Staff Allowance (₱)',
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'step': '100'}),
+        help_text='Default monthly staff allowance applied to new payslips (split 50/50 on 15th & 30th)'
+    )
+
+    # ─── Employer Statutory Contributions ───
+    auto_statutory = forms.BooleanField(
+        label='Enable Employer Statutory Contributions',
+        required=False,
+        widget=forms.CheckboxInput(),
+        help_text='Master toggle. When enabled, clinic-paid statutory contributions (SSS, PhilHealth, Pag-IBIG) are auto-calculated during payslip generation and shown on payslips. These are NOT deducted from employee salary.'
     )
     enable_sss = forms.BooleanField(
-        label='Enable SSS Deduction',
+        label='SSS Contribution',
         required=False,
         widget=forms.CheckboxInput(),
-        help_text='Automatically deduct SSS contribution'
+        help_text='Calculate SSS employer contribution when generating payslips'
+    )
+    sss_rate = forms.DecimalField(
+        label='SSS Employer Rate (%)',
+        min_value=0,
+        max_value=100,
+        max_digits=5,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'step': '0.01'}),
+        help_text='Percentage of base salary for SSS employer share (e.g. 4.50 = 4.5%)'
     )
     enable_philhealth = forms.BooleanField(
-        label='Enable PhilHealth Deduction',
+        label='PhilHealth Contribution',
         required=False,
         widget=forms.CheckboxInput(),
-        help_text='Automatically deduct PhilHealth contribution'
+        help_text='Calculate PhilHealth employer contribution when generating payslips'
+    )
+    philhealth_rate = forms.DecimalField(
+        label='PhilHealth Employer Rate (%)',
+        min_value=0,
+        max_value=100,
+        max_digits=5,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'step': '0.01'}),
+        help_text='Percentage of base salary for PhilHealth employer share (e.g. 2.00 = 2%)'
     )
     enable_pagibig = forms.BooleanField(
-        label='Enable Pag-IBIG Deduction',
+        label='Pag-IBIG Contribution',
         required=False,
         widget=forms.CheckboxInput(),
-        help_text='Automatically deduct Pag-IBIG contribution'
+        help_text='Calculate Pag-IBIG employer contribution when generating payslips'
     )
-    auto_statutory = forms.BooleanField(
-        label='Statutory Deductions (Auto-calculate)',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='When enabled, statutory deductions (SSS, PhilHealth, PAG-IBIG) are auto-calculated and displayed. When disabled, the statutory deductions section is hidden from payslip views.'
+    pagibig_fixed = forms.DecimalField(
+        label='Pag-IBIG Fixed Amount (₱)',
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'step': '10'}),
+        help_text='Fixed monthly Pag-IBIG employer contribution (e.g. ₱100)'
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['period_type'].initial = get_setting('payroll_period_type', 'SEMI_MONTHLY')
-        self.fields['work_hours_per_day'].initial = get_setting('payroll_work_hours_per_day', 8)
-        self.fields['overtime_threshold'].initial = get_setting('payroll_overtime_threshold', 8)
-        self.fields['enable_sss'].initial = get_setting('payroll_enable_sss', True)
-        self.fields['enable_philhealth'].initial = get_setting('payroll_enable_philhealth', True)
-        self.fields['enable_pagibig'].initial = get_setting('payroll_enable_pagibig', True)
+        self.fields['default_work_days'].initial = get_setting('payroll_default_work_days', 22)
+        self.fields['default_staff_allowance'].initial = get_setting('payroll_default_staff_allowance', 2000)
         self.fields['auto_statutory'].initial = get_setting('payroll_auto_statutory', True)
+        self.fields['enable_sss'].initial = get_setting('payroll_enable_sss', True)
+        self.fields['sss_rate'].initial = get_setting('payroll_sss_rate', 4.50)
+        self.fields['enable_philhealth'].initial = get_setting('payroll_enable_philhealth', True)
+        self.fields['philhealth_rate'].initial = get_setting('payroll_philhealth_rate', 2.00)
+        self.fields['enable_pagibig'].initial = get_setting('payroll_enable_pagibig', True)
+        self.fields['pagibig_fixed'].initial = get_setting('payroll_pagibig_fixed', 100)
 
 
 class SystemSettingsForm(AdminInputMixin, forms.Form):

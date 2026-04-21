@@ -85,8 +85,8 @@
         <label class="form-label">
           <i class='bx bx-money'></i> Monthly Salary (₱)
         </label>
-        <input type="number" name="salary" class="admin-input" step="0.01"
-               value="{{ staff_profile.salary|default:0 }}"
+        <input type="text" name="salary" id="salaryInput" class="admin-input"
+               value="{{ staff_profile.salary|default:'0' }}"
                placeholder="0.00">
       </div>
 
@@ -518,5 +518,65 @@
     }
   }
 </style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const salaryInput = document.getElementById('salaryInput');
+    
+    function formatCurrencyNumber(val) {
+      if (!val) return '';
+      // Remove all non-digits except first decimal point
+      let cleanVal = val.replace(/[^\d.]/g, '');
+      const parts = cleanVal.split('.');
+      if (parts.length > 2) {
+        cleanVal = parts[0] + '.' + parts.slice(1).join('');
+      }
+      
+      // Separate whole numbers and decimals
+      let [whole, dec] = cleanVal.split('.');
+      if (whole) {
+        whole = parseInt(whole, 10).toString(); // remove leading zeros
+        whole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+      
+      if (dec !== undefined) {
+        return whole + '.' + dec.substring(0, 2);
+      }
+      return whole;
+    }
+
+    if (salaryInput) {
+      // Format initial value
+      if (salaryInput.value && salaryInput.value !== '0') {
+        salaryInput.value = formatCurrencyNumber(salaryInput.value);
+      }
+
+      salaryInput.addEventListener('input', function(e) {
+        const cursor = this.selectionStart;
+        const oldLength = this.value.length;
+        
+        this.value = formatCurrencyNumber(this.value);
+        
+        // Adjust cursor position
+        const newLength = this.value.length;
+        if (newLength > oldLength) {
+          this.setSelectionRange(cursor + 1, cursor + 1);
+        } else if (newLength < oldLength) {
+          this.setSelectionRange(cursor - 1, cursor - 1);
+        } else {
+          this.setSelectionRange(cursor, cursor);
+        }
+      });
+      
+      // Clean up before form submit
+      const form = salaryInput.closest('form');
+      if (form) {
+        form.addEventListener('submit', function() {
+          salaryInput.value = salaryInput.value.replace(/,/g, '');
+        });
+      }
+    }
+  });
+</script>
 
 {% endblock %}

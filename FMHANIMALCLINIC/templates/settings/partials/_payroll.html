@@ -5,84 +5,116 @@
     <input type="hidden" name="form_type" value="payroll">
 
     <div class="admin-grid">
+
+      <!-- ═══════════ Section: Payroll Defaults ═══════════ -->
       <div class="form-section-title">
-        <i class='bx bx-calendar'></i> Pay Period
+        <i class='bx bx-cog'></i> Payroll Defaults
+      </div>
+
+      <div style="background: rgba(0,150,136,0.06); border: 1px solid rgba(0,150,136,0.15); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem; color: var(--text-2); line-height: 1.5;">
+        <i class='bx bx-info-circle' style="color: var(--primary); margin-right: 4px;"></i>
+        These values are used as <strong>defaults</strong> when generating new payslips. Individual payslips can still be edited after generation.
       </div>
 
       <div class="admin-field">
-        <label for="id_period_type">Payroll Period Type</label>
-        {{ forms.payroll.period_type }}
-        <p class="form-hint">{{ forms.payroll.period_type.help_text }}</p>
-        {% if forms.payroll.period_type.errors %}
-          <div class="error-text">{{ forms.payroll.period_type.errors.0 }}</div>
-        {% endif %}
-      </div>
-
-      <div class="form-section-title">
-        <i class='bx bx-time-five'></i> Work Hours
-      </div>
-
-      <div class="admin-field">
-        <label for="id_work_hours_per_day">Standard Work Hours</label>
-        {{ forms.payroll.work_hours_per_day }}
-        <p class="form-hint">{{ forms.payroll.work_hours_per_day.help_text }}</p>
-        {% if forms.payroll.work_hours_per_day.errors %}
-          <div class="error-text">{{ forms.payroll.work_hours_per_day.errors.0 }}</div>
+        <label for="id_default_work_days">Default Working Days Per Month</label>
+        {{ forms.payroll.default_work_days }}
+        <p class="form-hint">{{ forms.payroll.default_work_days.help_text }}</p>
+        {% if forms.payroll.default_work_days.errors %}
+          <div class="error-text">{{ forms.payroll.default_work_days.errors.0 }}</div>
         {% endif %}
       </div>
 
       <div class="admin-field">
-        <label for="id_overtime_threshold">Overtime Threshold</label>
-        {{ forms.payroll.overtime_threshold }}
-        <p class="form-hint">{{ forms.payroll.overtime_threshold.help_text }}</p>
-        {% if forms.payroll.overtime_threshold.errors %}
-          <div class="error-text">{{ forms.payroll.overtime_threshold.errors.0 }}</div>
+        <label for="id_default_staff_allowance">Default Staff Allowance (₱)</label>
+        {{ forms.payroll.default_staff_allowance }}
+        <p class="form-hint">{{ forms.payroll.default_staff_allowance.help_text }}</p>
+        {% if forms.payroll.default_staff_allowance.errors %}
+          <div class="error-text">{{ forms.payroll.default_staff_allowance.errors.0 }}</div>
         {% endif %}
       </div>
 
-      <div class="form-section-title">
-        <i class='bx bx-receipt'></i> Statutory Deductions
+      <!-- ═══════════ Section: Employer Statutory Contributions ═══════════ -->
+      <div class="form-section-title" style="margin-top: 12px;">
+        <i class='bx bx-shield-quarter'></i> Employer Statutory Contributions
       </div>
 
+      <div style="background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.15); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem; color: var(--text-2); line-height: 1.5;">
+        <i class='bx bx-info-circle' style="color: #2563eb; margin-right: 4px;"></i>
+        These are <strong>statutory</strong> contributions. They are <strong>deducted</strong> from employee salaries.
+      </div>
+
+      <!-- Master Toggle -->
       <div class="admin-field">
         <div class="checkbox-field">
           {{ forms.payroll.auto_statutory }}
           <div class="checkbox-content">
-            <label for="id_auto_statutory">Statutory Deductions (Auto-calculate)</label>
+            <label for="id_auto_statutory">Enable Employer Statutory Contributions</label>
             <p class="form-hint">{{ forms.payroll.auto_statutory.help_text }}</p>
           </div>
         </div>
       </div>
 
-      <div class="admin-field">
-        <div class="checkbox-field">
-          {{ forms.payroll.enable_sss }}
-          <div class="checkbox-content">
-            <label for="id_enable_sss">Enable SSS Deduction</label>
-            <p class="form-hint">{{ forms.payroll.enable_sss.help_text }}</p>
+      <!-- SSS -->
+      <div style="display: flex; gap: 16px; align-items: flex-start; padding: 12px 16px; background: var(--bg); border-radius: 8px; margin-bottom: 8px;">
+        <div style="flex: 1;">
+          <div class="checkbox-field" style="margin-bottom: 0;">
+            {{ forms.payroll.enable_sss }}
+            <div class="checkbox-content">
+              <label for="id_enable_sss" style="font-weight: 600;">SSS Contribution</label>
+              <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_sss.help_text }}</p>
+            </div>
           </div>
+        </div>
+        <div style="width: 160px;">
+          <label for="id_sss_rate" style="font-size: 0.8rem; font-weight: 600; color: var(--text-2);">Rate (%)</label>
+          {{ forms.payroll.sss_rate }}
+          {% if forms.payroll.sss_rate.errors %}
+            <div class="error-text">{{ forms.payroll.sss_rate.errors.0 }}</div>
+          {% endif %}
         </div>
       </div>
 
-      <div class="admin-field">
-        <div class="checkbox-field">
-          {{ forms.payroll.enable_philhealth }}
-          <div class="checkbox-content">
-            <label for="id_enable_philhealth">Enable PhilHealth Deduction</label>
-            <p class="form-hint">{{ forms.payroll.enable_philhealth.help_text }}</p>
+      <!-- PhilHealth -->
+      <div style="display: flex; gap: 16px; align-items: flex-start; padding: 12px 16px; background: var(--bg); border-radius: 8px; margin-bottom: 8px;">
+        <div style="flex: 1;">
+          <div class="checkbox-field" style="margin-bottom: 0;">
+            {{ forms.payroll.enable_philhealth }}
+            <div class="checkbox-content">
+              <label for="id_enable_philhealth" style="font-weight: 600;">PhilHealth Contribution</label>
+              <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_philhealth.help_text }}</p>
+            </div>
           </div>
+        </div>
+        <div style="width: 160px;">
+          <label for="id_philhealth_rate" style="font-size: 0.8rem; font-weight: 600; color: var(--text-2);">Rate (%)</label>
+          {{ forms.payroll.philhealth_rate }}
+          {% if forms.payroll.philhealth_rate.errors %}
+            <div class="error-text">{{ forms.payroll.philhealth_rate.errors.0 }}</div>
+          {% endif %}
         </div>
       </div>
 
-      <div class="admin-field">
-        <div class="checkbox-field">
-          {{ forms.payroll.enable_pagibig }}
-          <div class="checkbox-content">
-            <label for="id_enable_pagibig">Enable Pag-IBIG Deduction</label>
-            <p class="form-hint">{{ forms.payroll.enable_pagibig.help_text }}</p>
+      <!-- Pag-IBIG -->
+      <div style="display: flex; gap: 16px; align-items: flex-start; padding: 12px 16px; background: var(--bg); border-radius: 8px; margin-bottom: 8px;">
+        <div style="flex: 1;">
+          <div class="checkbox-field" style="margin-bottom: 0;">
+            {{ forms.payroll.enable_pagibig }}
+            <div class="checkbox-content">
+              <label for="id_enable_pagibig" style="font-weight: 600;">Pag-IBIG Contribution</label>
+              <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_pagibig.help_text }}</p>
+            </div>
           </div>
         </div>
+        <div style="width: 160px;">
+          <label for="id_pagibig_fixed" style="font-size: 0.8rem; font-weight: 600; color: var(--text-2);">Fixed ₱</label>
+          {{ forms.payroll.pagibig_fixed }}
+          {% if forms.payroll.pagibig_fixed.errors %}
+            <div class="error-text">{{ forms.payroll.pagibig_fixed.errors.0 }}</div>
+          {% endif %}
+        </div>
       </div>
+
     </div>
 
     <div class="admin-actions">
@@ -92,3 +124,23 @@
     </div>
   </form>
 </div>
+
+<script>
+  // Master toggle: auto-check/uncheck SSS, PhilHealth, Pag-IBIG
+  document.addEventListener('DOMContentLoaded', function() {
+    const master = document.getElementById('id_auto_statutory');
+    const subs = [
+      document.getElementById('id_enable_sss'),
+      document.getElementById('id_enable_philhealth'),
+      document.getElementById('id_enable_pagibig'),
+    ];
+
+    if (master) {
+      master.addEventListener('change', function() {
+        subs.forEach(function(cb) {
+          if (cb) cb.checked = master.checked;
+        });
+      });
+    }
+  });
+</script>

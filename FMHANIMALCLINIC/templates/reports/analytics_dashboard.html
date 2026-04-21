@@ -336,213 +336,185 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-(function() {
+document.addEventListener("DOMContentLoaded", function() {
   const monthsData = {{ months_data|safe }};
-  const canvas = document.getElementById('clientsChart');
-  if (!canvas || !monthsData.length) return;
+  if (!monthsData || !monthsData.length) return;
 
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
+  const labels = monthsData.map(d => d.month);
+  
+  // Custom font styling
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = '#6b7280';
+  Chart.defaults.scale.grid.color = 'rgba(0,0,0,0.04)';
 
-  function draw() {
-    const rect = canvas.parentElement.getBoundingClientRect();
-    const W = rect.width;
-    const H = 320;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
-    ctx.scale(dpr, dpr);
-
-    ctx.clearRect(0, 0, W, H);
-
-    const pad = { top: 20, right: 20, bottom: 40, left: 50 };
-    const cW = W - pad.left - pad.right;
-    const cH = H - pad.top - pad.bottom;
-    const n = monthsData.length;
-    const barGroupWidth = cW / n;
-    const barW = Math.min(barGroupWidth * 0.3, 24);
-    const gap = 4;
-
-    // Max value
-    let maxVal = 1;
-    monthsData.forEach(function(d) {
-      maxVal = Math.max(maxVal, d.new, d.returning);
-    });
-    maxVal = Math.ceil(maxVal * 1.15);
-
-    // Grid lines
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-    ctx.lineWidth = 1;
-    const gridSteps = 5;
-    for (let i = 0; i <= gridSteps; i++) {
-      const y = pad.top + cH - (cH * i / gridSteps);
-      ctx.beginPath();
-      ctx.moveTo(pad.left, y);
-      ctx.lineTo(W - pad.right, y);
-      ctx.stroke();
-
-      // Y-axis labels
-      ctx.fillStyle = '#9ca3af';
-      ctx.font = '11px Inter, sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(Math.round(maxVal * i / gridSteps), pad.left - 8, y + 4);
+  // 1. Clients Chart (Grouped Bar)
+  const ctxClients = document.getElementById('clientsChart').getContext('2d');
+  new Chart(ctxClients, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'New Clients',
+          data: monthsData.map(d => d.new),
+          backgroundColor: '#10b981',
+          borderRadius: 6,
+          barPercentage: 0.6,
+          categoryPercentage: 0.8
+        },
+        {
+          label: 'Returning Clients',
+          data: monthsData.map(d => d.returning),
+          backgroundColor: '#6366f1',
+          borderRadius: 6,
+          barPercentage: 0.6,
+          categoryPercentage: 0.8
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.9)',
+          padding: 12,
+          titleFont: { size: 13, weight: 'bold' },
+          bodyFont: { size: 13 },
+          cornerRadius: 8,
+          displayColors: true,
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, border: { display: false } },
+        x: { grid: { display: false }, border: { display: false } }
+      },
+      interaction: { mode: 'index', intersect: false },
+      animation: { duration: 1000, easing: 'easeOutQuart' }
     }
+  });
 
-    // Bars
-    monthsData.forEach(function(d, i) {
-      const x = pad.left + barGroupWidth * i + barGroupWidth / 2;
-
-      // New clients bar
-      const h1 = (d.new / maxVal) * cH;
-      const x1 = x - barW - gap / 2;
-      const y1 = pad.top + cH - h1;
-      ctx.fillStyle = '#10b981';
-      roundRect(ctx, x1, y1, barW, h1, 4);
-
-      // Returning clients bar
-      const h2 = (d.returning / maxVal) * cH;
-      const x2 = x + gap / 2;
-      const y2 = pad.top + cH - h2;
-      ctx.fillStyle = '#6366f1';
-      roundRect(ctx, x2, y2, barW, h2, 4);
-
-      // Month label
-      ctx.fillStyle = '#6b7280';
-      ctx.font = '11px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(d.month, x, H - pad.bottom + 18);
-    });
+  function createGradient(ctx, colorBase) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+    gradient.addColorStop(0, colorBase);
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    return gradient;
   }
 
-  function roundRect(ctx, x, y, w, h, r) {
-    if (h < 1) return;
-    r = Math.min(r, h / 2, w / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h);
-    ctx.lineTo(x, y + h);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  draw();
-  window.addEventListener('resize', draw);
-
-  // Line Chart drawing logic for Sales Charts
-  function drawLineChart(canvasId, dataKey, colorStr, fillColorStr) {
-    const chartCanvas = document.getElementById(canvasId);
-    if (!chartCanvas || !monthsData.length) return;
-    const chartCtx = chartCanvas.getContext('2d');
-    
-    function renderLineChart() {
-      const rect = chartCanvas.parentElement.getBoundingClientRect();
-      const W = rect.width;
-      const H = 320;
-      chartCanvas.width = W * dpr;
-      chartCanvas.height = H * dpr;
-      chartCanvas.style.width = W + 'px';
-      chartCanvas.style.height = H + 'px';
-      chartCtx.scale(dpr, dpr);
-      chartCtx.clearRect(0, 0, W, H);
-
-      const pad = { top: 30, right: 20, bottom: 40, left: 60 };
-      const cW = W - pad.left - pad.right;
-      const cH = H - pad.top - pad.bottom;
-      
-      let localMaxVal = 1;
-      monthsData.forEach(d => { localMaxVal = Math.max(localMaxVal, d[dataKey]); });
-      localMaxVal = Math.ceil(localMaxVal * 1.15); // 15% headroom
-
-      // Grid lines & Y axis
-      chartCtx.strokeStyle = 'rgba(0,0,0,0.06)';
-      chartCtx.lineWidth = 1;
-      const gridSteps = 5;
-      for (let i = 0; i <= gridSteps; i++) {
-        const y = pad.top + cH - (cH * i / gridSteps);
-        chartCtx.beginPath();
-        chartCtx.moveTo(pad.left, y);
-        chartCtx.lineTo(W - pad.right, y);
-        chartCtx.stroke();
-
-        chartCtx.fillStyle = '#9ca3af';
-        chartCtx.font = '11px Inter, sans-serif';
-        chartCtx.textAlign = 'right';
-        
-        let val = Math.round(localMaxVal * i / gridSteps);
-        // Format as k/M for space
-        let valStr = val >= 1000000 ? (val/1000000).toFixed(1) + 'M' : val >= 1000 ? (val/1000).toFixed(1) + 'k' : val;
-        chartCtx.fillText('₱' + valStr, pad.left - 8, y + 4);
-      }
-
-      const stepX = cW / Math.max(1, monthsData.length - 1);
-      
-      if (localMaxVal > 1) { // Only draw shapes if we have data > 0
-        // Draw Area Fill
-        chartCtx.beginPath();
-        chartCtx.moveTo(pad.left, pad.top + cH);
-        monthsData.forEach((d, i) => {
-          const x = pad.left + i * stepX;
-          const y = pad.top + cH - (d[dataKey] / localMaxVal) * cH;
-          chartCtx.lineTo(x, y);
-        });
-        chartCtx.lineTo(pad.left + (monthsData.length - 1) * stepX, pad.top + cH);
-        chartCtx.closePath();
-        
-        const gradient = chartCtx.createLinearGradient(0, pad.top, 0, pad.top + cH);
-        gradient.addColorStop(0, fillColorStr);
-        gradient.addColorStop(1, 'rgba(255,255,255,0)');
-        chartCtx.fillStyle = gradient;
-        chartCtx.fill();
-
-        // Draw Line
-        chartCtx.beginPath();
-        monthsData.forEach((d, i) => {
-          const x = pad.left + i * stepX;
-          const y = pad.top + cH - (d[dataKey] / localMaxVal) * cH;
-          if (i === 0) chartCtx.moveTo(x, y);
-          else chartCtx.lineTo(x, y);
-        });
-        chartCtx.strokeStyle = colorStr;
-        chartCtx.lineWidth = 3;
-        chartCtx.stroke();
-
-        // Draw Points
-        monthsData.forEach((d, i) => {
-          const x = pad.left + i * stepX;
-          const y = pad.top + cH - (d[dataKey] / localMaxVal) * cH;
-          
-          chartCtx.beginPath();
-          chartCtx.arc(x, y, 4, 0, Math.PI * 2);
-          chartCtx.fillStyle = '#fff';
-          chartCtx.fill();
-          chartCtx.lineWidth = 2;
-          chartCtx.strokeStyle = colorStr;
-          chartCtx.stroke();
-        });
-      }
-
-      // X axis labels
-      monthsData.forEach((d, i) => {
-        const x = pad.left + i * stepX;
-        chartCtx.fillStyle = '#6b7280';
-        chartCtx.font = '11px Inter, sans-serif';
-        chartCtx.textAlign = 'center';
-        chartCtx.fillText(d.month, x, H - pad.bottom + 18);
-      });
+  // 2. Gross Sales Chart (Smooth Area Line)
+  const ctxGross = document.getElementById('grossSalesChart').getContext('2d');
+  new Chart(ctxGross, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Gross Sales (₱)',
+        data: monthsData.map(d => d.gross),
+        borderColor: '#059669',
+        backgroundColor: createGradient(ctxGross, 'rgba(5, 150, 105, 0.25)'),
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4, // smooth curve
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: '#059669',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.9)',
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            label: function(context) {
+              return ' ₱' + context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+          }
+        }
+      },
+      scales: {
+        y: { 
+          beginAtZero: true, 
+          border: { display: false },
+          ticks: {
+            callback: function(value) {
+              if (value >= 1000000) return '₱' + (value / 1000000).toFixed(1) + 'M';
+              if (value >= 1000) return '₱' + (value / 1000).toFixed(1) + 'k';
+              return '₱' + value;
+            }
+          }
+        },
+        x: { grid: { display: false }, border: { display: false } }
+      },
+      interaction: { mode: 'index', intersect: false },
+      animation: { duration: 1200, easing: 'easeOutQuart' }
     }
-    
-    renderLineChart();
-    window.addEventListener('resize', renderLineChart);
-  }
+  });
 
-  drawLineChart('grossSalesChart', 'gross', '#059669', 'rgba(5,150,105,0.2)');
-  drawLineChart('netSalesChart', 'net', '#2563eb', 'rgba(37,99,235,0.2)');
-})();
+  // 3. Net Sales Chart (Smooth Area Line)
+  const ctxNet = document.getElementById('netSalesChart').getContext('2d');
+  new Chart(ctxNet, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Net Sales (₱)',
+        data: monthsData.map(d => d.net),
+        borderColor: '#2563eb',
+        backgroundColor: createGradient(ctxNet, 'rgba(37, 99, 235, 0.25)'),
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: '#2563eb',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.9)',
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            label: function(context) {
+              return ' ₱' + context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+          }
+        }
+      },
+      scales: {
+        y: { 
+          beginAtZero: true, 
+          border: { display: false },
+          ticks: {
+            callback: function(value) {
+              if (value >= 1000000) return '₱' + (value / 1000000).toFixed(1) + 'M';
+              if (value >= 1000) return '₱' + (value / 1000).toFixed(1) + 'k';
+              return '₱' + value;
+            }
+          }
+        },
+        x: { grid: { display: false }, border: { display: false } }
+      },
+      interaction: { mode: 'index', intersect: false },
+      animation: { duration: 1200, easing: 'easeOutQuart', delay: 100 }
+    }
+  });
+});
 </script>
 {% endblock %}

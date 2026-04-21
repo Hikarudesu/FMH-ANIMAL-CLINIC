@@ -66,7 +66,7 @@ def analytics_dashboard(request):
     elif branch_id:
         try:
             filter_branch = Branch.objects.get(id=branch_id)
-        except Branch.DoesNotExist:
+        except (Branch.DoesNotExist, ValueError):
             filter_branch = None
 
     # ── Metric 1: Total Patients ──────────────────────────────────────
@@ -93,12 +93,25 @@ def analytics_dashboard(request):
     )
     gross_sales = sales_agg['gross_sales'] or Decimal('0')
     net_sales = sales_agg['net_sales'] or Decimal('0')
-    # Calculate total discount amount: sum of (subtotal * discount_percent / 100)
+    # Calculate total discount amount from percentage discounts
     total_discount = Decimal('0')
     for sale in sales_qs:
         if sale.discount_percent > 0:
-            total_discount += (sale.subtotal * sale.discount_percent / Decimal('100')).quantize(Decimal('0.01'))
+            total_discount += (sale.subtotal * sale.discount_percent /
+                               Decimal('100')).quantize(Decimal('0.01'))
     transaction_count = sales_agg['transaction_count'] or 0
+
+    # Subtract Refund amounts from Net Sales
+    refund_qs = Refund.objects.filter(
+        status=Refund.Status.COMPLETED,
+        created_at__date__gte=date_from,
+        created_at__date__lte=date_to,
+    )
+    if filter_branch:
+        refund_qs = refund_qs.filter(sale__branch=filter_branch)
+    total_refunds = refund_qs.aggregate(total=Sum('amount'))[
+        'total'] or Decimal('0')
+    net_sales -= total_refunds
 
     # ── Metric 3: Monthly New vs Returning Clients ────────────────────
     # Build 12-month lookback for chart
@@ -117,7 +130,7 @@ def analytics_dashboard(request):
         appts_qs = Appointment.objects.filter(
             appointment_date__gte=m_start,
             appointment_date__lte=m_end,
-        )
+        ).exclude(status='CANCELLED')
         if filter_branch:
             appts_qs = appts_qs.filter(branch=filter_branch)
 
@@ -137,8 +150,20 @@ def analytics_dashboard(request):
             gross_sales=Sum('subtotal'),
             net_sales=Sum('total')
         )
+
+        m_refund_qs = Refund.objects.filter(
+            status=Refund.Status.COMPLETED,
+            created_at__date__gte=m_start,
+            created_at__date__lte=m_end,
+        )
+        if filter_branch:
+            m_refund_qs = m_refund_qs.filter(sale__branch=filter_branch)
+        m_refund_total = m_refund_qs.aggregate(total=Sum('amount'))[
+            'total'] or Decimal('0')
+
         m_gross = float(m_sales_agg['gross_sales'] or 0)
-        m_net = float(m_sales_agg['net_sales'] or 0)
+        m_net = float((m_sales_agg['net_sales']
+                      or Decimal('0')) - m_refund_total)
 
         months_data.append({
             'month': m_date.strftime('%b'),
@@ -153,7 +178,7 @@ def analytics_dashboard(request):
     period_appts = Appointment.objects.filter(
         appointment_date__gte=date_from,
         appointment_date__lte=date_to,
-    )
+    ).exclude(status='CANCELLED')
     if filter_branch:
         period_appts = period_appts.filter(branch=filter_branch)
 
@@ -257,7 +282,8 @@ def finance_dashboard(request):
         top_services = top_services.filter(sale__branch=branch)
 
     top_services = top_services.values('name').annotate(
-        revenue=Sum(ExpressionWrapper(F('unit_price') * F('quantity'), output_field=DecimalField())),
+        revenue=Sum(ExpressionWrapper(F('unit_price') *
+                    F('quantity'), output_field=DecimalField())),
         count=Sum('quantity')
     ).order_by('-revenue')[:10]
 
@@ -271,7 +297,8 @@ def finance_dashboard(request):
         top_products = top_products.filter(sale__branch=branch)
 
     top_products = top_products.values('name').annotate(
-        revenue=Sum(ExpressionWrapper(F('unit_price') * F('quantity'), output_field=DecimalField())),
+        revenue=Sum(ExpressionWrapper(F('unit_price') *
+                    F('quantity'), output_field=DecimalField())),
         count=Sum('quantity')
     ).order_by('-revenue')[:10]
 
@@ -326,12 +353,14 @@ def daily_sales_report(request):
         total_items=Count('items'),
         avg_transaction=Avg('total'),
     )
-    
+
     # Calculate total discount amount: sum of (subtotal * discount_percent / 100)
     total_discount = Decimal('0')
     for sale in sales_qs:
         if sale.discount_percent > 0:
-            total_discount = total_discount + (sale.subtotal * sale.discount_percent / Decimal('100')).quantize(Decimal('0.01'))
+            total_discount = total_discount + \
+                (sale.subtotal * sale.discount_percent /
+                 Decimal('100')).quantize(Decimal('0.01'))
     summary['total_discount'] = total_discount
 
     # Payment breakdown
@@ -355,7 +384,8 @@ def daily_sales_report(request):
         sale__in=sales_qs
     ).values('item_type', 'name').annotate(
         total_qty=Sum('quantity'),
-        revenue=Sum(ExpressionWrapper(F('unit_price') * F('quantity'), output_field=DecimalField()))
+        revenue=Sum(ExpressionWrapper(F('unit_price') *
+                    F('quantity'), output_field=DecimalField()))
     ).order_by('-revenue')
 
     context = {
@@ -411,12 +441,14 @@ def sales_by_period(request):
         total_transactions=Count('id'),
         avg_transaction=Avg('total'),
     )
-    
+
     # Calculate total discount amount: sum of (subtotal * discount_percent / 100)
     total_discount = Decimal('0')
     for sale in sales_qs:
         if sale.discount_percent > 0:
-            total_discount = total_discount + (sale.subtotal * sale.discount_percent / Decimal('100')).quantize(Decimal('0.01'))
+            total_discount = total_discount + \
+                (sale.subtotal * sale.discount_percent /
+                 Decimal('100')).quantize(Decimal('0.01'))
     summary['total_discount'] = total_discount
 
     # Sales by branch
@@ -441,7 +473,8 @@ def sales_by_period(request):
         items_qs = items_qs.filter(item_type=category.upper())
 
     items_by_category = items_qs.values('item_type').annotate(
-        revenue=Sum(ExpressionWrapper(F('unit_price') * F('quantity'), output_field=DecimalField())),
+        revenue=Sum(ExpressionWrapper(F('unit_price') *
+                    F('quantity'), output_field=DecimalField())),
         quantity=Sum('quantity')
     ).order_by('-revenue')
 
@@ -490,7 +523,8 @@ def operations_dashboard(request):
     }
 
     # Month appointments
-    month_appointments = appointments_qs.filter(appointment_date__gte=start_of_month)
+    month_appointments = appointments_qs.filter(
+        appointment_date__gte=start_of_month)
     month_stats = {
         'total': month_appointments.count(),
         'completed': month_appointments.filter(status='COMPLETED').count(),
@@ -506,7 +540,8 @@ def operations_dashboard(request):
         count=Count('id')
     ).order_by('-count')
     by_reason = [
-        {'reason': row['reason_for_visit__name'] or 'Unspecified', 'count': row['count']}
+        {'reason': row['reason_for_visit__name']
+            or 'Unspecified', 'count': row['count']}
         for row in by_reason
     ]
 
@@ -538,7 +573,8 @@ def operations_dashboard(request):
     # Patient stats
     pets_qs = Pet.objects.filter(is_active=True)
     total_patients = pets_qs.count()
-    new_patients_month = pets_qs.filter(created_at__date__gte=start_of_month).count()
+    new_patients_month = pets_qs.filter(
+        created_at__date__gte=start_of_month).count()
 
     context = {
         'today_stats': today_stats,
@@ -601,7 +637,8 @@ def customer_analytics(request):
         appointments_qs = appointments_qs.filter(branch=branch)
 
     new_customers = appointments_qs.filter(is_returning_customer=False).count()
-    returning_customers = appointments_qs.filter(is_returning_customer=True).count()
+    returning_customers = appointments_qs.filter(
+        is_returning_customer=True).count()
 
     # Species breakdown
     pets_qs = Pet.objects.filter(is_active=True)
@@ -660,9 +697,11 @@ def export_sales_csv(request):
     ])
 
     for sale in sales_qs.select_related('branch', 'cashier').order_by('created_at'):
-        payment_methods = ', '.join([p.get_method_display() for p in sale.payments.all()])
+        payment_methods = ', '.join(
+            [p.get_method_display() for p in sale.payments.all()])
         # Calculate actual discount amount from percentage
-        discount_amt = (sale.subtotal * sale.discount_percent / Decimal('100')).quantize(Decimal('0.01')) if sale.discount_percent > 0 else Decimal('0.00')
+        discount_amt = (sale.subtotal * sale.discount_percent / Decimal('100')).quantize(
+            Decimal('0.01')) if sale.discount_percent > 0 else Decimal('0.00')
         writer.writerow([
             sale.transaction_id,
             sale.created_at.strftime('%Y-%m-%d'),
@@ -722,7 +761,8 @@ def export_daily_report_csv(request):
     writer.writerow(['Time', 'Transaction ID', 'Customer', 'Total', 'Payment'])
 
     for sale in sales_qs.order_by('created_at'):
-        payment_methods = ', '.join([p.get_method_display() for p in sale.payments.all()])
+        payment_methods = ', '.join(
+            [p.get_method_display() for p in sale.payments.all()])
         writer.writerow([
             sale.created_at.strftime('%H:%M'),
             sale.transaction_id,
@@ -744,7 +784,8 @@ def gross_profit_report(request):
     """Revenue minus cost per item — profit margins."""
     branch = request.user.branch
     today = timezone.now().date()
-    date_from = request.GET.get('date_from', today.replace(day=1).strftime('%Y-%m-%d'))
+    date_from = request.GET.get(
+        'date_from', today.replace(day=1).strftime('%Y-%m-%d'))
     date_to = request.GET.get('date_to', today.strftime('%Y-%m-%d'))
 
     items_qs = SaleItem.objects.filter(
@@ -777,18 +818,21 @@ def gross_profit_report(request):
     total_revenue = sum(i['revenue'] for i in profit_items)
     total_cost = sum(i['cost'] for i in profit_items)
     total_profit = total_revenue - total_cost
-    overall_margin = round(float(total_profit / total_revenue) * 100, 1) if total_revenue else 0
+    overall_margin = round(float(total_profit / total_revenue)
+                           * 100, 1) if total_revenue else 0
 
     by_type: dict = {}
     for i in profit_items:
         t = i['item_type']
         if t not in by_type:
-            by_type[t] = {'revenue': Decimal('0'), 'cost': Decimal('0'), 'profit': Decimal('0'), 'count': 0}
+            by_type[t] = {'revenue': Decimal('0'), 'cost': Decimal(
+                '0'), 'profit': Decimal('0'), 'count': 0}
         by_type[t]['revenue'] = by_type[t]['revenue'] + i['revenue']
         by_type[t]['cost'] = by_type[t]['cost'] + i['cost']
         by_type[t]['profit'] = by_type[t]['profit'] + i['profit']
         by_type[t]['count'] = by_type[t]['count'] + i['quantity']
-    by_type_list = [{'type': k, **v, 'margin': round(float(v['profit'] / v['revenue']) * 100, 1) if v['revenue'] else 0} for k, v in by_type.items()]
+    by_type_list = [{'type': k, **v, 'margin': round(float(
+        v['profit'] / v['revenue']) * 100, 1) if v['revenue'] else 0} for k, v in by_type.items()]
 
     context = {
         'profit_items': profit_items,
@@ -813,7 +857,8 @@ def discount_report(request):
     """Discounts given — total discounts, percentage of sales."""
     branch = request.user.branch
     today = timezone.now().date()
-    date_from = request.GET.get('date_from', today.replace(day=1).strftime('%Y-%m-%d'))
+    date_from = request.GET.get(
+        'date_from', today.replace(day=1).strftime('%Y-%m-%d'))
     date_to = request.GET.get('date_to', today.strftime('%Y-%m-%d'))
 
     sales_qs = Sale.objects.filter(
@@ -833,26 +878,31 @@ def discount_report(request):
     if request.user.is_module_branch_restricted('reports') and branch:
         all_sales = all_sales.filter(branch=branch)
 
-    total_sales_revenue = all_sales.aggregate(total=Sum('total'))['total'] or Decimal('0')
-    
+    total_sales_revenue = all_sales.aggregate(total=Sum('total'))[
+        'total'] or Decimal('0')
+
     # Calculate total discounts and averages
     total_discounts = Decimal('0')
     discount_count = 0
     for sale in sales_qs:
         if sale.discount_percent > 0:
-            total_discounts += (sale.subtotal * sale.discount_percent / Decimal('100')).quantize(Decimal('0.01'))
+            total_discounts += (sale.subtotal * sale.discount_percent /
+                                Decimal('100')).quantize(Decimal('0.01'))
             discount_count += 1
-    
-    avg_discount = total_discounts / discount_count if discount_count > 0 else Decimal('0')
-    
+
+    avg_discount = total_discounts / \
+        discount_count if discount_count > 0 else Decimal('0')
+
     summary = {
         'total_discounts': total_discounts,
         'discount_count': discount_count,
         'avg_discount': avg_discount,
     }
-    pct_of_sales = round(float((total_discounts / total_sales_revenue) * 100), 1) if total_sales_revenue else 0
+    pct_of_sales = round(float(
+        (total_discounts / total_sales_revenue) * 100), 1) if total_sales_revenue else 0
 
-    discounted_sales = sales_qs.select_related('branch', 'cashier').order_by('-created_at')[:50]
+    discounted_sales = sales_qs.select_related(
+        'branch', 'cashier').order_by('-created_at')[:50]
 
     context = {
         'summary': summary,
@@ -875,7 +925,8 @@ def refund_report(request):
     """Voided/refunded sales — reasons, amounts."""
     branch = request.user.branch
     today = timezone.now().date()
-    date_from = request.GET.get('date_from', today.replace(day=1).strftime('%Y-%m-%d'))
+    date_from = request.GET.get(
+        'date_from', today.replace(day=1).strftime('%Y-%m-%d'))
     date_to = request.GET.get('date_to', today.strftime('%Y-%m-%d'))
 
     refunds_qs = Refund.objects.filter(
@@ -897,9 +948,11 @@ def refund_report(request):
         total_refunds=Sum('amount'),
         refund_count=Count('id'),
     )
-    by_status = refunds_qs.values('status').annotate(count=Count('id'), total=Sum('amount')).order_by('-total')
+    by_status = refunds_qs.values('status').annotate(
+        count=Count('id'), total=Sum('amount')).order_by('-total')
 
-    void_summary = voided_qs.aggregate(total_voided=Sum('total'), void_count=Count('id'))
+    void_summary = voided_qs.aggregate(
+        total_voided=Sum('total'), void_count=Count('id'))
 
     context = {
         'refund_summary': refund_summary,
@@ -923,7 +976,8 @@ def appointment_reports(request):
     """Comprehensive appointment analytics."""
     branch = request.user.branch
     today = timezone.now().date()
-    date_from = request.GET.get('date_from', today.replace(day=1).strftime('%Y-%m-%d'))
+    date_from = request.GET.get(
+        'date_from', today.replace(day=1).strftime('%Y-%m-%d'))
     date_to = request.GET.get('date_to', today.strftime('%Y-%m-%d'))
 
     appts_qs = Appointment.objects.filter(
@@ -935,17 +989,22 @@ def appointment_reports(request):
 
     total = appts_qs.count()
 
-    by_status = appts_qs.values('status').annotate(count=Count('id')).order_by('-count')
-    by_branch = appts_qs.values('branch__name').annotate(count=Count('id')).order_by('-count')
+    by_status = appts_qs.values('status').annotate(
+        count=Count('id')).order_by('-count')
+    by_branch = appts_qs.values('branch__name').annotate(
+        count=Count('id')).order_by('-count')
     by_vet = appts_qs.filter(preferred_vet__isnull=False).values(
         'preferred_vet__first_name', 'preferred_vet__last_name'
     ).annotate(count=Count('id')).order_by('-count')
-    by_reason = appts_qs.values('reason_for_visit__name').annotate(count=Count('id')).order_by('-count')
+    by_reason = appts_qs.values('reason_for_visit__name').annotate(
+        count=Count('id')).order_by('-count')
     by_reason = [
-        {'reason': row['reason_for_visit__name'] or 'Unspecified', 'count': row['count']}
+        {'reason': row['reason_for_visit__name']
+            or 'Unspecified', 'count': row['count']}
         for row in by_reason
     ]
-    by_source = appts_qs.values('source').annotate(count=Count('id')).order_by('-count')
+    by_source = appts_qs.values('source').annotate(
+        count=Count('id')).order_by('-count')
 
     cancelled = appts_qs.filter(status='CANCELLED').count()
     completed = appts_qs.filter(status='COMPLETED').count()
@@ -993,19 +1052,23 @@ def inventory_reports(request):
 
     total_products = inventory_qs.count()
     total_value = inventory_qs.aggregate(
-        val=Sum(ExpressionWrapper(F('stock_quantity') * F('unit_cost'), output_field=DecimalField()))
+        val=Sum(ExpressionWrapper(F('stock_quantity') *
+                F('unit_cost'), output_field=DecimalField()))
     )['val'] or Decimal('0')
 
-    low_stock_items = inventory_qs.filter(stock_quantity__lte=F('min_stock_level'), stock_quantity__gt=0).order_by('stock_quantity')
+    low_stock_items = inventory_qs.filter(stock_quantity__lte=F(
+        'min_stock_level'), stock_quantity__gt=0).order_by('stock_quantity')
     out_of_stock_items = inventory_qs.filter(stock_quantity=0)
     expiring_date = today + timedelta(days=30)
-    expiring_items = inventory_qs.filter(expiration_date__lte=expiring_date, expiration_date__gte=today).order_by('expiration_date')
+    expiring_items = inventory_qs.filter(
+        expiration_date__lte=expiring_date, expiration_date__gte=today).order_by('expiration_date')
 
     thirty_days_ago = today - timedelta(days=30)
     movements_qs = StockAdjustment.objects.filter(date__gte=thirty_days_ago)
     if request.user.is_module_branch_restricted('reports') and branch:
         movements_qs = movements_qs.filter(branch=branch)
-    recent_movements = movements_qs.select_related('product', 'branch').order_by('-date', '-pk')[:50]
+    recent_movements = movements_qs.select_related(
+        'product', 'branch').order_by('-date', '-pk')[:50]
 
     movement_by_type = movements_qs.values('adjustment_type').annotate(
         count=Count('id'), total_qty=Sum('quantity')
@@ -1021,7 +1084,8 @@ def inventory_reports(request):
         top_sellers = top_sellers.filter(sale__branch=branch)
     top_sellers = top_sellers.values('product__id', 'product__name').annotate(
         units_sold=Sum('quantity'),
-        revenue=Sum(ExpressionWrapper(F('unit_price') * F('quantity'), output_field=DecimalField()))
+        revenue=Sum(ExpressionWrapper(F('unit_price') *
+                    F('quantity'), output_field=DecimalField()))
     ).order_by('-units_sold')[:20]
 
     sixty_days_ago = today - timedelta(days=60)
@@ -1058,14 +1122,18 @@ def patient_reports(request):
 
     pets_qs = Pet.objects.filter(is_active=True)
     total_patients = pets_qs.count()
-    by_species = pets_qs.values('species').annotate(count=Count('id')).order_by('-count')
-    new_this_month = pets_qs.filter(created_at__date__gte=start_of_month).count()
-    by_status = pets_qs.values('status').annotate(count=Count('id')).order_by('-count')
+    by_species = pets_qs.values('species').annotate(
+        count=Count('id')).order_by('-count')
+    new_this_month = pets_qs.filter(
+        created_at__date__gte=start_of_month).count()
+    by_status = pets_qs.values('status').annotate(
+        count=Count('id')).order_by('-count')
     critical_pets = pets_qs.filter(status='CRITICAL').select_related('owner')
 
     entries_qs = RecordEntry.objects.filter(date_recorded__gte=start_of_month)
     treatments_count = entries_qs.count()
-    by_action = entries_qs.values('action_required').annotate(count=Count('id')).order_by('-count')
+    by_action = entries_qs.values('action_required').annotate(
+        count=Count('id')).order_by('-count')
     by_vet = entries_qs.filter(vet__isnull=False).values(
         'vet__first_name', 'vet__last_name'
     ).annotate(count=Count('id')).order_by('-count')
@@ -1081,7 +1149,8 @@ def patient_reports(request):
         ).exclude(pk=entry.pk).exists()
         if has_followup:
             completed_followups += 1
-    followup_rate = round(float(completed_followups / total_followups) * 100, 1) if total_followups > 0 else 0
+    followup_rate = round(float(
+        completed_followups / total_followups) * 100, 1) if total_followups > 0 else 0
 
     upcoming_followups = RecordEntry.objects.filter(
         ff_up__gte=today, ff_up__lte=today + timedelta(days=7),
@@ -1154,16 +1223,15 @@ def customer_list_report(request):
 @login_required
 @module_permission_required('reports', 'MANAGE')
 def export_analytics_excel(request):
-    """Export analytics dashboard data to Excel (.xlsx) format."""
+    """Export analytics dashboard data to Excel (.xlsx) format divided by branches."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
 
-    branch = request.user.branch
+    user_branch = request.user.branch
     today = timezone.now().date()
 
-    # ── Filters (same as analytics_dashboard) ─────────────────────────
-    branch_id = request.GET.get('branch', '')
+    # ── Filters ─────────────────────────
     period = request.GET.get('period', 'monthly')
 
     if period == 'daily':
@@ -1180,105 +1248,19 @@ def export_analytics_excel(request):
         date_to = today.replace(day=last_day)
         period_label = today.strftime('%B %Y')
 
-    filter_branch = None
-    if request.user.is_module_branch_restricted('reports') and branch:
-        filter_branch = branch
-    elif branch_id:
-        try:
-            filter_branch = Branch.objects.get(id=branch_id)
-        except Branch.DoesNotExist:
-            filter_branch = None
+    branches = Branch.objects.filter(is_active=True).order_by('name')
+    if request.user.is_module_branch_restricted('reports') and user_branch:
+        branches = branches.filter(id=user_branch.id)
 
-    # ── Gather data ───────────────────────────────────────────────────
-    pets_qs = Pet.objects.filter(is_active=True)
-    total_patients = pets_qs.count()
-    new_patients_period = pets_qs.filter(
-        created_at__date__gte=date_from,
-        created_at__date__lte=date_to
-    ).count()
-
-    sales_qs = Sale.objects.filter(
-        status=Sale.Status.COMPLETED,
-        created_at__date__gte=date_from,
-        created_at__date__lte=date_to,
-    )
-    if filter_branch:
-        sales_qs = sales_qs.filter(branch=filter_branch)
-
-    sales_agg = sales_qs.aggregate(
-        gross_sales=Sum('subtotal'),
-        net_sales=Sum('total'),
-        transaction_count=Count('id'),
-    )
-    gross_sales = sales_agg['gross_sales'] or Decimal('0')
-    net_sales = sales_agg['net_sales'] or Decimal('0')
-    total_discount = Decimal('0')
-    for sale in sales_qs:
-        if sale.discount_percent > 0:
-            total_discount += (sale.subtotal * sale.discount_percent / Decimal('100')).quantize(Decimal('0.01'))
-    transaction_count = sales_agg['transaction_count'] or 0
-
-    period_appts = Appointment.objects.filter(
-        appointment_date__gte=date_from,
-        appointment_date__lte=date_to,
-    )
-    if filter_branch:
-        period_appts = period_appts.filter(branch=filter_branch)
-
-    new_clients = period_appts.filter(is_returning_customer=False).count()
-    returning_clients = period_appts.filter(is_returning_customer=True).count()
-
-    # 12-month data
-    months_data = []
-    for i in range(11, -1, -1):
-        m_date = today.replace(day=1)
-        for _ in range(i):
-            m_date = (m_date - timedelta(days=1)).replace(day=1)
-
-        m_start = m_date
-        _, m_last = monthrange(m_date.year, m_date.month)
-        m_end = m_date.replace(day=m_last)
-
-        appts_qs = Appointment.objects.filter(
-            appointment_date__gte=m_start,
-            appointment_date__lte=m_end,
-        )
-        if filter_branch:
-            appts_qs = appts_qs.filter(branch=filter_branch)
-
-        new_count = appts_qs.filter(is_returning_customer=False).count()
-        returning_count = appts_qs.filter(is_returning_customer=True).count()
-
-        m_sales_qs = Sale.objects.filter(
-            status=Sale.Status.COMPLETED,
-            created_at__date__gte=m_start,
-            created_at__date__lte=m_end,
-        )
-        if filter_branch:
-            m_sales_qs = m_sales_qs.filter(branch=filter_branch)
-
-        m_sales_agg = m_sales_qs.aggregate(
-            gross_sales=Sum('subtotal'),
-            net_sales=Sum('total')
-        )
-
-        months_data.append({
-            'month': m_date.strftime('%B %Y'),
-            'new': new_count,
-            'returning': returning_count,
-            'gross': float(m_sales_agg['gross_sales'] or 0),
-            'net': float(m_sales_agg['net_sales'] or 0),
-        })
-
-    # ── Build Excel workbook ──────────────────────────────────────────
     wb = Workbook()
 
     # Styles
     header_font = Font(name='Calibri', bold=True, size=12, color='FFFFFF')
-    header_fill = PatternFill(start_color='009688', end_color='009688', fill_type='solid')
-    title_font = Font(name='Calibri', bold=True, size=14)
+    header_fill = PatternFill(start_color='009688',
+                              end_color='009688', fill_type='solid')
     label_font = Font(name='Calibri', bold=True, size=11)
     value_font = Font(name='Calibri', size=11)
+    branch_font = Font(name='Calibri', bold=True, size=14, color='009688')
     money_format = '#,##0.00'
     thin_border = Border(
         left=Side(style='thin'),
@@ -1287,78 +1269,201 @@ def export_analytics_excel(request):
         bottom=Side(style='thin')
     )
 
-    # ── Sheet 1: Summary ──────────────────────────────────────────────
     ws = wb.active
-    ws.title = 'Summary'
+    ws.title = 'Analytics Summary'
     ws.column_dimensions['A'].width = 30
     ws.column_dimensions['B'].width = 25
+    ws.column_dimensions['C'].width = 20
+    ws.column_dimensions['D'].width = 20
+    ws.column_dimensions['E'].width = 20
 
     ws.append(['FMH Animal Clinic — Analytics Report'])
-    ws.merge_cells('A1:B1')
+    ws.merge_cells('A1:C1')
     ws['A1'].font = Font(name='Calibri', bold=True, size=16)
 
     ws.append([f'Period: {period_label}'])
     ws['A2'].font = Font(name='Calibri', italic=True, size=11)
-    if filter_branch:
-        ws.append([f'Branch: {filter_branch.name}'])
-    else:
-        ws.append(['Branch: All Branches'])
     ws.append([f'Generated: {timezone.now().strftime("%B %d, %Y %I:%M %p")}'])
     ws.append([])
 
-    # Metrics
-    metrics = [
-        ('Metric', 'Value'),
-        ('Total Patients', total_patients),
-        ('New Patients (period)', new_patients_period),
-        ('Gross Sales', float(gross_sales)),
-        ('Net Sales', float(net_sales)),
-        ('Total Discounts', float(total_discount)),
-        ('Transactions', transaction_count),
-        ('New Clients (period)', new_clients),
-        ('Returning Clients (period)', returning_clients),
-    ]
+    current_row = 5
+    has_data = False
 
-    for row_idx, (label, val) in enumerate(metrics, start=6):
-        ws.cell(row=row_idx, column=1, value=label).font = label_font if row_idx == 6 else value_font
-        cell = ws.cell(row=row_idx, column=2, value=val)
-        cell.font = label_font if row_idx == 6 else value_font
-        if row_idx == 6:
-            ws.cell(row=row_idx, column=1).fill = header_fill
-            ws.cell(row=row_idx, column=1).font = header_font
-            ws.cell(row=row_idx, column=2).fill = header_fill
-            ws.cell(row=row_idx, column=2).font = header_font
-        elif isinstance(val, float):
-            cell.number_format = money_format
-        ws.cell(row=row_idx, column=1).border = thin_border
-        ws.cell(row=row_idx, column=2).border = thin_border
+    for current_branch in branches:
+        has_data = True
+        # ── Gather data ───────────────────────────────────────────────────
+        pets_qs = Pet.objects.filter(is_active=True)
+        total_patients = pets_qs.count()
+        new_patients_period = pets_qs.filter(
+            created_at__date__gte=date_from,
+            created_at__date__lte=date_to
+        ).count()
 
-    # ── Sheet 2: Monthly Trends ───────────────────────────────────────
-    ws2 = wb.create_sheet('Monthly Trends')
-    ws2.column_dimensions['A'].width = 18
-    ws2.column_dimensions['B'].width = 15
-    ws2.column_dimensions['C'].width = 18
-    ws2.column_dimensions['D'].width = 18
-    ws2.column_dimensions['E'].width = 18
+        sales_qs = Sale.objects.filter(
+            status=Sale.Status.COMPLETED,
+            created_at__date__gte=date_from,
+            created_at__date__lte=date_to,
+            branch=current_branch
+        )
 
-    headers = ['Month', 'New Clients', 'Returning Clients', 'Gross Sales', 'Net Sales']
-    for col_idx, header in enumerate(headers, start=1):
-        cell = ws2.cell(row=1, column=col_idx, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = thin_border
+        sales_agg = sales_qs.aggregate(
+            gross_sales=Sum('subtotal'),
+            net_sales=Sum('total'),
+            transaction_count=Count('id'),
+        )
+        gross_sales = sales_agg['gross_sales'] or Decimal('0')
+        net_sales = sales_agg['net_sales'] or Decimal('0')
+        total_discount = Decimal('0')
+        for sale in sales_qs:
+            if sale.discount_percent > 0:
+                total_discount += (sale.subtotal * sale.discount_percent /
+                                   Decimal('100')).quantize(Decimal('0.01'))
+        transaction_count = sales_agg['transaction_count'] or 0
 
-    for row_idx, m in enumerate(months_data, start=2):
-        ws2.cell(row=row_idx, column=1, value=m['month']).border = thin_border
-        ws2.cell(row=row_idx, column=2, value=m['new']).border = thin_border
-        ws2.cell(row=row_idx, column=3, value=m['returning']).border = thin_border
-        gross_cell = ws2.cell(row=row_idx, column=4, value=m['gross'])
-        gross_cell.number_format = money_format
-        gross_cell.border = thin_border
-        net_cell = ws2.cell(row=row_idx, column=5, value=m['net'])
-        net_cell.number_format = money_format
-        net_cell.border = thin_border
+        refund_qs = Refund.objects.filter(
+            status=Refund.Status.COMPLETED,
+            created_at__date__gte=date_from,
+            created_at__date__lte=date_to,
+            sale__branch=current_branch
+        )
+        total_refunds = refund_qs.aggregate(total=Sum('amount'))[
+            'total'] or Decimal('0')
+        net_sales -= total_refunds
+
+        period_appts = Appointment.objects.filter(
+            appointment_date__gte=date_from,
+            appointment_date__lte=date_to,
+            branch=current_branch
+        ).exclude(status='CANCELLED')
+
+        new_clients = period_appts.filter(is_returning_customer=False).count()
+        returning_clients = period_appts.filter(
+            is_returning_customer=True).count()
+
+        # 12-month data
+        months_data = []
+        for i in range(11, -1, -1):
+            m_date = today.replace(day=1)
+            for _ in range(i):
+                m_date = (m_date - timedelta(days=1)).replace(day=1)
+
+            m_start = m_date
+            _, m_last = monthrange(m_date.year, m_date.month)
+            m_end = m_date.replace(day=m_last)
+
+            appts_qs = Appointment.objects.filter(
+                appointment_date__gte=m_start,
+                appointment_date__lte=m_end,
+                branch=current_branch
+            ).exclude(status='CANCELLED')
+
+            new_count = appts_qs.filter(is_returning_customer=False).count()
+            returning_count = appts_qs.filter(
+                is_returning_customer=True).count()
+
+            m_sales_qs = Sale.objects.filter(
+                status=Sale.Status.COMPLETED,
+                created_at__date__gte=m_start,
+                created_at__date__lte=m_end,
+                branch=current_branch
+            )
+
+            m_sales_agg = m_sales_qs.aggregate(
+                gross_sales=Sum('subtotal'),
+                net_sales=Sum('total')
+            )
+
+            m_refund_qs = Refund.objects.filter(
+                status=Refund.Status.COMPLETED,
+                created_at__date__gte=m_start,
+                created_at__date__lte=m_end,
+                sale__branch=current_branch
+            )
+            m_refund_total = m_refund_qs.aggregate(total=Sum('amount'))[
+                'total'] or Decimal('0')
+
+            months_data.append({
+                'month': m_date.strftime('%B %Y'),
+                'new': new_count,
+                'returning': returning_count,
+                'gross': float(m_sales_agg['gross_sales'] or 0),
+                'net': float((m_sales_agg['net_sales'] or Decimal('0')) - m_refund_total),
+            })
+
+        # Write Branch Header
+        cell = ws.cell(row=current_row, column=1,
+                       value=f"Branch: {current_branch.name}")
+        cell.font = branch_font
+        current_row += 1
+
+        # Summary Metrics
+        metrics = [
+            ('Metric', 'Value'),
+            ('Total Patients', total_patients),
+            ('New Patients (period)', new_patients_period),
+            ('Gross Sales', float(gross_sales)),
+            ('Net Sales', float(net_sales)),
+            ('Total Discounts', float(total_discount)),
+            ('Transactions', transaction_count),
+            ('New Clients (period)', new_clients),
+            ('Returning Clients (period)', returning_clients),
+        ]
+
+        # append metrics table
+        for r_idx, (m_label, m_val) in enumerate(metrics):
+            cell_label = ws.cell(row=current_row, column=1, value=m_label)
+            cell_val = ws.cell(row=current_row, column=2, value=m_val)
+
+            if r_idx == 0:
+                cell_label.font = header_font
+                cell_label.fill = header_fill
+                cell_val.font = header_font
+                cell_val.fill = header_fill
+            else:
+                cell_label.font = label_font
+                cell_val.font = value_font
+                if isinstance(m_val, float):
+                    cell_val.number_format = money_format
+
+            cell_label.border = thin_border
+            cell_val.border = thin_border
+            current_row += 1
+
+        current_row += 1  # Empty row
+
+        # Write Monthly Trends
+        headers = ['Month', 'New Clients',
+                   'Returning Clients', 'Gross Sales', 'Net Sales']
+        for col_idx, header in enumerate(headers, start=1):
+            cell = ws.cell(row=current_row, column=col_idx, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+        current_row += 1
+
+        for m in months_data:
+            ws.cell(row=current_row, column=1,
+                    value=m['month']).border = thin_border
+            ws.cell(row=current_row, column=2,
+                    value=m['new']).border = thin_border
+            ws.cell(row=current_row, column=3,
+                    value=m['returning']).border = thin_border
+
+            gross_cell = ws.cell(row=current_row, column=4, value=m['gross'])
+            gross_cell.number_format = money_format
+            gross_cell.border = thin_border
+
+            net_cell = ws.cell(row=current_row, column=5, value=m['net'])
+            net_cell.number_format = money_format
+            net_cell.border = thin_border
+
+            current_row += 1
+
+        current_row += 2  # extra space before next branch
+
+    if not has_data:
+        ws.append(["No data to display."])
 
     # ── Save and return ───────────────────────────────────────────────
     buffer = BytesIO()

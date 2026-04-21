@@ -9,8 +9,8 @@ from django.db.models import Q
 
 from accounts.decorators import module_permission_required, special_permission_required, admin_only
 from branches.models import Branch
-from .models import StaffMember, VetSchedule, RecurringSchedule
-from .forms import StaffMemberForm, VetScheduleForm, RecurringScheduleForm
+from employees.models import StaffMember, VetSchedule, RecurringSchedule
+from employees.forms import StaffMemberForm, VetScheduleForm, RecurringScheduleForm
 
 
 # ──────────────────────── STAFF MANAGEMENT ────────────────────────
@@ -25,9 +25,11 @@ def staff_list(request):
     branch_id = request.GET.get('branch', '')
     position = request.GET.get('position', '')
 
-    # Get all users with staff roles assigned
+    # Get all users with staff roles assigned, excluding superadmin (owner)
     staff_users = User.objects.filter(
         assigned_role__is_staff_role=True
+    ).exclude(
+        assigned_role__code='superadmin'
     ).select_related('assigned_role', 'branch', 'staff_profile')
 
     # Apply search filter
@@ -117,8 +119,10 @@ def staff_edit(request, user_id):
         staff_profile.save(update_fields=['branch'])
 
     if request.method == 'POST':
-        # Update StaffMember profile fields only
-        staff_profile.salary = request.POST.get('salary', 0)
+        raw_salary = request.POST.get('salary', '0')
+        if isinstance(raw_salary, str):
+            raw_salary = raw_salary.replace(',', '')
+        staff_profile.salary = raw_salary
         staff_profile.license_number = request.POST.get('license_number', '')
         license_expiry = request.POST.get('license_expiry', '')
         if license_expiry:
@@ -656,7 +660,7 @@ def payslip_list_view(request):
 @module_permission_required('payroll', 'VIEW')
 def payslip_detail_view(request, pk):
     """Admin view: generate and display a specific payslip."""
-    from .payslip_utils import compute_payslip
+    from employees.payslip_utils import compute_payslip
 
     staff_member = get_object_or_404(StaffMember, pk=pk)
 

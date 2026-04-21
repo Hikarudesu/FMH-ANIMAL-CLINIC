@@ -1,4 +1,4 @@
-﻿{% extends 'payroll/base.html' %}
+{% extends 'payroll/base.html' %}
 {% load currency_filters %}
 
 {% block title %}Payslips - {{ period.period_display }}{% endblock %}
@@ -82,11 +82,13 @@
           <div class="actions">
             {% if payslip.status != 'RELEASED' %}
             <a href="{% url 'payroll:payslip_edit' payslip.id %}" class="action-btn" title="Edit Payslip"><i class='bx bx-pencil'></i></a>
-            {% if payslip.employee.email %}
-            <a href="{% url 'payroll:send_email' payslip.id %}" class="action-btn" title="Send Email" onclick="return confirm('Send payslip email to {{ payslip.employee.full_name }}?');"><i class='bx bx-send'></i></a>
-            {% endif %}
-            {% elif can_edit_released %}
+            {% else %}
+            {% if can_edit_released %}
             <a href="{% url 'payroll:payslip_delete' payslip.id %}" class="action-btn action-btn-danger" title="Delete Released Payslip" onclick="return confirm('Delete this released payslip? This action will be logged.');"><i class='bx bx-trash'></i></a>
+            {% endif %}
+            {% if payslip.employee.email %}
+            <a href="{% url 'payroll:send_email' payslip.id %}" class="action-btn" title="Resend Email" onclick="return confirm('Resend payslip email to {{ payslip.employee.full_name }}?');"><i class='bx bx-send'></i></a>
+            {% endif %}
             {% endif %}
             <a href="{% url 'payroll:payslip_print' payslip.id %}" class="action-btn" title="View/Print Document"><i class='bx bx-printer'></i></a>
           </div>

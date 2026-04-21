@@ -84,9 +84,9 @@ class PetOwnerRegistrationForm(FormControlMixin, UserCreationForm):
         })
 
     def clean_username(self):
-        """Ensure the username is unique."""
+        """Ensure the username is unique (case-insensitive check)."""
         username = self.cleaned_data.get('username')
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError("This username is already in use. Please choose another.")
         return username
 
@@ -223,15 +223,14 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
         self.fields['password2'].widget.attrs.update({'placeholder': 'Confirm password'})
 
     def clean_username(self):
-        """Ensure the username is unique."""
+        """Ensure the username is unique (case-insensitive check)."""
         username = self.cleaned_data.get('username')
         if not username:
             raise forms.ValidationError("Username is required.")
-        
-        # Check for existing username (case-insensitive to be more thorough)
+
         if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError("This username is already in use. Please choose another.")
-        return username.lower()  # Store usernames in lowercase for consistency
+        return username  # Preserve original casing
 
     def clean_phone_number(self):
         return validate_philippines_phone(self.cleaned_data.get('phone_number', ''))

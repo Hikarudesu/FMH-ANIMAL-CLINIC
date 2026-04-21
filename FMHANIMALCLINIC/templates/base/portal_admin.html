@@ -373,7 +373,7 @@
           <div class="sidebar-item has-submenu">
             <a
               href="#"
-              class="sidebar-link {% if 'branches' in request.path or 'inventory' in request.path or 'transfers' in request.path or 'billing' in request.path %}active{% endif %}"
+              class="sidebar-link {% if 'branches' in request.path or 'inventory' in request.path and 'logs' not in request.path or 'transfers' in request.path or 'billing' in request.path %}active{% endif %}"
               id="operationsDropdownToggle"
             >
               <i class="bx bx-briefcase-alt-2"></i><span>Operations Control</span>
@@ -391,7 +391,7 @@
               {% if user|has_nav_module:'clinic_services' %}
               <a
                 href="{% url 'billing:billable_items' %}"
-                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'billable_items' %}active{% endif %}"
+                class="sidebar-submenu-link {% if 'billable' in request.resolver_match.url_name %}active{% endif %}"
               >
                 <i class="bx bx-briefcase"></i><span>Manage Clinic Services</span>
               </a>
@@ -594,7 +594,7 @@
               {% if user|has_nav_module:'clinic_services' %}
               <a
                 href="{% url 'billing:billable_items' %}"
-                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'billable_items' %}active{% endif %}"
+                class="sidebar-submenu-link {% if 'billable' in request.resolver_match.url_name %}active{% endif %}"
               >
                 <i class="bx bx-briefcase"></i><span>Clinic Services</span>
               </a>
@@ -782,6 +782,16 @@
           </a>
           {% endif %}
           {% endif %}
+          {% endif %}
+
+          {# My Payslips - visible to staff with can_view_own_payslips permission, hidden from superadmin #}
+          {% if user|has_nav_special_permission:'can_view_own_payslips' and not user.is_superuser and user.assigned_role.code != 'superadmin' %}
+          <a
+            href="{% url 'payroll:my_payslips' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'my_payslips' or request.resolver_match.url_name == 'my_payslip_detail' %}active{% endif %}"
+          >
+            <i class="bx bx-receipt"></i><span>My Payslips</span>
+          </a>
           {% endif %}
 
           {% if user|has_nav_module:'notifications' %}

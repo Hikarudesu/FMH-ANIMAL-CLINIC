@@ -453,101 +453,145 @@
 
 <script>
   // ═══════════════════════════════════════════════════════════════
-  // RBAC ROLE FORM - Permission Presets & Hierarchy Automation
+  // RBAC ROLE FORM — Dynamic Permission Presets & Dashboard Toggle
   // ═══════════════════════════════════════════════════════════════
 
-  // Hierarchy level to preset mapping
-  const hierarchyPresets = {
+  // Current role ID (for edit mode — excluded from preset lookups)
+  const CURRENT_ROLE_ID = '{{ role.pk|default:"" }}';
+  const PRESETS_API_URL = '{% url "accounts:hierarchy_presets_api" %}';
+
+  // Hierarchy level → role code mapping (for visual feedback only)
+  const hierarchyRoleCodes = {
     2: 'vet_assistant',
     4: 'receptionist',
     6: 'veterinarian',
-    8: 'admin'
+    8: 'branch_admin'
   };
 
-  // Permission presets for each role type
-  // NOTE: APPROVE/EXPORT removed — only VIEW, CREATE, EDIT, DELETE, MANAGE remain
-  const presets = {
-    admin: {
-      dashboard: ['VIEW'],
-      appointments: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      patients: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      medical_records: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      ai_diagnostics: ['VIEW', 'CREATE'],
-      pos: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      clinic_services: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      staff: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      schedule: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      inventory: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      stock_monitor: ['VIEW'],
-      analytics: ['VIEW'],
-      activity_logs: ['VIEW'],
-      branches: ['VIEW', 'CREATE', 'EDIT'],
-    },
-    veterinarian: {
-      dashboard: ['VIEW'],
-      appointments: ['VIEW', 'EDIT'],
-      patients: ['VIEW', 'CREATE', 'EDIT'],
-      medical_records: ['VIEW', 'CREATE', 'EDIT'],
-      ai_diagnostics: ['VIEW', 'CREATE'],
-      schedule: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-    },
-    receptionist: {
-      dashboard: ['VIEW'],
-      appointments: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      patients: ['VIEW', 'CREATE', 'EDIT'],
-      pos: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
-      clinic_services: ['VIEW', 'CREATE'],
-      inventory: ['VIEW', 'CREATE', 'EDIT'],
-    },
-    vet_assistant: {
-      dashboard: ['VIEW'],
-      appointments: ['VIEW'],
-      patients: ['VIEW'],
-      medical_records: ['VIEW'],
-      inventory: ['VIEW'],
+  // ─── Dashboard Mutual Exclusivity ──────────────────────────────
+  const STAFF_DASH_CODE = 'can_access_staff_dashboard';
+  const ADMIN_DASH_CODE = 'can_access_admin_dashboard';
+
+  function enforceDashboardExclusivity(changedCode) {
+    const staffCb = document.querySelector(`input[name="special_${STAFF_DASH_CODE}"]`);
+    const adminCb = document.querySelector(`input[name="special_${ADMIN_DASH_CODE}"]`);
+    if (!staffCb || !adminCb) return;
+
+    if (changedCode === STAFF_DASH_CODE && staffCb.checked) {
+      adminCb.checked = false;
+      flashExclusivityHint(adminCb);
+    } else if (changedCode === ADMIN_DASH_CODE && adminCb.checked) {
+      staffCb.checked = false;
+      flashExclusivityHint(staffCb);
     }
-  };
+  }
 
-  // Branch restriction presets per role
-  const branchRestrictionPresets = {
-    admin: ['branches'],  // Admin restricted to managing their own branch
-    veterinarian: ['appointments', 'patients', 'medical_records', 'schedule'],
-    receptionist: ['appointments', 'patients', 'pos', 'inventory'],
-    vet_assistant: ['appointments', 'patients', 'medical_records', 'inventory'],
-  };
+  function flashExclusivityHint(uncheckedCb) {
+    // Brief visual pulse on the unchecked item's parent label
+    const label = uncheckedCb.closest('.special-item');
+    if (!label) return;
+    label.style.transition = 'background 0.3s ease';
+    label.style.background = 'rgba(230, 57, 70, 0.10)';
+    setTimeout(() => {
+      label.style.background = '';
+    }, 600);
+  }
 
-  // Clear all permission checkboxes
+  // ─── Clear All Permissions ─────────────────────────────────────
   function clearAllPermissions() {
     document.querySelectorAll('.module-perm').forEach(cb => cb.checked = false);
     document.querySelectorAll('.all-perms-toggle').forEach(cb => cb.checked = false);
     document.querySelectorAll('.branch-restrict-cb').forEach(cb => cb.checked = false);
+    // Also clear special permissions
+    document.querySelectorAll('.special-item input[type="checkbox"]').forEach(cb => cb.checked = false);
   }
 
-  // Apply a preset to the permission checkboxes
-  function applyPreset(presetName) {
+  // ─── Apply Permissions from API Response ───────────────────────
+  function applyPermissionsFromResponse(data) {
     clearAllPermissions();
-    
-    const preset = presets[presetName];
-    if (!preset) return;
 
-    for (const [module, perms] of Object.entries(preset)) {
-      perms.forEach(perm => {
-        const cb = document.querySelector(`input[name="perm_${module}_${perm}"]`);
+    if (!data.found) return;
+
+    // Apply module permissions
+    const perms = data.permissions || {};
+    for (const [moduleCode, permTypes] of Object.entries(perms)) {
+      permTypes.forEach(perm => {
+        const cb = document.querySelector(`input[name="perm_${moduleCode}_${perm}"]`);
         if (cb) cb.checked = true;
       });
-      // Update the "All" toggle for this module
-      updateAllToggle(module);
+      updateAllToggle(moduleCode);
     }
 
-    // Apply branch restrictions for this preset
-    const branchRestrictions = branchRestrictionPresets[presetName] || [];
-    branchRestrictions.forEach(module => {
-      const cb = document.querySelector(`input[name="branch_restrict_${module}"]`);
+    // Apply branch restrictions
+    const branchRestrictions = data.branch_restrictions || {};
+    for (const moduleCode of Object.keys(branchRestrictions)) {
+      const cb = document.querySelector(`input[name="branch_restrict_${moduleCode}"]`);
+      if (cb) cb.checked = true;
+    }
+
+    // Apply special permissions
+    const specialPerms = data.special_permissions || [];
+    specialPerms.forEach(code => {
+      const cb = document.querySelector(`input[name="special_${code}"]`);
       if (cb) cb.checked = true;
     });
   }
 
-  // Update the "All" checkbox state for a specific module
+  // ─── Fetch Preset from DB via AJAX ─────────────────────────────
+  function fetchAndApplyPreset(params, feedbackBtnSelector) {
+    // Build query string
+    const qs = new URLSearchParams(params);
+    if (CURRENT_ROLE_ID) qs.set('exclude_role', CURRENT_ROLE_ID);
+
+    // Visual loading state on button
+    let feedbackBtn = null;
+    if (feedbackBtnSelector) {
+      feedbackBtn = document.querySelector(feedbackBtnSelector);
+      if (feedbackBtn) {
+        feedbackBtn.classList.add('applied');
+      }
+    }
+
+    fetch(`${PRESETS_API_URL}?${qs.toString()}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(resp => resp.json())
+    .then(data => {
+      applyPermissionsFromResponse(data);
+
+      // Clear visual on all preset buttons, then highlight the active one
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('applied'));
+      if (feedbackBtn) {
+        feedbackBtn.classList.add('applied');
+        setTimeout(() => feedbackBtn.classList.remove('applied'), 1500);
+      }
+    })
+    .catch(err => {
+      console.error('Failed to fetch preset:', err);
+      if (feedbackBtn) feedbackBtn.classList.remove('applied');
+    });
+  }
+
+  // ─── Quick Preset Buttons (by role code) ───────────────────────
+  function applyPreset(roleCode) {
+    const btnSelector = `.preset-btn[onclick*="${roleCode}"]`;
+    fetchAndApplyPreset({ role_code: roleCode }, btnSelector);
+  }
+
+  // ─── Hierarchy Level Change (by level number) ──────────────────
+  function onHierarchyChange(selectEl) {
+    const level = parseInt(selectEl.value);
+
+    // Determine the role code for visual feedback on Quick Preset buttons
+    const roleCode = hierarchyRoleCodes[level] || '';
+    const btnSelector = roleCode
+      ? `.preset-btn[onclick*="${roleCode}"]`
+      : null;
+
+    fetchAndApplyPreset({ level: level }, btnSelector);
+  }
+
+  // ─── Update "All" Checkbox State ───────────────────────────────
   function updateAllToggle(moduleCode) {
     const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
     if (!row) return;
@@ -559,7 +603,7 @@
     }
   }
 
-  // Toggle all permissions for a module
+  // ─── Toggle All Permissions for a Module ───────────────────────
   function toggleAllPerms(checkbox, moduleCode) {
     const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
     const perms = row.querySelectorAll('.module-perm');
@@ -568,25 +612,7 @@
     });
   }
 
-  // AUTO-APPLY preset when hierarchy level changes
-  function onHierarchyChange(selectEl) {
-    const level = parseInt(selectEl.value);
-    const presetName = hierarchyPresets[level];
-    
-    if (presetName) {
-      applyPreset(presetName);
-      
-      // Visual feedback - highlight the corresponding preset button
-      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('applied'));
-      const presetBtn = document.querySelector(`.preset-btn[onclick*="${presetName}"]`);
-      if (presetBtn) {
-        presetBtn.classList.add('applied');
-        setTimeout(() => presetBtn.classList.remove('applied'), 1500);
-      }
-    }
-  }
-
-  // Initialize on page load
+  // ─── Initialize on Page Load ───────────────────────────────────
   document.addEventListener('DOMContentLoaded', function() {
     // Initialize "All" checkboxes state
     document.querySelectorAll('tr[data-module]').forEach(row => {
@@ -601,6 +627,16 @@
         updateAllToggle(moduleCode);
       });
     });
+
+    // Dashboard mutual exclusivity listeners
+    const staffDashCb = document.querySelector(`input[name="special_${STAFF_DASH_CODE}"]`);
+    const adminDashCb = document.querySelector(`input[name="special_${ADMIN_DASH_CODE}"]`);
+    if (staffDashCb) {
+      staffDashCb.addEventListener('change', () => enforceDashboardExclusivity(STAFF_DASH_CODE));
+    }
+    if (adminDashCb) {
+      adminDashCb.addEventListener('change', () => enforceDashboardExclusivity(ADMIN_DASH_CODE));
+    }
   });
 </script>
 

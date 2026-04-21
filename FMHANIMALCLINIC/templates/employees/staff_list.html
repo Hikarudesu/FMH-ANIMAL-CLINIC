@@ -131,7 +131,7 @@
             <span class="cell-secondary">{{ user.branch.name|default:"—" }}</span>
           </td>
           <td style="text-align: center;" class="cell-secondary">
-            {% if user.staff_profile %}₱{{ user.staff_profile.salary|peso }}{% else %}—{% endif %}
+            {% if user.staff_profile %}₱{{ user.staff_profile.salary|peso }}{% else %}₱0.00{% endif %}
           </td>
           <td style="text-align: center;">
             {% if user.staff_profile and user.staff_profile.license_expiry %}

@@ -1763,14 +1763,21 @@ document.getElementById('emBranch').addEventListener('change', function() {
     emFilterVets(this.value);
 });
 
+function decodeDjangoEscapeJS(str) {
+    if (!str) return '';
+    return str.replace(/\\u([0-9a-fA-F]{4})/g, function(match, hex) {
+        return String.fromCharCode(parseInt(hex, 16));
+    });
+}
+
 function openEntryModal(row) {
-    document.getElementById('emDateLabel').textContent = row.querySelector('.col-date').textContent.trim().replace(' ✎', '');
+    document.getElementById('emDateLabel').textContent = row.querySelector('.col-date').textContent.trim().replace(' \u270e', '');
     document.getElementById('emDate').value      = row.dataset.date;
     document.getElementById('emWeight').value    = row.dataset.weight;
     document.getElementById('emTemp').value      = row.dataset.temp;
-    document.getElementById('emHistory').value   = row.dataset.history;
-    document.getElementById('emTreatment').value = row.dataset.treatment;
-    document.getElementById('emRx').value        = row.dataset.rx;
+    document.getElementById('emHistory').value   = decodeDjangoEscapeJS(row.dataset.history);
+    document.getElementById('emTreatment').value = decodeDjangoEscapeJS(row.dataset.treatment);
+    document.getElementById('emRx').value        = decodeDjangoEscapeJS(row.dataset.rx);
     document.getElementById('emFfup').value      = row.dataset.ffup;
     if (document.getElementById('emAction')) {
         document.getElementById('emAction').value = row.dataset.action || 'HEALTHY';

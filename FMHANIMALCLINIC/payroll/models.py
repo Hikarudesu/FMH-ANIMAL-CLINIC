@@ -227,9 +227,11 @@ class Payslip(models.Model):
             self.thirteenth_month_pay
         )
         
-        # Total deductions — SSS/PhilHealth/PagIBIG are NO LONGER
-        # deducted from employee pay (they are clinic-paid benefits)
+        # Total deductions
         self.total_deductions = (
+            self.sss +
+            self.philhealth +
+            self.pagibig +
             self.tax +
             self.cash_advance + 
             self.late_deduction + 
@@ -265,19 +267,24 @@ class Payslip(models.Model):
     def generate_from_employee(self):
         """
         Auto-generate payslip data from employee record.
-        Statutory contributions are clinic-paid (not deducted from salary).
-        Uses employee's default allowances if configured.
+        Reads configurable defaults from system settings.
+        Statutory contributions are clinic-paid (not deducted from salary)
+        and only calculated when enabled in settings.
         """
+        from settings.utils import get_setting
+        
         # Get base salary from employee
         self.base_salary = Decimal(str(self.employee.salary or 0))
         
-        # Use employee defaults or fallback
-        self.days_worked = getattr(self.employee, 'default_days_worked', 22) or 22
+        # Use configurable default work days from settings
+        default_days = get_setting('payroll_default_work_days', 22)
+        self.days_worked = getattr(self.employee, 'default_days_worked', None) or int(default_days)
         self.days_absent = 0
         
-        # Staff allowance from employee defaults
-        default_staff_allowance = getattr(self.employee, 'default_staff_allowance', None)
-        self.staff_allowance = Decimal(str(default_staff_allowance or 2000))
+        # Staff allowance from employee defaults, falling back to settings default
+        default_staff_allowance = get_setting('payroll_default_staff_allowance', 2000)
+        emp_staff_allowance = getattr(self.employee, 'default_staff_allowance', None)
+        self.staff_allowance = Decimal(str(emp_staff_allowance or default_staff_allowance))
         
         # Other allowances from employee defaults
         default_other_allowance = getattr(self.employee, 'default_other_allowance', None)
@@ -286,13 +293,38 @@ class Payslip(models.Model):
         # Zero out legacy deduction fields
         self.sss = Decimal('0')
         self.philhealth = Decimal('0')
-        self.pagibig = Decimal('0')
+        # Calculate statutory contributions based on settings
+        auto_statutory = get_setting('payroll_auto_statutory', True)
         
-        # Calculate clinic-paid statutory contributions
-        if self.base_salary > 0:
-            self.clinic_sss = self.base_salary * Decimal('0.045')  # 4.5% SSS
-            self.clinic_philhealth = self.base_salary * Decimal('0.02')  # 2% PhilHealth
-            self.clinic_pagibig = Decimal('100')  # Fixed ₱100 PAG-IBIG
+        if auto_statutory and self.base_salary > 0:
+            # SSS
+            if get_setting('payroll_enable_sss', True):
+                sss_rate = Decimal(str(get_setting('payroll_sss_rate', 4.50)))
+                self.sss = self.base_salary * (sss_rate / Decimal('100'))
+            else:
+                self.sss = Decimal('0')
+            
+            # PhilHealth
+            if get_setting('payroll_enable_philhealth', True):
+                ph_rate = Decimal(str(get_setting('payroll_philhealth_rate', 2.00)))
+                self.philhealth = self.base_salary * (ph_rate / Decimal('100'))
+            else:
+                self.philhealth = Decimal('0')
+            
+            # Pag-IBIG
+            if get_setting('payroll_enable_pagibig', True):
+                self.pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100)))
+            else:
+                self.pagibig = Decimal('0')
+        else:
+            # Statutory disabled — zero out everything
+            self.sss = Decimal('0')
+            self.philhealth = Decimal('0')
+            self.pagibig = Decimal('0')
+            
+        self.clinic_sss = Decimal('0')
+        self.clinic_philhealth = Decimal('0')
+        self.clinic_pagibig = Decimal('0')
         
         # Calculate totals
         self.calculate()

@@ -209,13 +209,17 @@ def _handle_payroll_form(request):
     form = PayrollSettingsForm(request.POST)
     if form.is_valid():
         data = form.cleaned_data
-        set_setting('payroll_period_type', data['period_type'], request.user, 'PAYROLL')
-        set_setting('payroll_work_hours_per_day', data['work_hours_per_day'], request.user, 'PAYROLL')
-        set_setting('payroll_overtime_threshold', data['overtime_threshold'], request.user, 'PAYROLL')
-        set_setting('payroll_enable_sss', data['enable_sss'], request.user, 'PAYROLL')
-        set_setting('payroll_enable_philhealth', data['enable_philhealth'], request.user, 'PAYROLL')
-        set_setting('payroll_enable_pagibig', data['enable_pagibig'], request.user, 'PAYROLL')
+        # Payroll defaults
+        set_setting('payroll_default_work_days', data['default_work_days'], request.user, 'PAYROLL')
+        set_setting('payroll_default_staff_allowance', data['default_staff_allowance'], request.user, 'PAYROLL')
+        # Statutory contributions
         set_setting('payroll_auto_statutory', data['auto_statutory'], request.user, 'PAYROLL')
+        set_setting('payroll_enable_sss', data['enable_sss'], request.user, 'PAYROLL')
+        set_setting('payroll_sss_rate', data['sss_rate'], request.user, 'PAYROLL')
+        set_setting('payroll_enable_philhealth', data['enable_philhealth'], request.user, 'PAYROLL')
+        set_setting('payroll_philhealth_rate', data['philhealth_rate'], request.user, 'PAYROLL')
+        set_setting('payroll_enable_pagibig', data['enable_pagibig'], request.user, 'PAYROLL')
+        set_setting('payroll_pagibig_fixed', data['pagibig_fixed'], request.user, 'PAYROLL')
 
         messages.success(request, 'Payroll settings updated successfully.')
         return redirect('settings:admin_settings')

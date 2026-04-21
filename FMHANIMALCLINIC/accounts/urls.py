@@ -37,6 +37,7 @@ urlpatterns = [
 
     # API Endpoints
     path('api/roles/<int:role_id>/permissions/', rbac_views.get_role_permissions, name='role_permissions_api'),
+    path('api/roles/hierarchy-presets/', rbac_views.get_hierarchy_presets, name='hierarchy_presets_api'),
     path('api/modules/', rbac_views.module_list_api, name='module_list_api'),
     
     # In-Profile Password Reset API

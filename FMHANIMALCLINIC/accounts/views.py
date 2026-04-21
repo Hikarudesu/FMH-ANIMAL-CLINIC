@@ -53,6 +53,12 @@ def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
+        # Case-insensitive login: resolve the stored username
+        try:
+            stored_user = User.objects.get(username__iexact=username)
+            username = stored_user.username
+        except User.DoesNotExist:
+            pass  # Let authenticate() handle the invalid user
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
@@ -519,11 +525,16 @@ def admin_dashboard_view(request):
     revenue_by_day = []
     for i in range(7):
         day = today - timedelta(days=6-i)
-        daily_revenue = Sale.objects.filter(
-            branch=request.user.branch,
+        
+        sales_q = Sale.objects.filter(
             created_at__date=day,
             status='COMPLETED'
-        ).aggregate(total=Sum('total'))['total'] or 0
+        )
+        if not request.user.is_admin_role():
+            sales_q = sales_q.filter(branch=request.user.branch)
+            
+        daily_revenue = sales_q.aggregate(total=Sum('total'))['total'] or 0
+        
         revenue_by_day.append({
             'date': day.strftime('%a'),
             'revenue': float(daily_revenue)
@@ -738,9 +749,11 @@ def admin_dashboard_view(request):
     ).values('user').distinct().count()
 
     # Service breakdown (consultation types)
-    service_breakdown_query = Service.objects.filter(
-        branch=request.user.branch
-    ).annotate(
+    services_q = Service.objects.all()
+    if not request.user.is_admin_role():
+        services_q = services_q.filter(branch=request.user.branch)
+        
+    service_breakdown_query = services_q.annotate(
         usage_count=Count('sale_items__sale', filter=Q(sale_items__sale__status='COMPLETED'))
     ).values('name', 'usage_count').order_by('-usage_count')[:10]
     

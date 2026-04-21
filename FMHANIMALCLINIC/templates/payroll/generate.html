@@ -26,6 +26,20 @@
   .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
   .badge-exists { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
   .badge-pending { background: rgba(158, 158, 158, 0.15); color: #9E9E9E; }
+  
+  /* Modal Styles */
+  .generate-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+  .generate-modal-overlay.active { opacity: 1; visibility: visible; }
+  .generate-modal { background: var(--surface); border-radius: 16px; box-shadow: 0 24px 48px rgba(0,0,0,0.15); width: 90%; max-width: 420px; overflow: hidden; transform: translateY(20px); transition: all 0.3s ease; }
+  .generate-modal-overlay.active .generate-modal { transform: translateY(0); }
+  .generate-modal-header { padding: 24px 24px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .generate-modal-header h3 { margin: 0; font-size: 1.15rem; color: var(--text-1); font-weight: 700; }
+  .modal-close-btn { background: none; border: none; font-size: 1.8rem; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; margin-top: -8px; margin-right: -8px; padding: 8px; border-radius: 50%; transition: all 0.2s;}
+  .modal-close-btn:hover { color: var(--text-1); background: var(--bg); }
+  .generate-modal-body { padding: 0 24px 24px; color: var(--text-2); line-height: 1.6; font-size: 0.95rem; }
+  .generate-modal-footer { padding: 16px 24px 24px; display: flex; justify-content: flex-end; gap: 12px; }
+  .btn-outline { padding: 10px 20px; background: transparent; border: 1px solid var(--border); color: var(--text-2); border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-outline:hover { background: var(--bg); color: var(--text-1); }
 </style>
 
 <div class="generate-header">
@@ -94,8 +108,12 @@
       <tr>
         <td>
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #0097a7); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
-              {{ emp.first_name.0 }}{{ emp.last_name.0 }}
+            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #0097a7); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+              {% if emp.user and emp.user.profile_picture %}
+                <img src="{{ emp.user.profile_picture.url }}" alt="{{ emp.full_name }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+              {% else %}
+                {{ emp.first_name.0 }}{{ emp.last_name.0 }}
+              {% endif %}
             </div>
             <div>
               <strong style="display: block; color: var(--text-1);">{{ emp.full_name }}</strong>
@@ -122,15 +140,35 @@
 <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
   <a href="{% url 'payroll:dashboard' %}" class="btn" style="background: var(--text-3);"><i class='bx bx-x'></i> Cancel</a>
   {% if period %}
-  <form method="post" action="{% url 'payroll:generate_action' %}" style="display: inline;">
+  <form method="post" action="{% url 'payroll:generate_action' %}" style="display: inline;" id="generateForm">
     {% csrf_token %}
     <input type="hidden" name="month" value="{{ selected_month }}">
     <input type="hidden" name="year" value="{{ selected_year }}">
-    <button type="submit" class="btn" onclick="return confirm('Generate payslips for {{ employee_count }} employees?')">
+    <button type="button" class="btn" onclick="document.getElementById('generateModalOverlay').classList.add('active');">
       <i class='bx bx-calculator'></i> Generate Payslips
     </button>
   </form>
   {% endif %}
+</div>
+
+<!-- Custom Confirmation Modal -->
+<div class="generate-modal-overlay" id="generateModalOverlay">
+  <div class="generate-modal">
+    <div class="generate-modal-header">
+      <h3><i class='bx bx-error-circle' style="color: var(--primary); margin-right: 6px; font-size: 1.3rem; vertical-align: middle;"></i> Confirm Generation</h3>
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('generateModalOverlay').classList.remove('active');">
+        <i class='bx bx-x'></i>
+      </button>
+    </div>
+    <div class="generate-modal-body">
+      <p style="margin: 0;">Generate payslips for <strong>{{ employee_count }} employees</strong>?</p>
+      <p style="margin: 12px 0 0; font-size: 0.85rem; color: var(--text-3);">This will initialize draft payslips for the selected time period based on existing clinic settings.</p>
+    </div>
+    <div class="generate-modal-footer">
+      <button type="button" class="btn-outline" onclick="document.getElementById('generateModalOverlay').classList.remove('active');">Cancel</button>
+      <button type="button" class="btn" onclick="document.getElementById('generateForm').submit();"><i class='bx bx-check'></i> Proceed</button>
+    </div>
+  </div>
 </div>
 {% else %}
 <div style="text-align: center; padding: 60px 20px; color: var(--text-3);">
