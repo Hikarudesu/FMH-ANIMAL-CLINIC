@@ -1477,10 +1477,10 @@
     <div class="chart-card-modern dash-fade fade-up stagger-4">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-money'></i>
+          <i class='bx bx-bar-chart-alt-2'></i>
           <span>Spending Breakdown</span>
         </div>
-        <div class="chart-badge orange">All Time</div>
+        <div class="chart-badge orange">By Category</div>
       </div>
       <div class="chart-body">
         <canvas id="spendingChart"></canvas>
@@ -2110,60 +2110,132 @@ if (appointmentStatusCtx) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 4. SPENDING BREAKDOWN PIE CHART
+// 4. SPENDING BREAKDOWN — Grouped Bar (Weekly Comparison style)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const spendingCtx = document.getElementById('spendingChart');
 if (spendingCtx) {
   const spendingData = {{ spending_breakdown_json|safe }};
-  
-  const categoryColors = {
-    'Services': '#009688',
-    'Products': '#3b82f6',
-    'Medications': '#f59e0b'
-  };
-  
-  if (spendingData.length > 0) {
-    const labels = spendingData.map(d => d.category);
-    const data = spendingData.map(d => d.total);
-    const colors = labels.map(l => categoryColors[l] || '#94a3b8');
-    const total = data.reduce((a, b) => a + b, 0);
-    
+
+  // All fixed categories — bar appears only if there's actual spend
+  const allCategories = ['Services', 'Products', 'Medications'];
+
+  // Build lookup from backend
+  const spendMap = {};
+  spendingData.forEach(d => { spendMap[d.category] = d.total; });
+
+  // Filter to only categories with spend > 0
+  const filteredCategories = allCategories.filter(cat => (spendMap[cat] || 0) > 0);
+  const chartValues = filteredCategories.map(cat => spendMap[cat] || 0);
+  const grandTotal = chartValues.reduce((a, b) => a + b, 0);
+
+  if (filteredCategories.length > 0) {
+    // Build per-bar gradients matching the Weekly Comparison style
+    const spendCtx2d = spendingCtx.getContext('2d');
+
+    const gradientServices = spendCtx2d.createLinearGradient(0, 0, 0, 300);
+    gradientServices.addColorStop(0, '#009688');
+    gradientServices.addColorStop(1, '#00796b');
+
+    const gradientProducts = spendCtx2d.createLinearGradient(0, 0, 0, 300);
+    gradientProducts.addColorStop(0, '#3b82f6');
+    gradientProducts.addColorStop(1, '#2563eb');
+
+    const gradientMedications = spendCtx2d.createLinearGradient(0, 0, 0, 300);
+    gradientMedications.addColorStop(0, '#f59e0b');
+    gradientMedications.addColorStop(1, '#d97706');
+
+    const gradientMap = {
+      'Services':    gradientServices,
+      'Products':    gradientProducts,
+      'Medications': gradientMedications
+    };
+
+    const barGradients = filteredCategories.map(cat => gradientMap[cat] || '#94a3b8');
+
     new Chart(spendingCtx, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
-        labels: labels,
+        labels: filteredCategories,
         datasets: [{
-          data: data,
-          backgroundColor: colors,
-          borderWidth: 0,
-          hoverOffset: 8
+          label: 'Amount Spent (₱)',
+          data: chartValues,
+          backgroundColor: barGradients,
+          borderRadius: 0,
+          borderSkipped: false,
+          barPercentage: 0.6,
+          categoryPercentage: 0.75
         }]
       },
       options: {
-        ...commonOptions,
-        cutout: '65%',
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
-          ...commonOptions.plugins,
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'rectRounded',
+              padding: 20,
+              font: { size: 12, weight: '600', family: 'Inter, sans-serif' },
+              color: isGlobalDark ? '#e2e8f0' : '#64748b'
+            }
+          },
           tooltip: {
             ...commonTooltip,
             callbacks: {
-              label: ctx => {
-                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                return `${ctx.label}: ₱${ctx.raw.toLocaleString()} (${pct}%)`;
+              label: function(context) {
+                const val = context.raw;
+                const pct = grandTotal > 0 ? ((val / grandTotal) * 100).toFixed(1) : 0;
+                return ` ₱${val.toLocaleString('en-PH', {minimumFractionDigits: 2})}  —  ${pct}% of total`;
               }
             }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: {
+              font: { size: 12, weight: '500', family: 'Inter, sans-serif' },
+              color: isGlobalDark ? '#cbd5e1' : '#334155'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: isGlobalDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+              drawBorder: false,
+              borderDash: [4, 4]
+            },
+            ticks: {
+              font: { size: 11, family: 'Inter, sans-serif' },
+              color: isGlobalDark ? '#94a3b8' : '#64748b',
+              precision: 0,
+              callback: val => '₱' + (val >= 1000 ? (val / 1000).toFixed(1) + 'k' : val)
+            }
+          }
+        },
+        animation: {
+          duration: 1600,
+          easing: 'easeInOutCubic',
+          delay(ctx) {
+            if (ctx.type === 'data' && ctx.mode === 'default') {
+              return ctx.dataIndex * 150;
+            }
+            return 0;
           }
         }
       }
     });
   } else {
-    // Show empty state
+    // Show empty state — no purchases in any category yet
     spendingCtx.parentElement.innerHTML = `
       <div class="empty-state-modern">
         <i class='bx bx-wallet'></i>
-        <h4>No spending data</h4>
-        <p>Your spending breakdown will appear here</p>
+        <h4>No spending data yet</h4>
+        <p>Your spending breakdown will appear here once you have purchases</p>
       </div>
     `;
   }

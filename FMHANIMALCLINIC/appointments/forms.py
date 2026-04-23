@@ -602,8 +602,16 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         self.fields['appointment_date'].widget.attrs['min'] = today
         
         # Set default status to CONFIRMED, instead of PENDING
-        if 'status' in self.fields and not self.initial.get('status'):
-            self.initial['status'] = Appointment.Status.CONFIRMED
+        if 'status' in self.fields:
+            if not self.initial.get('status'):
+                self.initial['status'] = Appointment.Status.CONFIRMED
+            # Prioritize CONFIRMED in the choices dropdown
+            self.fields['status'].choices = [
+                (Appointment.Status.CONFIRMED, 'Confirmed'),
+                (Appointment.Status.PENDING, 'Pending'),
+                (Appointment.Status.CANCELLED, 'Cancelled'),
+                (Appointment.Status.COMPLETED, 'Completed'),
+            ]
         
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
         self.fields['preferred_vet'].queryset = StaffMember.objects.filter(

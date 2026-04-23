@@ -225,10 +225,22 @@ text-decoration: none;
   }
   
   /* Status Badge Hovering on Header */
-  .premium-status-badge {
+  .premium-status-badges {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    z-index: 10;
+    max-width: calc(100% - 24px);
+  }
+
+  .premium-status-badge {
+    position: relative;
+    top: auto;
+    right: auto;
     background: rgba(255, 255, 255, 0.95);
     color: var(--text-1);
     padding: 6px 14px;
@@ -241,7 +253,8 @@ text-decoration: none;
     align-items: center;
     gap: 6px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    z-index: 10;
+    max-width: 100%;
+    white-space: nowrap;
   }
   
   .premium-status-badge.surgery, .premium-status-badge.critical { color: #d32f2f; }
@@ -717,15 +730,19 @@ border-color: var(--primary);
          data-breed="{{ pet.breed|default:'' }}"
          style="animation-delay: {{ forloop.counter0|add:1|stringformat:"d"|add:"00" }}ms;">
       <div class="card-top-accent">
-        {% if pet.has_missing_details %}
-          <div class="premium-status-badge" style="background: rgba(255, 152, 0, 0.95); color: #e65100; right: auto; left: 16px; top: 16px;">
-            <i class='bx bx-info-circle'></i> Incomplete Profile
-          </div>
-        {% endif %}
-        {% if pet.status and pet.status != "HEALTHY" %}
-          <div class="premium-status-badge {{ pet.status|lower }}">
-            <i class='bx {% if pet.status == "SURGERY" %}bx-plus-medical{% elif pet.status == "MONITOR" %}bx-show{% elif pet.status == "CRITICAL" %}bx-error{% elif pet.status == "DIAGNOSTICS" %}bx-test-tube{% elif pet.status == "TREATMENT" %}bx-capsule{% else %}bx-heart{% endif %}'></i>
-            {{ pet.get_status_display|truncatewords:2 }}
+        {% if pet.has_missing_details or pet.status and pet.status != "HEALTHY" %}
+          <div class="premium-status-badges">
+            {% if pet.has_missing_details %}
+              <div class="premium-status-badge" style="background: rgba(255, 152, 0, 0.95); color: #e65100;">
+                <i class='bx bx-info-circle'></i> Incomplete Profile
+              </div>
+            {% endif %}
+            {% if pet.status and pet.status != "HEALTHY" %}
+              <div class="premium-status-badge {{ pet.status|lower }}">
+                <i class='bx {% if pet.status == "SURGERY" %}bx-plus-medical{% elif pet.status == "MONITOR" %}bx-show{% elif pet.status == "CRITICAL" %}bx-error{% elif pet.status == "DIAGNOSTICS" %}bx-test-tube{% elif pet.status == "TREATMENT" %}bx-capsule{% else %}bx-heart{% endif %}'></i>
+                {{ pet.get_status_display|truncatewords:2 }}
+              </div>
+            {% endif %}
           </div>
         {% endif %}
       </div>
@@ -793,8 +810,10 @@ border-color: var(--primary);
          data-breed="{{ pet.breed|default:'' }}"
          style="background: #f8f9fa; border-color: #e0e0e0; opacity: 0.9; filter: grayscale(100%);">
       <div class="card-top-accent" style="background: linear-gradient(135deg, #b0bec5 0%, #78909c 100%);">
-        <div class="premium-status-badge" style="background: rgba(255,255,255,0.95); color: #546e7a;">
-          <i class='bx bx-archive-in'></i> Inactive
+        <div class="premium-status-badges">
+          <div class="premium-status-badge" style="background: rgba(255,255,255,0.95); color: #546e7a;">
+            <i class='bx bx-archive-in'></i> Inactive
+          </div>
         </div>
       </div>
 
