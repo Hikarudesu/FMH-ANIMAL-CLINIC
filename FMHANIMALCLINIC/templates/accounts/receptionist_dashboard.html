@@ -941,7 +941,7 @@
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-area'></i>
+          <i class='bx bx-bar-chart-alt-2'></i>
           <span>Appointment Status</span>
         </div>
         <div class="chart-badge blue">This Week</div>
@@ -958,26 +958,6 @@
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-bar-chart'></i>
-          <span>Top Selling Products</span>
-        </div>
-        <div class="chart-badge orange">This Week</div>
-      </div>
-      <div class="chart-body">
-        <canvas id="topProductsChart"></canvas>
-        <div id="topProductsEmpty" class="chart-empty-state" style="display: none;">
-          <i class='bx bx-trophy'></i>
-          <span>No product sales this week</span>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- ROW 3: Category Sales (Doughnut) & Appointment Source (Pie) -->
-  <div class="charts-row">
-    <div class="chart-card-modern">
-      <div class="chart-header">
-        <div class="chart-title">
           <i class='bx bx-category'></i>
           <span>Sales by Category</span>
         </div>
@@ -991,7 +971,10 @@
         </div>
       </div>
     </div>
-    
+  </div>
+  
+  <!-- ROW 3: Category Sales (Doughnut) & Top 5 Selling Products (Pie) -->
+  <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
@@ -1008,11 +991,28 @@
         </div>
       </div>
     </div>
+    
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-pie-chart-alt-2'></i>
+          <span>Top 5 Selling Products</span>
+        </div>
+        <div class="chart-badge orange">This Week</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="topProductsChart"></canvas>
+        <div id="topProductsEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-trophy'></i>
+          <span>No product sales this week</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- TODAY'S SCHEDULE & LOW STOCK -->
-<div class="charts-row">
+<div class="charts-row equal">
   <!-- Today's Schedule -->
   <div class="schedule-card">
     <div class="schedule-header">
@@ -1322,8 +1322,9 @@ document.addEventListener('DOMContentLoaded', function() {
           responsive: true,
           maintainAspectRatio: false,
           animation: {
-            duration: 2000,
-            easing: 'easeInOutQuart'
+            duration: 1500,
+            easing: 'easeInOutCubic',
+            delay: (context) => context.dataIndex * 100
           },
           plugins: {
             legend: { display: false },
@@ -1357,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 2. APPOINTMENT STATUS DISTRIBUTION (Doughnut Chart)
+  // 2. APPOINTMENT STATUS DISTRIBUTION (Bar Chart)
   // ═══════════════════════════════════════════════════════════════════════
 
   const appointmentStatusCtx = document.getElementById('appointmentStatusChart');
@@ -1365,6 +1366,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusData = {{ appointment_status_data|safe }};
     const hasData = statusData && statusData.length > 0;
     
+    // Using single green similar to the Admin bar chart, or the specific status colors:
     const statusColors = {
       'PENDING': '#f59e0b',
       'CONFIRMED': '#3b82f6',
@@ -1382,51 +1384,78 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     if (hasData) {
-      const total = statusData.reduce((sum, s) => sum + s.count, 0);
+      // Create gradient for this week
+      const thisWeekGradient = appointmentStatusCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+      thisWeekGradient.addColorStop(0, '#10b981');
+      thisWeekGradient.addColorStop(1, '#059669');
       
-      // Create gradient fills for area chart
-      const createGradient = (ctx, color) => {
-        const gradient = ctx.createLinearGradient(0, 0, 0, 250);
-        gradient.addColorStop(0, color + 'cc');
-        gradient.addColorStop(1, color + '10');
-        return gradient;
-      };
+      // Create gradient for last week
+      const lastWeekGradient = appointmentStatusCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+      lastWeekGradient.addColorStop(0, '#94a3b8');
+      lastWeekGradient.addColorStop(1, '#64748b');
       
       new Chart(appointmentStatusCtx, {
-        type: 'line',
+        type: 'bar',
         data: {
           labels: statusData.map(s => statusLabels[s.status] || s.status),
-          datasets: [{
-            label: 'Appointments',
-            data: statusData.map(s => s.count),
-            fill: true,
-            backgroundColor: createGradient(appointmentStatusCtx.getContext('2d'), '#3b82f6'),
-            borderColor: '#3b82f6',
-            borderWidth: 3,
-            tension: 0.4,
-            pointBackgroundColor: statusData.map(s => statusColors[s.status] || '#94a3b8'),
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 2,
-            pointRadius: 6,
-            pointHoverRadius: 9,
-            pointHoverBorderWidth: 3
-          }]
+          datasets: [
+            {
+              label: 'This Week',
+              data: statusData.map(s => s.this_week),
+              backgroundColor: thisWeekGradient,
+              borderRadius: 0,
+              borderSkipped: false,
+              barPercentage: 0.7,
+              categoryPercentage: 0.8
+            },
+            {
+              label: 'Last Week',
+              data: statusData.map(s => s.last_week),
+              backgroundColor: lastWeekGradient,
+              borderRadius: 0,
+              borderSkipped: false,
+              barPercentage: 0.7,
+              categoryPercentage: 0.8
+            }
+          ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
           animation: {
-            duration: 2000,
-            easing: 'easeOutQuart'
+            duration: 1500,
+            easing: 'easeInOutCubic',
+            delay: (context) => context.dataIndex * 150
           },
           plugins: {
-            legend: { display: false },
+            legend: {
+              position: 'top',
+              align: 'end',
+              labels: {
+                usePointStyle: true,
+                pointStyle: 'rectRounded',
+                padding: 20,
+                font: { size: 12, weight: '600' }
+              }
+            },
             tooltip: {
               ...commonTooltip,
               callbacks: {
-                label: ctx => {
-                  const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                  return `${ctx.raw} appointments (${pct}%)`;
+                label: function(context) {
+                  const label = context.dataset.label;
+                  const value = context.raw;
+                  const otherDataset = context.chart.data.datasets[context.datasetIndex === 0 ? 1 : 0];
+                  const otherValue = otherDataset.data[context.dataIndex];
+                  const diff = value - otherValue;
+                  const diffPercent = otherValue > 0 ? ((diff / otherValue) * 100).toFixed(1) : 0;
+                  const arrow = diff >= 0 ? '↑' : '↓';
+                  const color = diff >= 0 ? '🟢' : '🔴';
+                  
+                  if (context.datasetIndex === 0) {
+                    return `${label}: ${value} ${color} ${arrow}${Math.abs(diffPercent)}%`;
+                  }
+                  return `${label}: ${value}`;
                 }
               }
             }
@@ -1457,7 +1486,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 3. TOP PRODUCTS VERTICAL BAR CHART
+  // 3. TOP PRODUCTS PIE CHART
   // ═══════════════════════════════════════════════════════════════════════
 
   const topProductsCtx = document.getElementById('topProductsChart');
@@ -1465,59 +1494,48 @@ document.addEventListener('DOMContentLoaded', function() {
     const productsData = {{ top_products|safe }};
     const hasData = productsData && productsData.length > 0;
     
-    const productColors = ['#f59e0b', '#fb923c', '#fbbf24', '#fcd34d', '#fde68a'];
+    // Five distinct colors for pie chart segments
+    const productColors = ['#f59e0b', '#fb923c', '#fbbf24', '#3b82f6', '#10b981'];
     
     if (hasData) {
       new Chart(topProductsCtx, {
-        type: 'bar',
+        type: 'pie',
         data: {
-          labels: productsData.map(p => p.product__name ? p.product__name.substring(0, 12) : 'Unknown'),
+          labels: productsData.map(p => p.product__name ? p.product__name.substring(0, 15) + (p.product__name.length > 15 ? '...' : '') : 'Unknown'),
           datasets: [{
             label: 'Units Sold',
             data: productsData.map(p => p.total_qty),
             backgroundColor: productColors.slice(0, productsData.length),
-            borderRadius: 8,
-            borderSkipped: false,
-            barThickness: 36
+            borderWidth: 2,
+            borderColor: '#ffffff',
+            hoverOffset: 4
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           animation: {
-            duration: 1800,
-            easing: 'easeOutQuart',
-            delay: (ctx) => ctx.dataIndex * 150
+            duration: 1500,
+            easing: 'easeInOutCubic',
+            animateScale: true,
+            animateRotate: true
           },
           plugins: {
-            legend: { display: false },
+            legend: { 
+              position: 'right',
+              labels: {
+                usePointStyle: true,
+                padding: 20,
+                font: { size: 12 }
+              }
+            },
             tooltip: {
               ...commonTooltip,
               callbacks: {
                 label: ctx => {
                   const data = productsData[ctx.dataIndex];
-                  return [`${ctx.raw} units`, `₱${data.total_sales.toLocaleString()} sales`];
+                  return `${ctx.raw} units (₱${data.total_sales.toLocaleString()})`;
                 }
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: { 
-                font: { size: 11 }, 
-                color: '#94a3b8',
-                stepSize: 1
-              }
-            },
-            x: {
-              grid: { display: false },
-              ticks: { 
-                font: { size: 10, weight: '600' }, 
-                color: '#64748b',
-                maxRotation: 45,
-                minRotation: 0
               }
             }
           }
@@ -1571,8 +1589,9 @@ document.addEventListener('DOMContentLoaded', function() {
           animation: {
             animateRotate: true,
             animateScale: true,
-            duration: 2000,
-            easing: 'easeInOutQuart'
+            duration: 1500,
+            easing: 'easeInOutCubic',
+            delay: (context) => context.dataIndex * 150
           },
           plugins: {
             legend: {
@@ -1639,55 +1658,29 @@ document.addEventListener('DOMContentLoaded', function() {
       const total = sourceData.reduce((sum, s) => sum + s.count, 0);
       
       new Chart(appointmentSourceCtx, {
-        type: 'pie',
+        type: 'bar',
         data: {
           labels: sourceData.map(s => s.source),
           datasets: [{
+            label: 'Appointments',
             data: sourceData.map(s => s.count),
             backgroundColor: sourceData.map(s => sourceColors[s.source] || '#94a3b8'),
-            borderColor: '#ffffff',
-            borderWidth: 3,
-            hoverOffset: 12
+            borderRadius: 8,
+            borderSkipped: false
           }]
         },
         options: {
+          indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
           animation: {
-            animateRotate: true,
-            animateScale: true,
-            duration: 2000,
-            easing: 'easeInOutQuart'
+            duration: 1500,
+            easing: 'easeInOutCubic',
+            delay: (context) => context.dataIndex * 150
           },
           plugins: {
             legend: {
-              display: true,
-              position: 'bottom',
-              labels: {
-                padding: 20,
-                usePointStyle: true,
-                pointStyle: 'circle',
-                font: { size: 12, weight: '600' },
-                color: isGlobalDark ? '#ffffff' : '#64748b',
-                generateLabels: function(chart) {
-                  const data = chart.data;
-                  return data.labels.map((label, i) => {
-                    const value = data.datasets[0].data[i];
-                    const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
-                    return {
-                      text: `${label}: ${value} (${pct}%)`,
-                      fillStyle: sourceColors[label] || '#94a3b8',
-                      strokeStyle: sourceColors[label] || '#94a3b8',
-                      lineWidth: 0,
-                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
-                      color: isGlobalDark ? '#ffffff' : '#64748b',
-                      pointStyle: 'circle',
-                      hidden: false,
-                      index: i
-                    };
-                  });
-                }
-              }
+              display: false
             },
             tooltip: {
               ...commonTooltip,
@@ -1696,6 +1689,29 @@ document.addEventListener('DOMContentLoaded', function() {
                   const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
                   return `${ctx.raw} appointments (${pct}%)`;
                 }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: {
+                color: isGlobalDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                drawBorder: false
+              },
+              ticks: {
+                font: { size: 12 },
+                color: isGlobalDark ? '#94a3b8' : '#64748b',
+                stepSize: 1
+              }
+            },
+            y: {
+              grid: {
+                display: false,
+                drawBorder: false
+              },
+              ticks: {
+                font: { size: 12, weight: '500' },
+                color: isGlobalDark ? '#f8fafc' : '#334155'
               }
             }
           }

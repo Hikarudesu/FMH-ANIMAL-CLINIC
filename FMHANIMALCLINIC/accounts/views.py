@@ -1538,39 +1538,57 @@ def receptionist_dashboard_view(request):
     ).count()
 
     # ─── COMPREHENSIVE ANALYTICS ───
+    last_week_start = week_start - timedelta(days=7)
+    last_week_end = week_start - timedelta(days=1)
 
     # Walk-in vs Portal appointments (today, branch-specific)
-    walkin_today = Appointment.objects.filter(
-        appointment_date=today,
+    walkin_week = Appointment.objects.filter(
+        appointment_date__range=[week_start, week_end],
         source='WALKIN',
         pet__isnull=False,
         **branch_filter
     ).count()
-    portal_today = Appointment.objects.filter(
-        appointment_date=today,
+    portal_week = Appointment.objects.filter(
+        appointment_date__range=[week_start, week_end],
         source='PORTAL',
         pet__isnull=False,
         **branch_filter
     ).count()
 
-    # ─── APPOINTMENT STATUS DISTRIBUTION (Today, branch-specific) ───
-    appointment_status_data = []
-    status_counts = Appointment.objects.filter(
-        appointment_date=today,
+    # ─── APPOINTMENT STATUS DISTRIBUTION (This Week vs Last Week, branch-specific) ───
+    status_counts_this_week = Appointment.objects.filter(
+        appointment_date__range=[week_start, week_end],
         pet__isnull=False,
         **branch_filter
     ).values('status').annotate(count=Count('id'))
     
-    for item in status_counts:
+    status_counts_last_week = Appointment.objects.filter(
+        appointment_date__range=[last_week_start, last_week_end],
+        pet__isnull=False,
+        **branch_filter
+    ).values('status').annotate(count=Count('id'))
+    
+    appointment_status_dict = {}
+    for item in status_counts_this_week:
+        appointment_status_dict[item['status']] = {'this_week': item['count'], 'last_week': 0}
+    
+    for item in status_counts_last_week:
+        if item['status'] not in appointment_status_dict:
+            appointment_status_dict[item['status']] = {'this_week': 0, 'last_week': 0}
+        appointment_status_dict[item['status']]['last_week'] = item['count']
+
+    appointment_status_data = []
+    for status, counts in appointment_status_dict.items():
         appointment_status_data.append({
-            'status': item['status'],
-            'count': item['count']
+            'status': status,
+            'this_week': counts['this_week'],
+            'last_week': counts['last_week']
         })
 
-    # ─── WALK-IN VS PORTAL APPOINTMENTS DATA (Today, branch-specific) ───
+    # ─── WALK-IN VS PORTAL APPOINTMENTS DATA (This Week, branch-specific) ───
     appointment_source_data = [
-        {'source': 'Walk-in', 'count': walkin_today},
-        {'source': 'Online Booking', 'count': portal_today}
+        {'source': 'Walk-in', 'count': walkin_week},
+        {'source': 'Online Booking', 'count': portal_week}
     ]
 
     # Hourly distribution of appointments (today, branch-specific)
@@ -1688,7 +1706,7 @@ def receptionist_dashboard_view(request):
     # ─── TOP SELLING PRODUCTS (This Week, branch-specific) ───
     product_branch_filter = {'branch': user_branch} if user_branch else {}
     top_products_query = SaleItem.objects.filter(
-        sale__created_at__date__range=[week_start, today],
+        sale__created_at__date__range=[week_start, week_end],
         sale__status='COMPLETED',
         item_type='PRODUCT',
         product__isnull=False,
@@ -1715,9 +1733,9 @@ def receptionist_dashboard_view(request):
         **product_branch_filter
     ).count()
 
-    # ─── PRODUCT CATEGORY SALES (Today, branch-specific) ───
+    # ─── PRODUCT CATEGORY SALES (This Week, branch-specific) ───
     category_sales_query = SaleItem.objects.filter(
-        sale__created_at__date=today,
+        sale__created_at__date__range=[week_start, week_end],
         sale__status='COMPLETED',
         **({'sale__branch': user_branch} if user_branch else {})
     ).values('item_type').annotate(
@@ -1784,8 +1802,8 @@ def receptionist_dashboard_view(request):
         'unread_notif_count': unread_notif_count,
 
         # Additional analytics
-        'walkin_today': walkin_today,
-        'portal_today': portal_today,
+        'walkin_today': walkin_week,
+        'portal_today': portal_week,
         'hourly_distribution': hourly_distribution,
         'refunds_count': refunds_count,
         'refunds_amount': refunds_amount,

@@ -468,30 +468,21 @@
           {% else %}
           {# Unified staff sidebar driven by module/special permissions #}
           {% if user.assigned_role and user.assigned_role.code == 'receptionist' %}
-          <a
-            href="{% url 'pos:checkout' %}"
-            class="sidebar-link {% if 'pos' in request.path %}active{% endif %}"
-          >
-            <i class="bx bx-cart"></i><span>Point of Sale</span>
-          </a>
-          {% endif %}
-
-          {% if user.assigned_role and user.assigned_role.code == 'receptionist' %}
-          {% if user|has_nav_module:'appointments' %}
-          <a
-            href="{% url 'appointments:admin_list' %}"
-            class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}"
-          >
-            <i class="bx bx-calendar-check"></i><span>Appointments</span>
-          </a>
-          {% endif %}
-
           {% if user|has_nav_module:'patients' %}
           <a
             href="{% url 'patients:admin_list' %}"
             class="sidebar-link {% if 'patients/admin/' in request.path or active_tab == 'patients' %}active{% endif %}"
           >
             <i class="bx bxs-dog"></i><span>Patients</span>
+          </a>
+          {% endif %}
+
+          {% if user|has_nav_module:'appointments' %}
+          <a
+            href="{% url 'appointments:admin_list' %}"
+            class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-calendar-check"></i><span>Appointments</span>
           </a>
           {% endif %}
 
@@ -503,20 +494,18 @@
             <i class="bx bx-file"></i><span>Medical Records</span>
           </a>
           {% endif %}
+
+          <a
+            href="{% url 'pos:checkout' %}"
+            class="sidebar-link {% if 'pos' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-cart"></i><span>Point of Sale</span>
+          </a>
           {% endif %}
 
           {% if not user.assigned_role or user.assigned_role.code != 'receptionist' %}
           {% if user.assigned_role and user.assigned_role.code == 'vet_assistant' or user.assigned_role and user.assigned_role.code == 'veterinarian' %}
-          {# Veterinarian + Vet Assistant: Appointments above Patients #}
-          {% if user|has_nav_module:'appointments' %}
-          <a
-            href="{% url 'appointments:admin_list' %}"
-            class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}"
-          >
-            <i class="bx bx-calendar-check"></i><span>Appointments</span>
-          </a>
-          {% endif %}
-
+          {# Veterinarian + Vet Assistant: Patients above Appointments #}
           {% if user|has_nav_module:'patients' %}
           <a
             href="{% url 'patients:admin_list' %}"
@@ -539,6 +528,15 @@
               >{{ total_patients_count }}</span
             >
             {% endif %}
+          </a>
+          {% endif %}
+
+          {% if user|has_nav_module:'appointments' %}
+          <a
+            href="{% url 'appointments:admin_list' %}"
+            class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}"
+          >
+            <i class="bx bx-calendar-check"></i><span>Appointments</span>
           </a>
           {% endif %}
           {% else %}

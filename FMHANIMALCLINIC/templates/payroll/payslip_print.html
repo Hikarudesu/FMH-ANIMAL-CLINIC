@@ -28,7 +28,7 @@
       z-index: 100;
     }
     
-    .toolbar button {
+    .toolbar button, .toolbar a.btn-back {
       padding: 8px 14px;
       font-size: 12px;
       font-weight: bold;
@@ -39,6 +39,8 @@
       align-items: center;
       gap: 6px;
       background: #fff;
+      text-decoration: none;
+      color: #000;
     }
     
     .toolbar .btn-print {
@@ -254,7 +256,11 @@
 <body>
   <div class="toolbar">
     <button class="btn-print" onclick="window.print()"><i class='bx bx-printer'></i> Print</button>
-    <button class="btn-back" onclick="window.history.back()"><i class='bx bx-arrow-back'></i> Back</button>
+    {% if is_own_payslip %}
+      <a href="{% url 'payroll:my_payslips' %}" class="btn-back"><i class='bx bx-arrow-back'></i> Back</a>
+    {% else %}
+      <a href="{% url 'payroll:payslips' payslip.payroll_period.id %}" class="btn-back"><i class='bx bx-arrow-back'></i> Back</a>
+    {% endif %}
   </div>
   
   <div class="payslip-wrapper">
