@@ -67,6 +67,7 @@ class Module(models.Model):
     STAFF = 'staff'
     SCHEDULE = 'schedule'
     BRANCHES = 'branches'
+    INQUIRIES = 'inquiries'
     INVENTORY = 'inventory'
     STOCK_MONITOR = 'stock_monitor'
     STOCK_TRANSFERS = 'stock_transfers'
@@ -89,6 +90,7 @@ class Module(models.Model):
         (STAFF, 'Staff'),
         (SCHEDULE, 'Schedule'),
         (BRANCHES, 'Branches'),
+        (INQUIRIES, 'Inquiries'),
         (INVENTORY, 'Inventory'),
         (STOCK_MONITOR, 'Stock Monitor'),
         (STOCK_TRANSFERS, 'Stock Transfers'),

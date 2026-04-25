@@ -10,7 +10,7 @@
   <div class="page-hero-inner">
     <div class="page-hero-text">
       <h1><i class='bx bx-bell'></i> Notifications</h1>
-      <p>Stay updated on clinic events and inventory alerts</p>
+      <p>Stay updated on clinic operations, inquiries, stock transfers, payroll, and system alerts</p>
     </div>
     <div class="page-hero-actions">
       {% if unread_count > 0 %}
@@ -116,6 +116,28 @@
           <i class='bx bx-check-shield'></i>
         {% elif notif.notification_type == 'LOW_INVENTORY' %}
           <i class='bx bx-error'></i>
+        {% elif notif.notification_type == 'INQUIRY_NEW' %}
+          <i class='bx bx-message-square-detail'></i>
+        {% elif notif.notification_type == 'INQUIRY_RESPONDED' %}
+          <i class='bx bx-reply'></i>
+        {% elif notif.notification_type == 'INQUIRY_ARCHIVED' %}
+          <i class='bx bx-archive'></i>
+        {% elif notif.notification_type == 'STATEMENT_RELEASED' %}
+          <i class='bx bx-receipt'></i>
+        {% elif notif.notification_type == 'MEDICAL_RECORD_UPDATE' %}
+          <i class='bx bx-file'></i>
+        {% elif notif.notification_type == 'STOCK_TRANSFER_REQUESTED' %}
+          <i class='bx bx-transfer'></i>
+        {% elif notif.notification_type == 'STOCK_TRANSFER_APPROVED' %}
+          <i class='bx bx-check-circle'></i>
+        {% elif notif.notification_type == 'STOCK_TRANSFER_REJECTED' %}
+          <i class='bx bx-x-circle'></i>
+        {% elif notif.notification_type == 'STOCK_TRANSFER_COMPLETED' %}
+          <i class='bx bx-package'></i>
+        {% elif notif.notification_type == 'PAYROLL_GENERATED' %}
+          <i class='bx bx-money'></i>
+        {% elif notif.notification_type == 'PAYROLL_RELEASED' %}
+          <i class='bx bx-wallet'></i>
         {% else %}
           <i class='bx bx-bell'></i>
         {% endif %}

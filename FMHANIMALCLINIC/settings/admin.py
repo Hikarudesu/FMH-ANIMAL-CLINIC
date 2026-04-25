@@ -2,7 +2,13 @@
 
 from django.contrib import admin
 
-from .models import SystemSetting, ClinicProfile, ReasonForVisit, ClinicalStatus, LegalDocument
+from .models import (
+    SystemSetting,
+    ClinicProfile,
+    ReasonForVisit,
+    ClinicalStatus,
+    LegalDocument,
+)
 
 
 @admin.register(SystemSetting)
@@ -46,10 +52,13 @@ class ClinicProfileAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Branding', {
-            'fields': ('name', 'logo', 'tagline')
+            'fields': ('name', 'logo', 'clinic_title', 'clinic_slogan', 'hero_description')
         }),
         ('Contact', {
             'fields': ('email', 'phone', 'address')
+        }),
+        ('Social', {
+            'fields': ('facebook_url', 'instagram_url', 'messenger_url', 'tiktok_url')
         }),
         ('Legal', {
             'fields': ('license_number',)

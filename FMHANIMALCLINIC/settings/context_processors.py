@@ -20,10 +20,16 @@ def clinic_settings(request):
     return {
         'CLINIC_NAME': profile.name,
         'CLINIC_LOGO': profile.logo,
+        'CLINIC_TITLE': profile.clinic_title,
+        'CLINIC_SLOGAN': profile.clinic_slogan,
+        'CLINIC_HERO_DESCRIPTION': profile.hero_description,
         'CLINIC_EMAIL': profile.email,
         'CLINIC_PHONE': profile.phone,
         'CLINIC_ADDRESS': profile.address,
-        'CLINIC_TAGLINE': profile.tagline,
+        'CLINIC_FACEBOOK_URL': profile.facebook_url,
+        'CLINIC_INSTAGRAM_URL': profile.instagram_url,
+        'CLINIC_MESSENGER_URL': profile.messenger_url,
+        'CLINIC_TIKTOK_URL': profile.tiktok_url,
         # Hardcoded Philippine Peso (Requirement 2)
         'CURRENCY_SYMBOL': '₱',
         'CURRENCY': 'PHP',

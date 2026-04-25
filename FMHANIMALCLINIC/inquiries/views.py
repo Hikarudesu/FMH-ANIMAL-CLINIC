@@ -13,6 +13,11 @@ import json
 from .models import Inquiry
 from .forms import InquirySubmitForm, InquiryResponseForm
 from branches.models import Branch
+from notifications.utils import (
+    notify_inquiry_archived,
+    notify_inquiry_received,
+    notify_inquiry_responded,
+)
 
 
 @csrf_exempt
@@ -63,6 +68,7 @@ def submit_inquiry(request):
                     status='NEW',
                     priority='NORMAL'
                 )
+                notify_inquiry_received(inquiry)
                 
                 return JsonResponse({
                     'success': True,
@@ -93,6 +99,7 @@ def submit_inquiry(request):
             
             if form.is_valid():
                 inquiry = form.save()
+                notify_inquiry_received(inquiry)
                 return JsonResponse({
                     'success': True,
                     'message': 'Your inquiry has been submitted successfully. We will contact you soon.',
@@ -172,6 +179,7 @@ def inquiry_list(request):
 def inquiry_detail(request, pk):
     """Admin view: View and respond to a specific inquiry."""
     inquiry = get_object_or_404(Inquiry.objects.select_related('branch', 'responded_by'), pk=pk)
+    was_responded = inquiry.status == 'RESPONDED'
 
     # Mark as READ if it's NEW
     if inquiry.status == 'NEW':
@@ -184,11 +192,15 @@ def inquiry_detail(request, pk):
             inquiry = form.save(commit=False)
 
             # Set responded_by if responding
-            if inquiry.response and not inquiry.responded_by:
+            if inquiry.response and not was_responded:
                 inquiry.responded_by = request.user
                 inquiry.response_date = timezone.now()
+                if inquiry.status in {'NEW', 'READ'}:
+                    inquiry.status = 'RESPONDED'
 
             inquiry.save()
+            if not was_responded and inquiry.status == 'RESPONDED':
+                notify_inquiry_responded(inquiry, request.user)
             messages.success(request, 'Inquiry updated successfully.')
             return redirect('inquiries:detail', pk=pk)
     else:
@@ -223,8 +235,13 @@ def inquiry_update_status(request, pk):
         new_status = data.get('status')
         
         if new_status in dict(Inquiry.STATUS_CHOICES):
+            previous_status = inquiry.status
             inquiry.status = new_status
             inquiry.save(update_fields=['status', 'updated_at'])
+            if new_status == 'RESPONDED' and previous_status != 'RESPONDED':
+                notify_inquiry_responded(inquiry, request.user)
+            elif new_status == 'ARCHIVED' and previous_status != 'ARCHIVED':
+                notify_inquiry_archived(inquiry, request.user)
             
             return JsonResponse({
                 'success': True,
@@ -260,13 +277,20 @@ def inquiry_bulk_action(request):
             }, status=400)
         
         inquiries = Inquiry.objects.filter(pk__in=inquiry_ids)
+        inquiry_list = list(inquiries)
         
         if action == 'mark_read':
             inquiries.update(status='READ')
         elif action == 'mark_responded':
+            notify_targets = [item for item in inquiry_list if item.status != 'RESPONDED']
             inquiries.update(status='RESPONDED')
+            for inquiry in notify_targets:
+                notify_inquiry_responded(inquiry, request.user)
         elif action == 'archive':
+            notify_targets = [item for item in inquiry_list if item.status != 'ARCHIVED']
             inquiries.update(status='ARCHIVED')
+            for inquiry in notify_targets:
+                notify_inquiry_archived(inquiry, request.user)
         elif action == 'delete':
             inquiries.delete()
         else:

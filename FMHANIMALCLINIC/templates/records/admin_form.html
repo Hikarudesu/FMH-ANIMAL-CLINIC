@@ -308,17 +308,13 @@
                     <label class="form-label">RX (Prescription)</label>
                     {{ form.rx }}
                 </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">Lab Results</label>
+                    {{ form.lab_results }}
+                </div>
             </div>
         </div>
-        
-        <script>
-            // Ensure Django form fields match custom styling
-            document.querySelectorAll('input, select, textarea').forEach(el => {
-                if (!el.classList.contains('form-control-custom')) {
-                    el.classList.add('form-control-custom');
-                }
-            });
-        </script>
 
         <div style="margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end;">
             <button type="submit" class="btn btn-primary" style="background: var(--primary); color: white; padding: 12px 32px; border-radius: var(--radius-sm); font-weight: 600; border: none; font-size: 15px; cursor: pointer; transition: background-color 0.2s;">

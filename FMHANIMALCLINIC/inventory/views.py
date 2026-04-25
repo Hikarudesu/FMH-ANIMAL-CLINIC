@@ -2,9 +2,10 @@
 # pylint: disable=no-member, unused-argument, too-many-lines
 from datetime import date, timedelta
 from collections import defaultdict
+from decimal import Decimal
 
 from django.core.paginator import Paginator
-from django.db.models import F, Q
+from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -16,8 +17,18 @@ from accounts.decorators import module_permission_required
 from branches.models import Branch
 from notifications.models import Notification
 from notifications.email_utils import send_reservation_notification
+from notifications.utils import (
+    notify_stock_transfer_approved,
+    notify_stock_transfer_completed,
+    notify_stock_transfer_rejected,
+    notify_stock_transfer_requested,
+)
 from .models import Product, StockAdjustment, Reservation, StockTransfer
-from .forms import StockAdjustmentForm, ProductForm, StockTransferRequestForm
+from .forms import (
+    ProductForm,
+    StockAdjustmentForm,
+    StockTransferRequestForm,
+)
 
 
 def auto_cancel_expired_reservations():
@@ -256,7 +267,7 @@ def inventory_management_view(request):
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('inventory', 'CREATE')
     can_edit = request.user.has_module_permission('inventory', 'EDIT')
-    can_delete = request.user.has_module_permission('inventory', 'DELETE')
+    can_delete = request.user.is_admin_role() or request.user.has_module_permission('inventory', 'DELETE')
 
     # Pagination for 20 items per page across all 3 lists
     page_number = request.GET.get('page', 1)
@@ -339,6 +350,28 @@ def product_edit_view(request, pk):
     return render(request, 'inventory/product_form.html', {
         'form': form, 'product': product
     })
+
+
+@login_required
+def product_delete_view(request, pk):
+    """Soft-delete an inventory item.
+
+    Superadmin-role users can always delete. Other roles require inventory DELETE permission.
+    """
+    can_delete = request.user.is_admin_role() or request.user.has_module_permission('inventory', 'DELETE')
+    if not can_delete:
+        messages.warning(request, 'You do not have DELETE permission for inventory.')
+        return redirect('inventory:management')
+
+    if request.method != 'POST':
+        messages.warning(request, 'Invalid request method.')
+        return redirect('inventory:management')
+
+    product = get_object_or_404(Product, pk=pk)
+    product_name = product.name
+    product.delete()  # Soft delete via SoftDeleteModel
+    messages.success(request, f'Item "{product_name}" deleted successfully.')
+    return redirect('inventory:management')
 
 
 @login_required
@@ -567,14 +600,41 @@ def cancel_reservation_view(request, pk):
 
 
 @login_required
-@module_permission_required('stock_transfers', 'VIEW')
 def stock_transfer_list_view(request):
     """List all stock transfers for the user's branch with filtering and search."""
+    is_admin_user = request.user.is_admin_role()
+    can_view_transfer_list = (
+        request.user.has_module_permission('stock_transfers', 'VIEW')
+        or request.user.has_special_permission('can_request_stock_transfer')
+    )
+    if not can_view_transfer_list:
+        messages.warning(
+            request,
+            'You do not have view permission for stock transfers.'
+        )
+        return redirect('admin_dashboard')
+
     search_query = request.GET.get('q', '').strip()
     selected_status = request.GET.get('status', '')
     selected_branch_id = request.GET.get('branch_id', '')
 
-    if hasattr(request.user, 'staff_profile') and request.user.staff_profile.branch:
+    is_special_request_only_user = (
+        request.user.has_special_permission('can_request_stock_transfer')
+        and not request.user.has_module_permission('stock_transfers', 'VIEW')
+    )
+
+    if is_special_request_only_user:
+        transfers = StockTransfer.objects.filter(  # pylint: disable=no-member
+            requested_by=request.user
+        ).select_related(
+            'source_product', 'source_product__branch',
+            'destination_branch', 'requested_by', 'processed_by'
+        )
+    elif (
+        not is_admin_user
+        and hasattr(request.user, 'staff_profile')
+        and request.user.staff_profile.branch
+    ):
         branch = request.user.staff_profile.branch
         transfers = StockTransfer.objects.filter(  # pylint: disable=no-member
             Q(source_product__branch=branch) | Q(destination_branch=branch)
@@ -604,8 +664,8 @@ def stock_transfer_list_view(request):
     if selected_status:
         transfers = transfers.filter(status=selected_status)
 
-    # Apply branch filter
-    if selected_branch_id:
+    # Apply branch filter (not relevant for request-only users viewing own requests)
+    if selected_branch_id and not is_special_request_only_user:
         transfers = transfers.filter(
             Q(source_product__branch_id=selected_branch_id) |
             Q(destination_branch_id=selected_branch_id)
@@ -655,7 +715,7 @@ def stock_transfer_list_view(request):
         if is_selected:
             status_filters[1]['selected_label'] = branch.name
 
-    show_clear = bool(selected_status or selected_branch_id)
+    show_clear = bool(selected_status or (selected_branch_id and not is_special_request_only_user))
     
     paginator = Paginator(transfers, 10)
     page_number = request.GET.get('page')
@@ -669,14 +729,26 @@ def stock_transfer_list_view(request):
         'selected_status': selected_status,
         'status_filters': status_filters,
         'show_clear': show_clear,
+        'is_special_request_only_user': is_special_request_only_user,
+        'is_admin_user': is_admin_user,
     }
     return render(request, 'inventory/stock_transfer_list.html', context)
 
 
 @login_required
-@module_permission_required('stock_transfers', 'CREATE')
 def stock_transfer_request_view(request):
     """View to request stock from another branch."""
+    can_create_transfer_request = (
+        request.user.has_module_permission('stock_transfers', 'CREATE')
+        or request.user.has_special_permission('can_request_stock_transfer')
+    )
+    if not can_create_transfer_request:
+        messages.warning(
+            request,
+            'You do not have create permission for stock transfer requests.'
+        )
+        return redirect('admin_dashboard')
+
     if not hasattr(request.user, 'staff_profile') or not request.user.staff_profile.branch:
         messages.error(
             request, "You must be assigned to a branch to request transfers.")
@@ -701,6 +773,7 @@ def stock_transfer_request_view(request):
             transfer = form.save(commit=False)
             transfer.requested_by = request.user
             transfer.save()
+            notify_stock_transfer_requested(transfer)
             messages.success(
                 request,
                 f"Requested {transfer.quantity}x {transfer.source_product.name} "
@@ -719,9 +792,19 @@ def stock_transfer_request_view(request):
 
 
 @login_required
-@module_permission_required('stock_transfers', 'MANAGE')
 def stock_transfer_update_status_view(request, pk):
     """Update status of a stock transfer (Approve, Reject, Complete)."""
+    can_manage_transfers = (
+        request.user.is_admin_role()
+        or request.user.has_module_permission('stock_transfers', 'MANAGE')
+    )
+    if not can_manage_transfers:
+        messages.warning(
+            request,
+            'You do not have manage permission for stock transfers.'
+        )
+        return redirect('admin_dashboard')
+
     transfer = get_object_or_404(StockTransfer, pk=pk)
 
     if request.method == 'POST':
@@ -741,6 +824,7 @@ def stock_transfer_update_status_view(request, pk):
                 transfer.status = StockTransfer.Status.APPROVED
                 transfer.processed_by = request.user
                 transfer.save()
+                notify_stock_transfer_approved(transfer, request.user)
                 messages.success(request, f"Transfer #{transfer.pk} approved.")
 
             elif action == 'reject':
@@ -756,6 +840,7 @@ def stock_transfer_update_status_view(request, pk):
                 transfer.status = StockTransfer.Status.REJECTED
                 transfer.processed_by = request.user
                 transfer.save()
+                notify_stock_transfer_rejected(transfer, request.user)
                 messages.success(request, f"Transfer #{transfer.pk} rejected.")
 
             elif action == 'complete':
@@ -769,6 +854,7 @@ def stock_transfer_update_status_view(request, pk):
                     return redirect('inventory:transfer_list')
 
                 transfer.complete_transfer(request.user)
+                notify_stock_transfer_completed(transfer, request.user)
                 messages.success(
                     request, f"Transfer #{transfer.pk} completed successfully.")
         except ValueError as e:
@@ -863,18 +949,36 @@ def super_admin_stock_view(request):
 
     # Total products and inventory value (current visible scope)
     total_products = products.count()
-    total_inventory_value = sum(p.inventory_value for p in products)
+    cost_value_expr = ExpressionWrapper(
+        F('stock_quantity') * F('unit_cost'),
+        output_field=DecimalField(max_digits=18, decimal_places=2),
+    )
+    retail_value_expr = ExpressionWrapper(
+        F('stock_quantity') * F('price'),
+        output_field=DecimalField(max_digits=18, decimal_places=2),
+    )
+    total_inventory_value = products.aggregate(v=Sum(cost_value_expr))['v'] or Decimal('0.00')
+    total_inventory_value_estimated = products.aggregate(v=Sum(retail_value_expr))['v'] or Decimal('0.00')
+
+    # If all visible products have zero unit_cost, show an estimate from retail price.
+    missing_cost_count = products.filter(unit_cost=0).count()
+    has_products = total_products > 0
+    all_costs_missing = has_products and missing_cost_count == total_products
 
     # Branch breakdown for visible scope
     branch_breakdown = {}
     if is_branch_restricted and selected_branch:
+        branch_inventory_value = products.aggregate(v=Sum(cost_value_expr))['v'] or Decimal('0.00')
+        branch_inventory_estimated = products.aggregate(v=Sum(retail_value_expr))['v'] or Decimal('0.00')
         branch_breakdown[selected_branch.id] = {
             'name': selected_branch.name,
             'low': low_stock.count(),
             'out': out_of_stock.count(),
             'total': low_stock.count() + out_of_stock.count(),
             'product_count': total_products,
-            'inventory_value': total_inventory_value,
+            'inventory_value': branch_inventory_value,
+            'inventory_value_estimated': branch_inventory_estimated,
+            'all_costs_missing': all_costs_missing,
         }
     elif not is_branch_restricted:
         visible_branch_ids = products.values_list(
@@ -885,13 +989,23 @@ def super_admin_stock_view(request):
                 stock_quantity__lte=F('min_stock_level')
             ).exclude(stock_quantity=0).count()
             branch_out = branch_products.filter(stock_quantity=0).count()
+            branch_product_count = branch_products.count()
+            branch_missing_cost_count = branch_products.filter(unit_cost=0).count()
+            branch_all_costs_missing = (
+                branch_product_count > 0
+                and branch_missing_cost_count == branch_product_count
+            )
+            branch_inventory_value = branch_products.aggregate(v=Sum(cost_value_expr))['v'] or Decimal('0.00')
+            branch_inventory_estimated = branch_products.aggregate(v=Sum(retail_value_expr))['v'] or Decimal('0.00')
             branch_breakdown[branch.id] = {
                 'name': branch.name,
                 'low': branch_low,
                 'out': branch_out,
                 'total': branch_low + branch_out,
-                'product_count': branch_products.count(),
-                'inventory_value': sum(p.inventory_value for p in branch_products),
+                'product_count': branch_product_count,
+                'inventory_value': branch_inventory_value,
+                'inventory_value_estimated': branch_inventory_estimated,
+                'all_costs_missing': branch_all_costs_missing,
             }
 
     # Build filter list for filter_bar component (no branch filter - branch restricted)
@@ -925,6 +1039,9 @@ def super_admin_stock_view(request):
         'total_critical': total_critical,
         'total_products': total_products,
         'total_inventory_value': total_inventory_value,
+        'total_inventory_value_estimated': total_inventory_value_estimated,
+        'all_costs_missing': all_costs_missing,
+        'missing_cost_count': missing_cost_count,
         'branch_breakdown': branch_breakdown,
         'page_title': 'Stock Level Monitor',
         'search_value': search_query,

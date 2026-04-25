@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Inquiry
+from notifications.utils import notify_inquiry_archived, notify_inquiry_responded
 
 
 @admin.register(Inquiry)
@@ -65,6 +66,10 @@ class InquiryAdmin(admin.ModelAdmin):
     priority_badge.admin_order_field = 'priority'
     
     def save_model(self, request, obj, form, change):
+        previous_status = None
+        if change and obj.pk:
+            previous_status = Inquiry.objects.filter(pk=obj.pk).values_list('status', flat=True).first()
+
         # Auto-populate responded_by when response is added
         if obj.response and not obj.responded_by:
             obj.responded_by = request.user
@@ -73,3 +78,8 @@ class InquiryAdmin(admin.ModelAdmin):
             if obj.status == 'NEW' or obj.status == 'READ':
                 obj.status = 'RESPONDED'
         super().save_model(request, obj, form, change)
+
+        if obj.status == 'RESPONDED' and previous_status != 'RESPONDED':
+            notify_inquiry_responded(obj, request.user)
+        elif obj.status == 'ARCHIVED' and previous_status != 'ARCHIVED':
+            notify_inquiry_archived(obj, request.user)

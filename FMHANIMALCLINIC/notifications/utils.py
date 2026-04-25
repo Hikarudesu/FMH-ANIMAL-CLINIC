@@ -1,6 +1,173 @@
 """Utility functions for creating and managing notifications."""
 
 from notifications.models import Notification
+from notifications.delivery import send_notification_email, send_notification_sms
+
+
+def _notify_superadmins(title, message, notification_type, module_context, related_object_id=None):
+    from accounts.models import User
+
+    superadmins = User.objects.filter(is_superuser=True)
+    superadmin_emails = []
+
+    for admin in superadmins:
+        Notification.objects.create(
+            user=admin,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=module_context,
+            related_object_id=related_object_id,
+        )
+        if admin.email:
+            superadmin_emails.append(admin.email)
+
+    if superadmin_emails:
+        admin_email_body = (
+            f"{message}\n\n"
+            f"Internal Context (Superuser):\n"
+            f"- Type: {notification_type}\n"
+            f"- Module: {module_context}\n"
+            f"- Related Object ID: {related_object_id or 'N/A'}\n"
+        )
+        send_notification_email(
+            subject=f"[Superuser Alert] {title}",
+            message=admin_email_body,
+            recipient_list=superadmin_emails,
+            superuser_only=True,
+            fail_silently=True,
+        )
+
+    send_notification_sms(message=f"{title}: {message}")
+
+
+def notify_inquiry_received(inquiry):
+    """Create a notification when a new inquiry is received."""
+    branch_name = inquiry.branch.name if inquiry.branch else 'all branches'
+    _notify_superadmins(
+        title='New Inquiry Received',
+        message=(
+            f"A new inquiry was submitted by {inquiry.full_name} for {branch_name}. "
+            f"Priority: {inquiry.get_priority_display()}."
+        ),
+        notification_type=Notification.NotificationType.INQUIRY_NEW,
+        module_context=Notification.ModuleContext.INQUIRIES,
+        related_object_id=inquiry.id,
+    )
+
+
+def notify_inquiry_responded(inquiry, responder=None):
+    """Create a notification when an inquiry is responded to."""
+    responder_name = ((responder.get_full_name() or responder.username) if responder else 'a staff member')
+    _notify_superadmins(
+        title='Inquiry Responded',
+        message=f'Inquiry from {inquiry.full_name} was marked responded by {responder_name}.',
+        notification_type=Notification.NotificationType.INQUIRY_RESPONDED,
+        module_context=Notification.ModuleContext.INQUIRIES,
+        related_object_id=inquiry.id,
+    )
+
+
+def notify_inquiry_archived(inquiry, actor=None):
+    """Create a notification when an inquiry is archived."""
+    actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    _notify_superadmins(
+        title='Inquiry Archived',
+        message=f'Inquiry from {inquiry.full_name} was archived by {actor_name}.',
+        notification_type=Notification.NotificationType.INQUIRY_ARCHIVED,
+        module_context=Notification.ModuleContext.INQUIRIES,
+        related_object_id=inquiry.id,
+    )
+
+
+def notify_stock_transfer_requested(transfer):
+    """Create a notification when a new stock transfer is requested."""
+    _notify_superadmins(
+        title='Stock Transfer Requested',
+        message=(
+            f"{transfer.requested_by.get_full_name() or transfer.requested_by.username} requested "
+            f"{transfer.quantity}x {transfer.source_product.name} from {transfer.source_product.branch.name} "
+            f"to {transfer.destination_branch.name}."
+        ),
+        notification_type=Notification.NotificationType.STOCK_TRANSFER_REQUESTED,
+        module_context=Notification.ModuleContext.INVENTORY,
+        related_object_id=transfer.id,
+    )
+
+
+def notify_stock_transfer_approved(transfer, actor=None):
+    """Create a notification when a stock transfer is approved."""
+    actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    _notify_superadmins(
+        title='Stock Transfer Approved',
+        message=(
+            f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
+            f"was approved by {actor_name}."
+        ),
+        notification_type=Notification.NotificationType.STOCK_TRANSFER_APPROVED,
+        module_context=Notification.ModuleContext.INVENTORY,
+        related_object_id=transfer.id,
+    )
+
+
+def notify_stock_transfer_rejected(transfer, actor=None):
+    """Create a notification when a stock transfer is rejected."""
+    actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    _notify_superadmins(
+        title='Stock Transfer Rejected',
+        message=(
+            f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
+            f"was rejected by {actor_name}."
+        ),
+        notification_type=Notification.NotificationType.STOCK_TRANSFER_REJECTED,
+        module_context=Notification.ModuleContext.INVENTORY,
+        related_object_id=transfer.id,
+    )
+
+
+def notify_stock_transfer_completed(transfer, actor=None):
+    """Create a notification when a stock transfer is completed."""
+    actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    _notify_superadmins(
+        title='Stock Transfer Completed',
+        message=(
+            f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
+            f"was completed by {actor_name}."
+        ),
+        notification_type=Notification.NotificationType.STOCK_TRANSFER_COMPLETED,
+        module_context=Notification.ModuleContext.INVENTORY,
+        related_object_id=transfer.id,
+    )
+
+
+def notify_payroll_generated(period, actor=None, created_count=0, updated_count=0, total_employees=0):
+    """Create a notification when payroll is generated."""
+    actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    _notify_superadmins(
+        title='Payroll Generated',
+        message=(
+            f"Payroll for {period.period_display} was generated by {actor_name}. "
+            f"{created_count} new, {updated_count} updated, {total_employees} employees processed."
+        ),
+        notification_type=Notification.NotificationType.PAYROLL_GENERATED,
+        module_context=Notification.ModuleContext.PAYROLL,
+        related_object_id=period.id,
+    )
+
+
+def notify_payroll_released(period, actor=None, payslip_count=0, emails_sent=0):
+    """Create a notification when payroll is released."""
+    actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    _notify_superadmins(
+        title='Payroll Released',
+        message=(
+            f"Payroll for {period.period_display} was released by {actor_name}. "
+            f"{payslip_count} payslips processed, {emails_sent} emails sent."
+        ),
+        notification_type=Notification.NotificationType.PAYROLL_RELEASED,
+        module_context=Notification.ModuleContext.PAYROLL,
+        related_object_id=period.id,
+    )
 
 
 def notify_appointment_confirmed(appointment):

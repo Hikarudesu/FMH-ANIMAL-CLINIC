@@ -19,6 +19,7 @@ from accounts.decorators import module_permission_required
 from appointments.models import Appointment
 from patients.models import Pet
 from records.models import MedicalRecord, RecordEntry
+from settings.models import ClinicalStatus
 
 from .models import AIDiagnosis
 from .services import get_ai_diagnosis
@@ -241,6 +242,8 @@ def mark_reviewed(request, pk):
         if selected_tests:
             treatment = "Recommended Tests:\n" + '\n'.join(f"• {test}" for test in selected_tests)
 
+        diagnostics_status = ClinicalStatus.objects.filter(code='DIAGNOSTICS').first() or ClinicalStatus.get_default()
+
         # Create RecordEntry
         record_entry = RecordEntry.objects.create(
             record=medical_record,
@@ -249,7 +252,7 @@ def mark_reviewed(request, pk):
             history_clinical_signs=history_clinical_signs,
             treatment=treatment,
             rx=vet_prescription,
-            action_required='DIAGNOSTICS',  # Triggers signal to update Pet.status
+            action_required=diagnostics_status,
         )
 
         # Link diagnosis to record entry

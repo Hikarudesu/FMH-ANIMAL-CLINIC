@@ -290,42 +290,32 @@ class Payslip(models.Model):
         default_other_allowance = getattr(self.employee, 'default_other_allowance', None)
         self.allowance = Decimal(str(default_other_allowance or 0))
         
-        # Zero out legacy deduction fields
+        # Zero out legacy deduction fields and clinic-paid contributions first
         self.sss = Decimal('0')
         self.philhealth = Decimal('0')
+        self.pagibig = Decimal('0')
+        self.clinic_sss = Decimal('0')
+        self.clinic_philhealth = Decimal('0')
+        self.clinic_pagibig = Decimal('0')
+
         # Calculate statutory contributions based on settings
         auto_statutory = get_setting('payroll_auto_statutory', True)
-        
+
         if auto_statutory and self.base_salary > 0:
             # SSS
             if get_setting('payroll_enable_sss', True):
                 sss_rate = Decimal(str(get_setting('payroll_sss_rate', 4.50)))
-                self.sss = self.base_salary * (sss_rate / Decimal('100'))
-            else:
-                self.sss = Decimal('0')
-            
+                self.clinic_sss = self.base_salary * (sss_rate / Decimal('100'))
+
             # PhilHealth
             if get_setting('payroll_enable_philhealth', True):
                 ph_rate = Decimal(str(get_setting('payroll_philhealth_rate', 2.00)))
-                self.philhealth = self.base_salary * (ph_rate / Decimal('100'))
-            else:
-                self.philhealth = Decimal('0')
-            
+                self.clinic_philhealth = self.base_salary * (ph_rate / Decimal('100'))
+
             # Pag-IBIG
             if get_setting('payroll_enable_pagibig', True):
-                self.pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100)))
-            else:
-                self.pagibig = Decimal('0')
-        else:
-            # Statutory disabled — zero out everything
-            self.sss = Decimal('0')
-            self.philhealth = Decimal('0')
-            self.pagibig = Decimal('0')
-            
-        self.clinic_sss = Decimal('0')
-        self.clinic_philhealth = Decimal('0')
-        self.clinic_pagibig = Decimal('0')
-        
+                self.clinic_pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100)))
+
         # Calculate totals
         self.calculate()
         
@@ -333,9 +323,12 @@ class Payslip(models.Model):
     
     @property
     def daily_rate(self):
-        """Calculate daily rate based on 22 working days."""
-        if self.base_salary > 0:
-            return self.base_salary / Decimal('22')
+        """Calculate daily rate based on configured payroll working days."""
+        from settings.utils import get_setting
+
+        working_days = get_setting('payroll_default_work_days', 22)
+        if self.base_salary > 0 and working_days > 0:
+            return self.base_salary / Decimal(str(working_days))
         return Decimal('0')
 
 

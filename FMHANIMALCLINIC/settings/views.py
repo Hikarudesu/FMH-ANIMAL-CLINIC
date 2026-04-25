@@ -13,15 +13,15 @@ from branches.models import Branch
 from .models import (
     ClinicProfile, SystemSetting, SectionContent,
     HeroStat, CoreValue, Service, Veterinarian,
-    ReasonForVisit, ClinicalStatus
+    ReasonForVisit, ClinicalStatus,
 )
 from .forms import (
     ClinicInfoForm,
-    AppointmentSettingsForm,
     InventorySettingsForm,
     NotificationSettingsForm,
     PayrollSettingsForm,
     SystemSettingsForm,
+    AppointmentSettingsForm,
     MedicalRecordsSettingsForm,
     HeroSectionForm,
     MissionVisionForm,
@@ -71,8 +71,6 @@ def settings_main(request, default_tab=None):
 
         if form_type == 'clinic':
             return _handle_clinic_form(request, clinic_profile)
-        elif form_type == 'appointments':
-            return _handle_appointments_form(request)
         elif form_type == 'inventory':
             return _handle_inventory_form(request)
         elif form_type == 'notifications':
@@ -81,6 +79,8 @@ def settings_main(request, default_tab=None):
             return _handle_payroll_form(request)
         elif form_type == 'system':
             return _handle_system_form(request)
+        elif form_type == 'appointments':
+            return _handle_appointment_form(request)
         elif form_type == 'medical':
             return _handle_medical_form(request)
         elif form_type == 'content':
@@ -135,27 +135,6 @@ def _handle_clinic_form(request, clinic_profile):
         return _render_with_error(request, 'clinic', form)
 
 
-def _handle_appointments_form(request):
-    """Handle appointment settings form submission."""
-    form = AppointmentSettingsForm(request.POST)
-    if form.is_valid():
-        data = form.cleaned_data
-        set_setting('appointment_slot_duration', data['slot_duration'], request.user, 'APPOINTMENT')
-        set_setting('appointment_max_advance_days', data['max_advance_days'], request.user, 'APPOINTMENT')
-        set_setting('appointment_min_advance_hours', data['min_advance_hours'], request.user, 'APPOINTMENT')
-        set_setting('appointment_allow_walk_ins', data['allow_walk_ins'], request.user, 'APPOINTMENT')
-        set_setting('appointment_daily_limit', data['daily_limit'], request.user, 'APPOINTMENT')
-        set_setting('appointment_require_confirmation', data['require_confirmation'], request.user, 'APPOINTMENT')
-        set_setting('appointment_auto_cancel_hours', data['auto_cancel_hours'], request.user, 'APPOINTMENT')
-        set_setting('appointment_reminder_hours', data['reminder_hours'], request.user, 'APPOINTMENT')
-
-        messages.success(request, 'Appointment settings updated successfully.')
-        return redirect('settings:admin_settings')
-    else:
-        messages.error(request, 'Please correct the errors below.')
-        return _render_with_error(request, 'appointments', form)
-
-
 def _handle_inventory_form(request):
     """Handle inventory settings form submission."""
     form = InventorySettingsForm(request.POST)
@@ -181,18 +160,7 @@ def _handle_notifications_form(request):
         data = form.cleaned_data
         set_setting('notification_email_enabled', data['email_enabled'], request.user, 'NOTIFICATION')
         set_setting('notification_sms_enabled', data['sms_enabled'], request.user, 'NOTIFICATION')
-        set_setting('notification_sms_provider', data['sms_provider'], request.user, 'NOTIFICATION')
-
-        # Only update API key if provided (not empty)
-        if data['sms_api_key']:
-            set_setting('notification_sms_api_key', data['sms_api_key'], request.user, 'NOTIFICATION')
-            # Mark as sensitive
-            try:
-                setting = SystemSetting.objects.get(key='notification_sms_api_key')
-                setting.is_sensitive = True
-                setting.save()
-            except SystemSetting.DoesNotExist:
-                pass
+        set_setting('notification_sms_default_recipient', data['sms_default_recipient'], request.user, 'NOTIFICATION')
 
         set_setting('notification_from_email', data['from_email'], request.user, 'NOTIFICATION')
         set_setting('notification_sender_name', data['sender_name'], request.user, 'NOTIFICATION')
@@ -245,15 +213,31 @@ def _handle_system_form(request):
         return _render_with_error(request, 'system', form)
 
 
+def _handle_appointment_form(request):
+    """Handle appointment settings form submission."""
+    form = AppointmentSettingsForm(request.POST)
+    if form.is_valid():
+        data = form.cleaned_data
+        set_setting('appointment_max_advance_days', data['max_advance_days'], request.user, 'APPOINTMENT')
+        set_setting('appointment_reminder_hours_1', data['reminder_hours_1'], request.user, 'APPOINTMENT')
+        set_setting('appointment_reminder_hours_2', data['reminder_hours_2'], request.user, 'APPOINTMENT')
+
+        messages.success(request, 'Appointment settings updated successfully.')
+        return redirect('settings:admin_settings')
+    else:
+        messages.error(request, 'Please correct the errors below.')
+        return _render_with_error(request, 'scheduling', form)
+
+
 def _handle_medical_form(request):
     """Handle medical records settings form submission."""
     form = MedicalRecordsSettingsForm(request.POST)
     if form.is_valid():
         data = form.cleaned_data
         set_setting('medical_default_followup_days', data['default_followup_days'], request.user, 'MEDICAL')
-        set_setting('medical_require_diagnosis', data['require_diagnosis'], request.user, 'MEDICAL')
         set_setting('medical_vaccination_reminders', data['vaccination_reminders'], request.user, 'MEDICAL')
         set_setting('medical_reminder_days_before', data['reminder_days_before'], request.user, 'MEDICAL')
+        set_setting('medical_clinical_status_auto_actions', data['clinical_status_auto_actions'], request.user, 'MEDICAL')
 
         messages.success(request, 'Medical records settings updated successfully.')
         return redirect('settings:admin_settings')
@@ -271,6 +255,10 @@ def _render_with_error(request, active_tab, error_form):
         'scheduling': {
             'appointments': AppointmentSettingsForm(),
             'medical': MedicalRecordsSettingsForm(),
+            'reasons': ReasonForVisit.objects.all(),
+            'statuses': ClinicalStatus.objects.all(),
+            'reason_form': ReasonForVisitForm(),
+            'status_form': ClinicalStatusForm(),
         },
         'inventory': InventorySettingsForm(),
         'notifications': NotificationSettingsForm(),
@@ -280,7 +268,7 @@ def _render_with_error(request, active_tab, error_form):
     }
 
     # Handle scheduling tab error forms specially
-    if active_tab in ['appointments', 'medical']:
+    if active_tab in ['medical', 'appointments']:
         forms_dict['scheduling'][active_tab] = error_form
         active_tab = 'scheduling'
     else:
@@ -695,12 +683,12 @@ def clinical_status_detail(request, pk):
     })
 
 
+@login_required
 @admin_only
+@module_permission_required('settings', 'MANAGE')
+@require_POST
 def reorder_reasons(request):
     """Update the order of reasons for visit."""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'POST required'})
-    
     try:
         import json
         data = json.loads(request.body)
@@ -714,12 +702,12 @@ def reorder_reasons(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
+@login_required
 @admin_only
+@module_permission_required('settings', 'MANAGE')
+@require_POST
 def reorder_statuses(request):
     """Update the order of clinical statuses."""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'POST required'})
-    
     try:
         import json
         data = json.loads(request.body)
@@ -731,3 +719,6 @@ def reorder_statuses(request):
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+

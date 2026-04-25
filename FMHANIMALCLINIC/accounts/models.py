@@ -13,6 +13,7 @@ OVERSEER_HIDDEN_NAV_MODULES = {
     'appointments',
     'medical_records',
     'ai_diagnostics',
+    'inquiries',
     'pos',
     'reports',
     'soa',

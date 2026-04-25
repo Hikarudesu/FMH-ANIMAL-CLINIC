@@ -8,33 +8,15 @@
 
       <div class="admin-grid">
         <div class="form-section-title">
-          <i class='bx bx-calendar'></i> Appointment Scheduling
+          <i class='bx bx-calendar-check'></i> Appointment Scheduling
+        </div>
+
+        <div class="admin-field admin-field-full">
+          <p class="form-hint" style="margin-top: -8px; margin-bottom: 12px;">Configure appointment booking policies and timing</p>
         </div>
 
         <div class="admin-field">
-          <label for="id_slot_duration">Appointment Duration</label>
-          {{ forms.scheduling.appointments.slot_duration }}
-          <p class="form-hint">{{ forms.scheduling.appointments.slot_duration.help_text }}</p>
-          {% if forms.scheduling.appointments.slot_duration.errors %}
-            <div class="error-text">{{ forms.scheduling.appointments.slot_duration.errors.0 }}</div>
-          {% endif %}
-        </div>
-
-        <div class="admin-field">
-          <label for="id_daily_limit">Daily Appointment Limit</label>
-          {{ forms.scheduling.appointments.daily_limit }}
-          <p class="form-hint">{{ forms.scheduling.appointments.daily_limit.help_text }}</p>
-          {% if forms.scheduling.appointments.daily_limit.errors %}
-            <div class="error-text">{{ forms.scheduling.appointments.daily_limit.errors.0 }}</div>
-          {% endif %}
-        </div>
-
-        <div class="form-section-title">
-          <i class='bx bx-calendar-check'></i> Booking Rules
-        </div>
-
-        <div class="admin-field">
-          <label for="id_max_advance_days">Max Advance Booking</label>
+          <label for="id_max_advance_days">Maximum Booking Window (days)</label>
           {{ forms.scheduling.appointments.max_advance_days }}
           <p class="form-hint">{{ forms.scheduling.appointments.max_advance_days.help_text }}</p>
           {% if forms.scheduling.appointments.max_advance_days.errors %}
@@ -42,55 +24,26 @@
           {% endif %}
         </div>
 
-        <div class="admin-field">
-          <label for="id_min_advance_hours">Minimum Notice Required</label>
-          {{ forms.scheduling.appointments.min_advance_hours }}
-          <p class="form-hint">{{ forms.scheduling.appointments.min_advance_hours.help_text }}</p>
-          {% if forms.scheduling.appointments.min_advance_hours.errors %}
-            <div class="error-text">{{ forms.scheduling.appointments.min_advance_hours.errors.0 }}</div>
-          {% endif %}
-        </div>
-
-        <div class="admin-field">
-          <label for="id_auto_cancel_hours">Auto-Cancel Unconfirmed After</label>
-          {{ forms.scheduling.appointments.auto_cancel_hours }}
-          <p class="form-hint">{{ forms.scheduling.appointments.auto_cancel_hours.help_text }}</p>
-          {% if forms.scheduling.appointments.auto_cancel_hours.errors %}
-            <div class="error-text">{{ forms.scheduling.appointments.auto_cancel_hours.errors.0 }}</div>
-          {% endif %}
-        </div>
-
-        <div class="admin-field">
-          <label for="id_reminder_hours">Send Reminder Before</label>
-          {{ forms.scheduling.appointments.reminder_hours }}
-          <p class="form-hint">{{ forms.scheduling.appointments.reminder_hours.help_text }}</p>
-          {% if forms.scheduling.appointments.reminder_hours.errors %}
-            <div class="error-text">{{ forms.scheduling.appointments.reminder_hours.errors.0 }}</div>
-          {% endif %}
-        </div>
-
         <div class="form-section-title">
-          <i class='bx bx-toggle-right'></i> Booking Options
+          <i class='bx bx-bell'></i> Appointment Reminders
         </div>
 
-        <div class="admin-field admin-field-full">
-          <div class="checkbox-field">
-            {{ forms.scheduling.appointments.allow_walk_ins }}
-            <div class="checkbox-content">
-              <label for="id_allow_walk_ins">Allow Walk-in Appointments</label>
-              <p class="form-hint">{{ forms.scheduling.appointments.allow_walk_ins.help_text }}</p>
-            </div>
-          </div>
+        <div class="admin-field">
+          <label for="id_reminder_hours_1">First Reminder (hours before appointment)</label>
+          {{ forms.scheduling.appointments.reminder_hours_1 }}
+          <p class="form-hint">{{ forms.scheduling.appointments.reminder_hours_1.help_text }}</p>
+          {% if forms.scheduling.appointments.reminder_hours_1.errors %}
+            <div class="error-text">{{ forms.scheduling.appointments.reminder_hours_1.errors.0 }}</div>
+          {% endif %}
         </div>
 
-        <div class="admin-field admin-field-full">
-          <div class="checkbox-field">
-            {{ forms.scheduling.appointments.require_confirmation }}
-            <div class="checkbox-content">
-              <label for="id_require_confirmation">Require Admin Confirmation</label>
-              <p class="form-hint">{{ forms.scheduling.appointments.require_confirmation.help_text }}</p>
-            </div>
-          </div>
+        <div class="admin-field">
+          <label for="id_reminder_hours_2">Second Reminder (hours before appointment)</label>
+          {{ forms.scheduling.appointments.reminder_hours_2 }}
+          <p class="form-hint">{{ forms.scheduling.appointments.reminder_hours_2.help_text }}</p>
+          {% if forms.scheduling.appointments.reminder_hours_2.errors %}
+            <div class="error-text">{{ forms.scheduling.appointments.reminder_hours_2.errors.0 }}</div>
+          {% endif %}
         </div>
       </div>
 
@@ -130,16 +83,6 @@
           {% endif %}
         </div>
 
-        <div class="admin-field admin-field-full">
-          <div class="checkbox-field">
-            {{ forms.scheduling.medical.require_diagnosis }}
-            <div class="checkbox-content">
-              <label for="id_require_diagnosis">Require Diagnosis to Close Record</label>
-              <p class="form-hint">{{ forms.scheduling.medical.require_diagnosis.help_text }}</p>
-            </div>
-          </div>
-        </div>
-
         <div class="form-section-title">
           <i class='bx bx-injection'></i> Vaccination Reminders
         </div>
@@ -161,6 +104,20 @@
           {% if forms.scheduling.medical.reminder_days_before.errors %}
             <div class="error-text">{{ forms.scheduling.medical.reminder_days_before.errors.0 }}</div>
           {% endif %}
+        </div>
+
+        <div class="form-section-title">
+          <i class='bx bx-bell'></i> Clinical Status Notifications
+        </div>
+
+        <div class="admin-field admin-field-full">
+          <div class="checkbox-field">
+            {{ forms.scheduling.medical.clinical_status_auto_actions }}
+            <div class="checkbox-content">
+              <label for="id_clinical_status_auto_actions">Enable Clinical Status Auto-Actions</label>
+              <p class="form-hint">{{ forms.scheduling.medical.clinical_status_auto_actions.help_text }}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -438,7 +395,9 @@
     margin-bottom: 4px;
   }
   
-  .simple-single-field input[type="text"] {
+  .simple-single-field input[type="text"],
+  .simple-single-field textarea,
+  .simple-single-field select {
     width: 100%;
     padding: 10px;
     border: 1px solid #ddd;
@@ -447,7 +406,9 @@
     box-sizing: border-box;
   }
   
-  .simple-single-field input[type="text"]:focus {
+  .simple-single-field input[type="text"]:focus,
+  .simple-single-field textarea:focus,
+  .simple-single-field select:focus {
     outline: none;
     border-color: #00897b;
     box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.1);
@@ -714,6 +675,10 @@ function updateOrder(type) {
   const listId = type === 'reason' ? 'reasonsList' : 'statusesList';
   const items = document.querySelectorAll(`#${listId} .sortable-item`);
   const orderData = [];
+  const reorderEndpoints = {
+    reason: "{% url 'settings:reorder_reasons' %}",
+    status: "{% url 'settings:reorder_statuses' %}",
+  };
   
   items.forEach((item, index) => {
     orderData.push({
@@ -723,7 +688,7 @@ function updateOrder(type) {
   });
   
   // Send to server
-  fetch(`/admin/settings/api/reorder-${type}/`, {
+  fetch(reorderEndpoints[type], {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -66,7 +66,7 @@
                 <th style="text-align: center;">Margin</th>
                 <th style="text-align: center;">Stock</th>
                 <th style="text-align: center;">Status</th>
-                {% if can_edit %}
+                {% if can_edit or can_delete %}
                 <th style="text-align: center;">Actions</th>
                 {% endif %}
               </tr>
@@ -103,19 +103,26 @@
                         {{ item.status }}
                     </span>
                 </td>
-                {% if can_edit %}
+                {% if can_edit or can_delete %}
                 <td style="text-align: center;">
                   <div onclick="event.stopPropagation();" class="rec-action-grid" style="margin: 0 auto; width: max-content;">
+                    {% if can_edit %}
                     <a href="{% url 'inventory:product_edit' item.pk %}" class="action-btn" title="Edit">
                       <i class='bx bx-edit-alt'></i>
                     </a>
+                    {% endif %}
+                    {% if can_delete %}
+                    <button type="button" class="action-btn danger" title="Delete" onclick="openDeleteModal('{% url 'inventory:product_delete' item.pk %}', '{{ item.name|escapejs }}')">
+                      <i class='bx bx-trash'></i>
+                    </button>
+                    {% endif %}
                   </div>
                 </td>
                 {% endif %}
               </tr>
               {% empty %}
               <tr>
-                <td colspan="{% if can_edit %}9{% else %}8{% endif %}" style="text-align: center; padding: 40px; color: var(--text-3);">No stock items found.{% if can_create %} Click "Register Item" to add one.{% endif %}</td>
+                <td colspan="{% if can_edit or can_delete %}9{% else %}8{% endif %}" style="text-align: center; padding: 40px; color: var(--text-3);">No stock items found.{% if can_create %} Click "Register Item" to add one.{% endif %}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -422,9 +429,89 @@ document.addEventListener("DOMContentLoaded", () => {
 if (window.SearchableDropdown) {
   SearchableDropdown.init();
 }
+
+// Modal Functions (same behavior as Manage Clinic Services)
+window.openDeleteModal = function(url, name) {
+  document.getElementById('deleteItemName').textContent = name;
+  document.getElementById('deleteItemForm').action = url;
+  document.getElementById('deleteItemModal').classList.add('active');
+}
+
+window.closeDeleteModal = function() {
+  document.getElementById('deleteItemModal').classList.remove('active');
+}
 </script>
 
+<!-- Delete Item Modal -->
+<div class="modal-overlay" id="deleteItemModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Delete Item</h3>
+      <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <form id="deleteItemForm" method="post" action="">
+      {% csrf_token %}
+      <div class="modal-body" style="text-align: center; padding-top: 30px;">
+        <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="deleteItemName"></span>?</h4>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+          Are you completely sure you want to delete this item? This action cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;">Yes, Delete Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <style>
+/* Buttons for Modal */
+.btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+}
+
+.btn-cancel:hover {
+    border-color: var(--border-hover);
+    background: var(--bg);
+}
+
+.btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25);
+}
+
+.btn-submit:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 150, 136, 0.35);
+}
+
 /* Fix dropdown clipping - allow overflow */
 .portal-content {
     overflow: visible !important;

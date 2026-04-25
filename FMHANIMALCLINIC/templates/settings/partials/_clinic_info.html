@@ -9,7 +9,6 @@
         <i class='bx bx-building'></i> Clinic Branding
       </div>
 
-      <!-- Logo Upload -->
       <div class="admin-field admin-field-full">
         <label>Clinic Logo</label>
         <div class="logo-preview-container">
@@ -31,7 +30,7 @@
       </div>
 
       <div class="admin-field">
-        <label for="{{ forms.clinic.name.id_for_label }}">Clinic Name *</label>
+        <label for="{{ forms.clinic.name.id_for_label }}">Clinic Name</label>
         {{ forms.clinic.name }}
         {% if forms.clinic.name.errors %}
           <div class="error-text">{{ forms.clinic.name.errors.0 }}</div>
@@ -39,11 +38,26 @@
       </div>
 
       <div class="admin-field">
-        <label for="{{ forms.clinic.tagline.id_for_label }}">Tagline / Slogan</label>
-        {{ forms.clinic.tagline }}
-        <p class="form-hint">A short phrase that represents your clinic</p>
-        {% if forms.clinic.tagline.errors %}
-          <div class="error-text">{{ forms.clinic.tagline.errors.0 }}</div>
+        <label for="{{ forms.clinic.clinic_title.id_for_label }}">Clinic Title</label>
+        {{ forms.clinic.clinic_title }}
+        {% if forms.clinic.clinic_title.errors %}
+          <div class="error-text">{{ forms.clinic.clinic_title.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.clinic_slogan.id_for_label }}">Clinic Slogan</label>
+        {{ forms.clinic.clinic_slogan }}
+        {% if forms.clinic.clinic_slogan.errors %}
+          <div class="error-text">{{ forms.clinic.clinic_slogan.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label for="{{ forms.clinic.hero_description.id_for_label }}">Hero Description</label>
+        {{ forms.clinic.hero_description }}
+        {% if forms.clinic.hero_description.errors %}
+          <div class="error-text">{{ forms.clinic.hero_description.errors.0 }}</div>
         {% endif %}
       </div>
 
@@ -76,6 +90,38 @@
         {% endif %}
       </div>
 
+      <div class="admin-field">
+        <label for="{{ forms.clinic.facebook_url.id_for_label }}">Facebook URL</label>
+        {{ forms.clinic.facebook_url }}
+        {% if forms.clinic.facebook_url.errors %}
+          <div class="error-text">{{ forms.clinic.facebook_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.instagram_url.id_for_label }}">Instagram URL</label>
+        {{ forms.clinic.instagram_url }}
+        {% if forms.clinic.instagram_url.errors %}
+          <div class="error-text">{{ forms.clinic.instagram_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.messenger_url.id_for_label }}">Messenger URL</label>
+        {{ forms.clinic.messenger_url }}
+        {% if forms.clinic.messenger_url.errors %}
+          <div class="error-text">{{ forms.clinic.messenger_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ forms.clinic.tiktok_url.id_for_label }}">TikTok URL</label>
+        {{ forms.clinic.tiktok_url }}
+        {% if forms.clinic.tiktok_url.errors %}
+          <div class="error-text">{{ forms.clinic.tiktok_url.errors.0 }}</div>
+        {% endif %}
+      </div>
+
       <div class="form-section-title">
         <i class='bx bx-certification'></i> Legal Information
       </div>
@@ -92,7 +138,7 @@
       <div class="form-section-title">
         <i class='bx bx-check-shield'></i> Policies & Legal Documents
       </div>
-      
+
       <div class="admin-field admin-field-full">
         <p class="form-hint" style="margin-top: 0; margin-bottom: 8px;">
           Manage the content of your clinic's Terms of Service and Privacy Policy directly below. If updated, a new active version will be saved automatically.

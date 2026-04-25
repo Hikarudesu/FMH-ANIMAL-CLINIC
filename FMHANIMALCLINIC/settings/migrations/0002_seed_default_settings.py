@@ -13,9 +13,9 @@ def seed_default_settings(apps, schema_editor):
         # Appointment Settings
         {'key': 'appointment_slot_duration', 'value': '30', 'value_type': 'integer',
          'category': 'APPOINTMENT', 'description': 'Duration of each appointment slot in minutes'},
-        {'key': 'appointment_max_advance_days', 'value': '30', 'value_type': 'integer',
-         'category': 'APPOINTMENT', 'description': 'Maximum days in advance for booking'},
-        {'key': 'appointment_min_advance_hours', 'value': '2', 'value_type': 'integer',
+        {'key': 'appointment_max_advance_days', 'value': '180', 'value_type': 'integer',
+         'category': 'APPOINTMENT', 'description': 'Maximum days in advance for booking (6 months)'},
+        {'key': 'appointment_min_advance_hours', 'value': '1', 'value_type': 'integer',
          'category': 'APPOINTMENT', 'description': 'Minimum hours notice required for booking'},
         {'key': 'appointment_allow_walk_ins', 'value': 'true', 'value_type': 'boolean',
          'category': 'APPOINTMENT', 'description': 'Allow walk-in appointments'},
@@ -23,10 +23,12 @@ def seed_default_settings(apps, schema_editor):
          'category': 'APPOINTMENT', 'description': 'Max appointments per day per branch (0 = unlimited)'},
         {'key': 'appointment_require_confirmation', 'value': 'true', 'value_type': 'boolean',
          'category': 'APPOINTMENT', 'description': 'Require admin confirmation for online bookings'},
-        {'key': 'appointment_auto_cancel_hours', 'value': '24', 'value_type': 'integer',
-         'category': 'APPOINTMENT', 'description': 'Auto-cancel unconfirmed appointments after this many hours'},
-        {'key': 'appointment_reminder_hours', 'value': '24', 'value_type': 'integer',
-         'category': 'APPOINTMENT', 'description': 'Hours before appointment to send reminder'},
+        {'key': 'appointment_auto_cancel_hours', 'value': '48', 'value_type': 'integer',
+         'category': 'APPOINTMENT', 'description': 'Auto-cancel unconfirmed appointments after this many hours (2 days)'},
+        {'key': 'appointment_reminder_hours_1', 'value': '24', 'value_type': 'integer',
+         'category': 'APPOINTMENT', 'description': 'Hours before appointment to send first reminder (1 day)'},
+        {'key': 'appointment_reminder_hours_2', 'value': '3', 'value_type': 'integer',
+         'category': 'APPOINTMENT', 'description': 'Hours before appointment to send second reminder (3 hours)'},
 
         # Inventory Settings
         {'key': 'inventory_low_stock_threshold', 'value': '10', 'value_type': 'integer',
@@ -55,20 +57,12 @@ def seed_default_settings(apps, schema_editor):
          'category': 'NOTIFICATION', 'description': 'Sender display name'},
 
         # Payroll Settings
-        {'key': 'payroll_period_type', 'value': 'SEMI_MONTHLY', 'value_type': 'string',
-         'category': 'PAYROLL', 'description': 'Payroll period type'},
-        {'key': 'payroll_work_hours_per_day', 'value': '8', 'value_type': 'integer',
-         'category': 'PAYROLL', 'description': 'Standard work hours per day'},
-        {'key': 'payroll_overtime_threshold', 'value': '8', 'value_type': 'integer',
-         'category': 'PAYROLL', 'description': 'Hours after which overtime pay applies'},
         {'key': 'payroll_enable_sss', 'value': 'true', 'value_type': 'boolean',
          'category': 'PAYROLL', 'description': 'Enable SSS deduction'},
         {'key': 'payroll_enable_philhealth', 'value': 'true', 'value_type': 'boolean',
          'category': 'PAYROLL', 'description': 'Enable PhilHealth deduction'},
         {'key': 'payroll_enable_pagibig', 'value': 'true', 'value_type': 'boolean',
          'category': 'PAYROLL', 'description': 'Enable Pag-IBIG deduction'},
-        {'key': 'payroll_enable_tax', 'value': 'true', 'value_type': 'boolean',
-         'category': 'PAYROLL', 'description': 'Enable withholding tax'},
 
         # System Settings
         {'key': 'system_timezone', 'value': 'Asia/Manila', 'value_type': 'string',

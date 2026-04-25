@@ -167,8 +167,12 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <a href="{% url 'user_dashboard' %}" class="sidebar-logo">
+        {% if CLINIC_LOGO %}
+        <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_NAME }} Logo">
+        {% else %}
         <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo">
-        <span>FMHSYNC</span>
+        {% endif %}
+        <span>{{ CLINIC_NAME }}</span>
       </a>
     </div>
     <nav class="sidebar-nav">

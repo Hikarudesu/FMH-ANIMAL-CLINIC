@@ -395,10 +395,10 @@
             {% if entry.ff_up %}
             <p><span class="upd-tl-label">Follow-up:</span> {{ entry.ff_up|date:"M j, Y" }}</p>
             {% endif %}
-            {% if entry.action_required and entry.action_required != 'HEALTHY' %}
-            <span class="upd-tl-action" style="background:{% if entry.action_required == 'SURGERY' %}#fce4ec; color:#c62828{% elif entry.action_required == 'MONITOR' %}#fff3e0; color:#e65100{% elif entry.action_required == 'CRITICAL' %}#ffebee; color:#b71c1c{% else %}#f3e5f5; color:#6a1b9a{% endif %}">
-              <i class='bx {% if entry.action_required == "SURGERY" %}bx-plus-medical{% elif entry.action_required == "MONITOR" %}bx-show{% elif entry.action_required == "CRITICAL" %}bx-error{% else %}bx-test-tube{% endif %}'></i>
-              {{ entry.get_action_required_display }}
+            {% if entry.action_required and entry.action_required.code != 'HEALTHY' %}
+            <span class="upd-tl-action" style="background:{% if entry.action_required.code == 'SURGERY' %}#fce4ec; color:#c62828{% elif entry.action_required.code == 'MONITOR' %}#fff3e0; color:#e65100{% elif entry.action_required.code == 'CRITICAL' %}#ffebee; color:#b71c1c{% else %}#f3e5f5; color:#6a1b9a{% endif %}">
+              <i class='bx {% if entry.action_required.code == "SURGERY" %}bx-plus-medical{% elif entry.action_required.code == "MONITOR" %}bx-show{% elif entry.action_required.code == "CRITICAL" %}bx-error{% else %}bx-test-tube{% endif %}'></i>
+              {{ entry.action_required.name }}
             </span>
             {% endif %}
             {% if entry.vet %}

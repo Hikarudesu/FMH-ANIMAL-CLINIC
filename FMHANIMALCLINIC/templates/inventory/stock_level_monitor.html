@@ -16,7 +16,7 @@
 <!-- Filter Bar -->
 <div class="c-filter-bar" style="margin-bottom: 22px;">
   <div class="c-filter-bar__glow"></div>
-  <form method="GET" action="/inventory/super-admin/overview/" class="c-filter-bar__form" autocomplete="off">
+  <form method="GET" action="{% url 'inventory:super_admin_stock_monitoring' %}" class="c-filter-bar__form" autocomplete="off">
     <div class="c-filter-bar__filters">
       <!-- Status Filter -->
       <div class="c-filter-dropdown">
@@ -56,7 +56,7 @@
 
       <!-- Clear Button -->
       {% if show_clear %}
-      <a href="/inventory/super-admin/overview/" class="c-filter-bar__clear" title="Clear Filters">
+      <a href="{% url 'inventory:super_admin_stock_monitoring' %}" class="c-filter-bar__clear" title="Clear Filters">
         <i class='bx bx-x'></i>
       </a>
       {% endif %}
@@ -87,10 +87,25 @@
   <div class="stat-card teal">
     <div class="stat-icon-bg"><i class='bx bx-wallet'></i></div>
     <div class="stat-label">Inventory Value</div>
+    {% if all_costs_missing and total_products > 0 %}
+    <div class="stat-value">₱{{ total_inventory_value_estimated|peso }}</div>
+    <div class="stat-sub">Estimated from selling price (unit cost not set)</div>
+    {% else %}
     <div class="stat-value">₱{{ total_inventory_value|peso }}</div>
-    <div class="stat-sub">Total asset valuation</div>
+    <div class="stat-sub">Total asset valuation (cost basis)</div>
+    {% endif %}
   </div>
 </div>
+
+{% if all_costs_missing and total_products > 0 %}
+<div class="dashboard-card full-width" style="margin-bottom: 22px; border-left: 4px solid #f59e0b;">
+  <div style="padding: 14px 16px; color: var(--text-2);">
+    <strong style="color: var(--text-1);">Inventory valuation note:</strong>
+    {{ missing_cost_count }} product(s) have a unit cost of 0.00, so asset value cannot be calculated from cost.
+    The value shown above is a retail estimate until unit cost is encoded.
+  </div>
+</div>
+{% endif %}
 
 <!-- Branch-wise Breakdown (if applicable) -->
 {% if branch_breakdown %}
@@ -129,7 +144,13 @@
                 {{ stats.out }}
               </span>
             </td>
-            <td style="font-weight: 600;">₱{{ stats.inventory_value|peso }}</td>
+            <td style="font-weight: 600;">
+              {% if stats.all_costs_missing and stats.product_count > 0 %}
+                ₱{{ stats.inventory_value_estimated|peso }}
+              {% else %}
+                ₱{{ stats.inventory_value|peso }}
+              {% endif %}
+            </td>
             <td style="text-align: center;">
               <a href="{% url 'inventory:super_admin_stock_monitoring' %}?branch_id={{ branch_id }}" class="small-badge">
                 View Details

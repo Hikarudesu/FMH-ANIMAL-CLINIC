@@ -1,7 +1,6 @@
 """Billing app models."""
 
 from django.db import models
-from branches.models import Branch
 from utils.models import SoftDeleteModel
 
 
@@ -12,8 +11,6 @@ class Service(SoftDeleteModel):
     cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
-    branch = models.ForeignKey(Branch, on_delete=models.SET_NULL,
-                               null=True, blank=True, related_name='services')
     category = models.CharField(max_length=100, blank=True)
     tax_rate = models.CharField(max_length=50, blank=True)
     duration = models.IntegerField(default=0, help_text="Duration in minutes")
@@ -106,7 +103,7 @@ class CustomerStatement(models.Model):
         related_name='created_statements'
     )
     branch = models.ForeignKey(
-        Branch,
+        'branches.Branch',
         on_delete=models.SET_NULL,
         null=True, blank=True
     )

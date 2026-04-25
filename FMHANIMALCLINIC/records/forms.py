@@ -13,7 +13,7 @@ class MedicalRecordForm(FormControlMixin, forms.ModelForm):
         model = MedicalRecord
         fields = [
             'branch', 'vet', 'date_recorded', 'weight', 'temperature',
-            'history_clinical_signs', 'treatment', 'rx', 'ff_up'
+            'history_clinical_signs', 'treatment', 'rx', 'lab_results', 'ff_up'
         ]
         widgets = {
             'branch': forms.Select(attrs={'id': 'id_branch'}),
@@ -24,6 +24,7 @@ class MedicalRecordForm(FormControlMixin, forms.ModelForm):
             'history_clinical_signs': forms.Textarea(attrs={'rows': 3}),
             'treatment': forms.Textarea(attrs={'rows': 3}),
             'rx': forms.Textarea(attrs={'rows': 3}),
+            'lab_results': forms.Textarea(attrs={'rows': 3}),
             'ff_up': forms.DateInput(attrs={'type': 'date'}),
         }
 
@@ -61,7 +62,7 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
         model = RecordEntry
         fields = [
             'vet', 'date_recorded', 'weight', 'temperature',
-            'history_clinical_signs', 'treatment', 'rx', 'ff_up',
+            'history_clinical_signs', 'treatment', 'rx', 'lab_results', 'ff_up',
             'action_required',
         ]
         widgets = {
@@ -72,6 +73,7 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
             'history_clinical_signs': forms.Textarea(attrs={'rows': 3}),
             'treatment': forms.Textarea(attrs={'rows': 3}),
             'rx': forms.Textarea(attrs={'rows': 3}),
+            'lab_results': forms.Textarea(attrs={'rows': 3}),
             'ff_up': forms.DateInput(attrs={'type': 'date'}),
             'action_required': forms.Select(),
         }
@@ -100,3 +102,15 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
         self.fields['vet'].queryset = vet_queryset
         self.fields['vet'].empty_label = '— Select Vet —'
         self.fields['vet'].required = False
+
+        from settings.models import ClinicalStatus
+
+        action_queryset = ClinicalStatus.objects.filter(is_active=True)
+        if self.instance and self.instance.pk and self.instance.action_required_id:
+            action_queryset = ClinicalStatus.objects.filter(
+                Q(is_active=True) | Q(pk=self.instance.action_required_id)
+            )
+        self.fields['action_required'].queryset = action_queryset.order_by('order', 'name')
+        self.fields['action_required'].required = False
+        if not self.instance.pk and not self.initial.get('action_required'):
+            self.initial['action_required'] = ClinicalStatus.get_default().pk

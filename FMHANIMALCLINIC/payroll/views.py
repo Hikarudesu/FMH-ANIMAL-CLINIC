@@ -31,6 +31,7 @@ from accounts.models import User
 from accounts.decorators import module_permission_required, special_permission_required
 from employees.models import StaffMember
 from payroll.models import PayrollPeriod, Payslip
+from notifications.utils import notify_payroll_generated, notify_payroll_released
 
 logger = logging.getLogger('fmh')
 
@@ -345,6 +346,13 @@ def generate_payslips_action(request):
     period.generated_at = timezone.now()
     period.update_totals()
     period.save()
+    notify_payroll_generated(
+        period,
+        request.user,
+        created_count=created_count,
+        updated_count=updated_count,
+        total_employees=total_employees,
+    )
 
     # Log the generation
     from payroll.models import PayrollAuditLog
@@ -710,6 +718,13 @@ FMH Animal Clinic
             request,
             f'Payroll for {period.period_display} has been released!'
         )
+
+    notify_payroll_released(
+        period,
+        request.user,
+        payslip_count=payslip_count,
+        emails_sent=sent_count,
+    )
 
     return redirect('payroll:payslips', period_id=period.id)
 

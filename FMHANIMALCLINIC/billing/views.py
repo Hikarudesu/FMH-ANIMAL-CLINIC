@@ -18,7 +18,6 @@ from .forms import ServiceForm
 
 
 @login_required
-@module_permission_required('clinic_services', 'VIEW')
 def service_list(request):
     """View for listing all clinic services with filtering and search."""
     services = Service.objects.all()
@@ -58,23 +57,6 @@ def service_list(request):
     can_delete = request.user.has_module_permission(
         'clinic_services', 'DELETE')
 
-    # Check if user is branch-restricted
-    is_branch_restricted = request.user.is_module_branch_restricted(
-        'clinic_services')
-
-    # Branch filtering
-    if is_branch_restricted and request.user.branch:
-        services = services.filter(
-            Q(branch=request.user.branch) | Q(branch__isnull=True))
-    else:
-        branch_id = request.GET.get('branch')
-        if branch_id:
-            services = services.filter(
-                Q(branch_id=branch_id) | Q(branch__isnull=True))
-
-    from branches.models import Branch
-    all_branches = Branch.objects.all()
-
     # Create full list of services for the Javascript live search
     import json
     all_services_list = list(services.values('name', 'category', 'active'))
@@ -97,12 +79,10 @@ def service_list(request):
         'items': page_obj,
         'page_obj': page_obj,
         'categories': categories,
-        'branches': all_branches,
         'status_choices': [('active', 'Active'), ('inactive', 'Inactive')],
         'can_create': can_create,
         'can_edit': can_edit,
         'can_delete': can_delete,
-        'is_branch_restricted': is_branch_restricted,
         'all_services_json': all_services_json,
         'next_url_qs': next_url_qs,
     }

@@ -1,8 +1,7 @@
 """Utility functions for sending automated emails."""
 import logging
 
-from django.core.mail import send_mail
-from django.conf import settings
+from .delivery import send_notification_email
 
 logger = logging.getLogger('fmh')
 
@@ -31,28 +30,39 @@ def send_appointment_confirmation(appointment):
     """
 
     if appointment.owner_email:
-        try:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[appointment.owner_email],
-                fail_silently=True,
-            )
+        sent = send_notification_email(
+            subject=subject,
+            message=message,
+            recipient_list=[appointment.owner_email],
+            fail_silently=True,
+        )
+        if sent:
             return True
-        except Exception as e:
-            logger.warning("Failed to send appointment confirmation email to %s: %s", appointment.owner_email, e)
+        logger.warning("Failed to send appointment confirmation email to %s", appointment.owner_email)
     return False
 
 
-def send_appointment_reminder(appointment):
-    """Sends a reminder email for an upcoming appointment."""
-    subject = f'Reminder: Upcoming Appointment - FMH Animal Clinic ({appointment.pet_name})'
+def send_appointment_reminder(appointment, reminder_num=1):
+    """
+    Sends a reminder email for an upcoming appointment.
+    
+    Args:
+        appointment: The Appointment object
+        reminder_num: Which reminder this is (1 or 2). Default is 1.
+    """
+    if reminder_num == 2:
+        subject = f'Final Reminder: Appointment in 3 Hours - FMH Animal Clinic ({appointment.pet_name})'
+        timing = 'in 3 hours'
+        message_intro = 'This is your final reminder about your appointment scheduled'
+    else:
+        subject = f'Reminder: Upcoming Appointment - FMH Animal Clinic ({appointment.pet_name})'
+        timing = 'tomorrow'
+        message_intro = 'This is a friendly reminder of your upcoming appointment'
 
     message = f"""
     Dear {appointment.owner_name},
     
-    This is a friendly reminder of your upcoming appointment for {appointment.pet_name} tomorrow.
+    {message_intro} for {appointment.pet_name} {timing}.
     
     Details:
     - Date: {appointment.appointment_date.strftime('%B %d, %Y')}
@@ -66,17 +76,15 @@ def send_appointment_reminder(appointment):
     """
 
     if appointment.owner_email:
-        try:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[appointment.owner_email],
-                fail_silently=True,
-            )
+        sent = send_notification_email(
+            subject=subject,
+            message=message,
+            recipient_list=[appointment.owner_email],
+            fail_silently=True,
+        )
+        if sent:
             return True
-        except Exception as e:
-            logger.warning("Failed to send appointment reminder email to %s: %s", appointment.owner_email, e)
+        logger.warning("Failed to send appointment reminder email to %s", appointment.owner_email)
     return False
 
 
@@ -107,15 +115,13 @@ def send_reservation_notification(reservation):
     message += "\n\nThank you,\nFMH Animal Clinic"
 
     if reservation.user.email:
-        try:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[reservation.user.email],
-                fail_silently=True,
-            )
+        sent = send_notification_email(
+            subject=subject,
+            message=message,
+            recipient_list=[reservation.user.email],
+            fail_silently=True,
+        )
+        if sent:
             return True
-        except Exception as e:
-            logger.warning("Failed to send reservation notification email to %s: %s", reservation.user.email, e)
+        logger.warning("Failed to send reservation notification email to %s", reservation.user.email)
     return False

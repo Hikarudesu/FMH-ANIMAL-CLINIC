@@ -52,20 +52,11 @@
       </div>
 
       <div class="admin-field">
-        <label for="id_sms_provider">SMS Provider</label>
-        {{ forms.notifications.sms_provider }}
-        <p class="form-hint">{{ forms.notifications.sms_provider.help_text }}</p>
-        {% if forms.notifications.sms_provider.errors %}
-          <div class="error-text">{{ forms.notifications.sms_provider.errors.0 }}</div>
-        {% endif %}
-      </div>
-
-      <div class="admin-field">
-        <label for="id_sms_api_key">SMS API Key</label>
-        {{ forms.notifications.sms_api_key }}
-        <p class="form-hint">Leave blank to keep current key. Enter a new key to update.</p>
-        {% if forms.notifications.sms_api_key.errors %}
-          <div class="error-text">{{ forms.notifications.sms_api_key.errors.0 }}</div>
+        <label for="id_sms_default_recipient">Default SMS SIM Number (PH)</label>
+        {{ forms.notifications.sms_default_recipient }}
+        <p class="form-hint">{{ forms.notifications.sms_default_recipient.help_text }}</p>
+        {% if forms.notifications.sms_default_recipient.errors %}
+          <div class="error-text">{{ forms.notifications.sms_default_recipient.errors.0 }}</div>
         {% endif %}
       </div>
     </div>

@@ -11,16 +11,16 @@ from accounts.models import ActivityLog, log_activity
 
 try:
     from appointments.models import Appointment
-    
+
     @receiver(post_save, sender=Appointment)
     def log_appointment_changes(sender, instance, created, **kwargs):
         """Log appointment creation and updates."""
         user = getattr(instance, '_user', None)
         if not user:
             return
-        
+
         ip_address = getattr(instance, '_ip_address', None)
-        
+
         if created:
             log_activity(
                 user=user,
@@ -54,16 +54,16 @@ except ImportError:
 
 try:
     from patients.models import Pet
-    
+
     @receiver(post_save, sender=Pet)
     def log_pet_changes(sender, instance, created, **kwargs):
         """Log pet creation and updates."""
         user = getattr(instance, '_user', None)
         if not user:
             return
-        
+
         ip_address = getattr(instance, '_ip_address', None)
-        
+
         if created:
             log_activity(
                 user=user,
@@ -95,16 +95,16 @@ except ImportError:
 
 try:
     from records.models import MedicalRecord
-    
+
     @receiver(post_save, sender=MedicalRecord)
     def log_medical_record_changes(sender, instance, created, **kwargs):
         """Log medical record creation and updates."""
         user = getattr(instance, '_user', None)
         if not user:
             return
-        
+
         ip_address = getattr(instance, '_ip_address', None)
-        
+
         if created:
             log_activity(
                 user=user,
@@ -135,16 +135,16 @@ except ImportError:
 
 try:
     from pos.models import Sale
-    
+
     @receiver(post_save, sender=Sale)
     def log_sale_changes(sender, instance, created, **kwargs):
         """Log sale creation and updates."""
         user = getattr(instance, '_user', None)
         if not user:
             return
-        
+
         ip_address = getattr(instance, '_ip_address', None)
-        
+
         if created:
             log_activity(
                 user=user,
@@ -176,16 +176,16 @@ except ImportError:
 
 try:
     from billing.models import CustomerStatement
-    
+
     @receiver(post_save, sender=CustomerStatement)
     def log_statement_changes(sender, instance, created, **kwargs):
         """Log statement creation and updates."""
         user = getattr(instance, '_user', None)
         if not user:
             return
-        
+
         ip_address = getattr(instance, '_ip_address', None)
-        
+
         if created:
             log_activity(
                 user=user,
@@ -217,16 +217,16 @@ except ImportError:
 
 try:
     from inventory.models import Product
-    
+
     @receiver(post_save, sender=Product)
     def log_product_changes(sender, instance, created, **kwargs):
         """Log product creation and updates."""
         user = getattr(instance, '_user', None)
         if not user:
             return
-        
+
         ip_address = getattr(instance, '_ip_address', None)
-        
+
         if created:
             log_activity(
                 user=user,
@@ -260,16 +260,16 @@ except ImportError:
 
 try:
     from employees.models import StaffMember
-    
+
     @receiver(post_save, sender=StaffMember)
     def log_staff_changes(sender, instance, created, **kwargs):
         """Log staff creation and updates."""
         user = getattr(instance, '_user', None)
         if not user:
             return
-        
+
         ip_address = getattr(instance, '_ip_address', None)
-        
+
         if created:
             log_activity(
                 user=user,
@@ -303,16 +303,16 @@ except ImportError:
 
 try:
     from payroll.models import Payroll
-    
+
     @receiver(post_save, sender=Payroll)
     def log_payroll_changes(sender, instance, created, **kwargs):
         """Log payroll creation and updates."""
         user = getattr(instance, '_user', None)
         if not user:
             return
-        
+
         ip_address = getattr(instance, '_ip_address', None)
-        
+
         if created:
             log_activity(
                 user=user,
@@ -341,6 +341,7 @@ except ImportError:
 # LOGIN/LOGOUT SIGNALS
 # ════════════════════════════════════════════════════════
 
+
 @receiver(user_logged_in)
 def log_user_login(sender, request, user, **kwargs):
     """Log when a user successfully logs in."""
@@ -354,6 +355,7 @@ def log_user_login(sender, request, user, **kwargs):
         details=f"IP: {ip_address}",
         ip_address=ip_address
     )
+
 
 @receiver(user_logged_out)
 def log_user_logout(sender, request, user, **kwargs):

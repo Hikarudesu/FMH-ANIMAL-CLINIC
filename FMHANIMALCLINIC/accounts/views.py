@@ -750,9 +750,7 @@ def admin_dashboard_view(request):
 
     # Service breakdown (consultation types)
     services_q = Service.objects.all()
-    if not request.user.is_admin_role():
-        services_q = services_q.filter(branch=request.user.branch)
-        
+
     service_breakdown_query = services_q.annotate(
         usage_count=Count('sale_items__sale', filter=Q(sale_items__sale__status='COMPLETED'))
     ).values('name', 'usage_count').order_by('-usage_count')[:10]

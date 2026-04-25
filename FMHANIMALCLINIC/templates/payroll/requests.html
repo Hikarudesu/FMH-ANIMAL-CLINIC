@@ -287,6 +287,127 @@
     .stats-row { grid-template-columns: 1fr; }
     .periods-grid { grid-template-columns: 1fr; }
   }
+
+  /* Buttons for Modal */
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+  }
+
+  .btn-cancel:hover {
+    border-color: var(--border-hover);
+    background: var(--bg);
+  }
+
+  .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4, 0.2, 0.2, 1);
+    text-decoration: none;
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.25);
+  }
+
+  .btn-submit:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(230, 57, 70, 0.35);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    padding: 16px;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 480px;
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+    transform: translateY(10px) scale(0.98);
+    transition: transform 0.2s ease;
+    overflow: hidden;
+  }
+
+  .modal-overlay.active .modal-content {
+    transform: translateY(0) scale(1);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .modal-body {
+    padding: 0 20px 18px;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 20px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
 </style>
 
 <div class="requests-page">
@@ -391,11 +512,11 @@
                 </a>
               {% endif %}
               {% if period.status != 'RELEASED' or can_delete_released %}
-              <a href="{% url 'payroll:delete_period' period.id %}" class="btn-action btn-danger btn-icon" 
+              <button type="button" class="btn-action btn-danger btn-icon" 
                  title="Delete Period" 
-                 onclick="return confirm('Delete {{ period.month_name }} {{ period.year }} payroll{% if period.status == 'RELEASED' %} (RELEASED){% endif %}? This will delete all {{ period.payslips.count }} payslips. This action cannot be undone.');">
+                 onclick="openDeleteModal('{% url 'payroll:delete_period' period.id %}', '{{ period.period_display|escapejs }}', '{{ period.payslips.count }}', '{{ period.status|escapejs }}')">
                 <i class='bx bx-trash'></i>
-              </a>
+              </button>
               {% endif %}
             </div>
           </div>
@@ -424,4 +545,57 @@
     </div>
   {% endif %}
 </div>
+
+<!-- Delete Payroll Modal -->
+<div class="modal-overlay" id="deletePayrollModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: #e63946;"><i class='bx bx-error-circle'></i> Delete Payroll Period</h3>
+      <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <form id="deletePayrollForm" method="post" action="">
+      {% csrf_token %}
+      <div class="modal-body" style="text-align: center; padding-top: 30px;">
+        <i class='bx bx-info-circle' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="deletePayrollName"></span>?</h4>
+        <p id="deletePayrollNote" style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn-submit" style="background-color: #e63946; border-color: #e63946; color: white;">Yes, Delete Payroll</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  window.openDeleteModal = function(url, periodName, payslipCount, periodStatus) {
+    const modal = document.getElementById('deletePayrollModal');
+    const form = document.getElementById('deletePayrollForm');
+    const nameEl = document.getElementById('deletePayrollName');
+    const noteEl = document.getElementById('deletePayrollNote');
+    if (!modal || !form || !nameEl || !noteEl) return;
+
+    form.action = url;
+    nameEl.textContent = periodName;
+    noteEl.textContent = periodStatus === 'RELEASED'
+      ? `This payroll period has ${payslipCount} payslips and has already been released. This action cannot be undone. Any references to this payroll period might be affected.`
+      : `This payroll period has ${payslipCount} payslips. This action cannot be undone. Any references to this payroll period might be affected.`;
+    modal.classList.add('active');
+  };
+
+  window.closeDeleteModal = function() {
+    const modal = document.getElementById('deletePayrollModal');
+    if (modal) modal.classList.remove('active');
+  };
+
+  const payrollDeleteModal = document.getElementById('deletePayrollModal');
+  if (payrollDeleteModal) {
+    payrollDeleteModal.addEventListener('click', function(event) {
+      if (event.target === payrollDeleteModal) {
+        closeDeleteModal();
+      }
+    });
+  }
+</script>
 {% endblock %}

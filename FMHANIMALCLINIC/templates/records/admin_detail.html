@@ -178,6 +178,7 @@
     .rv-records-table .col-history { min-width: 180px; }
     .rv-records-table .col-tx      { min-width: 180px; }
     .rv-records-table .col-rx      { min-width: 180px; }
+    .rv-records-table .col-lab     { min-width: 180px; }
     .rv-records-table .col-ffup    { width: 90px; text-align: center; }
     .rv-records-table .col-actions { width: 80px; text-align: center; }
 
@@ -1366,6 +1367,7 @@
                     <th class="col-history">History / Clinical Signs</th>
                     <th class="col-tx">Treatment (Tx)</th>
                     <th class="col-rx">Prescription (Rx)</th>
+                    <th class="col-lab">Lab Results / Tests</th>
                     <th class="col-ffup">Follow-Up</th>
                     <th class="col-actions">Actions</th>
                 </tr>
@@ -1380,9 +1382,10 @@
                     data-history="{{ entry.history_clinical_signs|default:''|escapejs }}"
                     data-treatment="{{ entry.treatment|default:''|escapejs }}"
                     data-rx="{{ entry.rx|default:''|escapejs }}"
+                    data-lab="{{ entry.lab_results|default:''|escapejs }}"
                     data-ffup="{{ entry.ff_up|date:'Y-m-d'|default:'' }}"
                     data-vet="{{ entry.vet_id|default:'' }}"
-                    data-action="{{ entry.action_required }}">
+                    data-action="{{ entry.action_required_id|default:'' }}">
                     <td class="col-date">{{ entry.date_recorded|date:"M j, Y" }}</td>
                     <td class="col-vitals">
                         {% if entry.weight %}{{ entry.weight }} kg{% else %}—{% endif %}<br>
@@ -1391,6 +1394,9 @@
                     <td class="col-history">{{ entry.history_clinical_signs|default:"—"|linebreaks }}</td>
                     <td class="col-tx">{{ entry.treatment|default:"—"|linebreaks }}</td>
                     <td class="col-rx">{{ entry.rx|default:"—"|linebreaks }}</td>
+                    <td class="col-lab">
+                        {{ entry.lab_results|default:"—"|linebreaks }}
+                    </td>
                     <td class="col-ffup">{{ entry.ff_up|date:"M j, Y"|default:"—" }}</td>
                     <td class="col-actions">
                         {% if user|has_module_permission:'medical_records:EDIT' or user|has_module_permission:'medical_records:DELETE' %}
@@ -1415,7 +1421,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" style="text-align:center; padding:20px; color:var(--text-secondary);">
+                    <td colspan="8" style="text-align:center; padding:20px; color:var(--text-secondary);">
                         No visit entries yet.
                         {% if user|has_module_permission:'medical_records:CREATE' %}
                         <a href="{% url 'records:admin_add_entry' record.pk %}">Add the first entry.</a>
@@ -1719,14 +1725,18 @@
                 </div>
                 <div class="em-row single">
                     <div class="em-field">
+                        <label>Lab Results</label>
+                        <textarea name="lab_results" id="emLabResults" placeholder="Lab findings and results..."></textarea>
+                    </div>
+                </div>
+                <div class="em-row single">
+                    <div class="em-field">
                         <label>Required Clinical Action</label>
                         <select name="action_required" id="emAction">
-                            <option value="HEALTHY">Healthy (No Further Action)</option>
-                            <option value="MONITOR">Under Monitoring</option>
-                            <option value="TREATMENT">In Treatment</option>
-                            <option value="SURGERY">In Surgery</option>
-                            <option value="DIAGNOSTICS">Pending Diagnostics</option>
-                            <option value="CRITICAL">Critical</option>
+                            <option value="">— Select Required Action —</option>
+                            {% for status in clinical_statuses %}
+                            <option value="{{ status.id }}">{{ status.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </div>
@@ -1778,9 +1788,10 @@ function openEntryModal(row) {
     document.getElementById('emHistory').value   = decodeDjangoEscapeJS(row.dataset.history);
     document.getElementById('emTreatment').value = decodeDjangoEscapeJS(row.dataset.treatment);
     document.getElementById('emRx').value        = decodeDjangoEscapeJS(row.dataset.rx);
+    document.getElementById('emLabResults').value = decodeDjangoEscapeJS(row.dataset.lab);
     document.getElementById('emFfup').value      = row.dataset.ffup;
     if (document.getElementById('emAction')) {
-        document.getElementById('emAction').value = row.dataset.action || 'HEALTHY';
+        document.getElementById('emAction').value = row.dataset.action || '';
     }
     // Set branch to record's current branch, then filter vets, then set vet
     const branchSel = document.getElementById('emBranch');

@@ -332,10 +332,10 @@
         </div>
       </div>
 
-      <!-- Scheduling & Location Section -->
+      <!-- Scheduling Section -->
       <div class="form-section-divider">
         <i class='bx bx-time-five'></i>
-        <h3>Scheduling & Location</h3>
+        <h3>Scheduling</h3>
       </div>
       <div class="form-grid-2">
         <div class="form-group">
@@ -343,12 +343,6 @@
           {{ form.duration }}
           <span class="form-help-text">Estimated time for this service</span>
           {% if form.duration.errors %}<small class="error-message">{{ form.duration.errors.as_text }}</small>{% endif %}
-        </div>
-        <div class="form-group">
-          <label for="{{ form.branch.id_for_label }}">Branch</label>
-          {{ form.branch }}
-          <span class="form-help-text">Leave blank for all branches</span>
-          {% if form.branch.errors %}<small class="error-message">{{ form.branch.errors.as_text }}</small>{% endif %}
         </div>
       </div>
 

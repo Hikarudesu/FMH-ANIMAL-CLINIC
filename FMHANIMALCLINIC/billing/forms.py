@@ -12,7 +12,7 @@ class ServiceForm(FormControlMixin, forms.ModelForm):
         """Meta configuration for ServiceForm."""
         model = Service
         fields = [
-            'name', 'cost', 'price', 'branch', 'category',
+            'name', 'cost', 'price', 'category',
             'tax_rate', 'duration', 'description', 'active', 'content'
         ]
         widgets = {
@@ -21,7 +21,6 @@ class ServiceForm(FormControlMixin, forms.ModelForm):
             }),
             'cost': forms.NumberInput(attrs={'step': '0.01'}),
             'price': forms.NumberInput(attrs={'step': '0.01'}),
-            'branch': forms.Select(attrs={'class': 'form-select'}),
             'category': forms.TextInput(attrs={
                 'placeholder': 'e.g., Consultation, Surgery, Grooming'
             }),

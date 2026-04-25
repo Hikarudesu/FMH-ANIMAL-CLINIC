@@ -453,7 +453,13 @@
     <!-- Form Actions -->
     <div class="admin-actions">
       <a href="{% url 'branches:list' %}" class="btn-cancel">Cancel</a>
-      <button type="submit" class="btn-submit">{{ action }} Branch</button>
+      <button type="submit" class="btn-submit">
+        {% if action == 'Edit' %}
+          Save Branch
+        {% else %}
+          {{ action }} Branch
+        {% endif %}
+      </button>
     </div>
   </form>
   </div>

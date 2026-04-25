@@ -25,6 +25,7 @@ def seed_modules(apps, schema_editor):
         {'code': 'schedule', 'name': 'Schedule', 'icon': 'bx-calendar-event', 'url_name': 'employees:schedule', 'display_order': 21},
         {'code': 'branches', 'name': 'Branches', 'icon': 'bx-building-house', 'url_name': 'branches:list', 'display_order': 22},
         {'code': 'roles', 'name': 'Role Management', 'icon': 'bx-shield-quarter', 'url_name': 'accounts:role_list', 'display_order': 23},
+        {'code': 'inquiries', 'name': 'Inquiries', 'icon': 'bx-envelope', 'url_name': 'inquiries:list', 'display_order': 24},
 
         # Inventory modules
         {'code': 'inventory', 'name': 'Inventory', 'icon': 'bx-package', 'url_name': 'inventory:management', 'display_order': 30},

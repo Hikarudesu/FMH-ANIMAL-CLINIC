@@ -51,11 +51,8 @@ def checkout(request):
                 cashier=request.user
             )
 
-    # Get available items for the branch
-    services = Service.objects.filter(
-        Q(branch=branch) | Q(branch__isnull=True),
-        active=True
-    ).order_by('category', 'name')
+    # Services are global and no longer branch-bound.
+    services = Service.objects.filter(active=True).order_by('category', 'name')
 
     # POS users are always branch-restricted (no dropdown)
     # Only show items from their assigned branch
@@ -555,7 +552,6 @@ def search_items(request):
     # Search services
     if category in ['all', 'service']:
         services = Service.objects.filter(
-            Q(branch=branch) | Q(branch__isnull=True),
             active=True,
             name__icontains=query
         )[:10]

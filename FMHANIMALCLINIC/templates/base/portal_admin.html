@@ -135,6 +135,31 @@
                       class="bx bx-plus-medical"
                       style="color: var(--warning)"
                     ></i>
+                    {% elif notif.notification_type == 'INQUIRY_NEW' %}
+                    <i
+                      class="bx bx-message-square-detail"
+                      style="color: var(--primary)"
+                    ></i>
+                    {% elif notif.notification_type == 'INQUIRY_RESPONDED' %}
+                    <i class="bx bx-reply" style="color: var(--success)"></i>
+                    {% elif notif.notification_type == 'INQUIRY_ARCHIVED' %}
+                    <i class="bx bx-archive" style="color: var(--text-3)"></i>
+                    {% elif notif.notification_type == 'STATEMENT_RELEASED' %}
+                    <i class="bx bx-receipt" style="color: var(--primary)"></i>
+                    {% elif notif.notification_type == 'MEDICAL_RECORD_UPDATE' %}
+                    <i class="bx bx-file" style="color: var(--primary)"></i>
+                    {% elif notif.notification_type == 'STOCK_TRANSFER_REQUESTED' %}
+                    <i class="bx bx-transfer" style="color: var(--primary)"></i>
+                    {% elif notif.notification_type == 'STOCK_TRANSFER_APPROVED' %}
+                    <i class="bx bx-check-circle" style="color: var(--success)"></i>
+                    {% elif notif.notification_type == 'STOCK_TRANSFER_REJECTED' %}
+                    <i class="bx bx-x-circle" style="color: var(--danger)"></i>
+                    {% elif notif.notification_type == 'STOCK_TRANSFER_COMPLETED' %}
+                    <i class="bx bx-package" style="color: var(--primary)"></i>
+                    {% elif notif.notification_type == 'PAYROLL_GENERATED' %}
+                    <i class="bx bx-money" style="color: var(--warning)"></i>
+                    {% elif notif.notification_type == 'PAYROLL_RELEASED' %}
+                    <i class="bx bx-wallet" style="color: var(--success)"></i>
                     {% else %}
                     <i class="bx bx-info-circle"></i>
                     {% endif %}
@@ -262,8 +287,12 @@
           {% else %}
           <a href="{% url 'admin_dashboard' %}" class="sidebar-logo">
           {% endif %}
+            {% if CLINIC_LOGO %}
+            <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_NAME }} Logo" />
+            {% else %}
             <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo" />
-            <span>FMHSYNC</span>
+            {% endif %}
+            <span>{{ CLINIC_NAME }}</span>
           </a>
         </div>
         <nav class="sidebar-nav">
@@ -425,7 +454,7 @@
           {% endif %}
 
           {# Overseer: Support #}
-          {% if user|is_branch_admin %}
+          {% if user|is_branch_admin and not user.is_superuser %}
           <a
             href="{% url 'inquiries:list' %}"
             class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"
@@ -678,7 +707,7 @@
           {% if user|has_nav_module:'inventory' %}
           <a
             href="{% url 'inventory:management' %}"
-            class="sidebar-link {% if 'inventory' in request.path and request.resolver_match.url_name != 'super_admin_stock_monitoring' %}active{% endif %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}"
           >
             <i class="bx bx-package"></i><span>Inventory Management</span>
           </a>
@@ -691,6 +720,14 @@
             <i class="bx bx-error-alt"></i><span>Stock Level Monitor</span>
           </a>
           {% endif %}
+          {% if user|has_nav_module:'stock_transfers' or user|has_nav_special_permission:'can_request_stock_transfer' %}
+          <a
+            href="{% url 'inventory:transfer_list' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'transfer_list' or request.resolver_match.url_name == 'transfer_request' %}active{% endif %}"
+          >
+            <i class="bx bx-git-pull-request"></i><span>Request Stock Transfer</span>
+          </a>
+          {% endif %}
           {% elif user|has_nav_module:'inventory' or user|has_nav_module:'stock_monitor' or user|has_nav_module:'stock_transfers' %}
 
           {# Check if user has multiple inventory-related modules (needs dropdown) #}
@@ -699,7 +736,7 @@
           {# Single module access: Direct link without dropdown #}
           <a
             href="{% url 'inventory:management' %}"
-            class="sidebar-link {% if 'inventory' in request.path and request.resolver_match.url_name != 'super_admin_stock_monitoring' %}active{% endif %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}"
           >
             <i class="bx bx-package"></i><span>Inventory Management</span>
           </a>
@@ -760,7 +797,7 @@
           {% endif %}
 
           {# Inquiries - visible to admin roles #}
-          {% if user|is_branch_admin %}
+          {% if user|is_branch_admin and not user.is_superuser %}
           <a
             href="{% url 'inquiries:list' %}"
             class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"

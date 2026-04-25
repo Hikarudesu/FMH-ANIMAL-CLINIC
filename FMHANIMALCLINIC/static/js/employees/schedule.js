@@ -324,12 +324,9 @@ document.addEventListener("DOMContentLoaded", function () {
             <button type="button" class="pet-action-btn outline btn-edit-schedule" title="Edit schedule" data-events='${JSON.stringify(e).replace(/'/g, "&#39;")}'>
               <i class='bx bx-pencil'></i>
             </button>
-            <form method="POST" action="/employees/schedule/${e.id}/delete/" style="margin: 0; display: contents;">
-              <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRF()}">
-              <button type="submit" class="pet-action-btn danger" title="Delete schedule" onclick="return confirm('Are you sure you want to delete this schedule entry?');">
-                <i class='bx bx-trash-alt'></i>
-              </button>
-            </form>
+            <button type="button" class="pet-action-btn danger" title="Delete schedule" onclick="openDeleteModal('/employees/schedule/${e.id}/delete/', '${e.staffName.replace(/'/g, "\\'")}', 'Are you sure you want to delete this schedule entry?')">
+              <i class='bx bx-trash-alt'></i>
+            </button>
           </div>
           ` : ''}
         </div>
@@ -377,6 +374,41 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function closeModalEl(el) {
     el.classList.remove("active");
+  }
+
+  window.openDeleteModal = function(url, name, note) {
+    const modal = document.getElementById('deleteScheduleModal');
+    const form = document.getElementById('deleteScheduleForm');
+    const nameEl = document.getElementById('deleteScheduleName');
+    const noteEl = document.getElementById('deleteScheduleNote');
+    if (!modal || !form || !nameEl || !noteEl) return;
+    form.action = url;
+    nameEl.textContent = name;
+    noteEl.textContent = note || 'This action cannot be undone.';
+    modal.classList.add('active');
+  };
+
+  window.closeDeleteModal = function() {
+    const modal = document.getElementById('deleteScheduleModal');
+    if (modal) modal.classList.remove('active');
+  };
+
+  const closeDeleteScheduleModalBtn = document.getElementById('closeDeleteScheduleModal');
+  const cancelDeleteScheduleModalBtn = document.getElementById('cancelDeleteScheduleModal');
+  if (closeDeleteScheduleModalBtn) {
+    closeDeleteScheduleModalBtn.addEventListener('click', closeDeleteModal);
+  }
+  if (cancelDeleteScheduleModalBtn) {
+    cancelDeleteScheduleModalBtn.addEventListener('click', closeDeleteModal);
+  }
+
+  const deleteScheduleModal = document.getElementById('deleteScheduleModal');
+  if (deleteScheduleModal) {
+    deleteScheduleModal.addEventListener('click', (event) => {
+      if (event.target === deleteScheduleModal) {
+        closeDeleteModal();
+      }
+    });
   }
 
   // Add Schedule Modal

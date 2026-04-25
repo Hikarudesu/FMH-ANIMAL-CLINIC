@@ -6,8 +6,8 @@ from .models import Service, CustomerStatement
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
     """Admin configuration for Service."""
-    list_display = ('name', 'price', 'cost', 'category', 'branch', 'active')
-    list_filter = ('active', 'category', 'branch')
+    list_display = ('name', 'price', 'cost', 'category', 'active')
+    list_filter = ('active', 'category')
     search_fields = ('name', 'description', 'category')
     ordering = ('-created_at',)
 

@@ -294,12 +294,13 @@ def _build_history_text(entries):
 
     parts = []
     for entry in entries[:10]:
+        status_text = entry.action_required.name if entry.action_required else 'None'
         parts.append(f"""Date: {entry.date_recorded}
 Vitals: Weight {entry.weight or 'N/A'}kg, Temp {entry.temperature or 'N/A'}C
 Clinical Signs: {entry.history_clinical_signs or 'None recorded'}
 Treatment: {entry.treatment or 'None'}
 Prescription: {entry.rx or 'None'}
-Status: {entry.action_required}
+    Status: {status_text}
 ---""")
     return "\n".join(parts)
 

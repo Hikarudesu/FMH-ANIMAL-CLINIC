@@ -24,6 +24,7 @@ from patients.models import Pet  # pylint: disable=no-member
 from branches.models import Branch
 from employees.models import StaffMember
 from FMHANIMALCLINIC.form_mixins import validate_philippines_phone
+from settings.models import ClinicalStatus
 from .models import MedicalRecord, RecordEntry
 from .forms import MedicalRecordForm, RecordEntryForm
 
@@ -304,6 +305,7 @@ def admin_record_create(request):
                                 history_clinical_signs=entry_form.cleaned_data.get('history_clinical_signs') or '',
                                 treatment=entry_form.cleaned_data.get('treatment') or '',
                                 rx=entry_form.cleaned_data.get('rx') or '',
+                                lab_results=entry_form.cleaned_data.get('lab_results') or '',
                                 ff_up=entry_form.cleaned_data.get('ff_up'),
                             )
                             if selected_vet:
@@ -334,8 +336,9 @@ def admin_record_create(request):
                             record.history_clinical_signs = entry_form.cleaned_data.get('history_clinical_signs') or ''
                             record.treatment = entry_form.cleaned_data.get('treatment') or ''
                             record.rx = entry_form.cleaned_data.get('rx') or ''
+                            record.lab_results = entry_form.cleaned_data.get('lab_results') or ''
                             record.ff_up = entry_form.cleaned_data.get('ff_up')
-                            update_fields.extend(['date_recorded', 'weight', 'temperature', 'history_clinical_signs', 'treatment', 'rx', 'ff_up'])
+                            update_fields.extend(['date_recorded', 'weight', 'temperature', 'history_clinical_signs', 'treatment', 'rx', 'lab_results', 'ff_up'])
 
                             record.save(update_fields=update_fields if update_fields else None)
 
@@ -491,6 +494,7 @@ def admin_record_edit(request, pk):
                     latest_entry.history_clinical_signs = form.cleaned_data.get('history_clinical_signs') or ''
                     latest_entry.treatment = form.cleaned_data.get('treatment') or ''
                     latest_entry.rx = form.cleaned_data.get('rx') or ''
+                    latest_entry.lab_results = form.cleaned_data.get('lab_results') or ''
                     latest_entry.ff_up = form.cleaned_data.get('ff_up')
                     if getattr(updated_record, 'vet', None):
                         latest_entry.vet = updated_record.vet
@@ -588,6 +592,7 @@ def admin_record_detail(request, pk):
         'vets': vets,
         'branches': branches,
         'vets_json': json.dumps(vets_for_json),
+        'clinical_statuses': ClinicalStatus.objects.filter(is_active=True).order_by('order', 'name'),
     })
 
 
@@ -621,6 +626,16 @@ def admin_add_entry(request, pk):
                 record.vet = selected_vet  # keep record banner in sync
 
             entry.save()
+
+            # Keep the card-level summary fields aligned to the latest visit entry.
+            record.date_recorded = entry.date_recorded
+            record.weight = entry.weight
+            record.temperature = entry.temperature
+            record.history_clinical_signs = entry.history_clinical_signs or ''
+            record.treatment = entry.treatment or ''
+            record.rx = entry.rx or ''
+            record.lab_results = entry.lab_results or ''
+            record.ff_up = entry.ff_up
             # Touch the parent record so updated_at changes (also saves branch/vet update)
             record.save()
 

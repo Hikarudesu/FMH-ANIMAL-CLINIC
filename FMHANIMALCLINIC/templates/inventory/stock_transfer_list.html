@@ -9,7 +9,7 @@
   <div class="page-hero-inner">
     <div class="page-hero-text">
       <h1><i class='bx bx-transfer'></i> Stock Transfers</h1>
-      <p>Manage inventory transfers between branches</p>
+      <p>{% if is_special_request_only_user %}Track your transfer requests and their status{% else %}Manage inventory transfers between branches{% endif %}</p>
     </div>
     <div class="page-hero-actions">
       {% if not request.user.assigned_role or request.user.assigned_role.hierarchy_level < 10 %}
@@ -138,10 +138,13 @@
             </td>
             <td>
                 {# Only show action buttons based on proper status and permissions #}
+              {% if is_special_request_only_user %}
+              <span style="color: var(--text-3); font-size: 0.8rem;">Status only</span>
+              {% else %}
                 {% with user_branch=request.user.staff_profile.branch|default:request.user.branch %}
                 {% if transfer.status == 'Pending' %}
                     {# Pending: Source branch staff or superuser can approve/reject #}
-                    {% if user_branch == transfer.source_product.branch or request.user.is_superuser %}
+                    {% if user_branch == transfer.source_product.branch or request.user.is_superuser or is_admin_user %}
                     <div style="display: flex; gap: 5px;">
                         <form method="POST" action="{% url 'inventory:transfer_update_status' transfer.pk %}">
                             {% csrf_token %}
@@ -159,7 +162,7 @@
                     {% endif %}
                 {% elif transfer.status == 'Approved' %}
                     {# Approved: Destination branch staff or superuser can mark as received #}
-                    {% if user_branch == transfer.destination_branch or request.user.is_superuser %}
+                    {% if user_branch == transfer.destination_branch or request.user.is_superuser or is_admin_user %}
                     <form method="POST" action="{% url 'inventory:transfer_update_status' transfer.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="complete">
@@ -173,6 +176,7 @@
                     <span style="color: var(--text-3); font-size: 0.8rem;">—</span>
                 {% endif %}
                 {% endwith %}
+                {% endif %}
             </td>
           </tr>
           {% empty %}

@@ -103,6 +103,17 @@ class Pet(models.Model):
             models.Index(fields=['created_at']),
         ]
 
+    def save(self, *args, **kwargs):
+        """Set a default configurable clinical status when one is not provided."""
+        if self.clinical_status_id is None:
+            try:
+                from settings.models import ClinicalStatus
+                self.clinical_status = ClinicalStatus.get_default()
+            except Exception:
+                # During early migrations, settings tables may not be available yet.
+                pass
+        super().save(*args, **kwargs)
+
     def __str__(self):
         owner_label = self.owner.username if self.owner else (self.guest_owner_name or 'Guest')
         return f'{self.name} ({self.species}) — {owner_label}'

@@ -5,9 +5,10 @@ from django import forms
 from django.db import models
 
 from FMHANIMALCLINIC.form_mixins import AdminInputMixin, validate_philippines_phone
+from notifications.delivery import normalize_ph_sim_number
 from .models import (
     ClinicProfile, SectionContent, HeroStat,
-    CoreValue, Service, Veterinarian
+    CoreValue, Service, Veterinarian,
 )
 from .utils import get_setting
 
@@ -27,12 +28,19 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
         required=False,
         help_text="Full text of your clinic's Privacy Policy."
     )
-
     class Meta:
         model = ClinicProfile
-        fields = ['name', 'logo', 'email', 'phone', 'address', 'tagline', 'license_number']
+        fields = [
+            'name', 'logo',
+            'clinic_title', 'clinic_slogan', 'hero_description',
+            'email', 'phone', 'address', 'license_number',
+            'facebook_url', 'instagram_url', 'messenger_url', 'tiktok_url',
+        ]
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'Enter clinic name'}),
+            'clinic_title': forms.TextInput(attrs={'placeholder': 'Enter landing page title'}),
+            'clinic_slogan': forms.TextInput(attrs={'placeholder': 'Enter short slogan'}),
+            'hero_description': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Enter landing page description'}),
             'email': forms.EmailInput(attrs={'placeholder': 'contact@example.com'}),
             'phone': forms.TextInput(attrs={
                 'placeholder': '09XXXXXXXXX',
@@ -45,8 +53,11 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
             'address': forms.Textarea(attrs={
                 'rows': 3, 'placeholder': 'Enter full address'
             }),
-            'tagline': forms.TextInput(attrs={'placeholder': 'Your clinic slogan'}),
             'license_number': forms.TextInput(attrs={'placeholder': 'Business/Vet license number'}),
+            'facebook_url': forms.URLInput(attrs={'placeholder': 'https://facebook.com/your-page'}),
+            'instagram_url': forms.URLInput(attrs={'placeholder': 'https://instagram.com/your-page'}),
+            'messenger_url': forms.URLInput(attrs={'placeholder': 'https://m.me/your-page'}),
+            'tiktok_url': forms.URLInput(attrs={'placeholder': 'https://www.tiktok.com/@your-page'}),
             'logo': forms.FileInput(attrs={'accept': 'image/*'}),
         }
 
@@ -55,11 +66,15 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
         from .models import LegalDocument
         
         # Load active TOS and Privacy Policy
-        tos = LegalDocument.get_tos()
+        tos = LegalDocument.objects.filter(
+            document_type=LegalDocument.DocumentType.TERMS_OF_SERVICE
+        ).first()
         if tos:
             self.fields['tos_content'].initial = tos.content
             
-        privacy = LegalDocument.get_privacy_policy()
+        privacy = LegalDocument.objects.filter(
+            document_type=LegalDocument.DocumentType.PRIVACY_POLICY
+        ).first()
         if privacy:
             self.fields['privacy_policy_content'].initial = privacy.content
 
@@ -74,11 +89,12 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
             # Save or update TOS
             tos_content = self.cleaned_data.get('tos_content')
             if tos_content is not None:
-                tos = LegalDocument.get_tos()
+                tos = LegalDocument.objects.filter(
+                    document_type=LegalDocument.DocumentType.TERMS_OF_SERVICE
+                ).first()
                 if tos:
                     if tos.content != tos_content:
                         tos.content = tos_content
-                        # Bump version implicitly or just save
                         parts = tos.version.split('.')
                         try:
                             tos.version = f"{parts[0]}.{int(parts[1]) + 1}" if len(parts) == 2 else f"{float(tos.version) + 0.1:.1f}"
@@ -97,7 +113,9 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
             # Save or update Privacy Policy
             privacy_content = self.cleaned_data.get('privacy_policy_content')
             if privacy_content is not None:
-                privacy = LegalDocument.get_privacy_policy()
+                privacy = LegalDocument.objects.filter(
+                    document_type=LegalDocument.DocumentType.PRIVACY_POLICY
+                ).first()
                 if privacy:
                     if privacy.content != privacy_content:
                         privacy.content = privacy_content
@@ -116,76 +134,6 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
                         is_active=True
                     )
         return instance
-
-
-class AppointmentSettingsForm(AdminInputMixin, forms.Form):
-    """Form for appointment-related settings."""
-
-    slot_duration = forms.IntegerField(
-        label='Appointment Duration (minutes)',
-        min_value=15,
-        max_value=180,
-        widget=forms.NumberInput(attrs={'step': '5'}),
-        help_text='Duration of each appointment slot'
-    )
-    max_advance_days = forms.IntegerField(
-        label='Max Advance Booking (days)',
-        min_value=1,
-        max_value=365,
-        widget=forms.NumberInput(),
-        help_text='How far in advance clients can book'
-    )
-    min_advance_hours = forms.IntegerField(
-        label='Min Advance Notice (hours)',
-        min_value=0,
-        max_value=72,
-        widget=forms.NumberInput(),
-        help_text='Minimum hours notice required for booking'
-    )
-    allow_walk_ins = forms.BooleanField(
-        label='Allow Walk-in Appointments',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Accept unscheduled walk-in appointments'
-    )
-    daily_limit = forms.IntegerField(
-        label='Daily Appointment Limit',
-        min_value=0,
-        widget=forms.NumberInput(),
-        help_text='Max appointments per day per branch (0 = unlimited)'
-    )
-    require_confirmation = forms.BooleanField(
-        label='Require Admin Confirmation',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Require manual confirmation for online bookings'
-    )
-    auto_cancel_hours = forms.IntegerField(
-        label='Auto-Cancel After (hours)',
-        min_value=0,
-        max_value=168,
-        widget=forms.NumberInput(),
-        help_text='Auto-cancel unconfirmed appointments after this many hours (0 = disabled)'
-    )
-    reminder_hours = forms.IntegerField(
-        label='Send Reminders Before (hours)',
-        min_value=1,
-        max_value=72,
-        widget=forms.NumberInput(),
-        help_text='Hours before appointment to send reminder'
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Load current values
-        self.fields['slot_duration'].initial = get_setting('appointment_slot_duration', 30)
-        self.fields['max_advance_days'].initial = get_setting('appointment_max_advance_days', 30)
-        self.fields['min_advance_hours'].initial = get_setting('appointment_min_advance_hours', 2)
-        self.fields['allow_walk_ins'].initial = get_setting('appointment_allow_walk_ins', True)
-        self.fields['daily_limit'].initial = get_setting('appointment_daily_limit', 0)
-        self.fields['require_confirmation'].initial = get_setting('appointment_require_confirmation', True)
-        self.fields['auto_cancel_hours'].initial = get_setting('appointment_auto_cancel_hours', 24)
-        self.fields['reminder_hours'].initial = get_setting('appointment_reminder_hours', 24)
 
 
 class InventorySettingsForm(AdminInputMixin, forms.Form):
@@ -247,27 +195,11 @@ class NotificationSettingsForm(AdminInputMixin, forms.Form):
         widget=forms.CheckboxInput(),
         help_text='Send notifications via SMS'
     )
-    sms_provider = forms.ChoiceField(
-        label='SMS Provider',
-        choices=[
-            ('', 'Select Provider'),
-            ('semaphore', 'Semaphore'),
-            ('twilio', 'Twilio'),
-            ('nexmo', 'Vonage/Nexmo'),
-            ('other', 'Other'),
-        ],
+    sms_default_recipient = forms.CharField(
+        label='Default SMS SIM Number (PH)',
         required=False,
-        widget=forms.Select(),
-        help_text='SMS gateway provider'
-    )
-    sms_api_key = forms.CharField(
-        label='SMS API Key',
-        required=False,
-        widget=forms.PasswordInput(attrs={
-            'placeholder': '••••••••••••',
-            'autocomplete': 'new-password'
-        }),
-        help_text='API key for SMS provider (leave blank to keep current)'
+        widget=forms.TextInput(attrs={'placeholder': '09XXXXXXXXX'}),
+        help_text='Philippines mobile number only. Example: 09171234567'
     )
     from_email = forms.EmailField(
         label='From Email Address',
@@ -285,10 +217,20 @@ class NotificationSettingsForm(AdminInputMixin, forms.Form):
         super().__init__(*args, **kwargs)
         self.fields['email_enabled'].initial = get_setting('notification_email_enabled', True)
         self.fields['sms_enabled'].initial = get_setting('notification_sms_enabled', False)
-        self.fields['sms_provider'].initial = get_setting('notification_sms_provider', '')
-        # Don't pre-fill sensitive API key
+        self.fields['sms_default_recipient'].initial = get_setting('notification_sms_default_recipient', '')
         self.fields['from_email'].initial = get_setting('notification_from_email', 'noreply@fmhclinic.com')
         self.fields['sender_name'].initial = get_setting('notification_sender_name', 'FMH Animal Clinic')
+
+    def clean_sms_default_recipient(self):
+        sim_number = (self.cleaned_data.get('sms_default_recipient') or '').strip()
+        if not sim_number:
+            return ''
+
+        normalized = normalize_ph_sim_number(sim_number)
+        if not normalized:
+            raise forms.ValidationError('Enter a valid PH mobile number (e.g., 09171234567).')
+
+        return normalized
 
 
 class PayrollSettingsForm(AdminInputMixin, forms.Form):
@@ -379,6 +321,7 @@ class PayrollSettingsForm(AdminInputMixin, forms.Form):
 class SystemSettingsForm(AdminInputMixin, forms.Form):
     """Form for system-wide settings."""
 
+    # Date & Time Settings
     date_format = forms.ChoiceField(
         label='Date Format',
         choices=[
@@ -399,11 +342,13 @@ class SystemSettingsForm(AdminInputMixin, forms.Form):
         widget=forms.Select(),
         help_text='Format for displaying times'
     )
+
+    # Maintenance Settings
     maintenance_mode = forms.BooleanField(
         label='Maintenance Mode',
         required=False,
         widget=forms.CheckboxInput(),
-        help_text='Enable maintenance mode (restricts access)'
+        help_text='Enable maintenance mode (restricts access to admins only)'
     )
     maintenance_message = forms.CharField(
         label='Maintenance Message',
@@ -423,6 +368,38 @@ class SystemSettingsForm(AdminInputMixin, forms.Form):
         self.fields['maintenance_message'].initial = get_setting('system_maintenance_message', '')
 
 
+class AppointmentSettingsForm(AdminInputMixin, forms.Form):
+    """Form for appointment scheduling settings."""
+
+    max_advance_days = forms.IntegerField(
+        label='Maximum Booking Window (days)',
+        min_value=1,
+        max_value=365,
+        widget=forms.NumberInput(),
+        help_text='Maximum days in the future users can book (e.g., 180 = 6 months)'
+    )
+    reminder_hours_1 = forms.IntegerField(
+        label='First Reminder (hours before appointment)',
+        min_value=1,
+        max_value=72,
+        widget=forms.NumberInput(),
+        help_text='Send first reminder this many hours before (e.g., 24 = 1 day)'
+    )
+    reminder_hours_2 = forms.IntegerField(
+        label='Second Reminder (hours before appointment)',
+        min_value=1,
+        max_value=72,
+        widget=forms.NumberInput(),
+        help_text='Send second reminder this many hours before (e.g., 3 = 3 hours)'
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['max_advance_days'].initial = get_setting('appointment_max_advance_days', 180)
+        self.fields['reminder_hours_1'].initial = get_setting('appointment_reminder_hours_1', 24)
+        self.fields['reminder_hours_2'].initial = get_setting('appointment_reminder_hours_2', 3)
+
+
 class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
     """Form for medical records settings."""
 
@@ -432,12 +409,6 @@ class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
         max_value=90,
         widget=forms.NumberInput(),
         help_text='Default days until follow-up appointment'
-    )
-    require_diagnosis = forms.BooleanField(
-        label='Require Diagnosis to Close Record',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Require diagnosis before closing a medical record'
     )
     vaccination_reminders = forms.BooleanField(
         label='Enable Vaccination Reminders',
@@ -452,13 +423,19 @@ class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
         widget=forms.NumberInput(),
         help_text='Days before vaccination due date to send reminder'
     )
+    clinical_status_auto_actions = forms.BooleanField(
+        label='Enable Clinical Status Auto-Actions',
+        required=False,
+        widget=forms.CheckboxInput(),
+        help_text='Automatically run status-based owner notifications when clinical action changes'
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['default_followup_days'].initial = get_setting('medical_default_followup_days', 7)
-        self.fields['require_diagnosis'].initial = get_setting('medical_require_diagnosis', True)
         self.fields['vaccination_reminders'].initial = get_setting('medical_vaccination_reminders', True)
         self.fields['reminder_days_before'].initial = get_setting('medical_reminder_days_before', 7)
+        self.fields['clinical_status_auto_actions'].initial = get_setting('medical_clinical_status_auto_actions', True)
 
 
 # =============================================================================
@@ -698,7 +675,17 @@ class ReasonForVisitForm(AdminInputMixin, forms.ModelForm):
             import re
             code = re.sub(r'[^A-Za-z0-9\s]', '', instance.name)  # Remove special chars
             code = re.sub(r'\s+', '_', code.strip())  # Replace spaces with underscores
-            instance.code = code.upper()
+            base_code = code.upper() or 'REASON'
+
+            # Ensure generated code remains unique and avoid IntegrityError on save.
+            unique_code = base_code
+            suffix = 2
+            from .models import ReasonForVisit
+            while ReasonForVisit.objects.filter(code=unique_code).exclude(pk=instance.pk).exists():
+                unique_code = f"{base_code}_{suffix}"
+                suffix += 1
+
+            instance.code = unique_code
         
         # Set defaults
         if instance.order is None:
@@ -739,7 +726,17 @@ class ClinicalStatusForm(AdminInputMixin, forms.ModelForm):
             import re
             code = re.sub(r'[^A-Za-z0-9\s]', '', instance.name)  # Remove special chars
             code = re.sub(r'\s+', '_', code.strip())  # Replace spaces with underscores
-            instance.code = code.upper()
+            base_code = code.upper() or 'STATUS'
+
+            # Ensure generated code remains unique and avoid IntegrityError on save.
+            unique_code = base_code
+            suffix = 2
+            from .models import ClinicalStatus
+            while ClinicalStatus.objects.filter(code=unique_code).exclude(pk=instance.pk).exists():
+                unique_code = f"{base_code}_{suffix}"
+                suffix += 1
+
+            instance.code = unique_code
         
         # Set defaults
         if instance.order is None:
@@ -767,3 +764,5 @@ class ClinicalStatusForm(AdminInputMixin, forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+

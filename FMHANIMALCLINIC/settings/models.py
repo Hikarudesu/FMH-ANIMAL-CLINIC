@@ -153,16 +153,29 @@ class ClinicProfile(models.Model):
         blank=True,
         help_text='Main clinic address'
     )
-    tagline = models.CharField(
+    clinic_title = models.CharField(
         max_length=255,
         blank=True,
-        help_text='Clinic slogan or tagline'
+        help_text='Main landing-page title displayed beside the logo'
+    )
+    clinic_slogan = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Short landing-page slogan displayed under the title'
+    )
+    hero_description = models.TextField(
+        blank=True,
+        help_text='Landing-page hero description text'
     )
     license_number = models.CharField(
         max_length=100,
         blank=True,
         help_text='Business or veterinary license number'
     )
+    facebook_url = models.URLField(blank=True, help_text='Facebook profile/page URL')
+    instagram_url = models.URLField(blank=True, help_text='Instagram profile URL')
+    messenger_url = models.URLField(blank=True, help_text='Messenger link URL')
+    tiktok_url = models.URLField(blank=True, help_text='TikTok profile URL')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

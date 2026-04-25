@@ -29,6 +29,8 @@ class MedicalRecord(models.Model):
     treatment = models.TextField(verbose_name="Tx (Treatment)", blank=True)
     rx = models.TextField(
         verbose_name="Rx (Prescription)", blank=True, null=True)
+    lab_results = models.TextField(
+        verbose_name="Lab Results", blank=True, null=True)
     ff_up = models.DateField(
         verbose_name="FF-UP (Follow-Up)", blank=True, null=True)
     date_recorded = models.DateField()
@@ -86,21 +88,16 @@ class RecordEntry(models.Model):
     treatment = models.TextField(verbose_name="Tx (Treatment)", blank=True, null=True)
     rx = models.TextField(
         verbose_name="Rx (Prescription)", blank=True, null=True)
+    lab_results = models.TextField(
+        verbose_name="Lab Results", blank=True, null=True)
     ff_up = models.DateField(
         verbose_name="FF-UP (Follow-Up)", blank=True, null=True)
-
-    ACTION_CHOICES = [
-        ('HEALTHY', 'Healthy (No Further Action)'),
-        ('MONITOR', 'Under Monitoring'),
-        ('TREATMENT', 'In Treatment'),
-        ('SURGERY', 'In Surgery'),
-        ('DIAGNOSTICS', 'Pending Diagnostics'),
-        ('CRITICAL', 'Critical'),
-    ]
-    action_required = models.CharField(
-        max_length=20,
-        choices=ACTION_CHOICES,
-        default='HEALTHY',
+    action_required = models.ForeignKey(
+        'settings.ClinicalStatus',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='record_entries_action',
         verbose_name='Required Action',
         help_text='The next step required after this consultation.',
     )
@@ -124,15 +121,6 @@ class RecordEntry(models.Model):
 
 # ── Signal: auto-sync RecordEntry.action_required → Pet.clinical_status ──
 
-ACTION_TO_STATUS = {
-    'HEALTHY': Pet.ClinicalStatus.HEALTHY,
-    'MONITOR': Pet.ClinicalStatus.MONITOR,
-    'TREATMENT': Pet.ClinicalStatus.TREATMENT,
-    'SURGERY': Pet.ClinicalStatus.SURGERY,
-    'DIAGNOSTICS': Pet.ClinicalStatus.DIAGNOSTICS,
-    'CRITICAL': Pet.ClinicalStatus.CRITICAL,
-}
-
 # Human-friendly messages for owner notifications
 STATUS_MESSAGES = {
     Pet.ClinicalStatus.HEALTHY: 'has been discharged and is doing well.',
@@ -147,16 +135,18 @@ STATUS_MESSAGES = {
 @receiver(post_save, sender=RecordEntry)
 def sync_pet_clinical_status(sender, instance, **kwargs):
     """When a RecordEntry is saved, update the pet's clinical status and notify the owner if it changed."""
-    pet = instance.record.pet
-    new_status_code = ACTION_TO_STATUS.get(instance.action_required)
-    if new_status_code is None:
-        return
-
     from settings.models import ClinicalStatus
-    try:
-        clinical_status_obj = ClinicalStatus.objects.get(code=new_status_code)
-    except ClinicalStatus.DoesNotExist:
-        return
+    from settings.utils import get_setting
+
+    pet = instance.record.pet
+
+    clinical_status_obj = instance.action_required
+    if clinical_status_obj is None:
+        clinical_status_obj = ClinicalStatus.get_default()
+        instance.action_required = clinical_status_obj
+        instance.save(update_fields=['action_required'])
+
+    new_status_code = clinical_status_obj.code
 
     old_status_code = pet.clinical_status.code if pet.clinical_status else None
     if old_status_code == new_status_code:
@@ -164,6 +154,10 @@ def sync_pet_clinical_status(sender, instance, **kwargs):
 
     pet.clinical_status = clinical_status_obj
     pet.save(update_fields=['clinical_status'])
+
+    auto_actions_enabled = bool(get_setting('medical_clinical_status_auto_actions', True))
+    if not auto_actions_enabled:
+        return
 
     # Create a notification for the pet's owner (only if owner exists)
     if pet.owner:

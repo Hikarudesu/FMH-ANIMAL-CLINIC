@@ -636,10 +636,10 @@
           {% if entry.ff_up %}
           <p><span class="label">Follow-up:</span> {{ entry.ff_up|date:"M j, Y" }}</p>
           {% endif %}
-          {% if entry.action_required != 'HEALTHY' %}
-          <span class="pd-timeline-action-badge {{ entry.action_required|lower }}">
-            <i class='bx {% if entry.action_required == "SURGERY" %}bx-plus-medical{% elif entry.action_required == "MONITOR" %}bx-show{% elif entry.action_required == "CRITICAL" %}bx-error{% elif entry.action_required == "TREATMENT" %}bx-pulse{% else %}bx-test-tube{% endif %}'></i>
-            {{ entry.get_action_required_display }}
+          {% if entry.action_required and entry.action_required.code != 'HEALTHY' %}
+          <span class="pd-timeline-action-badge {{ entry.action_required.code|lower }}">
+            <i class='bx {% if entry.action_required.code == "SURGERY" %}bx-plus-medical{% elif entry.action_required.code == "MONITOR" %}bx-show{% elif entry.action_required.code == "CRITICAL" %}bx-error{% elif entry.action_required.code == "TREATMENT" %}bx-pulse{% else %}bx-test-tube{% endif %}'></i>
+            {{ entry.action_required.name }}
           </span>
           {% endif %}
           {% if entry.vet %}

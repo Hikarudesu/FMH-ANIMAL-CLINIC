@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from .models import Notification
 from appointments.models import Appointment
 from inventory.models import Product, StockAdjustment
+from inventory.expiry_alerts import run_inventory_expiry_alert_job
+from settings.utils import get_setting
 
 
 User = get_user_model()
@@ -37,41 +39,62 @@ def create_appointment_notification(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Product)
 def create_low_inventory_notification(sender, instance, **kwargs):
     """
-    Creates a notification for admin users when a product's stock is low (<= 10).
-    Ideally, this should check if it just crossed the threshold to avoid spamming,
-    but for simplicity, we'll check if it's currently low and a notification hasn't
-    been created very recently.
+    Creates low/critical inventory notifications using configured system thresholds.
+    Alerts are controlled by inventory settings in the System Settings page.
     """
-    # A simple approach: just check the quantity. 
-    # To prevent spam, we could check if a notification for this product ID 
-    # and LOW_INVENTORY type was created today, but we will keep it simple here.
-    if instance.stock_quantity <= 10:
-        # Prevent creating multiple notifications for every save by checking if one exists and is unread
-        for admin in get_admin_users():
-            existing = Notification.objects.filter(
-                user=admin,
-                notification_type=Notification.NotificationType.LOW_INVENTORY,
-                related_object_id=instance.id,
-                is_read=False
-            ).exists()
+    alerts_enabled = get_setting('inventory_enable_alerts', True)
+    if not alerts_enabled:
+        return
 
-            if not existing:
-                Notification.objects.create(
-                    user=admin,
-                    title="Low Inventory Alert",
-                    message=f"Stock for '{instance.name}' is running low ({instance.stock_quantity} remaining).",
-                    notification_type=Notification.NotificationType.LOW_INVENTORY,
-                    module_context=Notification.ModuleContext.INVENTORY,
-                    related_object_id=instance.id,
-                )
+    low_threshold = int(get_setting('inventory_low_stock_threshold', 10) or 10)
+    critical_threshold = int(get_setting('inventory_critical_threshold', 5) or 5)
+
+    if instance.stock_quantity > low_threshold:
+        return
+
+    is_critical = instance.stock_quantity <= critical_threshold
+    title = "Critical Inventory Alert" if is_critical else "Low Inventory Alert"
+    level_text = "critical" if is_critical else "low"
+    message = (
+        f"Stock for '{instance.name}' is {level_text} "
+        f"({instance.stock_quantity} remaining). "
+        f"Thresholds: critical <= {critical_threshold}, low <= {low_threshold}."
+    )
+
+    for admin in get_admin_users():
+        existing = Notification.objects.filter(
+            user=admin,
+            notification_type=Notification.NotificationType.LOW_INVENTORY,
+            related_object_id=instance.id,
+            is_read=False
+        ).exists()
+
+        if not existing:
+            Notification.objects.create(
+                user=admin,
+                title=title,
+                message=message,
+                notification_type=Notification.NotificationType.LOW_INVENTORY,
+                module_context=Notification.ModuleContext.INVENTORY,
+                related_object_id=instance.id,
+            )
+
+
+@receiver(post_save, sender=Product)
+def create_inventory_expiry_notification(sender, instance, **kwargs):
+    """Generate expiry warning notifications when a product is created/updated."""
+    if not instance.expiration_date:
+        return
+
+    run_inventory_expiry_alert_job(product_ids=[instance.id])
 
 
 @receiver(post_save, sender=StockAdjustment)
 def create_inventory_restock_notification(sender, instance, created, **kwargs):
     """
-    Creates a notification for admin users when a product is restocked (Purchase).
+    Creates a notification for admin users when a product is restocked.
     """
-    if created and instance.adjustment_type == 'Purchase' and instance.quantity > 0:
+    if created and instance.adjustment_type == 'ADD' and instance.quantity > 0:
         for admin in get_admin_users():
             Notification.objects.create(
                 user=admin,
