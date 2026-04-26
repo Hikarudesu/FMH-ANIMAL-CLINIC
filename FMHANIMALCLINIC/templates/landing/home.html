@@ -14,7 +14,7 @@
 
       <h1>
           <span class="line"><span class="line-inner">{{ CLINIC_TITLE|default:'FMH ANIMAL CLINIC' }}</span></span>
-          <span class="line"><span class="line-inner">{% if CLINIC_SLOGAN %}{{ CLINIC_SLOGAN }}{% else %}Powered by <span class="highlight serif">AI Diagnostics</span>{% endif %}</span></span>
+          <span class="line"><span class="line-inner">{% if CLINIC_SLOGAN %}{{ CLINIC_SLOGAN|safe }}{% else %}Powered by <span class="highlight serif">AI Diagnostics</span>{% endif %}</span></span>
       </h1>
 
         <p>{% if CLINIC_HERO_DESCRIPTION %}{{ CLINIC_HERO_DESCRIPTION }}{% elif hero_content %}{{ hero_content.description }}{% else %}A centralized multi-branch veterinary system offering faster appointments, organized medical records, and AI-assisted diagnostic insights for your beloved pets.{% endif %}</p>
