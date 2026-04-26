@@ -10,11 +10,11 @@
       <div class="footer-brand">
         <a href="{% url 'landing_page' %}" class="nav-logo" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: inherit; font-size: 1.25rem; font-weight: 700;">
           {% if CLINIC_LOGO %}
-          <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_TITLE|default:'Logo' }}" class="logo-icon" style="max-height: 40px; width: auto;">
+          <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} logo" class="logo-icon" style="max-height: 40px; width: auto;">
           {% else %}
           <img src="{% static 'image/fmh-logo.png' %}" alt="Logo" class="logo-icon" style="max-height: 40px; width: auto;">
           {% endif %}
-          {{ CLINIC_TITLE|default:CLINIC_NAME|default:'FMH Animal Clinic' }}
+          {{ CLINIC_NAME|default:'FMH Animal Clinic' }}
         </a>
         <p>A Web-Based Management Information System with AI-Powered Diagnostics for FMH Animal Clinic. Providing trusted, technology-driven veterinary care across multiple branches.</p>
         
@@ -64,7 +64,7 @@
     </div>
 
     <div class="footer-bottom">
-      <p>&copy; 2026 FMH Animal Clinic.</p>
+      <p>&copy; 2026 {{ CLINIC_NAME|default:'FMH Animal Clinic' }}.</p>
     </div>
   </div>
 </footer>

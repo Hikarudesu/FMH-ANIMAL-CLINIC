@@ -52,7 +52,7 @@ class ClinicProfileAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Branding', {
-            'fields': ('name', 'logo', 'clinic_title', 'clinic_slogan', 'hero_description')
+            'fields': ('name', 'logo')
         }),
         ('Contact', {
             'fields': ('email', 'phone', 'address')

@@ -386,7 +386,7 @@ p {
   color: var(--teal);
   background: var(--gradient-teal);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: var(--teal);
   background-clip: text;
   display: inline-block;
   font-weight: 700;

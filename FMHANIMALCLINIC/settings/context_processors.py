@@ -20,9 +20,6 @@ def clinic_settings(request):
     return {
         'CLINIC_NAME': profile.name,
         'CLINIC_LOGO': profile.logo,
-        'CLINIC_TITLE': profile.clinic_title,
-        'CLINIC_SLOGAN': profile.clinic_slogan,
-        'CLINIC_HERO_DESCRIPTION': profile.hero_description,
         'CLINIC_EMAIL': profile.email,
         'CLINIC_PHONE': profile.phone,
         'CLINIC_ADDRESS': profile.address,
@@ -67,6 +64,13 @@ def landing_content(request):
             return None
 
     hero_content = get_section('HERO')
+    if hero_content and hero_content.subtitle:
+        # Wrap "AI Diagnostics" with highlight styling
+        hero_content.subtitle = hero_content.subtitle.replace(
+            'AI Diagnostics',
+            '<span class="highlight serif">AI Diagnostics</span>'
+        )
+    
     mission_content = get_section('MISSION')
     vision_content = get_section('VISION')
     services_intro = get_section('SERVICES_INTRO')

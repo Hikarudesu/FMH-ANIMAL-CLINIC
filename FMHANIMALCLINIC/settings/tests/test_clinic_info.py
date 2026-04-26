@@ -23,9 +23,6 @@ class ClinicInfoTests(TestCase):
         form = ClinicInfoForm(
             data={
                 "name": "FMH Animal Clinic",
-                "clinic_title": "FMH ANIMAL CLINIC",
-                "clinic_slogan": "Powered by AI Diagnostics",
-                "hero_description": "Care for every paw",
                 "email": "clinic@example.com",
                 "phone": "09123456789",
                 "address": "123 Test St",
@@ -57,9 +54,6 @@ class ClinicInfoTests(TestCase):
         form = ClinicInfoForm(
             data={
                 "name": "FMH Animal Clinic",
-                "clinic_title": "",
-                "clinic_slogan": "",
-                "hero_description": "",
                 "email": "",
                 "phone": "1234",
                 "address": "",
@@ -76,9 +70,6 @@ class ClinicInfoTests(TestCase):
     def test_clinic_settings_context_processor_returns_profile_values(self):
         profile = ClinicProfile.get_instance()
         profile.name = "FMH Animal Clinic"
-        profile.clinic_title = "FMH ANIMAL CLINIC"
-        profile.clinic_slogan = "Powered by AI Diagnostics"
-        profile.hero_description = "Trusted care"
         profile.email = "contact@example.com"
         profile.phone = "09123456789"
         profile.address = "Sample Address"
@@ -90,7 +81,7 @@ class ClinicInfoTests(TestCase):
         self.assertEqual(context["CLINIC_EMAIL"], "contact@example.com")
         self.assertEqual(context["CLINIC_PHONE"], "09123456789")
         self.assertEqual(context["CLINIC_ADDRESS"], "Sample Address")
-        self.assertEqual(context["CLINIC_TITLE"], "FMH ANIMAL CLINIC")
-        self.assertEqual(context["CLINIC_SLOGAN"], "Powered by AI Diagnostics")
-        self.assertEqual(context["CLINIC_HERO_DESCRIPTION"], "Trusted care")
         self.assertEqual(context["CURRENCY"], "PHP")
+        self.assertNotIn("CLINIC_TITLE", context)
+        self.assertNotIn("CLINIC_SLOGAN", context)
+        self.assertNotIn("CLINIC_HERO_DESCRIPTION", context)

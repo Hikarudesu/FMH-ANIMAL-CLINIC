@@ -4,12 +4,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="FMH Animal Clinic - Veterinary Clinic Management System">
+  <meta name="description" content="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} - Veterinary Clinic Management System">
   <meta name="theme-color" content="#009688">
-  <title>FMH Animal Clinic - Veterinary Clinic Management System</title>
+  <title>{{ CLINIC_NAME|default:'FMH Animal Clinic' }} - Veterinary Clinic Management System</title>
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="{% static 'image/fmh-logo.png' %}">
+  {% if CLINIC_LOGO %}
+    <link rel="icon" type="image/png" href="{{ CLINIC_LOGO.url }}">
+  {% else %}
+    <link rel="icon" type="image/png" href="{% static 'image/fmh-logo.png' %}">
+  {% endif %}
 
   <!-- Preconnect for external resources -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>

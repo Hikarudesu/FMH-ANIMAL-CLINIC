@@ -37,29 +37,6 @@
         {% endif %}
       </div>
 
-      <div class="admin-field">
-        <label for="{{ forms.clinic.clinic_title.id_for_label }}">Clinic Title</label>
-        {{ forms.clinic.clinic_title }}
-        {% if forms.clinic.clinic_title.errors %}
-          <div class="error-text">{{ forms.clinic.clinic_title.errors.0 }}</div>
-        {% endif %}
-      </div>
-
-      <div class="admin-field">
-        <label for="{{ forms.clinic.clinic_slogan.id_for_label }}">Clinic Slogan</label>
-        {{ forms.clinic.clinic_slogan }}
-        {% if forms.clinic.clinic_slogan.errors %}
-          <div class="error-text">{{ forms.clinic.clinic_slogan.errors.0 }}</div>
-        {% endif %}
-      </div>
-
-      <div class="admin-field admin-field-full">
-        <label for="{{ forms.clinic.hero_description.id_for_label }}">Hero Description</label>
-        {{ forms.clinic.hero_description }}
-        {% if forms.clinic.hero_description.errors %}
-          <div class="error-text">{{ forms.clinic.hero_description.errors.0 }}</div>
-        {% endif %}
-      </div>
 
       <div class="form-section-title">
         <i class='bx bx-phone'></i> Contact Information

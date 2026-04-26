@@ -32,15 +32,11 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
         model = ClinicProfile
         fields = [
             'name', 'logo',
-            'clinic_title', 'clinic_slogan', 'hero_description',
             'email', 'phone', 'address', 'license_number',
             'facebook_url', 'instagram_url', 'messenger_url', 'tiktok_url',
         ]
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'Enter clinic name'}),
-            'clinic_title': forms.TextInput(attrs={'placeholder': 'Enter landing page title'}),
-            'clinic_slogan': forms.TextInput(attrs={'placeholder': 'Enter short slogan'}),
-            'hero_description': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Enter landing page description'}),
             'email': forms.EmailInput(attrs={'placeholder': 'contact@example.com'}),
             'phone': forms.TextInput(attrs={
                 'placeholder': '09XXXXXXXXX',
