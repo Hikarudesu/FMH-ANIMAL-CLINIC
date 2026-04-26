@@ -140,6 +140,6 @@
   </div>
 
   <div class="mobile-footer">
-    <p>Powered by AI Diagnostics</p>
+    <p>{% if CLINIC_SLOGAN %}{{ CLINIC_SLOGAN|safe }}{% else %}Powered by <span class="highlight serif">AI Diagnostics</span>{% endif %}</p>
   </div>
 </div>
