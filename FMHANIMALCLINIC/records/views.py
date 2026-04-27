@@ -24,7 +24,7 @@ from patients.models import Pet  # pylint: disable=no-member
 from branches.models import Branch
 from employees.models import StaffMember
 from FMHANIMALCLINIC.form_mixins import validate_philippines_phone
-from settings.models import ClinicalStatus
+from settings.models import ClinicalStatus, ClinicProfile
 from .models import MedicalRecord, RecordEntry
 from .forms import MedicalRecordForm, RecordEntryForm
 
@@ -583,6 +583,7 @@ def admin_record_detail(request, pk):
     missing_fields = get_record_missing_fields(record, entries)
     vets, vets_for_json = get_veterinarians_for_json()
     branches = Branch.objects.filter(is_active=True)
+    clinic_profile = ClinicProfile.get_instance()
 
     return render(request, 'records/admin_detail.html', {
         'record': record,
@@ -593,6 +594,7 @@ def admin_record_detail(request, pk):
         'branches': branches,
         'vets_json': json.dumps(vets_for_json),
         'clinical_statuses': ClinicalStatus.objects.filter(is_active=True).order_by('order', 'name'),
+        'clinic_profile': clinic_profile,
     })
 
 
@@ -861,12 +863,15 @@ def download_pdf_view(request, pk):
             'missing_fields': missing_fields,
         }, status=400)
 
+    clinic_profile = ClinicProfile.get_instance()
+
     # Render HTML template
     html_content = render_to_string('records/pdf_record.html', {
         'record': record,
         'entries': entries,
         'generated_date': timezone.now(),
         'is_admin': request.user.is_clinic_staff(),
+        'clinic_profile': clinic_profile,
     })
 
     # Generate PDF using xhtml2pdf
@@ -901,10 +906,12 @@ def user_record_detail(request, pk):
 
     entries = record.entries.order_by('date_recorded', 'created_at')
     missing_fields = get_record_missing_fields(record, entries)
+    clinic_profile = ClinicProfile.get_instance()
 
     return render(request, 'records/user_detail.html', {
         'record': record,
         'entries': entries,
         'missing_fields': missing_fields,
         'generated_date': timezone.now(),
+        'clinic_profile': clinic_profile,
     })

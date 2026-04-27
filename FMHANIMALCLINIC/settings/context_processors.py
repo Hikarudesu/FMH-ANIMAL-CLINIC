@@ -53,7 +53,7 @@ def landing_content(request):
         return {}
 
     # Import here to avoid circular imports
-    from .models import SectionContent, HeroStat, CoreValue, Service, Veterinarian
+    from .models import SectionContent, HeroStat, Service, Veterinarian
     from branches.models import Branch
 
     # Get section content
@@ -79,7 +79,6 @@ def landing_content(request):
 
     # Get list content
     hero_stats = HeroStat.objects.filter(is_active=True)
-    core_values = CoreValue.objects.filter(is_active=True)
     services = Service.objects.filter(is_active=True)
     veterinarians = Veterinarian.objects.filter(is_active=True)
 
@@ -113,7 +112,6 @@ def landing_content(request):
         'services_intro': services_intro,
         'vets_intro': vets_intro,
         'core_values_intro': core_values_intro,
-        'core_values': core_values,
         'services': services,
         'veterinarians': veterinarians,
         'branches': branches,

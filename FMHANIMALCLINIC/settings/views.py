@@ -12,7 +12,7 @@ from branches.models import Branch
 
 from .models import (
     ClinicProfile, SystemSetting, SectionContent,
-    HeroStat, CoreValue, Service, Veterinarian,
+    HeroStat, Service, Veterinarian,
     ReasonForVisit, ClinicalStatus,
 )
 from .forms import (
@@ -28,7 +28,6 @@ from .forms import (
     ServicesIntroForm,
     VetsIntroForm,
     HeroStatForm,
-    CoreValueForm,
     ServiceForm,
     VeterinarianForm,
     ReasonForVisitForm,
@@ -310,7 +309,6 @@ def _get_content_forms():
         'hero_stats': HeroStat.objects.all(),
         'services': Service.objects.all(),
         'veterinarians': Veterinarian.objects.all(),
-        'branches': Branch.objects.filter(is_active=True).order_by('display_order', 'name'),
         # Empty forms for adding new items
         'hero_stat_form': HeroStatForm(),
         'service_form': ServiceForm(),
@@ -332,16 +330,12 @@ def _handle_content_form(request):
         return _handle_vets_intro_form(request)
     elif sub_form == 'hero_stat':
         return _handle_hero_stat_form(request)
-    elif sub_form == 'core_value':
-        return _handle_core_value_form(request)
     elif sub_form == 'service':
         return _handle_service_form(request)
     elif sub_form == 'veterinarian':
         return _handle_veterinarian_form(request)
     elif sub_form == 'delete_hero_stat':
         return _handle_delete_hero_stat(request)
-    elif sub_form == 'delete_core_value':
-        return _handle_delete_core_value(request)
     elif sub_form == 'delete_service':
         return _handle_delete_service(request)
     elif sub_form == 'delete_veterinarian':
@@ -355,11 +349,17 @@ def _handle_hero_form(request):
     """Save hero section content."""
     form = HeroSectionForm(request.POST)
     if form.is_valid():
+        subtitle_prefix = (form.cleaned_data.get('subtitle_prefix') or '').strip()
+        subtitle_highlight = (form.cleaned_data.get('subtitle_highlight') or '').strip()
+        subtitle_combined = " ".join(part for part in [subtitle_prefix, subtitle_highlight] if part).strip()
+
         SectionContent.objects.update_or_create(
             section_type='HERO',
             defaults={
                 'title': form.cleaned_data['title'],
-                'subtitle': form.cleaned_data['subtitle'],
+                'subtitle': subtitle_combined,
+                'subtitle_prefix': subtitle_prefix,
+                'subtitle_highlight': subtitle_highlight,
                 'description': form.cleaned_data['description'],
             }
         )
@@ -371,7 +371,7 @@ def _handle_hero_form(request):
 
 
 def _handle_mission_vision_form(request):
-    """Save mission, vision, and core values content."""
+    """Save mission, vision, and core values intro content."""
     form = MissionVisionForm(request.POST)
     if form.is_valid():
         SectionContent.objects.update_or_create(
@@ -395,8 +395,8 @@ def _handle_mission_vision_form(request):
                 'description': form.cleaned_data['core_values_description'],
             }
         )
-        _log_settings_change(request.user, 'Mission, Vision & Core Values', 'Updated mission, vision, and core values content')
-        messages.success(request, 'Mission, Vision & Core Values updated successfully.')
+        _log_settings_change(request.user, 'Mission, Vision & Core Values Intro', 'Updated mission, vision, and core values intro content')
+        messages.success(request, 'Mission, Vision & Core Values Intro updated successfully.')
     else:
         messages.error(request, 'Please correct the errors.')
     return redirect('settings:admin_settings')
@@ -458,26 +458,6 @@ def _handle_hero_stat_form(request):
     return redirect('settings:admin_settings')
 
 
-def _handle_core_value_form(request):
-    """Add or update a core value."""
-    value_id = request.POST.get('item_id')
-    if value_id:
-        instance = get_object_or_404(CoreValue, pk=value_id)
-        form = CoreValueForm(request.POST, instance=instance)
-        action = 'Updated'
-    else:
-        form = CoreValueForm(request.POST)
-        action = 'Added'
-
-    if form.is_valid():
-        form.save()
-        _log_settings_change(request.user, 'Core Values', f'{action} core value')
-        messages.success(request, f'Core value {action.lower()} successfully.')
-    else:
-        messages.error(request, 'Please correct the errors.')
-    return redirect('settings:admin_settings')
-
-
 def _handle_service_form(request):
     """Add or update a service."""
     service_id = request.POST.get('item_id')
@@ -525,16 +505,6 @@ def _handle_delete_hero_stat(request):
         HeroStat.objects.filter(pk=stat_id).delete()
         _log_settings_change(request.user, 'Hero Statistics', 'Deleted hero stat')
         messages.success(request, 'Hero statistic deleted.')
-    return redirect('settings:admin_settings')
-
-
-def _handle_delete_core_value(request):
-    """Delete a core value."""
-    value_id = request.POST.get('item_id')
-    if value_id:
-        CoreValue.objects.filter(pk=value_id).delete()
-        _log_settings_change(request.user, 'Core Values', 'Deleted core value')
-        messages.success(request, 'Core value deleted.')
     return redirect('settings:admin_settings')
 
 

@@ -525,9 +525,6 @@
     <button class="content-subtab" onclick="showContentPanel('vets', this)">
       <i class='bx bx-user-circle'></i> Veterinarians
     </button>
-    <button class="content-subtab" onclick="showContentPanel('branches', this)">
-      <i class='bx bx-map'></i> Branches
-    </button>
   </div>
 
   <!-- HERO SECTION -->
@@ -544,9 +541,15 @@
       </div>
 
       <div class="admin-field admin-field-full">
-        <label>Subtitle</label>
-        {{ forms.content.hero.subtitle }}
-        <p class="form-hint">Highlighted subtitle (e.g., "Powered by AI Diagnostics")</p>
+        <label>Subtitle Prefix (No Color)</label>
+        {{ forms.content.hero.subtitle_prefix }}
+        <p class="form-hint">Plain text before highlight (e.g., "Powered by")</p>
+      </div>
+
+      <div class="admin-field admin-field-full">
+        <label>Subtitle Highlight (Colored)</label>
+        {{ forms.content.hero.subtitle_highlight }}
+        <p class="form-hint">Only this part gets accent color (e.g., "AI Diagnostics")</p>
       </div>
 
       <div class="admin-field admin-field-full">
@@ -582,7 +585,7 @@
           <p>Order: {{ stat.order }} {% if not stat.is_active %}<span class="inactive-badge">Inactive</span>{% endif %}</p>
         </div>
         <div class="item-actions">
-          <button type="button" class="btn-edit" onclick="editItem('hero_stat', {{ stat.pk }}, '{{ stat.value }}', '{{ stat.label }}', {{ stat.order }}, {{ stat.is_active|yesno:'true,false' }})">
+          <button type="button" class="btn-edit" onclick="editItem('hero_stat', {{ stat.pk }}, '{{ stat.value|escapejs }}', '{{ stat.label|escapejs }}', {{ stat.order }}, {{ stat.is_active|yesno:'true,false' }})">
             <i class='bx bx-edit'></i>
           </button>
           <form method="POST" style="display:inline;">
@@ -658,7 +661,7 @@
 
       <div class="admin-actions" style="margin: 24px 0 0 0; border-top: none; padding-top: 0;">
         <button type="submit" class="btn-submit">
-          <i class='bx bx-save'></i> Save Mission, Vision & Core Values
+          <i class='bx bx-save'></i> Save Mission, Vision & Intro
         </button>
       </div>
     </form>
@@ -760,41 +763,6 @@
     </div>
   </div>
 
-  <!-- BRANCHES SECTION -->
-  <div id="branches-panel" class="content-panel">
-    <div style="margin-bottom: 16px;">
-      <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
-        <i class='bx bx-map' style="color: var(--primary); font-size: 1.3rem;"></i>
-        Branch Locations (Contact Page Map)
-      </h4>
-      <p class="form-hint" style="margin-top: 12px;">Branch information for the contact page. To add map URLs and social links, edit each branch in Staff Management > Branches.</p>
-    </div>
-
-    <div class="items-list">
-      {% for branch in forms.content.branches %}
-      <div class="item-card">
-        <div class="item-icon"><i class='bx bx-buildings'></i></div>
-        <div class="item-content">
-          <h4>{{ branch.name }}</h4>
-          <p>{{ branch.address }}, {{ branch.city }}, {{ branch.state }}</p>
-          <p><strong>Phone:</strong> {{ branch.phone_number }}</p>
-          {% if branch.google_maps_embed_url %}
-          <span class="map-status success"><i class='bx bx-check'></i> Map configured</span>
-          {% else %}
-          <span class="map-status warning"><i class='bx bx-error'></i> Map URL not set</span>
-          {% endif %}
-        </div>
-        <div class="item-actions">
-          <a href="{% url 'branches:edit' branch.pk %}" class="btn-edit">
-            <i class='bx bx-edit'></i> Edit
-          </a>
-        </div>
-      </div>
-      {% empty %}
-      <p class="empty-message">No active branches found. Add branches in Staff Management > Branches.</p>
-      {% endfor %}
-    </div>
-  </div>
 </div>
 
 <!-- MODALS -->
@@ -894,6 +862,7 @@
     </form>
   </div>
 </div>
+
 
 <!-- Veterinarian Modal -->
 <div id="veterinarian-modal" class="modal-overlay">

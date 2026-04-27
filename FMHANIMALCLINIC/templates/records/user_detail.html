@@ -567,9 +567,21 @@
 
     <!-- Header -->
     <div class="rv-header">
-        <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo" class="rv-header-logo">
+        {% if record.branch and record.branch.logo %}
+            <img src="{{ record.branch.logo.url }}" alt="{{ record.branch.name }} Logo" class="rv-header-logo">
+        {% elif clinic_profile and clinic_profile.logo %}
+            <img src="{{ clinic_profile.logo.url }}" alt="FMH Logo" class="rv-header-logo">
+        {% else %}
+            <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo" class="rv-header-logo">
+        {% endif %}
         <div class="rv-header-title">PET MEDICAL RECORD</div>
-        <div class="rv-header-sub">FMH Animal Clinic — Official Document</div>
+        <div class="rv-header-sub">
+            {% if record.branch %}
+                {{ record.branch.name }} — Official Document
+            {% else %}
+                FMH Animal Clinic — Official Document
+            {% endif %}
+        </div>
     </div>
 
     <!-- Owner Information -->

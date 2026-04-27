@@ -83,6 +83,15 @@ def run_diagnosis(request, pet_id):
     """
     pet = get_object_or_404(Pet, pk=pet_id)
 
+    # Check branch access if user is branch-restricted
+    is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
+    user_branch = getattr(request.user, 'branch', None)
+    
+    if is_branch_restricted and user_branch:
+        if pet.owner and pet.owner.branch != user_branch:
+            from django.http import Http404
+            raise Http404("You don't have access to this pet's records.")
+
     # Get last 10 medical history entries
     entries = RecordEntry.objects.filter(
         record__pet=pet
@@ -157,6 +166,15 @@ def diagnosis_detail(request, pk):
         pk=pk
     )
 
+    # Check branch access if user is branch-restricted
+    is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
+    user_branch = getattr(request.user, 'branch', None)
+    
+    if is_branch_restricted and user_branch:
+        if diagnosis.pet.owner and diagnosis.pet.owner.branch != user_branch:
+            from django.http import Http404
+            raise Http404("You don't have access to this diagnosis.")
+
     # All selectable conditions (primary + differentials)
     all_conditions = diagnosis.get_all_conditions()
 
@@ -191,6 +209,15 @@ def mark_reviewed(request, pk):
     """
     diagnosis = get_object_or_404(AIDiagnosis, pk=pk)
 
+    # Check branch access if user is branch-restricted
+    is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
+    user_branch = getattr(request.user, 'branch', None)
+    
+    if is_branch_restricted and user_branch:
+        if diagnosis.pet.owner and diagnosis.pet.owner.branch != user_branch:
+            from django.http import Http404
+            raise Http404("You don't have access to this diagnosis.")
+
     if diagnosis.is_reviewed:
         messages.warning(request, 'This diagnosis has already been reviewed.')
         return redirect('diagnostics:detail', pk=pk)
@@ -199,6 +226,8 @@ def mark_reviewed(request, pk):
     selected_condition = request.POST.get('selected_condition', '').strip()
     selected_tests = request.POST.getlist('selected_tests', [])
     vet_prescription = request.POST.get('vet_prescription', '').strip()
+    diagnosis_notes = request.POST.get('diagnosis_notes', '').strip()
+    test_notes = request.POST.get('test_notes', '').strip()
 
     # Validate required fields
     if not selected_condition:
@@ -219,6 +248,8 @@ def mark_reviewed(request, pk):
         diagnosis.selected_condition = selected_condition
         diagnosis.selected_tests = selected_tests
         diagnosis.vet_prescription = vet_prescription
+        diagnosis.diagnosis_notes = diagnosis_notes
+        diagnosis.test_notes = test_notes
 
         # Get or create MedicalRecord for this pet
         medical_record = MedicalRecord.objects.filter(pet=diagnosis.pet).first()
@@ -235,12 +266,16 @@ def mark_reviewed(request, pk):
         if diagnosis.input_symptoms:
             clinical_signs_parts.append(f"Presenting Symptoms:\n{diagnosis.input_symptoms}")
         clinical_signs_parts.append(f"Diagnosis: {selected_condition}")
+        if diagnosis_notes:
+            clinical_signs_parts.append(f"Diagnosis Notes:\n{diagnosis_notes}")
         history_clinical_signs = '\n\n'.join(clinical_signs_parts)
 
         # Build treatment field from selected tests
         treatment = ''
         if selected_tests:
             treatment = "Recommended Tests:\n" + '\n'.join(f"• {test}" for test in selected_tests)
+            if test_notes:
+                treatment += f"\n\nTest Notes:\n{test_notes}"
 
         diagnostics_status = ClinicalStatus.objects.filter(code='DIAGNOSTICS').first() or ClinicalStatus.get_default()
 
@@ -299,6 +334,16 @@ def delete_diagnosis(request, pk):
     the ForeignKey uses SET_NULL, so the record entry remains intact.
     """
     diagnosis = get_object_or_404(AIDiagnosis, pk=pk)
+
+    # Check branch access if user is branch-restricted
+    is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
+    user_branch = getattr(request.user, 'branch', None)
+    
+    if is_branch_restricted and user_branch:
+        if diagnosis.pet.owner and diagnosis.pet.owner.branch != user_branch:
+            from django.http import Http404
+            raise Http404("You don't have access to this diagnosis.")
+    
     pet_name = diagnosis.pet.name
     
     # Store info before deletion

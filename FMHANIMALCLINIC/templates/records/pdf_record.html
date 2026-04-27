@@ -144,9 +144,21 @@
     <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #333; margin-bottom: 10px;">
         <tr>
             <td style="vertical-align: middle; text-align: center; padding-bottom: 8px;">
-                <img src="{% static 'image/fmh-logo.png' %}" style="width: 50px; height: 50px; margin-bottom: 4px;" alt="FMH Logo">
+                {% if record.branch and record.branch.logo %}
+                    <img src="{{ record.branch.logo.url }}" style="width: 50px; height: 50px; margin-bottom: 4px;" alt="{{ record.branch.name }} Logo">
+                {% elif clinic_profile and clinic_profile.logo %}
+                    <img src="{{ clinic_profile.logo.url }}" style="width: 50px; height: 50px; margin-bottom: 4px;" alt="FMH Logo">
+                {% else %}
+                    <img src="{% static 'image/fmh-logo.png' %}" style="width: 50px; height: 50px; margin-bottom: 4px;" alt="FMH Logo">
+                {% endif %}
                 <div class="title" style="text-align: center;">PET MEDICAL RECORD</div>
-                <div class="subtitle" style="text-align: center;">FMH Animal Clinic — Official Document</div>
+                <div class="subtitle" style="text-align: center;">
+                    {% if record.branch %}
+                        {{ record.branch.name }} — Official Document
+                    {% else %}
+                        FMH Animal Clinic — Official Document
+                    {% endif %}
+                </div>
             </td>
         </tr>
     </table>

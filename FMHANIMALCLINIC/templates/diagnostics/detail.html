@@ -6,420 +6,48 @@
 {% block content %}
 
 <style>
-  .detail-container {
-    display: grid;
-    grid-template-columns: 1fr 400px;
-    gap: 24px;
-    margin-top: 24px;
-  }
-  @media (max-width: 1100px) {
-    .detail-container { grid-template-columns: 1fr; }
+  .detail-shell {
+    margin-top: 20px;
   }
 
-  /* Main Result Card */
-  .result-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-
-  /* Header */
-  .result-header {
-    padding: 24px;
-    background: var(--primary-gradient);
-    color: #fff;
-  }
-  .result-header-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
-  .result-pet {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  .result-pet-avatar {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-  }
-  .result-pet-name {
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-  .result-pet-meta {
-    font-size: 0.85rem;
-    opacity: 0.85;
-    margin-top: 2px;
-  }
-  .result-date {
-    font-size: 0.8rem;
-    opacity: 0.8;
-    text-align: right;
-  }
-
-  /* Body Sections */
-  .result-body { padding: 24px; }
-  .result-section { margin-bottom: 24px; }
-  .result-section:last-child { margin-bottom: 0; }
-  .result-section-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  .result-section-title i {
-    color: var(--primary);
-    font-size: 1.1rem;
-  }
-
-  /* Selectable Condition Cards */
-  .condition-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px;
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: var(--radius-md);
-    margin-bottom: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .condition-card:hover { border-color: var(--primary); }
-  .condition-card.selected {
-    background: rgba(99, 90, 255, 0.08);
-    border-color: var(--primary);
-  }
-  .condition-card.primary-condition {
-    background: linear-gradient(135deg, rgba(99,90,255,0.08) 0%, rgba(99,90,255,0.04) 100%);
-  }
-  .condition-card input[type="radio"] {
-    margin-top: 4px;
-    accent-color: var(--primary);
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-  }
-  .condition-card-content { flex: 1; }
-  .condition-card-name {
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: var(--text-primary);
-    margin-bottom: 4px;
-  }
-  .condition-card-reasoning {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    line-height: 1.5;
-  }
-  .condition-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    background: var(--primary);
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 600;
-    border-radius: 4px;
-    margin-left: 8px;
-  }
-
-  /* Selectable Test Items */
-  .test-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: var(--radius-sm);
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 0.9rem;
-  }
-  .test-item:hover { border-color: var(--primary); }
-  .test-item.selected {
-    background: rgba(0, 150, 136, 0.08);
-    border-color: #009688;
-  }
-  .test-item input[type="checkbox"] {
-    margin-top: 2px;
-    accent-color: #009688;
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-  }
-  .test-item label { flex: 1; cursor: pointer; line-height: 1.4; }
-
-  /* Warning Signs */
-  .warning-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .warning-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
-    background: #fff8e1;
-    border-radius: var(--radius-sm);
-    margin-bottom: 6px;
-    font-size: 0.9rem;
-    color: #5d4037;
-  }
-  .warning-list li i { color: #ff9800; font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
-
-  /* Summary */
-  .result-summary {
-    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-    border: 1px solid #a5d6a7;
-    border-radius: var(--radius-md);
-    padding: 16px;
-    font-size: 0.9rem;
-    color: #2e7d32;
-    line-height: 1.6;
-  }
-
-  /* Sidebar */
-  .detail-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  .sidebar-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-  .sidebar-card-header {
-    padding: 14px 18px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .sidebar-card-header i { color: var(--primary); }
-  .sidebar-card-body { padding: 18px; }
-
-  /* Rx Textarea */
-  .rx-textarea {
-    width: 100%;
-    min-height: 100px;
-    padding: 12px;
-    border: 2px solid var(--border);
-    border-radius: var(--radius-md);
-    font-size: 0.9rem;
-    font-family: inherit;
-    resize: vertical;
-    transition: all 0.2s;
-  }
-  .rx-textarea:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99,90,255,0.12);
-  }
-  .rx-label {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-  }
-  .rx-required {
-    color: #d32f2f;
-    margin-left: 2px;
-  }
-
-  /* Review Status */
-  .review-status {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px;
-    background: #e8f5e9;
-    border-radius: var(--radius-md);
-    margin-bottom: 16px;
-  }
-  .review-status i { font-size: 1.5rem; color: #2e7d32; }
-  .review-status-text { flex: 1; }
-  .review-status-label { font-weight: 700; color: #1b5e20; font-size: 0.95rem; }
-  .review-status-meta { font-size: 0.8rem; color: #558b2f; margin-top: 2px; }
-
-  /* Submit Button */
-  .submit-btn {
-    width: 100%;
-    padding: 14px 20px;
-    background: var(--primary-gradient);
-    border: none;
-    border-radius: var(--radius-md);
-    color: #fff;
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.25s;
-    margin-top: 16px;
-  }
-  .submit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(99,90,255,0.3);
-  }
-  .submit-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  /* Linked Record Badge */
-  .linked-record-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: #e3f2fd;
-    border-radius: var(--radius-sm);
-    font-size: 0.85rem;
-    color: #1565c0;
-    text-decoration: none;
-    transition: all 0.2s;
-  }
-  .linked-record-badge:hover { background: #bbdefb; }
-  .linked-record-badge i { font-size: 1rem; }
-
-  /* Reviewed Data Display */
-  .reviewed-data-section {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-  }
-  .reviewed-data-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-  }
-  .reviewed-data-value {
-    font-size: 0.9rem;
-    color: var(--text-primary);
-    line-height: 1.5;
-    background: var(--bg);
-    padding: 10px;
-    border-radius: var(--radius-sm);
-  }
-
-  /* Actions */
   .detail-actions {
     display: flex;
+    align-items: center;
     gap: 10px;
-    margin-bottom: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
   }
+
   .detail-action-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 18px;
-    background: var(--surface);
+    padding: 10px 16px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--surface);
     color: var(--text-primary);
-    font-size: 0.85rem;
-    font-weight: 600;
+    border-radius: 999px;
     text-decoration: none;
-    transition: all 0.2s;
+    font-size: 0.84rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
   }
   .detail-action-btn:hover {
     border-color: var(--primary);
     color: var(--primary);
+    transform: translateY(-1px);
   }
-
-  /* Disclaimer */
-  .diag-disclaimer {
-    background: #fff8e1;
-    border: 1px solid #ffe082;
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    font-size: 0.8rem;
-    color: #795548;
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .diag-disclaimer i { color: #f57f17; font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
-
-  /* Related diagnoses */
-  .related-diag-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    text-decoration: none;
-    color: inherit;
-  }
-  .related-diag-item:last-child { border-bottom: none; }
-  .related-diag-item:hover { opacity: 0.8; }
-  .related-diag-badge {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    flex-shrink: 0;
-    background: #e8f5e9;
-    color: #2e7d32;
-  }
-
-  /* Form group */
-  .form-group { margin-bottom: 16px; }
-  .form-group:last-child { margin-bottom: 0; }
-
-  /* Validation errors */
-  .validation-error {
-    color: #d32f2f;
-    font-size: 0.8rem;
-    margin-top: 6px;
-    display: none;
-  }
-  .validation-error.show { display: block; }
 
   .delete-action-btn {
     background: transparent;
     border: 1px solid var(--danger, #dc3545);
     color: var(--danger, #dc3545);
-    padding: 10px 18px;
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    font-size: 0.85rem;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.84rem;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -429,25 +57,464 @@
     background: var(--danger, #dc3545);
     color: #fff;
   }
+
+  .detail-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .detail-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .result-card,
+  .sidebar-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 1) 100%);
+    border: 1px solid rgba(30, 41, 59, 0.08);
+    border-radius: 18px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+
+  .result-header {
+    padding: 20px 22px;
+    color: #fff;
+    background:
+      radial-gradient(circle at 80% -20%, rgba(255, 255, 255, 0.25), transparent 45%),
+      linear-gradient(135deg, #0f766e 0%, #0f766e 35%, #0c5f57 100%);
+  }
+
+  .result-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .result-pet {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .result-pet-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .result-pet-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .result-pet-meta {
+    font-size: 0.88rem;
+    opacity: 0.9;
+    margin-top: 4px;
+  }
+
+  .result-date {
+    font-size: 0.8rem;
+    opacity: 0.95;
+    text-align: right;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .result-body {
+    padding: 18px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .result-section {
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    background: var(--surface);
+  }
+
+  .result-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+
+  .result-section-title i {
+    color: var(--primary);
+    font-size: 1.1rem;
+  }
+
+  .result-summary {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #a7f3d0;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 0.9rem;
+    color: #065f46;
+    line-height: 1.65;
+  }
+
+  .condition-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 9px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--surface);
+  }
+  .condition-card:hover {
+    border-color: rgba(13, 148, 136, 0.5);
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.11);
+  }
+  .condition-card.selected {
+    border-color: #0d9488;
+    background: #f0fdfa;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+  .condition-card.primary-condition {
+    border-left: 4px solid #0f766e;
+  }
+
+  .condition-card input[type="radio"] {
+    margin-top: 2px;
+    accent-color: #0f766e;
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+
+  .condition-card-content {
+    flex: 1;
+  }
+
+  .condition-card-name {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+
+  .condition-card-reasoning {
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  .condition-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: #0f766e;
+    color: #fff;
+    font-size: 0.69rem;
+    font-weight: 700;
+    border-radius: 999px;
+    margin-left: 8px;
+  }
+
+  .test-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    background: var(--surface);
+  }
+  .test-item:hover {
+    border-color: rgba(15, 118, 110, 0.45);
+    background: #f8fffe;
+  }
+  .test-item.selected {
+    background: #f0fdfa;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+  }
+  .test-item input[type="checkbox"] {
+    margin-top: 2px;
+    accent-color: #0d9488;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .test-item label {
+    flex: 1;
+    cursor: pointer;
+    line-height: 1.45;
+  }
+
+  .warning-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .warning-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: #78350f;
+  }
+  .warning-list li i {
+    color: #d97706;
+    font-size: 1rem;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .detail-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: sticky;
+    top: 90px;
+  }
+  @media (max-width: 1100px) {
+    .detail-sidebar {
+      position: static;
+    }
+  }
+
+  .sidebar-card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(180deg, #fafafa 0%, #f7f7f9 100%);
+  }
+  .sidebar-card-header i {
+    color: #0f766e;
+  }
+  .sidebar-card-body {
+    padding: 14px;
+  }
+
+  .rx-textarea {
+    width: 100%;
+    min-height: 108px;
+    padding: 11px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s ease;
+    background: #fff;
+  }
+  .rx-textarea:focus {
+    outline: none;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.13);
+  }
+  .rx-label {
+    display: block;
+    font-size: 0.79rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+  }
+  .rx-required {
+    color: #dc2626;
+    margin-left: 2px;
+  }
+
+  .review-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .review-status i {
+    font-size: 1.4rem;
+    color: #059669;
+  }
+  .review-status-label {
+    font-weight: 800;
+    color: #065f46;
+    font-size: 0.92rem;
+  }
+  .review-status-meta {
+    font-size: 0.8rem;
+    color: #047857;
+    margin-top: 2px;
+  }
+
+  .submit-btn {
+    width: 100%;
+    padding: 13px 16px;
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+    border: none;
+    border-radius: 11px;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    margin-top: 14px;
+    box-shadow: 0 10px 20px rgba(15, 118, 110, 0.2);
+  }
+  .submit-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 24px rgba(15, 118, 110, 0.28);
+  }
+  .submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .linked-record-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    color: #0c4a6e;
+    background: #e0f2fe;
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .reviewed-data-section {
+    margin-top: 10px;
+  }
+  .reviewed-data-label {
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+  }
+  .reviewed-data-value {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 9px 10px;
+    border-radius: 10px;
+  }
+
+  .diag-disclaimer {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    color: #78350f;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .related-diag-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s ease;
+  }
+  .related-diag-item:hover {
+    background: var(--bg);
+  }
+  .related-diag-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    background: #ecfdf5;
+    color: #047857;
+  }
+
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+  .validation-error {
+    color: #dc2626;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    display: none;
+  }
+  .validation-error.show {
+    display: block;
+  }
 </style>
 
-<!-- Actions Bar -->
-<div class="detail-actions">
-  <a href="{% url 'diagnostics:dashboard' %}" class="detail-action-btn">
-    <i class="bx bx-arrow-back"></i> Back to Dashboard
-  </a>
-  <a href="{% url 'diagnostics:run_diagnosis' diagnosis.pet.pk %}" class="detail-action-btn">
-    <i class="bx bx-refresh"></i> Run New Diagnosis
-  </a>
-  {% if can_delete %}
-  <form method="post" action="{% url 'diagnostics:delete' diagnosis.pk %}" style="display: inline; margin-left: auto;" onsubmit="return confirm('Delete this AI diagnosis? {% if diagnosis.is_reviewed and diagnosis.linked_record_entry %}The linked medical record will be preserved.{% endif %}');">
-    {% csrf_token %}
-    <button type="submit" class="delete-action-btn">
-      <i class="bx bx-trash"></i> Delete Diagnosis
-    </button>
-  </form>
-  {% endif %}
-</div>
+<div class="detail-shell">
+  <!-- Actions Bar -->
+  <div class="detail-actions">
+    <a href="{% url 'diagnostics:dashboard' %}" class="detail-action-btn">
+      <i class="bx bx-arrow-back"></i> Back to Dashboard
+    </a>
+    <a href="{% url 'diagnostics:run_diagnosis' diagnosis.pet.pk %}" class="detail-action-btn">
+      <i class="bx bx-refresh"></i> Run New Diagnosis
+    </a>
+    {% if can_delete %}
+    <form method="post" action="{% url 'diagnostics:delete' diagnosis.pk %}" style="display: inline; margin-left: auto;" onsubmit="return confirm('Delete this AI diagnosis? {% if diagnosis.is_reviewed and diagnosis.linked_record_entry %}The linked medical record will be preserved.{% endif %}');">
+      {% csrf_token %}
+      <button type="submit" class="delete-action-btn">
+        <i class="bx bx-trash"></i> Delete Diagnosis
+      </button>
+    </form>
+    {% endif %}
+  </div>
 
 {% if not diagnosis.is_reviewed %}
 <form method="post" action="{% url 'diagnostics:mark_reviewed' diagnosis.pk %}" id="reviewForm">
@@ -480,7 +547,18 @@
     </div>
 
     <div class="result-body">
-      <!-- Section 1: Select Diagnosis Condition -->
+      <!-- Section 1: Summary -->
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-message-square-detail"></i>
+          AI Assessment Summary
+        </div>
+        <div class="result-summary">
+          {{ diagnosis.summary }}
+        </div>
+      </div>
+
+      <!-- Section 2: Select Diagnosis Condition -->
       <div class="result-section">
         <div class="result-section-title">
           <i class="bx bx-target-lock"></i>
@@ -519,7 +597,7 @@
         {% endif %}
       </div>
 
-      <!-- Section 2: Select Recommended Tests -->
+      <!-- Section 3: Select Recommended Tests -->
       {% if diagnosis.recommended_tests %}
       <div class="result-section">
         <div class="result-section-title">
@@ -556,7 +634,7 @@
       </div>
       {% endif %}
 
-      <!-- Section 3: Warning Signs -->
+      <!-- Section 4: Warning Signs -->
       {% if diagnosis.warning_signs %}
       <div class="result-section">
         <div class="result-section-title">
@@ -571,16 +649,6 @@
       </div>
       {% endif %}
 
-      <!-- Section 4: Summary -->
-      <div class="result-section">
-        <div class="result-section-title">
-          <i class="bx bx-message-square-detail"></i>
-          AI Assessment Summary
-        </div>
-        <div class="result-summary">
-          {{ diagnosis.summary }}
-        </div>
-      </div>
     </div>
   </div>
 
@@ -706,6 +774,8 @@ Example:
 {% if not diagnosis.is_reviewed %}
 </form>
 {% endif %}
+
+</div>
 
 <script>
 // Select condition card

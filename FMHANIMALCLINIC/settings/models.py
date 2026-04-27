@@ -228,6 +228,8 @@ class SectionContent(models.Model):
     )
     title = models.CharField(max_length=255, blank=True)
     subtitle = models.CharField(max_length=500, blank=True)
+    subtitle_prefix = models.CharField(max_length=300, blank=True)
+    subtitle_highlight = models.CharField(max_length=200, blank=True)
     description = models.TextField(blank=True)
     image = models.ImageField(
         upload_to='image/',
@@ -273,36 +275,6 @@ class HeroStat(models.Model):
 
     def __str__(self):
         return f"{self.value} - {self.label}"
-
-
-class CoreValue(models.Model):
-    """
-    Core values displayed on the landing page.
-    Example: Compassion, Integrity, Commitment, Quality of Life
-    """
-
-    title = models.CharField(max_length=100)
-    icon = models.CharField(
-        max_length=50,
-        default='bx-star',
-        help_text="Boxicons class name (e.g., 'bx-heart', 'bx-anchor')"
-    )
-    description = models.TextField(
-        blank=True,
-        help_text='Optional description for the value'
-    )
-    order = models.PositiveIntegerField(default=0)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['order']
-        verbose_name = 'Core Value'
-        verbose_name_plural = 'Core Values'
-
-    def __str__(self):
-        return str(self.title)
 
 
 class Service(models.Model):

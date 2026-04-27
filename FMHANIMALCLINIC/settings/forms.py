@@ -8,7 +8,7 @@ from FMHANIMALCLINIC.form_mixins import AdminInputMixin, validate_philippines_ph
 from notifications.delivery import normalize_ph_sim_number
 from .models import (
     ClinicProfile, SectionContent, HeroStat,
-    CoreValue, Service, Veterinarian,
+    Service, Veterinarian,
 )
 from .utils import get_setting
 
@@ -446,10 +446,17 @@ class HeroSectionForm(AdminInputMixin, forms.Form):
         widget=forms.TextInput(attrs={'placeholder': 'FMH ANIMAL CLINIC'}),
         help_text='Main hero title'
     )
-    subtitle = forms.CharField(
-        max_length=500,
-        widget=forms.TextInput(attrs={'placeholder': 'Powered by AI Diagnostics'}),
-        help_text='Hero subtitle'
+    subtitle_prefix = forms.CharField(
+        max_length=300,
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': 'Powered by'}),
+        help_text='Non-highlighted subtitle text'
+    )
+    subtitle_highlight = forms.CharField(
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': 'AI Diagnostics'}),
+        help_text='Highlighted subtitle text'
     )
     description = forms.CharField(
         widget=forms.Textarea(attrs={
@@ -464,14 +471,26 @@ class HeroSectionForm(AdminInputMixin, forms.Form):
         try:
             content = SectionContent.objects.get(section_type='HERO')
             self.fields['title'].initial = content.title
-            self.fields['subtitle'].initial = content.subtitle
+            if content.subtitle_prefix or content.subtitle_highlight:
+                self.fields['subtitle_prefix'].initial = content.subtitle_prefix
+                self.fields['subtitle_highlight'].initial = content.subtitle_highlight
+            elif content.subtitle:
+                legacy_subtitle = content.subtitle.strip()
+                marker = 'AI Diagnostics'
+                if marker in legacy_subtitle:
+                    before, _ = legacy_subtitle.split(marker, 1)
+                    self.fields['subtitle_prefix'].initial = before.strip()
+                    self.fields['subtitle_highlight'].initial = marker
+                else:
+                    self.fields['subtitle_prefix'].initial = legacy_subtitle
+                    self.fields['subtitle_highlight'].initial = ''
             self.fields['description'].initial = content.description
         except SectionContent.DoesNotExist:
             pass
 
 
 class MissionVisionForm(AdminInputMixin, forms.Form):
-    """Form for mission, vision, and core values content."""
+    """Form for mission, vision, and core values intro content."""
 
     mission_title = forms.CharField(
         max_length=255,
@@ -587,23 +606,6 @@ class HeroStatForm(AdminInputMixin, forms.ModelForm):
         widgets = {
             'value': forms.TextInput(attrs={'placeholder': "e.g., '3', 'AI', '24/7'"}),
             'label': forms.TextInput(attrs={'placeholder': 'e.g., Clinic Branches'}),
-            'order': forms.NumberInput(attrs={'style': 'width: 80px;'}),
-            'is_active': forms.CheckboxInput(),
-        }
-
-
-class CoreValueForm(AdminInputMixin, forms.ModelForm):
-    """Form for individual core value."""
-
-    class Meta:
-        model = CoreValue
-        fields = ['title', 'icon', 'description', 'order', 'is_active']
-        widgets = {
-            'title': forms.TextInput(attrs={'placeholder': 'Value name'}),
-            'icon': forms.TextInput(attrs={'placeholder': 'bx-heart'}),
-            'description': forms.Textarea(attrs={
-                'rows': 2, 'placeholder': 'Optional description'
-            }),
             'order': forms.NumberInput(attrs={'style': 'width: 80px;'}),
             'is_active': forms.CheckboxInput(),
         }

@@ -1,4 +1,5 @@
 from django.db import models
+from utils.validators import validate_image_file, IMAGE_UPLOAD_HELP_TEXT
 
 
 class Branch(models.Model):
@@ -54,6 +55,15 @@ class Branch(models.Model):
         max_length=50,
         blank=True,
         help_text="Display badge (e.g., 'Main Branch', 'New!')"
+    )
+
+    # Logo
+    logo = models.ImageField(
+        upload_to='clinic/branches/',
+        blank=True,
+        null=True,
+        validators=[validate_image_file],
+        help_text=IMAGE_UPLOAD_HELP_TEXT
     )
 
     # Timestamps

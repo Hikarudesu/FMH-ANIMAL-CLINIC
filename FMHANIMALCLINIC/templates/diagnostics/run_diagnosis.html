@@ -22,6 +22,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
   .run-diag-header {
     display: flex;
@@ -41,6 +42,7 @@
     justify-content: center;
     font-size: 28px;
     flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.3);
   }
   .run-diag-pet-info h2 {
     font-size: 1.3rem;
@@ -65,11 +67,16 @@
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
   .diag-form-hint {
     font-size: 0.8rem;
     color: var(--text-secondary);
     margin-top: 6px;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
   }
   .diag-form-textarea {
     width: 100%;
@@ -80,12 +87,18 @@
     font-size: 0.9rem;
     font-family: inherit;
     resize: vertical;
-    transition: all 0.2s;
+    transition: all 0.25s ease;
+    background: var(--surface);
   }
   .diag-form-textarea:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(99,90,255,0.12);
+    background: var(--surface);
+  }
+  .diag-form-textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
   }
 
   /* Submit Button */
@@ -102,15 +115,20 @@
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.25s;
+    transition: all 0.25s ease;
     width: 100%;
+    box-shadow: 0 4px 12px rgba(99,90,255,0.2);
   }
-  .diag-submit-btn:hover {
+  .diag-submit-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(99,90,255,0.3);
+    box-shadow: 0 8px 24px rgba(99,90,255,0.35);
+  }
+  .diag-submit-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(99,90,255,0.25);
   }
   .diag-submit-btn:disabled {
-    opacity: 0.6;
+    opacity: 0.65;
     cursor: not-allowed;
     transform: none;
   }
@@ -125,9 +143,11 @@
     justify-content: center;
     gap: 12px;
     padding: 20px;
-    background: #f0f7ff;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e3f2fd 100%);
+    border: 1px solid #bbdefb;
     border-radius: var(--radius-md);
     margin-top: 16px;
+    animation: slideIn 0.3s ease-out;
   }
   .diag-loading.active { display: flex; }
   .diag-loading-spinner {
@@ -140,6 +160,10 @@
   }
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   .diag-loading-text {
     font-size: 0.9rem;
@@ -158,6 +182,11 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+  }
+  .sidebar-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
   }
   .sidebar-card-header {
     padding: 14px 18px;
@@ -169,9 +198,13 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
   }
   .sidebar-card-header i {
     color: var(--primary);
+    font-size: 1.1rem;
   }
   .sidebar-card-body {
     padding: 14px 18px;

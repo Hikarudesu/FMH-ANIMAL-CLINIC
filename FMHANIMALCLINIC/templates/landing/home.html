@@ -14,7 +14,19 @@
 
       <h1>
           <span class="line"><span class="line-inner">{% if hero_content and hero_content.title %}{{ hero_content.title }}{% else %}FMH ANIMAL CLINIC{% endif %}</span></span>
-          <span class="line"><span class="line-inner">{% if hero_content and hero_content.subtitle %}{{ hero_content.subtitle|safe }}{% else %}Powered by <span class="highlight serif">AI Diagnostics</span>{% endif %}</span></span>
+          <span class="line"><span class="line-inner">
+            {% if hero_content %}
+              {% if hero_content.subtitle_prefix or hero_content.subtitle_highlight %}
+                {{ hero_content.subtitle_prefix }}{% if hero_content.subtitle_prefix and hero_content.subtitle_highlight %} {% endif %}{% if hero_content.subtitle_highlight %}<span class="highlight serif">{{ hero_content.subtitle_highlight }}</span>{% endif %}
+              {% elif hero_content.subtitle %}
+                {{ hero_content.subtitle|safe }}
+              {% else %}
+                Powered by <span class="highlight serif">AI Diagnostics</span>
+              {% endif %}
+            {% else %}
+              Powered by <span class="highlight serif">AI Diagnostics</span>
+            {% endif %}
+          </span></span>
       </h1>
 
         <p>{% if hero_content and hero_content.description %}{{ hero_content.description }}{% else %}A centralized multi-branch veterinary system offering faster appointments, organized medical records, and AI-assisted diagnostic insights for your beloved pets.{% endif %}</p>
@@ -155,10 +167,8 @@
   <div class="container split-container" style="padding-top: 3rem; padding-bottom: 6rem;">
     <div class="split-content fade-in">
       <h2 class="section-title">Core <span class="teal-text"> Values</span></h2>
-      {% if core_values_intro %}
+      {% if core_values_intro and core_values_intro.description %}
       <p class="section-description">{{ core_values_intro.description }}</p>
-      {% else %}
-      <p class="section-description">At FMH Animal Clinic, our values drive everything we do. We believe in compassion, integrity, commitment, and quality of life. These principles guide our team as we provide exceptional care to your beloved pets and build lasting relationships with our community. We are dedicated to maintaining the highest standards of veterinary excellence while treating every patient and pet owner with respect, empathy, and genuine care.</p>
       {% endif %}
     </div>
     <div class="split-image fade-in">
