@@ -365,6 +365,54 @@
           </div>
           {% endif %}
 
+          {# Inventory Management dropdown (moved above Oversight Reports) #}
+          {% if user|has_nav_module:'inventory' or user|has_nav_module:'clinic_services' or user|has_nav_module:'stock_monitor' or user|has_nav_module:'stock_transfers' %}
+          <div class="sidebar-item has-submenu">
+            <a
+              href="#"
+              class="sidebar-link {% if 'inventory' in request.path and 'logs' not in request.path or request.resolver_match.app_name == 'billing' or 'transfers' in request.path or request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
+              id="inventoryDropdownToggle"
+            >
+              <i class="bx bx-package"></i><span>Inventory Management</span>
+              <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
+            </a>
+            <div class="sidebar-submenu" id="inventorySubmenu">
+              {% if user|has_nav_module:'inventory' %}
+              <a
+                href="{% url 'inventory:management' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}"
+              >
+                <i class="bx bx-package"></i><span>Inventory</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'clinic_services' %}
+              <a
+                href="{% url 'billing:billable_items' %}"
+                class="sidebar-submenu-link {% if 'billable' in request.resolver_match.url_name %}active{% endif %}"
+              >
+                <i class="bx bx-briefcase"></i><span>Clinic Services</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'stock_monitor' %}
+              <a
+                href="{% url 'inventory:super_admin_stock_monitoring' %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
+              >
+                <i class="bx bx-error-alt"></i><span>Stock Level</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'stock_transfers' %}
+              <a
+                href="{% url 'inventory:transfer_list' %}"
+                class="sidebar-submenu-link {% if 'transfers' in request.path %}active{% endif %}"
+              >
+                <i class="bx bx-transfer"></i><span>Stock Transfer</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+
           {# Overseer: Oversight Reports #}
           {% if user|has_nav_module:'analytics' or user|has_nav_module:'activity_logs' %}
           <div class="sidebar-item has-submenu">
@@ -397,61 +445,16 @@
           </div>
           {% endif %}
 
-          {# Overseer: Operations Management #}
-          {% if user|has_nav_module:'branches' or user|has_nav_module:'clinic_services' or user|has_nav_module:'inventory' or user|has_nav_module:'stock_monitor' or user|has_nav_module:'stock_transfers' %}
-          <div class="sidebar-item has-submenu">
-            <a
-              href="#"
-              class="sidebar-link {% if 'branches' in request.path or 'inventory' in request.path and 'logs' not in request.path or 'transfers' in request.path or 'billing' in request.path %}active{% endif %}"
-              id="operationsDropdownToggle"
-            >
-              <i class="bx bx-briefcase-alt-2"></i><span>Operations Management</span>
-              <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
-            </a>
-            <div class="sidebar-submenu" id="operationsSubmenu">
-              {% if user|has_nav_module:'branches' %}
-              <a
-                href="{% url 'branches:list' %}"
-                class="sidebar-submenu-link {% if 'branches' in request.resolver_match.app_name %}active{% endif %}"
-              >
-                <i class="bx bx-building-house"></i><span>Manage Branches</span>
-              </a>
-              {% endif %}
-              {% if user|has_nav_module:'clinic_services' %}
-              <a
-                href="{% url 'billing:billable_items' %}"
-                class="sidebar-submenu-link {% if 'billable' in request.resolver_match.url_name %}active{% endif %}"
-              >
-                <i class="bx bx-briefcase"></i><span>Manage Clinic Services</span>
-              </a>
-              {% endif %}
-              {% if user|has_nav_module:'inventory' %}
-              <a
-                href="{% url 'inventory:management' %}"
-                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}"
-              >
-                <i class="bx bx-package"></i><span>Inventory Management</span>
-              </a>
-              {% endif %}
-              {% if user|has_nav_module:'stock_monitor' %}
-              <a
-                href="{% url 'inventory:super_admin_stock_monitoring' %}"
-                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
-              >
-                <i class="bx bx-error-alt"></i><span>Stock Level Monitor</span>
-              </a>
-              {% endif %}
-              {% if user|has_nav_module:'stock_transfers' %}
-              <a
-                href="{% url 'inventory:transfer_list' %}"
-                class="sidebar-submenu-link {% if 'transfers' in request.path %}active{% endif %}"
-              >
-                <i class="bx bx-transfer"></i><span>Manage Stock Transfers</span>
-              </a>
-              {% endif %}
-            </div>
-          </div>
+          {# Branch Management (renamed) placed below Oversight Reports #}
+          {% if user|has_nav_module:'branches' %}
+          <a
+            href="{% url 'branches:list' %}"
+            class="sidebar-link {% if 'branches' in request.resolver_match.app_name %}active{% endif %}"
+          >
+            <i class="bx bx-building-house"></i><span>Branch Management</span>
+          </a>
           {% endif %}
+
 
           {# Overseer: Support #}
           {% if user|is_branch_admin and not user.is_superuser %}
@@ -744,7 +747,7 @@
           <div class="sidebar-item has-submenu">
             <a
               href="#"
-              class="sidebar-link {% if 'inventory' in request.path and 'logs' not in request.path %}active{% endif %}"
+              class="sidebar-link {% if 'inventory' in request.path and 'logs' not in request.path or request.resolver_match.app_name == 'billing' or 'transfers' in request.path or request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
               id="inventoryDropdownToggle"
             >
               <i class="bx bx-package"></i><span>Inventory</span>
@@ -817,16 +820,6 @@
           </a>
           {% endif %}
           {% endif %}
-          {% endif %}
-
-          {# My Payslips - visible to staff with can_view_own_payslips permission, hidden from superadmin #}
-          {% if user|has_nav_special_permission:'can_view_own_payslips' and not user.is_superuser and user.assigned_role.code != 'superadmin' %}
-          <a
-            href="{% url 'payroll:my_payslips' %}"
-            class="sidebar-link {% if request.resolver_match.url_name == 'my_payslips' or request.resolver_match.url_name == 'my_payslip_detail' %}active{% endif %}"
-          >
-            <i class="bx bx-receipt"></i><span>My Payslips</span>
-          </a>
           {% endif %}
 
           {% if user|has_nav_module:'notifications' %}

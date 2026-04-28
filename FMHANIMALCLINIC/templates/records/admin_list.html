@@ -55,6 +55,7 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
+  }
   .search-dropdown-highlight {
     background: rgba(0,150,136,0.15);
     border-radius: 2px;
@@ -221,7 +222,7 @@
             <a href="{% url 'records:admin_edit' record.pk %}" class="action-btn" title="Edit Record"><i class='bx bx-edit-alt'></i></a>
             {% endif %}
             {% if can_delete %}
-            <a href="{% url 'records:admin_delete' record.pk %}" class="action-btn danger" title="Delete Record"><i class='bx bx-trash'></i></a>
+            <button type="button" class="action-btn danger" title="Delete Record" onclick="openDeleteModal('{% url 'records:admin_delete' record.pk %}', '{{ record.pet.name|escapejs }}')"><i class='bx bx-trash'></i></button>
             {% endif %}
             {% if can_create %}
             <a href="{% url 'records:admin_add_entry' record.pk %}" class="action-btn" title="Add Visit Entry"><i class='bx bx-plus'></i></a>
@@ -370,5 +371,85 @@
     }
   });
 }());
+
+// Modal Functions
+function openDeleteModal(url, petName) {
+  document.getElementById('deleteRecordName').textContent = petName;
+  document.getElementById('deleteRecordForm').action = url;
+  document.getElementById('deleteRecordModal').classList.add('active');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteRecordModal').classList.remove('active');
+}
 </script>
+
+<!-- Delete Medical Record Modal -->
+<div class="modal-overlay" id="deleteRecordModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Delete Medical Record</h3>
+      <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <form id="deleteRecordForm" method="post" action="">
+      {% csrf_token %}
+      <div class="modal-body" style="text-align: center; padding-top: 30px;">
+        <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="deleteRecordName"></span>'s Record?</h4>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+          Are you completely sure you want to delete this medical record? This action cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+        <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn-submit">Yes, Delete Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  /* Buttons for Modal */
+  .modal-footer .btn-cancel {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 8px 16px !important;
+    border-radius: var(--radius-sm, 6px) !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    border: 1px solid var(--border) !important;
+    background: var(--surface) !important;
+    color: var(--text-1) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    text-decoration: none !important;
+  }
+  .modal-footer .btn-cancel:hover {
+    border-color: var(--border-hover) !important;
+    background: var(--bg) !important;
+  }
+  .modal-footer .btn-submit {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 8px 16px !important;
+    border-radius: var(--radius-sm, 6px) !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    border: 1px solid var(--accent) !important;
+    background: var(--accent) !important;
+    color: #fff !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    text-decoration: none !important;
+    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.25) !important;
+  }
+  .modal-footer .btn-submit:hover {
+    opacity: 0.95 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(230, 57, 70, 0.35) !important;
+  }
+</style>
+
 {% endblock %}

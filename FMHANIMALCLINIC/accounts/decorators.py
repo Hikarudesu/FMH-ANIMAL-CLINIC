@@ -112,8 +112,8 @@ def special_permission_required(permission_code, redirect_url=None):
 
     Usage:
         @login_required
-        @special_permission_required('can_view_own_payslips')
-        def my_payslips(request):
+        @special_permission_required('can_manage_own_schedule')
+        def my_schedule(request):
             ...
     """
     if isinstance(permission_code, str):

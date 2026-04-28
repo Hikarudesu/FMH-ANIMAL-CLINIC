@@ -635,20 +635,23 @@ def release_payroll(request, period_id):
     sent_count = 0
     failed_count = 0
 
+    payslip_ids = []
     try:
         payslip_ids = list(period.payslips.filter(
             employee__email__isnull=False
         ).exclude(employee__email='').values_list('id', flat=True))
+    except Exception:
+        payslip_ids = []
 
-        for ps_id in payslip_ids:
-            try:
-                payslip = Payslip.objects.select_related(
-                    'employee').get(id=ps_id)
-                gross_pay = payslip.gross_pay or Decimal('0')
-                net_pay = payslip.net_pay or Decimal('0')
+    for ps_id in payslip_ids:
+        try:
+            payslip = Payslip.objects.select_related(
+                'employee').get(id=ps_id)
+            gross_pay = payslip.gross_pay or Decimal('0')
+            net_pay = payslip.net_pay or Decimal('0')
 
-                subject = f'Payslip for {period.period_display} - FMH Animal Clinic'
-                message = f"""
+            subject = f'Payslip for {period.period_display} - FMH Animal Clinic'
+            message = f"""
 Dear {payslip.employee.full_name},
 
 Your payslip for {period.period_display} has been released.
@@ -660,32 +663,37 @@ Please contact the Finance department if you have any questions.
 
 Best regards,
 FMH Animal Clinic
-                """
+            """
 
+            try:
                 send_mail(
                     subject,
                     message.strip(),
                     'noreply@fmhanimalclinic.com',
                     [payslip.employee.email],
-                    fail_silently=True,
+                    fail_silently=False,
                 )
-
-                # Log email
+                PayslipEmailLog.objects.create(
+                    payslip=payslip,
+                    recipient_email=payslip.employee.email,
+                    status='SENT'
+                )
+                sent_count += 1
+            except Exception as e:
+                failed_count += 1
                 try:
                     PayslipEmailLog.objects.create(
                         payslip=payslip,
                         recipient_email=payslip.employee.email,
-                        status='SENT'
+                        status='FAILED',
+                        error_message=str(e)
                     )
                 except Exception:
                     pass
-
-                sent_count += 1
-            except Exception:
-                failed_count += 1
                 continue
-    except Exception:
-        pass
+        except Exception:
+            failed_count += 1
+            continue
 
     # Log the release
     total_net_value = Decimal('0')
@@ -1779,78 +1787,3 @@ FMH Animal Clinic
     return redirect('payroll:payslips', period_id=period.id)
 
 
-# ═══════════════════════════════════════════════════════════════════
-#                    STAFF PAYSLIP VIEWS (Self-Service)
-# ═══════════════════════════════════════════════════════════════════
-
-@login_required
-@special_permission_required('can_view_own_payslips')
-def my_payslips_view(request):
-    """
-    List all released payslips for the currently logged-in staff member.
-    Only shows payslips from RELEASED payroll periods.
-    """
-    # Get the staff profile linked to the current user
-    try:
-        staff_profile = request.user.staff_profile
-    except AttributeError:
-        messages.error(
-            request, 'You do not have a staff profile associated with your account.')
-        return redirect('admin_dashboard')
-
-    if staff_profile is None:
-        messages.error(
-            request, 'Your account is not linked to a staff member record.')
-        return redirect('admin_dashboard')
-
-    # Only show payslips from RELEASED payroll periods
-    payslips = Payslip.objects.filter(
-        employee=staff_profile,
-        payroll_period__status=PayrollPeriod.Status.RELEASED
-    ).select_related(
-        'payroll_period'
-    ).order_by('-payroll_period__year', '-payroll_period__month')
-
-    # Calculate summary stats
-    total_earned = payslips.aggregate(total=Sum('net_pay'))['total'] or 0
-
-    context = {
-        'payslips': payslips,
-        'total_payslips': payslips.count(),
-        'total_earned': total_earned,
-        'staff_member': staff_profile,
-    }
-
-    return render(request, 'payroll/my_payslips.html', context)
-
-
-@login_required
-@special_permission_required('can_view_own_payslips')
-def my_payslip_detail_view(request, pk):
-    """
-    View a single payslip detail - user can ONLY view their own payslips.
-    Additional security: only released payslips are viewable.
-    """
-    # Get the staff profile linked to the current user
-    try:
-        staff_profile = request.user.staff_profile
-    except AttributeError:
-        raise Http404("Payslip not found")
-
-    if staff_profile is None:
-        raise Http404("Payslip not found")
-
-    # Fetch payslip - must belong to this user
-    payslip = get_object_or_404(Payslip, pk=pk, employee=staff_profile)
-
-    # Security check: only released payslips can be viewed
-    if payslip.payroll_period.status != PayrollPeriod.Status.RELEASED:
-        raise Http404("Payslip not found")
-
-    context = {
-        'payslip': payslip,
-        'is_own_payslip': True,  # Flag for template to hide edit controls
-        'print_mode': True,      # Tell the print template it's in print mode
-    }
-
-    return render(request, 'payroll/payslip_print.html', context)

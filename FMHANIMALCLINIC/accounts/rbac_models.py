@@ -51,7 +51,6 @@ class SpecialPermissionCodes:
     MANAGE_OTHERS_SCHEDULE = 'can_manage_others_schedule'
 
     # ─── Payroll ───────────────────────────────────────────────
-    VIEW_OWN_PAYSLIPS = 'can_view_own_payslips'
 
     # ─── Inventory & Stock Transfer ────────────────────────────
     STOCK_MONITOR = 'can_access_stock_monitor'
@@ -68,7 +67,6 @@ class SpecialPermissionCodes:
         'can_access_admin_dashboard': 2,
         'can_manage_own_schedule': 3,
         'can_manage_others_schedule': 4,
-        'can_view_own_payslips': 5,
         'can_access_stock_monitor': 6,
         'can_request_stock_transfer': 7,
         'can_access_pos': 8,
@@ -338,7 +336,7 @@ class Role(models.Model):
 class SpecialPermission(models.Model):
     """
     Special permissions for edge cases not covered by module permissions.
-    Examples: 'can_view_own_payslips', 'can_manage_own_schedule'
+    Examples: 'can_manage_own_schedule', 'can_request_stock_transfer'
     """
     code = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=200)

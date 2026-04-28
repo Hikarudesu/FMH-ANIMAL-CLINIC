@@ -25,8 +25,4 @@ urlpatterns = [
     path('schedule/recurring/add/', views.recurring_add, name='recurring_add'),
     path('schedule/recurring/<int:pk>/delete/',
          views.recurring_delete, name='recurring_delete'),
-
-    # Payslips
-    path('payslips/', views.payslip_list_view, name='payslip_list'),
-    path('payslips/<int:pk>/', views.payslip_detail_view, name='payslip_detail'),
 ]

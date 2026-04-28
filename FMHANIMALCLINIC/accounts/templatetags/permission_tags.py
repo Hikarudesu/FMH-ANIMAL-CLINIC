@@ -15,8 +15,8 @@ Usage:
     {% endif %}
 
     {# Check special permissions #}
-    {% if user|has_special_permission:'can_view_own_payslips' %}
-        <a href="{% url 'payroll:my_payslips' %}">My Payslips</a>
+    {% if user|has_special_permission:'can_manage_own_schedule' %}
+        <a href="#">Manage schedule</a>
     {% endif %}
 
     {# Get user's role name #}
@@ -78,7 +78,7 @@ def has_special_permission(user, permission_code):
     Check if user has a special permission.
 
     Usage:
-        {% if user|has_special_permission:'can_view_own_payslips' %}
+        {% if user|has_special_permission:'can_manage_own_schedule' %}
             ...
         {% endif %}
     """
@@ -348,14 +348,9 @@ def can_view_payslip(context, payslip):
 
     user = request.user
 
-    # Admins can view all payslips
+    # Admins can view payslips
     if user.is_superuser or user.has_module_permission('payroll', 'VIEW'):
         return True
-
-    # Check if this is the user's own payslip
-    if hasattr(payslip, 'staff') and hasattr(payslip.staff, 'user'):
-        if payslip.staff.user == user:
-            return user.has_special_permission('can_view_own_payslips')
 
     return False
 

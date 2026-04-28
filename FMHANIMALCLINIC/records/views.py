@@ -557,7 +557,7 @@ def admin_record_edit(request, pk):
 @login_required
 @module_permission_required('medical_records', 'DELETE')
 def admin_record_delete(request, pk):
-    """View to delete a medical record."""
+    """View to delete a medical record. Handles POST from modal on list page."""
 
     record = get_object_or_404(MedicalRecord, pk=pk)
 
@@ -568,7 +568,8 @@ def admin_record_delete(request, pk):
             request, f'Medical record for {pet_name} has been deleted.')
         return redirect('records:admin_list')
 
-    return render(request, 'records/admin_confirm_delete.html', {'record': record})
+    # Redirect to list if accessed directly with GET (modal is on list page)
+    return redirect('records:admin_list')
 
 
 @login_required

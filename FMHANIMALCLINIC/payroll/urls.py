@@ -48,8 +48,4 @@ urlpatterns = [
     # Email Features
     path('payslip/<int:payslip_id>/email/', views.send_payslip_email, name='send_email'),
     path('period/<int:period_id>/email-all/', views.send_payslips_bulk, name='send_bulk_email'),
-
-    # Staff Self-Service
-    path('my-payslips/', views.my_payslips_view, name='my_payslips'),
-    path('my-payslips/<int:pk>/', views.my_payslip_detail_view, name='my_payslip_detail'),
 ]
