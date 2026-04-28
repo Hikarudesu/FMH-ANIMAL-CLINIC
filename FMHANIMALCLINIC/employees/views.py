@@ -204,8 +204,17 @@ def staff_delete(request, pk):
 
 # ──────────────────────── SCHEDULE CALENDAR ────────────────────────
 
+
+def _can_manage_other_schedules(user):
+    return user.can_manage_other_schedules()
+
+
+def _can_manage_any_schedule(user):
+    return _can_manage_other_schedules(user) or user.has_special_permission('can_manage_own_schedule')
+
+
 @login_required
-@special_permission_required('can_manage_own_schedule')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def schedule_view(request):
     """Schedule calendar page."""
     user = request.user
@@ -213,21 +222,22 @@ def schedule_view(request):
     form = VetScheduleForm()
     recurring_form = RecurringScheduleForm()
 
-    # Check if user is admin (hierarchy level >= 8)
-    is_admin = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 8)
+    can_manage_other_schedules = _can_manage_other_schedules(user)
+    can_manage_any_schedule = _can_manage_any_schedule(user)
+    can_clear_all = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 10)
 
     # Get the user's staff profile for non-admins
     user_staff = None
     user_branch = getattr(user, 'branch', None)
     
-    if not is_admin:
+    if not can_manage_other_schedules:
         try:
             user_staff = user.staff_profile
         except StaffMember.DoesNotExist:
             pass
 
     # For non-admins, only show their branch and filter recurring schedules to only show their own
-    if is_admin:
+    if can_manage_other_schedules:
         recurring_schedules = RecurringSchedule.objects.filter(
             is_active=True
         ).select_related('staff', 'branch')
@@ -246,18 +256,20 @@ def schedule_view(request):
         'recurring_form': recurring_form,
         'recurring_schedules': recurring_schedules,
         'shift_types': VetSchedule.ShiftType.choices,
-        'is_admin': is_admin,
+        'can_manage_schedule': can_manage_any_schedule,
+        'can_manage_other_schedules': can_manage_other_schedules,
+        'can_clear_all': can_clear_all,
         'user_staff': user_staff,
         'user_branch': user_branch,
     })
 
 
 @login_required
-@special_permission_required('can_manage_own_schedule')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def schedule_api(request):
     """JSON API — returns schedule entries for a given month/branch."""
     user = request.user
-    is_admin = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 8)
+    can_manage_other_schedules = _can_manage_other_schedules(user)
     user_branch = getattr(user, 'branch', None)
     
     try:
@@ -281,7 +293,7 @@ def schedule_api(request):
     ).select_related('staff', 'branch')
 
     # Non-admins can only see their branch
-    if not is_admin and user_branch:
+    if not can_manage_other_schedules and user_branch:
         schedules = schedules.filter(branch=user_branch)
     elif branch_id:
         schedules = schedules.filter(branch_id=branch_id)
@@ -290,7 +302,7 @@ def schedule_api(request):
     user_staff = None
 
     # Get current user's staff profile for ownership checks
-    if not is_admin:
+    if not can_manage_other_schedules:
         try:
             user_staff = user.staff_profile
         except StaffMember.DoesNotExist:
@@ -298,7 +310,7 @@ def schedule_api(request):
 
     for s in schedules:
         # Check if user can edit/delete this schedule
-        can_edit = is_admin or (user_staff and s.staff == user_staff)
+        can_edit = can_manage_other_schedules or (user_staff and s.staff == user_staff)
 
         events.append({
             'id': s.id,
@@ -320,7 +332,7 @@ def schedule_api(request):
 
 
 @login_required
-@module_permission_required('schedule', 'VIEW')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def available_staff_api(request):
     """JSON API — returns available vets/vet assistants for a given branch."""
     branch_id = request.GET.get('branch_id', '')
@@ -343,20 +355,19 @@ def available_staff_api(request):
 
 
 @login_required
-@special_permission_required('can_manage_own_schedule')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def schedule_add(request):
     """Add a schedule entry or recurring template (POST only)."""
     if request.method == 'POST':
         is_recurring = request.POST.get('is_recurring') == 'on'
         user = request.user
 
-        # Check if user is non-admin (hierarchy level < 8)
-        is_admin = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 8)
+        can_manage_other_schedules = _can_manage_other_schedules(user)
 
         # Get the user's staff profile for non-admins
         user_staff = None
         user_branch = None
-        if not is_admin:
+        if not can_manage_other_schedules:
             try:
                 user_staff = user.staff_profile
                 user_branch = user.branch
@@ -365,11 +376,11 @@ def schedule_add(request):
                 return redirect('employees:schedule')
 
         if is_recurring:
-            form = RecurringScheduleForm(request.POST, is_admin=is_admin)
+            form = RecurringScheduleForm(request.POST, is_admin=can_manage_other_schedules)
             if form.is_valid():
                 # For non-admins, override staff and branch with their own
-                staff = user_staff if not is_admin else form.cleaned_data['staff']
-                branch = user_branch if not is_admin else form.cleaned_data['branch']
+                staff = user_staff if not can_manage_other_schedules else form.cleaned_data['staff']
+                branch = user_branch if not can_manage_other_schedules else form.cleaned_data['branch']
 
                 selected_days = form.cleaned_data['days_of_week']
                 created_entries = []
@@ -404,11 +415,11 @@ def schedule_add(request):
                 messages.error(
                     request, f'Could not add recurring template — {error_details}')
         else:
-            form = VetScheduleForm(request.POST, is_admin=is_admin)
+            form = VetScheduleForm(request.POST, is_admin=can_manage_other_schedules)
             if form.is_valid():
                 schedule = form.save(commit=False)
                 # For non-admins, override staff and branch with their own
-                if not is_admin:
+                if not can_manage_other_schedules:
                     schedule.staff = user_staff
                     schedule.branch = user_branch
                 schedule.save()
@@ -423,17 +434,16 @@ def schedule_add(request):
 
 
 @login_required
-@special_permission_required('can_manage_own_schedule')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def schedule_edit(request, pk):
     """Edit an existing schedule entry."""
     entry = get_object_or_404(VetSchedule, pk=pk)
     user = request.user
 
-    # Check if user is admin (hierarchy level >= 8)
-    is_admin = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 8)
+    can_manage_other_schedules = _can_manage_other_schedules(user)
 
     # Non-admins can only edit their own schedules
-    if not is_admin:
+    if not can_manage_other_schedules:
         try:
             user_staff = user.staff_profile
             if entry.staff != user_staff:
@@ -461,17 +471,16 @@ def schedule_edit(request, pk):
 
 
 @login_required
-@special_permission_required('can_manage_own_schedule')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def schedule_delete(request, pk):
     """Delete a schedule entry."""
     entry = get_object_or_404(VetSchedule, pk=pk)
     user = request.user
 
-    # Check if user is admin (hierarchy level >= 8)
-    is_admin = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 8)
+    can_manage_other_schedules = _can_manage_other_schedules(user)
 
     # Non-admins can only delete their own schedules
-    if not is_admin:
+    if not can_manage_other_schedules:
         try:
             user_staff = user.staff_profile
             if entry.staff != user_staff:
@@ -503,18 +512,18 @@ def schedule_clear_all(request):
 # ──────────────────────── RECURRING SCHEDULES ────────────────────────
 
 @login_required
-@special_permission_required('can_manage_own_schedule')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def recurring_list(request):
     """JSON API — returns all active recurring schedules."""
     user = request.user
-    is_admin = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 8)
+    can_manage_other_schedules = _can_manage_other_schedules(user)
     
     schedules = RecurringSchedule.objects.filter(
         is_active=True
     ).select_related('staff', 'branch')
     
     # Non-admins can only see their own recurring schedules
-    if not is_admin:
+    if not can_manage_other_schedules:
         try:
             user_staff = user.staff_profile
             schedules = schedules.filter(staff=user_staff)
@@ -536,17 +545,17 @@ def recurring_list(request):
 
 
 @login_required
-@special_permission_required('can_manage_own_schedule')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def recurring_add(request):
     """Add recurring schedule templates — supports multiple days at once."""
     if request.method == 'POST':
         user = request.user
-        is_admin = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 8)
+        can_manage_other_schedules = _can_manage_other_schedules(user)
         
         # Get the user's staff profile for non-admins
         user_staff = None
         user_branch = None
-        if not is_admin:
+        if not can_manage_other_schedules:
             try:
                 user_staff = user.staff_profile
                 user_branch = user.branch
@@ -554,15 +563,15 @@ def recurring_add(request):
                 messages.error(request, 'You do not have a staff profile. Contact an administrator.')
                 return redirect('employees:schedule')
         
-        form = RecurringScheduleForm(request.POST, is_admin=is_admin)
+        form = RecurringScheduleForm(request.POST, is_admin=can_manage_other_schedules)
         if form.is_valid():
             # list of day ints
             selected_days = form.cleaned_data['days_of_week']
             created_entries = []
             
             # For non-admins, override staff and branch with their own
-            staff = user_staff if not is_admin else form.cleaned_data['staff']
-            branch = user_branch if not is_admin else form.cleaned_data['branch']
+            staff = user_staff if not can_manage_other_schedules else form.cleaned_data['staff']
+            branch = user_branch if not can_manage_other_schedules else form.cleaned_data['branch']
 
             for day in selected_days:
                 entry = RecurringSchedule(
@@ -595,17 +604,17 @@ def recurring_add(request):
 
 
 @login_required
-@special_permission_required('can_manage_own_schedule')
+@special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def recurring_delete(request, pk):
     """Delete a recurring schedule template."""
     entry = get_object_or_404(RecurringSchedule, pk=pk)
     user = request.user
 
     # Check if user is admin (hierarchy level >= 8)
-    is_admin = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 8)
+    can_manage_other_schedules = _can_manage_other_schedules(user)
 
     # Non-admins can only delete their own recurring schedules
-    if not is_admin:
+    if not can_manage_other_schedules:
         try:
             user_staff = user.staff_profile
             if entry.staff != user_staff:

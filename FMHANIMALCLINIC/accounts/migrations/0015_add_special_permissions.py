@@ -3,10 +3,11 @@ from django.db import migrations
 
 
 def add_special_permissions(apps, schema_editor):
-    """Add new special permissions for dashboard, POS, and schedule access."""
+    """Add new special permissions for dashboard and POS access."""
     SpecialPermission = apps.get_model('accounts', 'SpecialPermission')
 
     new_permissions = [
+        # ─── Dashboard Access ──────────────────────────────────────
         {
             'code': 'can_access_staff_dashboard',
             'name': 'Staff Dashboard Access',
@@ -17,6 +18,8 @@ def add_special_permissions(apps, schema_editor):
             'name': 'Admin Dashboard Access',
             'description': 'Can view the admin dashboard with advanced statistics and management options'
         },
+
+        # ─── Point of Sale ─────────────────────────────────────────
         {
             'code': 'can_access_pos',
             'name': 'Point of Sale Access',

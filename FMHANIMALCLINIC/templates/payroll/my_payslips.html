@@ -6,25 +6,10 @@
 {% block title %}My Payslips{% endblock %}
 
 {% block content %}
+<!-- Page Hero Header -->
+{% include "components/page_hero.html" with title="My Payslips" subtitle="View and manage your payslips" icon="bx-receipt" %}
+
 <style>
-  .my-payslips-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-  }
-  .my-payslips-header h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-1);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .my-payslips-header h1 i {
-    color: var(--primary);
-  }
   .stats-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -54,8 +39,8 @@
     color: var(--primary);
   }
   .stat-icon.success {
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
+    background: rgba(0, 150, 136, 0.08);
+    color: var(--primary-dark);
   }
   .stat-info h3 {
     font-size: 0.75rem;
@@ -101,20 +86,20 @@
     vertical-align: middle;
   }
   .payslips-table tbody tr {
-    transition: background-color 0.2s;
+    transition: background-color 0.2s ease;
   }
   .payslips-table tbody tr:hover {
-    background: var(--bg);
+    background: var(--surface-light);
   }
   .amount {
     font-family: 'SF Mono', 'Consolas', monospace;
     font-weight: 600;
   }
   .amount.positive {
-    color: #10b981;
+    color: var(--primary);
   }
   .amount.negative {
-    color: #ef4444;
+    color: #e74c3c;
   }
   .view-btn {
     display: inline-flex;
@@ -152,10 +137,6 @@
     margin-bottom: 8px;
   }
 </style>
-
-<div class="my-payslips-header">
-  <h1><i class='bx bx-receipt'></i> My Payslips</h1>
-</div>
 
 <!-- Summary Stats -->
 <div class="stats-row">

@@ -129,6 +129,16 @@ class User(AbstractUser):
 
         return False
 
+    def can_manage_other_schedules(self):
+        """Return True when the user can manage schedules for other staff."""
+        if self.is_superuser:
+            return True
+
+        if self.assigned_role and getattr(self.assigned_role, 'hierarchy_level', 0) >= 8:
+            return True
+
+        return self.has_special_permission('can_manage_others_schedule')
+
     def has_navigation_module_access(self, module_code):
         """Navigation-only module visibility check."""
         if self.is_superuser and module_code in OVERSEER_HIDDEN_NAV_MODULES:

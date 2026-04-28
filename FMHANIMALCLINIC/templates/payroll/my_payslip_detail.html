@@ -5,61 +5,13 @@
 {% block title %}Payslip - {{ payslip.payroll_period.period_display }}{% endblock %}
 
 {% block content %}
+{% url 'payroll:my_payslips' as back_url %}
+{% url 'payroll:payslip_print' payslip.pk as print_url %}
+
+<!-- Page Hero Header with Actions -->
+{% include "components/page_hero.html" with title="Payslip Details" subtitle=payslip.payroll_period.period_display icon="bx-file" action_url=print_url action_label="Print" action_icon="bx-printer" action_url_2=back_url action_label_2="Back" action_icon_2="bx-arrow-back" %}
+
 <style>
-  .payslip-detail-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-  }
-  .payslip-detail-header h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-1);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .header-actions {
-    display: flex;
-    gap: 12px;
-  }
-  .back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 18px;
-    background: var(--bg);
-    color: var(--text-1);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-  .back-btn:hover {
-    background: var(--surface);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  }
-  .print-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 18px;
-    background: var(--primary);
-    color: white;
-    border-radius: var(--radius-sm);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-  .print-btn:hover {
-    opacity: 0.9;
-    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.2);
-  }
   .payslip-container {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -112,6 +64,9 @@
       grid-template-columns: 1fr;
     }
   }
+  {% url 'payroll:my_payslips' as back_url %}
+  {% url 'payroll:payslip_print' payslip.pk as print_url %}
+
   .section {
     background: var(--bg);
     border-radius: var(--radius-sm);
@@ -128,14 +83,14 @@
     gap: 8px;
   }
   .section-header.earnings {
-    background: rgba(16, 185, 129, 0.1);
-    color: #059669;
-    border-bottom: 2px solid #10b981;
+    background: rgba(0, 150, 136, 0.08);
+    color: var(--primary-dark);
+    border-bottom: 2px solid var(--primary);
   }
   .section-header.deductions {
-    background: rgba(239, 68, 68, 0.1);
-    color: #dc2626;
-    border-bottom: 2px solid #ef4444;
+    background: rgba(230, 57, 70, 0.08);
+    color: #c92a2a;
+    border-bottom: 2px solid #e74c3c;
   }
   .section-table {
     width: 100%;
@@ -162,16 +117,16 @@
     font-size: 0.95rem;
   }
   .clinic-benefits {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 10px;
+    background: rgba(0, 150, 136, 0.05);
+    border: 1px solid rgba(0, 150, 136, 0.15);
+    border-radius: var(--radius-sm);
     padding: 20px;
     margin-bottom: 24px;
   }
   .clinic-benefits-header {
     font-size: 0.8rem;
     font-weight: 700;
-    color: #2563eb;
+    color: var(--primary-dark);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 12px;
@@ -180,10 +135,10 @@
     gap: 6px;
   }
   .clinic-benefits .section-table td {
-    border-color: #dbeafe;
+    border-color: rgba(0, 150, 136, 0.1);
   }
   .clinic-benefits .value {
-    color: #2563eb;
+    color: var(--primary);
   }
   .clinic-benefits-note {
     font-size: 0.75rem;
@@ -202,18 +157,6 @@
     color: var(--text-2);
   }
 </style>
-
-<div class="payslip-detail-header">
-  <h1><i class='bx bx-file' style="color: var(--primary);"></i> Payslip Details</h1>
-  <div class="header-actions">
-    <a href="{% url 'payroll:my_payslips' %}" class="back-btn">
-      <i class='bx bx-arrow-back'></i> Back to My Payslips
-    </a>
-    <a href="{% url 'payroll:payslip_print' payslip.pk %}" class="print-btn" target="_blank">
-      <i class='bx bx-printer'></i> Print
-    </a>
-  </div>
-</div>
 
 <div class="payslip-container">
   <!-- Header -->

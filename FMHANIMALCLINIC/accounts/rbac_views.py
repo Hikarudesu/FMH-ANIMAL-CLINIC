@@ -15,8 +15,18 @@ from django.views.decorators.http import require_POST
 
 from .decorators import module_permission_required, admin_only
 from .models import User
-from .rbac_models import Module, ModulePermission, Role, SpecialPermission, SUPERUSER_ONLY_MODULES, HIDDEN_FROM_MODULE_PERMISSIONS
+from .rbac_models import Module, ModulePermission, Role, SpecialPermission, SpecialPermissionCodes, SUPERUSER_ONLY_MODULES, HIDDEN_FROM_MODULE_PERMISSIONS
 from branches.models import Branch
+
+
+def _get_special_permissions_ordered():
+    """Fetch special permissions in logical display order."""
+    perms = SpecialPermission.objects.all()
+    display_order = SpecialPermissionCodes.DISPLAY_ORDER
+    return sorted(
+        perms,
+        key=lambda p: display_order.get(p.code, 999)
+    )
 
 
 def _assign_staff_default_modules(role):
@@ -32,6 +42,15 @@ def _assign_staff_default_modules(role):
             permission_type=ModulePermission.PermissionType.VIEW,
             defaults={'restrict_to_branch': role.code != 'superadmin'},
         )
+
+
+def _module_permission_selected(post_data, module_code, permission_types):
+    """Return True when any visible permission checkbox was selected for a module."""
+    return any(
+        post_data.get(f'perm_{module_code}_{perm_type}')
+        for perm_type, _ in permission_types
+        if perm_type != 'MANAGE'
+    )
 
 
 @login_required
@@ -92,7 +111,7 @@ def role_create(request):
 
     # Only show non-deprecated permission types (APPROVE/EXPORT removed)
     permission_types = ModulePermission.PermissionType.choices
-    special_permissions = SpecialPermission.objects.all()
+    special_permissions = _get_special_permissions_ordered()
 
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
@@ -128,6 +147,11 @@ def role_create(request):
                 'Please select only one.'
             )
 
+        has_inventory_perms = _module_permission_selected(request.POST, 'inventory', permission_types)
+        has_reservation_perms = _module_permission_selected(request.POST, 'reservations', permission_types)
+        if has_reservation_perms and not has_inventory_perms:
+            errors.append('Reservations cannot be enabled unless Inventory Management is selected first.')
+
         if errors:
             for error in errors:
                 messages.error(request, error)
@@ -135,6 +159,9 @@ def role_create(request):
                 'modules': modules,
                 'permission_types': permission_types,
                 'special_permissions': special_permissions,
+                'current_perms': set(),
+                'current_special': set(),
+                'current_branch_restrict': set(),
                 'form_data': request.POST,
             })
 
@@ -174,6 +201,9 @@ def role_create(request):
         'modules': modules,
         'permission_types': permission_types,
         'special_permissions': special_permissions,
+        'current_perms': set(),  # Empty for new role
+        'current_special': set(),  # Empty for new role
+        'current_branch_restrict': set(),  # Empty for new role
         'form_data': {},
         'active_tab': 'roles',
     }
@@ -213,7 +243,7 @@ def role_edit(request, role_id):
     modules = modules.exclude(code__in=HIDDEN_FROM_MODULE_PERMISSIONS)
 
     permission_types = ModulePermission.PermissionType.choices
-    special_permissions = SpecialPermission.objects.all()
+    special_permissions = _get_special_permissions_ordered()
 
     # Get current permissions
     current_perms = set(
@@ -253,6 +283,11 @@ def role_edit(request, role_id):
                 'A role cannot have both Staff Dashboard and Admin Dashboard access. '
                 'Please select only one.'
             )
+
+        has_inventory_perms = _module_permission_selected(request.POST, 'inventory', permission_types)
+        has_reservation_perms = _module_permission_selected(request.POST, 'reservations', permission_types)
+        if has_reservation_perms and not has_inventory_perms:
+            errors.append('Reservations cannot be enabled unless Inventory Management is selected first.')
 
         if errors:
             for error in errors:

@@ -48,9 +48,17 @@ def seed_special_permissions(apps, schema_editor):
     SpecialPermission = apps.get_model('accounts', 'SpecialPermission')
 
     permissions = [
+        # ─── Schedule Management ───────────────────────────────────
+        {'code': 'can_manage_own_schedule', 'name': 'Manage Own Schedule', 'description': 'Can view schedules in own branch and create/edit/delete only their own schedule entries. Cannot modify schedules of other staff members.'},
+        {'code': 'can_manage_others_schedule', 'name': 'Manage Others Schedule', 'description': 'User can view and manage schedule entries for other staff members'},
+
+        # ─── Payroll ───────────────────────────────────────────────
         {'code': 'can_view_own_payslips', 'name': 'View Own Payslips', 'description': 'User can view their own payslip records'},
-        {'code': 'can_manage_own_schedule', 'name': 'Manage Own Schedule', 'description': 'User can create/edit/delete their own schedule entries'},
+
+        # ─── Inventory & Stock Transfer ────────────────────────────
         {'code': 'can_request_stock_transfer', 'name': 'Request Stock Transfer', 'description': 'User can create stock transfer requests'},
+
+        # ─── Point of Sale ─────────────────────────────────────────
         {'code': 'can_approve_refunds', 'name': 'Approve Refunds', 'description': 'User can approve refund requests'},
         {'code': 'can_void_sales', 'name': 'Void Sales', 'description': 'User can void sales transactions'},
     ]
@@ -139,7 +147,7 @@ def seed_default_roles(apps, schema_editor):
         'activity_logs': ['VIEW'],
     })
     add_special_perms(branch_admin_role, [
-        'can_view_own_payslips', 'can_approve_refunds', 'can_void_sales'
+        'can_view_own_payslips', 'can_manage_others_schedule', 'can_approve_refunds', 'can_void_sales'
     ])
 
     # 3. Veterinarian Role (Level 5)

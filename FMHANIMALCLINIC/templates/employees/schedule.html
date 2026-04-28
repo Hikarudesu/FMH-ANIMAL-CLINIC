@@ -10,24 +10,26 @@
   <div class="page-hero-inner">
     <div class="page-hero-text">
       <h1><i class='bx bx-calendar'></i> Schedule</h1>
-      <p>{% if is_admin %}View and manage vet availability across branches{% else %}View and manage your schedule{% endif %}</p>
+      <p>{% if can_manage_other_schedules %}View and manage vet availability across branches{% else %}View and manage your schedule{% endif %}</p>
     </div>
     <div class="page-hero-actions">
-      {% if is_admin %}
+      {% if can_clear_all %}
       <button class="page-hero-btn" id="clearAllBtn">
         <i class='bx bx-trash-alt'></i>
         <span>Clear All</span>
       </button>
-      <button class="page-hero-btn" id="recurringBtn"><i class='bx bx-revision'></i> Manage Recurring</button>
       {% endif %}
+      {% if can_manage_schedule %}
+      <button class="page-hero-btn" id="recurringBtn"><i class='bx bx-revision'></i> Manage Recurring</button>
       <button class="page-hero-btn" id="addScheduleBtn"><i class='bx bx-plus-circle'></i> Add Schedule</button>
+      {% endif %}
     </div>
   </div>
 </div>
 
 <!-- Calendar Controls -->
 <div class="filter-bar" style="position: relative; z-index: 50;">
-  {% if is_admin %}
+  {% if can_manage_other_schedules %}
   <select class="filter-select sd-convert" id="branchFilter">
     <option value="">All Branches</option>
     {% for branch in branches %}
@@ -74,7 +76,7 @@
         <div class="qc-icon"><i class='bx bx-calendar-plus'></i></div>
         <div>
           <h3>Add Schedule</h3>
-          <p>{% if is_admin %}Assign staff availability{% else %}Update your schedule{% endif %}</p>
+          <p>{% if can_manage_other_schedules %}Assign staff availability{% else %}Update your schedule{% endif %}</p>
         </div>
       </div>
       <button class="qc-close" id="closeModal"><i class='bx bx-x'></i></button>
@@ -95,7 +97,7 @@
         </div>
 
         <!-- Staff Section -->
-        {% if is_admin %}
+        {% if can_manage_other_schedules %}
         <div class="qc-section-title">Staff Assignment</div>
         <div class="qc-grid">
           <div class="qc-group">

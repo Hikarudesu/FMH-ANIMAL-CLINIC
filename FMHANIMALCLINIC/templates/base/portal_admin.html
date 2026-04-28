@@ -318,7 +318,7 @@
 
           {% if user.is_superuser %}
           {# Overseer: Staff Management #}
-          {% if user|has_nav_module:'roles' or user|has_nav_module:'staff' or user|has_nav_module:'schedule' or user|has_nav_module:'payroll' %}
+          {% if user|has_nav_module:'roles' or user|has_nav_module:'staff' or user|has_nav_special_permission:'can_manage_own_schedule' or user|has_nav_special_permission:'can_manage_others_schedule' or user|has_nav_module:'payroll' %}
           <div class="sidebar-item has-submenu">
             <a
               href="#"
@@ -345,7 +345,7 @@
                 <i class="bx bx-id-card"></i><span>Staff</span>
               </a>
               {% endif %}
-              {% if user|has_nav_module:'schedule' %}
+              {% if user|has_nav_special_permission:'can_manage_own_schedule' or user|has_nav_special_permission:'can_manage_others_schedule' %}
               <a
                 href="{% url 'employees:schedule' %}"
                 class="sidebar-submenu-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}"
@@ -365,7 +365,7 @@
           </div>
           {% endif %}
 
-          {# Overseer: Oversight #}
+          {# Overseer: Oversight Reports #}
           {% if user|has_nav_module:'analytics' or user|has_nav_module:'activity_logs' %}
           <div class="sidebar-item has-submenu">
             <a
@@ -373,7 +373,7 @@
               class="sidebar-link {% if request.resolver_match.app_name == 'reports' or request.resolver_match.url_name == 'activity_logs' %}active{% endif %}"
               id="oversightDropdownToggle"
             >
-              <i class="bx bx-pulse"></i><span>Oversight</span>
+              <i class="bx bx-pulse"></i><span>Oversight Reports</span>
               <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
             </a>
             <div class="sidebar-submenu" id="oversightSubmenu">
@@ -397,7 +397,7 @@
           </div>
           {% endif %}
 
-          {# Overseer: Operations Control #}
+          {# Overseer: Operations Management #}
           {% if user|has_nav_module:'branches' or user|has_nav_module:'clinic_services' or user|has_nav_module:'inventory' or user|has_nav_module:'stock_monitor' or user|has_nav_module:'stock_transfers' %}
           <div class="sidebar-item has-submenu">
             <a
@@ -405,7 +405,7 @@
               class="sidebar-link {% if 'branches' in request.path or 'inventory' in request.path and 'logs' not in request.path or 'transfers' in request.path or 'billing' in request.path %}active{% endif %}"
               id="operationsDropdownToggle"
             >
-              <i class="bx bx-briefcase-alt-2"></i><span>Operations Control</span>
+              <i class="bx bx-briefcase-alt-2"></i><span>Operations Management</span>
               <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
             </a>
             <div class="sidebar-submenu" id="operationsSubmenu">
@@ -641,7 +641,7 @@
 
           {# Staff Management Submenu - show only for Admin roles (Branch Admin or higher) #}
           {% if user|is_branch_admin %}
-          {% if user|has_nav_module:'staff' or user|has_nav_module:'schedule' or user|has_nav_module:'branches' or user|has_nav_module:'roles' %}
+          {% if user|has_nav_module:'staff' or user|has_nav_special_permission:'can_manage_own_schedule' or user|has_nav_special_permission:'can_manage_others_schedule' or user|has_nav_module:'branches' or user|has_nav_module:'roles' %}
           <div class="sidebar-item has-submenu">
             <a
               href="#"
@@ -662,7 +662,7 @@
                 <i class="bx bx-id-card"></i><span>Staff</span>
               </a>
               {% endif %}
-              {% if user|has_nav_module:'schedule' %}
+              {% if user|has_nav_special_permission:'can_manage_own_schedule' or user|has_nav_special_permission:'can_manage_others_schedule' %}
               <a
                 href="{% url 'employees:schedule' %}"
                 class="sidebar-submenu-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}"
@@ -691,7 +691,7 @@
           {% endif %}
           {% else %}
           {# Direct Schedule link for non-admin staff (Veterinarian, Receptionist, etc.) #}
-          {% if user|has_nav_module:'schedule' %}
+          {% if user|has_nav_special_permission:'can_manage_own_schedule' or user|has_nav_special_permission:'can_manage_others_schedule' %}
           <a
             href="{% url 'employees:schedule' %}"
             class="sidebar-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}"

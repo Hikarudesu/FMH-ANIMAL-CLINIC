@@ -38,6 +38,7 @@
     <i class='bx bx-history c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Stock Movements</span>
   </button>
+  {% if can_view_reservations %}
   <button class="c-tab-btn" data-tab="reservations" type="button" onclick="switchInvMode('reservations')">
     <i class='bx bx-cart c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Reservations</span>
@@ -45,6 +46,7 @@
     <span class="c-tab-btn__badge">{{ pending_reservations|length }}</span>
     {% endif %}
   </button>
+  {% endif %}
 </div>
 
 <!-- Filter Bar -->
@@ -206,6 +208,7 @@
 </div>
 
 <!-- Reservations Section (Hidden by default) -->
+{% if can_view_reservations %}
 <div id="inv-reservations-section" class="inv-section" style="display: none;">
     <div class="dashboard-grid" style="grid-template-columns: 1fr;">
 <div class="admin-table-card">
@@ -220,7 +223,7 @@
                 <th style="text-align: center;">Date</th>
                 <th style="text-align: center;">Notes</th>
                 <th style="text-align: center;">Status</th>
-                {% if can_edit %}
+                {% if can_manage_reservations %}
                 <th style="text-align: center;">Actions</th>
                 {% endif %}
               </tr>
@@ -246,28 +249,28 @@
                         {% endif %}
                     ">{{ rsv.status }}</span>
                 </td>
-                {% if can_edit %}
+                {% if can_manage_reservations %}
                 <td style="text-align: center;">
-                    {% if rsv.status == 'Pending' %}
+                  {% if rsv.status == 'Pending' %}
                     <a href="{% url 'inventory:confirm_reservation' rsv.pk %}"
                        class="btn-action primary" style="padding: 5px 14px; font-size: 0.78rem;"
                        onclick="return confirm('Release reservation RSV-{{ rsv.pk }}?')">
-                        <i class='bx bx-check'></i> Released
+                      <i class='bx bx-check'></i> Released
                     </a>
                     <a href="{% url 'inventory:cancel_reservation' rsv.pk %}"
                        class="btn-action outline" style="padding: 5px 14px; font-size: 0.78rem; color: var(--danger);"
                        onclick="return confirm('Cancel reservation RSV-{{ rsv.pk }}?')">
-                        <i class='bx bx-x'></i> Cancel
+                      <i class='bx bx-x'></i> Cancel
                     </a>
-                    {% else %}
+                  {% else %}
                     <span style="color: var(--text-3); font-size: 0.8rem;">—</span>
-                    {% endif %}
+                  {% endif %}
                 </td>
                 {% endif %}
               </tr>
               {% empty %}
               <tr>
-                <td colspan="{% if can_edit %}8{% else %}7{% endif %}" style="text-align: center; padding: 50px; color: var(--text-3);">
+                <td colspan="{% if can_manage_reservations %}8{% else %}7{% endif %}" style="text-align: center; padding: 50px; color: var(--text-3);">
                     <i class='bx bx-cart' style="font-size: 2.5rem; display: block; margin-bottom: 10px; opacity: 0.5;"></i>
                     No reservations yet.
                 </td>
@@ -285,6 +288,7 @@
       </div>
     </div>
 </div>
+{% endif %}
 
 <script>
 function switchInvMode(mode) {

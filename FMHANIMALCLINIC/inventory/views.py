@@ -268,6 +268,9 @@ def inventory_management_view(request):
     can_create = request.user.has_module_permission('inventory', 'CREATE')
     can_edit = request.user.has_module_permission('inventory', 'EDIT')
     can_delete = request.user.is_admin_role() or request.user.has_module_permission('inventory', 'DELETE')
+    # Reservations is a separate module: only show if user has reservations module access AND inventory access
+    can_view_reservations = request.user.has_module_permission('reservations', 'VIEW')
+    can_manage_reservations = request.user.has_module_permission('reservations', 'EDIT') or request.user.has_module_permission('reservations', 'DELETE')
 
     # Pagination for 20 items per page across all 3 lists
     page_number = request.GET.get('page', 1)
@@ -298,6 +301,8 @@ def inventory_management_view(request):
         'can_create': can_create,
         'can_edit': can_edit,
         'can_delete': can_delete,
+        'can_view_reservations': can_view_reservations,
+        'can_manage_reservations': can_manage_reservations,
         'is_branch_restricted': is_branch_restricted,
     })
 
@@ -496,10 +501,14 @@ def my_reservations_view(request):
 
 
 @login_required
-@module_permission_required('inventory', 'EDIT')
 def confirm_reservation_view(request, pk):
-    """Admin confirms a reservation when the user arrives to pick up."""
+    """Confirm a reservation (release) — allowed by reservations EDIT module permission."""
     reservation = get_object_or_404(Reservation, pk=pk)
+
+    # Permission check: must have reservations module access with EDIT permission
+    if not request.user.has_module_permission('reservations', 'EDIT'):
+        messages.warning(request, 'You do not have permission to confirm reservations.')
+        return redirect('inventory:management')
 
     if reservation.status != Reservation.Status.PENDING:
         messages.warning(request, "This reservation is no longer pending.")
@@ -533,12 +542,14 @@ def confirm_reservation_view(request, pk):
 
 
 @login_required
-@module_permission_required('inventory', 'DELETE')
 def cancel_reservation_view(request, pk):
-    """Admin cancels a reservation. Stock is restored."""
-    reservation = get_object_or_404(
-        Reservation, pk=pk
-    )
+    """Cancel a reservation — allowed by reservations DELETE module permission."""
+    reservation = get_object_or_404(Reservation, pk=pk)
+
+    # Permission check: must have reservations module access with DELETE permission
+    if not request.user.has_module_permission('reservations', 'DELETE'):
+        messages.warning(request, 'You do not have permission to cancel reservations.')
+        return redirect('inventory:management')
 
     if reservation.status != Reservation.Status.PENDING:
         messages.warning(request, "This reservation cannot be cancelled.")

@@ -499,13 +499,16 @@ def can_edit_schedule_entry(context, schedule_entry):
     
     user = request.user
     
-    # Superusers and admins can edit any schedule
+    # Superusers and users with schedule-management access can edit any schedule
     if user.is_superuser:
         return True
-    
+
+    if user.can_manage_other_schedules():
+        return True
+
     if user.has_module_permission('schedule', 'EDIT'):
         return True
-    
+
     # Users with manage_own_schedule can edit their own
     if user.has_special_permission('can_manage_own_schedule'):
         # Check if this is the user's own schedule
@@ -534,13 +537,16 @@ def can_delete_schedule_entry(context, schedule_entry):
     
     user = request.user
     
-    # Superusers and admins can delete any schedule
+    # Superusers and users with schedule-management access can delete any schedule
     if user.is_superuser:
         return True
-    
+
+    if user.can_manage_other_schedules():
+        return True
+
     if user.has_module_permission('schedule', 'DELETE'):
         return True
-    
+
     # Users with manage_own_schedule can delete their own
     if user.has_special_permission('can_manage_own_schedule'):
         # Check if this is the user's own schedule
@@ -565,12 +571,15 @@ def can_create_own_schedule(context):
     if not user or not user.is_authenticated:
         return False
     
-    # Superusers and admins can always create
+    # Superusers and users with schedule-management access can always create
     if user.is_superuser:
         return True
-    
+
+    if user.can_manage_other_schedules():
+        return True
+
     if user.has_module_permission('schedule', 'CREATE'):
         return True
-    
+
     # Users with manage_own_schedule can create their own
-    return user.has_special_permission('can_manage_own_schedule')
+    return user.has_special_permission('can_manage_own_schedule') or user.has_special_permission('can_manage_others_schedule')

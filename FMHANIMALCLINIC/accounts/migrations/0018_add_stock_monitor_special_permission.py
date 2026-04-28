@@ -6,12 +6,13 @@ def add_stock_monitor_permission(apps, schema_editor):
     """Add Stock Monitor special permission."""
     SpecialPermission = apps.get_model('accounts', 'SpecialPermission')
     
+    # ─── Inventory & Stock Monitoring ──────────────────────────────
     # Create Stock Monitor special permission if it doesn't exist
     SpecialPermission.objects.get_or_create(
         code='can_access_stock_monitor',
         defaults={
             'name': 'Stock Monitor',
-            'description': 'Access to view stock/inventory levels. Data is always restricted to the user\'s assigned branch only.'
+            'description': "Access to view stock/inventory levels. Data is always restricted to the user's assigned branch only."
         }
     )
 

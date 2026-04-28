@@ -242,6 +242,9 @@
     outline: none;
     border-color: var(--primary);
   }
+  .module-row-disabled {
+    opacity: 0.55;
+  }
   select.admin-input {
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235e6278' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
@@ -535,6 +538,8 @@
       const cb = document.querySelector(`input[name="special_${code}"]`);
       if (cb) cb.checked = true;
     });
+
+    syncReservationsDependency();
   }
 
   // ─── Fetch Preset from DB via AJAX ─────────────────────────────
@@ -603,6 +608,28 @@
     }
   }
 
+  // ─── Reservations Depend on Inventory ─────────────────────────
+  function syncReservationsDependency() {
+    const inventoryRow = document.querySelector('tr[data-module="inventory"]');
+    const reservationsRow = document.querySelector('tr[data-module="reservations"]');
+    if (!inventoryRow || !reservationsRow) return;
+
+    const inventoryEnabled = Array.from(inventoryRow.querySelectorAll('.module-perm'))
+      .some(cb => cb.checked);
+    const reservationControls = reservationsRow.querySelectorAll(
+      '.module-perm, .all-perms-toggle, .branch-restrict-cb'
+    );
+
+    reservationControls.forEach(control => {
+      control.disabled = !inventoryEnabled;
+      if (!inventoryEnabled) {
+        control.checked = false;
+      }
+    });
+
+    reservationsRow.classList.toggle('module-row-disabled', !inventoryEnabled);
+  }
+
   // ─── Toggle All Permissions for a Module ───────────────────────
   function toggleAllPerms(checkbox, moduleCode) {
     const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
@@ -610,6 +637,9 @@
     perms.forEach(perm => {
       perm.checked = checkbox.checked;
     });
+    if (moduleCode === 'inventory') {
+      syncReservationsDependency();
+    }
   }
 
   // ─── Initialize on Page Load ───────────────────────────────────
@@ -620,13 +650,23 @@
       updateAllToggle(moduleCode);
     });
 
+    syncReservationsDependency();
+
     // Add change listeners to individual permission checkboxes
     document.querySelectorAll('.module-perm').forEach(cb => {
       cb.addEventListener('change', function() {
         const moduleCode = this.dataset.module;
         updateAllToggle(moduleCode);
+        if (moduleCode === 'inventory') {
+          syncReservationsDependency();
+        }
       });
     });
+
+    const inventoryRow = document.querySelector('tr[data-module="inventory"]');
+    if (inventoryRow) {
+      inventoryRow.addEventListener('change', syncReservationsDependency);
+    }
 
     // Dashboard mutual exclusivity listeners
     const staffDashCb = document.querySelector(`input[name="special_${STAFF_DASH_CODE}"]`);

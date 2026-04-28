@@ -106,7 +106,8 @@ def special_permission_required(permission_code, redirect_url=None):
     Decorator that checks if user has a special permission.
 
     Args:
-        permission_code: The SpecialPermission code
+        permission_code: The SpecialPermission code, or an iterable of codes
+                        where any one of them may grant access.
         redirect_url: Custom redirect URL on permission failure (optional)
 
     Usage:
@@ -115,13 +116,18 @@ def special_permission_required(permission_code, redirect_url=None):
         def my_payslips(request):
             ...
     """
+    if isinstance(permission_code, str):
+        permission_codes = (permission_code,)
+    else:
+        permission_codes = tuple(permission_code)
+
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
             if not request.user.is_authenticated:
                 return redirect('login_page')
 
-            if request.user.has_special_permission(permission_code):
+            if any(request.user.has_special_permission(code) for code in permission_codes):
                 return view_func(request, *args, **kwargs)
 
             messages.warning(request, 'You do not have permission to access this feature.')

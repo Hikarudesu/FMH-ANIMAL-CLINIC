@@ -21,7 +21,7 @@ HIDDEN_FROM_MODULE_PERMISSIONS = [
     'dashboard',          # Moved to special permissions as "Staff Dashboard"
     'admin_dashboard',    # Moved to special permissions as "Admin Dashboard"
     'staff',              # Only viewable/editable, handled separately
-    'schedule',           # Replaced by "Manage Own Schedule" special permission
+    'schedule',           # Replaced by schedule special permissions
     'branches',           # View only, admin-controlled
     'user_portal',        # Auto-created with user account
     'pos',                # Moved to special permissions
@@ -36,17 +36,45 @@ CRUD_MODULES = [
     'ai_diagnostics',    # Note: No EDIT for AI diagnostics
     'clinic_services',
     'inventory',
+    'reservations',
 ]
 
 # Special permission codes
 class SpecialPermissionCodes:
     """Constants for special permission codes."""
+    # ─── Dashboard Access ──────────────────────────────────────
     STAFF_DASHBOARD = 'can_access_staff_dashboard'
     ADMIN_DASHBOARD = 'can_access_admin_dashboard'
-    POINT_OF_SALE = 'can_access_pos'
+
+    # ─── Schedule Management ───────────────────────────────────
     MANAGE_OWN_SCHEDULE = 'can_manage_own_schedule'
+    MANAGE_OTHERS_SCHEDULE = 'can_manage_others_schedule'
+
+    # ─── Payroll ───────────────────────────────────────────────
     VIEW_OWN_PAYSLIPS = 'can_view_own_payslips'
+
+    # ─── Inventory & Stock Transfer ────────────────────────────
     STOCK_MONITOR = 'can_access_stock_monitor'
+    REQUEST_STOCK_TRANSFER = 'can_request_stock_transfer'
+
+    # ─── Point of Sale ─────────────────────────────────────────
+    POINT_OF_SALE = 'can_access_pos'
+    APPROVE_REFUNDS = 'can_approve_refunds'
+    VOID_SALES = 'can_void_sales'
+
+    # Display order for UI rendering (lower number = appears first)
+    DISPLAY_ORDER = {
+        'can_access_staff_dashboard': 1,
+        'can_access_admin_dashboard': 2,
+        'can_manage_own_schedule': 3,
+        'can_manage_others_schedule': 4,
+        'can_view_own_payslips': 5,
+        'can_access_stock_monitor': 6,
+        'can_request_stock_transfer': 7,
+        'can_access_pos': 8,
+        'can_approve_refunds': 9,
+        'can_void_sales': 10,
+    }
 
 
 class Module(models.Model):
@@ -69,6 +97,7 @@ class Module(models.Model):
     BRANCHES = 'branches'
     INQUIRIES = 'inquiries'
     INVENTORY = 'inventory'
+    RESERVATIONS = 'reservations'
     STOCK_MONITOR = 'stock_monitor'
     STOCK_TRANSFERS = 'stock_transfers'
     ANALYTICS = 'analytics'
@@ -92,6 +121,7 @@ class Module(models.Model):
         (BRANCHES, 'Branches'),
         (INQUIRIES, 'Inquiries'),
         (INVENTORY, 'Inventory'),
+        (RESERVATIONS, 'Reservations'),
         (STOCK_MONITOR, 'Stock Monitor'),
         (STOCK_TRANSFERS, 'Stock Transfers'),
         (ANALYTICS, 'Analytics'),
