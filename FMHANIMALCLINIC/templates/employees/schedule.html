@@ -10,7 +10,7 @@
   <div class="page-hero-inner">
     <div class="page-hero-text">
       <h1><i class='bx bx-calendar'></i> Schedule</h1>
-      <p>{% if can_manage_other_schedules %}View and manage vet availability across branches{% else %}View and manage your schedule{% endif %}</p>
+      <p>{% if can_manage_other_schedules %}View and manage vet availability across branches{% else %}View and manage only your own schedule{% endif %}</p>
     </div>
     <div class="page-hero-actions">
       {% if can_clear_all %}
@@ -76,7 +76,7 @@
         <div class="qc-icon"><i class='bx bx-calendar-plus'></i></div>
         <div>
           <h3>Add Schedule</h3>
-          <p>{% if can_manage_other_schedules %}Assign staff availability{% else %}Update your schedule{% endif %}</p>
+          <p>{% if can_manage_other_schedules %}Assign staff availability{% else %}Update only your own schedule{% endif %}</p>
         </div>
       </div>
       <button class="qc-close" id="closeModal"><i class='bx bx-x'></i></button>

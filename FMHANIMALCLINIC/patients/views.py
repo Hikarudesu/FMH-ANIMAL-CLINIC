@@ -149,6 +149,8 @@ def admin_detail_view(request, pk):
         record__pet=pet
     ).order_by('-date_recorded', '-created_at').first()
 
+    can_create_medical_record = request.user.has_module_permission('medical_records', 'CREATE')
+
     return render(request, 'patients/admin_detail.html', {
         'pet': pet,
         'owner': pet.owner,  # may be None for walk-in patients
@@ -156,6 +158,7 @@ def admin_detail_view(request, pk):
         'appointments': appointments,
         'clinical_logs': clinical_logs,
         'latest_entry': latest_entry,
+        'can_create_medical_record': can_create_medical_record,
     })
 
 

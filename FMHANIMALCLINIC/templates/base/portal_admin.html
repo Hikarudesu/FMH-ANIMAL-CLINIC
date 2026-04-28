@@ -492,7 +492,7 @@
           {% if user|has_nav_module:'medical_records' %}
           <a
             href="{% url 'records:admin_list' %}"
-            class="sidebar-link {% if 'records' in request.path %}active{% endif %}"
+            class="sidebar-link {% if 'records' in request.path or active_tab == 'medical_records' %}active{% endif %}"
           >
             <i class="bx bx-file"></i><span>Medical Records</span>
           </a>
@@ -583,7 +583,7 @@
           {% if user|has_nav_module:'medical_records' %}
           <a
             href="{% url 'records:admin_list' %}"
-            class="sidebar-link {% if 'records' in request.path %}active{% endif %}"
+            class="sidebar-link {% if 'records' in request.path or active_tab == 'medical_records' %}active{% endif %}"
           >
             <i class="bx bx-file"></i><span>Medical Records</span>
           </a>

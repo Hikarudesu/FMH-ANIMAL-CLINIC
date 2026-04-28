@@ -209,8 +209,12 @@ def _can_manage_other_schedules(user):
     return user.can_manage_other_schedules()
 
 
+def _can_manage_own_schedule(user):
+    return user.has_special_permission('can_manage_own_schedule')
+
+
 def _can_manage_any_schedule(user):
-    return _can_manage_other_schedules(user) or user.has_special_permission('can_manage_own_schedule')
+    return _can_manage_other_schedules(user) or _can_manage_own_schedule(user)
 
 
 @login_required
@@ -270,6 +274,7 @@ def schedule_api(request):
     """JSON API — returns schedule entries for a given month/branch."""
     user = request.user
     can_manage_other_schedules = _can_manage_other_schedules(user)
+    can_manage_own_schedule = _can_manage_own_schedule(user)
     user_branch = getattr(user, 'branch', None)
     
     try:
@@ -292,17 +297,25 @@ def schedule_api(request):
         date__lte=end,
     ).select_related('staff', 'branch')
 
-    # Non-admins can only see their branch
-    if not can_manage_other_schedules and user_branch:
-        schedules = schedules.filter(branch=user_branch)
-    elif branch_id:
-        schedules = schedules.filter(branch_id=branch_id)
+    # Managers can filter by branch; self-only users only see their own entries
+    if can_manage_other_schedules:
+        if branch_id:
+            schedules = schedules.filter(branch_id=branch_id)
+    else:
+        try:
+            user_staff = user.staff_profile
+        except StaffMember.DoesNotExist:
+            return JsonResponse({'events': [], 'year': year, 'month': month})
+
+        schedules = schedules.filter(staff=user_staff)
+        if user_branch:
+            schedules = schedules.filter(branch=user_branch)
 
     events = []
     user_staff = None
 
     # Get current user's staff profile for ownership checks
-    if not can_manage_other_schedules:
+    if can_manage_own_schedule or not can_manage_other_schedules:
         try:
             user_staff = user.staff_profile
         except StaffMember.DoesNotExist:
@@ -335,13 +348,29 @@ def schedule_api(request):
 @special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def available_staff_api(request):
     """JSON API — returns available vets/vet assistants for a given branch."""
+    user = request.user
+    can_manage_other_schedules = _can_manage_other_schedules(user)
     branch_id = request.GET.get('branch_id', '')
 
-    if not branch_id:
-        return JsonResponse({'staff': []})
+    if can_manage_other_schedules:
+        if not branch_id:
+            return JsonResponse({'staff': []})
 
-    # Get vets and vet assistants for the selected branch
-    staff = StaffMember.objects.schedulable_staff(branch_id=branch_id)
+        # Get vets and vet assistants for the selected branch
+        staff = StaffMember.objects.schedulable_staff(branch_id=branch_id)
+    else:
+        try:
+            user_staff = user.staff_profile
+        except StaffMember.DoesNotExist:
+            return JsonResponse({'staff': []})
+
+        if branch_id and str(user_staff.branch_id or '') != str(branch_id):
+            return JsonResponse({'staff': []})
+
+        staff = StaffMember.objects.filter(
+            pk=user_staff.pk,
+            is_active=True,
+        ).select_related('user', 'user__assigned_role')
 
     staff_list = []
     for member in staff:

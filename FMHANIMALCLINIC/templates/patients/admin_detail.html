@@ -118,9 +118,19 @@
   }
   .pd-quick-stat i { font-size: 1rem; }
 
+  .pd-header-actions-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    align-items: flex-end;
+    position: relative;
+    z-index: 2;
+  }
   .pd-header-actions {
-    display: flex; gap: 10px; flex-shrink: 0; align-self: flex-start;
-    position: relative; z-index: 2;
+    display: flex;
+    gap: 10px;
   }
   .pd-header-actions .admin-btn {
     padding: 12px 20px;
@@ -150,6 +160,15 @@
     background: rgba(255,255,255,0.3);
     transform: translateY(-3px);
   }
+  .pd-header-actions .admin-btn.pd-btn-disabled,
+  .pd-header-actions .admin-btn.pd-btn-disabled:hover {
+    background: rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.75);
+    border: 1px solid rgba(255,255,255,0.22);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
 
   /* Status Badge in Header */
   .pd-status-badge {
@@ -178,6 +197,7 @@
     .pd-grid { grid-template-columns: 1fr; }
     .pd-header { flex-direction: column; align-items: center; text-align: center; }
     .pd-quick-stats, .pd-header-actions { justify-content: center; }
+    .pd-header-actions-stack { align-items: center; }
     .pd-header-info h1 { justify-content: center; }
   }
 
@@ -428,12 +448,25 @@
       <div class="pd-quick-stat"><i class='bx bx-time-five'></i> Registered {{ pet.created_at|date:"M j, Y" }}</div>
     </div>
   </div>
-  <div class="pd-header-actions">
-    <a href="{% url 'appointments:admin_list' %}?auto_qc=1&qc_source={% if owner %}PORTAL&qc_owner_id={{ owner.id }}{% else %}WALKIN{% endif %}&qc_pet_id={{ pet.id }}&qc_pet_name={{ pet.name|urlencode }}&qc_pet_species={{ pet.species|default:''|urlencode }}&qc_pet_breed={{ pet.breed|default:''|urlencode }}&qc_pet_dob={{ pet.date_of_birth|date:'Y-m-d'|default:'' }}&qc_pet_sex={{ pet.sex|default:'' }}&qc_pet_color={{ pet.color|default:''|urlencode }}&qc_owner_name={{ pet.guest_owner_name|default:''|urlencode }}&qc_owner_phone={{ pet.guest_owner_phone|default:''|urlencode }}&qc_owner_email={{ pet.guest_owner_email|default:''|urlencode }}&qc_owner_address={{ pet.guest_owner_address|default:''|urlencode }}" class="admin-btn primary">
-      <i class='bx bx-calendar-plus'></i> Book Appointment
-    </a>
-    <a href="{% url 'records:admin_create' %}?pet={{ pet.pk }}" class="admin-btn secondary"><i class='bx bx-plus'></i> New Record</a>
-    <a href="{% url 'patients:admin_edit_pet' pet.pk %}" class="admin-btn secondary"><i class='bx bx-edit-alt'></i> Edit</a>
+  <div class="pd-header-actions-stack">
+    <div class="pd-header-actions">
+      <a href="{% url 'appointments:admin_list' %}?auto_qc=1&qc_source={% if owner %}PORTAL&qc_owner_id={{ owner.id }}{% else %}WALKIN{% endif %}&qc_pet_id={{ pet.id }}&qc_pet_name={{ pet.name|urlencode }}&qc_pet_species={{ pet.species|default:''|urlencode }}&qc_pet_breed={{ pet.breed|default:''|urlencode }}&qc_pet_dob={{ pet.date_of_birth|date:'Y-m-d'|default:'' }}&qc_pet_sex={{ pet.sex|default:'' }}&qc_pet_color={{ pet.color|default:''|urlencode }}&qc_owner_name={{ pet.guest_owner_name|default:''|urlencode }}&qc_owner_phone={{ pet.guest_owner_phone|default:''|urlencode }}&qc_owner_email={{ pet.guest_owner_email|default:''|urlencode }}&qc_owner_address={{ pet.guest_owner_address|default:''|urlencode }}" class="admin-btn primary">
+        <i class='bx bx-calendar-plus'></i> Book Appointment
+      </a>
+      {% if can_create_medical_record %}
+      <a href="{% url 'records:admin_create' %}?pet={{ pet.pk }}" class="admin-btn secondary"><i class='bx bx-plus'></i> New Record</a>
+      {% endif %}
+      <a href="{% url 'patients:admin_edit_pet' pet.pk %}" class="admin-btn secondary"><i class='bx bx-edit-alt'></i> Edit</a>
+    </div>
+    <div class="pd-header-actions">
+      {% with first_record=medical_records.first %}
+      {% if first_record %}
+      <a href="{% url 'records:admin_detail' first_record.pk %}?from_patients=1" class="admin-btn secondary"><i class='bx bx-file'></i> Medical Record</a>
+      {% else %}
+      <button type="button" class="admin-btn secondary pd-btn-disabled" title="No medical record yet" disabled><i class='bx bx-file-find'></i> No Medical Record</button>
+      {% endif %}
+      {% endwith %}
+    </div>
   </div>
 </div>
 

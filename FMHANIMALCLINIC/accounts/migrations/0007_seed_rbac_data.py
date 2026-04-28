@@ -49,7 +49,7 @@ def seed_special_permissions(apps, schema_editor):
 
     permissions = [
         # ─── Schedule Management ───────────────────────────────────
-        {'code': 'can_manage_own_schedule', 'name': 'Manage Own Schedule', 'description': 'Can view schedules in own branch and create/edit/delete only their own schedule entries. Cannot modify schedules of other staff members.'},
+        {'code': 'can_manage_own_schedule', 'name': 'Manage Own Schedule', 'description': 'Can view only their own schedule entries and create/edit/delete only their own schedule entries. Cannot view or modify schedules of other staff members.'},
         {'code': 'can_manage_others_schedule', 'name': 'Manage Others Schedule', 'description': 'User can view and manage schedule entries for other staff members'},
 
         # ─── Payroll ───────────────────────────────────────────────

@@ -281,6 +281,11 @@
       <a href="{% url 'patients:edit_pet' pet.pk %}" class="upd-hero-btn ghost">
         <i class='bx bx-edit-alt'></i> Edit
       </a>
+      {% if medical_records %}
+      <a href="#medical-records-section" class="upd-hero-btn ghost">
+        <i class='bx bx-file-blank'></i> Medical Record
+      </a>
+      {% endif %}
       <a href="{% url 'patients:delete_pet' pet.pk %}" class="upd-hero-btn ghost">
         <i class='bx bx-trash'></i> Remove
       </a>
@@ -367,7 +372,7 @@
   </div>
 
   <!-- Medical Records Timeline (full width) -->
-  <div class="upd-card upd-full">
+  <div class="upd-card upd-full" id="medical-records-section">
     <div class="upd-card-head">
       <i class='bx bx-file'></i> Medical Records
       <span style="margin-left:auto; font-size:0.75rem; font-weight:500; color:var(--text-3);">{{ medical_records.count }} record{{ medical_records.count|pluralize }}</span>

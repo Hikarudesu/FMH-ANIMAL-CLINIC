@@ -34,8 +34,8 @@ def add_special_permissions(apps, schema_editor):
     try:
         manage_schedule = SpecialPermission.objects.get(code='can_manage_own_schedule')
         manage_schedule.description = (
-            'Can view schedules in own branch and create/edit/delete only their own schedule entries. '
-            'Cannot modify schedules of other staff members.'
+            'Can view only their own schedule entries and create/edit/delete only their own schedule entries. '
+            'Cannot view or modify schedules of other staff members.'
         )
         manage_schedule.save()
     except SpecialPermission.DoesNotExist:
@@ -43,8 +43,8 @@ def add_special_permissions(apps, schema_editor):
             code='can_manage_own_schedule',
             name='Manage Own Schedule',
             description=(
-                'Can view schedules in own branch and create/edit/delete only their own schedule entries. '
-                'Cannot modify schedules of other staff members.'
+                'Can view only their own schedule entries and create/edit/delete only their own schedule entries. '
+                'Cannot view or modify schedules of other staff members.'
             )
         )
 

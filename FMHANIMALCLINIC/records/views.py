@@ -573,7 +573,6 @@ def admin_record_delete(request, pk):
 
 
 @login_required
-@module_permission_required('medical_records', 'VIEW')
 def admin_record_detail(request, pk):
     """View to display a medical record card with all its visit entries."""
 
@@ -585,6 +584,8 @@ def admin_record_detail(request, pk):
     vets, vets_for_json = get_veterinarians_for_json()
     branches = Branch.objects.filter(is_active=True)
     clinic_profile = ClinicProfile.get_instance()
+    from_patients = request.GET.get('from_patients', '0') == '1'
+    active_tab = 'patients' if from_patients else 'medical_records'
 
     return render(request, 'records/admin_detail.html', {
         'record': record,
@@ -596,6 +597,8 @@ def admin_record_detail(request, pk):
         'vets_json': json.dumps(vets_for_json),
         'clinical_statuses': ClinicalStatus.objects.filter(is_active=True).order_by('order', 'name'),
         'clinic_profile': clinic_profile,
+        'from_patients': from_patients,
+        'active_tab': active_tab,
     })
 
 
