@@ -1,0 +1,2384 @@
+"""Views for the accounts app."""
+# pylint: disable=no-member, import-outside-toplevel, line-too-long, trailing-whitespace, missing-docstring, invalid-name, broad-exception-caught, unused-import, redefined-outer-name, reimported, too-many-lines, wrong-import-position, wrong-import-order, ungrouped-imports
+
+import json
+from decimal import Decimal
+from datetime import date, timedelta
+from django.db.models import Count, Sum, Q, F
+from django.db.models.functions import TruncDate
+from django.core.serializers.json import DjangoJSONEncoder
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.core.paginator import Paginator
+
+from branches.models import Branch
+from .models import User
+from .decorators import module_permission_required, admin_only, special_permission_required, staff_only
+from .forms import PetOwnerRegistrationForm
+from settings.utils import get_setting
+
+
+def get_month_offset(base_date, months_back):
+    """Calculate date offset by months without external dependencies."""
+    year = base_date.year
+    month = base_date.month - months_back
+    while month <= 0:
+        month += 12
+        year -= 1
+    return date(year, month, 1)
+
+
+def login_view(request):
+    """Login page — redirects to correct portal after login."""
+    next_url = request.GET.get('next') or request.POST.get('next')
+    show_maintenance_popup = request.session.pop('maintenance_login_popup', False)
+
+    if request.user.is_authenticated:
+        if next_url:
+            return redirect(next_url)
+        if request.user.is_clinic_staff():
+            # Redirect based on specific role
+            if request.user.assigned_role and request.user.assigned_role.code == 'veterinarian':
+                return redirect('vet_dashboard')
+            elif request.user.assigned_role and request.user.assigned_role.code == 'vet_assistant':
+                return redirect('vet_dashboard')  # Vet assistants share the vet dashboard
+            elif request.user.assigned_role and request.user.assigned_role.code == 'receptionist':
+                return redirect('receptionist_dashboard')
+            else:
+                return redirect('admin_dashboard')
+        return redirect('user_dashboard')
+
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        # Case-insensitive login: resolve the stored username
+        try:
+            stored_user = User.objects.get(username__iexact=username)
+            username = stored_user.username
+        except User.DoesNotExist:
+            pass  # Let authenticate() handle the invalid user
+        user = authenticate(request, username=username, password=password)
+
+        maintenance_mode = get_setting('system_maintenance_mode', False)
+        maintenance_message = get_setting(
+            'system_maintenance_message',
+            'The system is currently under maintenance. Only staff and superadmin may log in at this time.'
+        )
+
+        if user is not None:
+            if maintenance_mode and user.is_pet_owner():
+                messages.warning(request, maintenance_message)
+                request.session['maintenance_login_popup'] = True
+                return redirect('accounts:login_page')
+
+            login(request, user)
+            messages.success(request, 'Successfully logged in.')
+
+            if next_url:
+                return redirect(next_url)
+            if user.is_clinic_staff():
+                # Redirect based on specific role
+                if user.assigned_role and user.assigned_role.code == 'veterinarian':
+                    return redirect('vet_dashboard')
+                elif user.assigned_role and user.assigned_role.code == 'vet_assistant':
+                    return redirect('vet_dashboard')  # Vet assistants share the vet dashboard
+                elif user.assigned_role and user.assigned_role.code == 'receptionist':
+                    return redirect('receptionist_dashboard')
+                else:
+                    return redirect('admin_dashboard')
+            return redirect('user_dashboard')
+        else:
+            messages.error(request, 'Invalid username or password')
+
+    return render(request, 'accounts/login.html', {
+        'show_maintenance_popup': show_maintenance_popup,
+    })
+
+
+def register_view(request):
+    """Register page view for Pet Owner registration"""
+    if get_setting('system_maintenance_mode', False):
+        messages.warning(
+            request,
+            get_setting(
+                'system_maintenance_message',
+                'Registration is temporarily disabled during maintenance mode.'
+            )
+        )
+        request.session['maintenance_login_popup'] = True
+        return redirect('accounts:login_page')
+
+    if request.method == 'POST':
+        form = PetOwnerRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Auto-login after registration
+            login(request, user)
+            messages.success(request, 'Account created successfully!')
+            return redirect('select_branch')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = PetOwnerRegistrationForm()
+
+    return render(request, 'accounts/register.html', {'form': form})
+
+
+@login_required
+def select_branch_view(request):
+    """Branch selection page — shown after pet owner registration."""
+    branches = Branch.objects.filter(is_active=True)
+
+    if request.method == 'POST':
+        branch_id = request.POST.get('branch_id')
+        if branch_id:
+            branch = get_object_or_404(Branch, id=branch_id, is_active=True)
+            request.user.branch = branch
+            request.user.save(update_fields=['branch'])
+            messages.success(
+                request, f'Welcome! You are now registered at {branch.name}.')
+        return redirect('user_dashboard')
+
+    return render(request, 'accounts/select_branch.html', {'branches': branches})
+
+
+def logout_view(request):
+    """Logout view"""
+    logout(request)
+    messages.success(request, 'You have been successfully logged out.')
+    return redirect('landing_page')
+
+
+@login_required
+def delete_activity_view(request, activity_id):
+    """Delete a specific activity."""
+    if request.method == 'POST':
+        from accounts.models import UserActivity
+        activity = get_object_or_404(UserActivity, id=activity_id, user=request.user)
+        activity.delete()
+        messages.success(request, 'Activity deleted successfully.')
+    return redirect(f"{reverse('accounts:user_dashboard')}#dashboard-activity-section")
+
+@login_required
+def clear_all_activities_view(request):
+    """Clear all activities for the current user."""
+    if request.method == 'POST':
+        from accounts.models import UserActivity
+        UserActivity.objects.filter(user=request.user).delete()
+        messages.success(request, 'All recent activities have been cleared.')
+    return redirect(f"{reverse('accounts:user_dashboard')}#dashboard-activity-section")
+
+@login_required
+def user_dashboard_view(request):
+    """User portal dashboard with follow-ups, appointments, notifications, and charts."""
+    from notifications.models import FollowUp, Notification
+    from appointments.models import Appointment
+    from patients.models import Pet
+    from pos.models import Sale, SaleItem
+    from decimal import Decimal
+    import json
+    from dateutil.relativedelta import relativedelta
+
+    today = date.today()
+    user_branch = request.user.branch
+    branch_filter = {'branch': user_branch} if user_branch else {}
+    appt_branch_filter = {'branch': user_branch} if user_branch else {}
+    sale_branch_filter = {'sale__branch': user_branch} if user_branch else {}
+
+    # Pet count and pets list
+    owned_pets = request.user.pets.all()
+    user_pets = owned_pets.filter(**branch_filter) if user_branch else owned_pets
+    if user_branch and not user_pets.exists():
+        user_pets = owned_pets
+    pet_count = user_pets.count()
+
+    # Upcoming appointments (next 7 days) - filter out deleted pets
+    upcoming_appointments = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        appointment_date__gte=today,
+        appointment_date__lte=today + timedelta(days=7),
+        **appt_branch_filter,
+    ).exclude(status='CANCELLED').select_related(
+        'branch', 'preferred_vet'
+    ).order_by('appointment_date', 'appointment_time')
+    upcoming_count = upcoming_appointments.count()
+    
+    # Confirmed vs pending for upcoming
+    upcoming_confirmed = upcoming_appointments.filter(status='CONFIRMED').count()
+    upcoming_pending = upcoming_appointments.filter(status='PENDING').count()
+
+    # Follow-ups for this user's appointments
+    follow_ups = FollowUp.objects.filter(
+        appointment__user=request.user,
+        **({'appointment__branch': user_branch} if user_branch else {}),
+        is_completed=False,
+        follow_up_date__gte=today,
+    ).order_by('follow_up_date')
+    follow_up_count = follow_ups.count()
+    
+    # Overdue follow-ups
+    overdue_follow_ups = FollowUp.objects.filter(
+        appointment__user=request.user,
+        **({'appointment__branch': user_branch} if user_branch else {}),
+        is_completed=False,
+        follow_up_date__lt=today,
+    ).count()
+
+    # Unread notifications
+    unread_notif_count = Notification.scoped_for_user(request.user).filter(
+        is_read=False
+    ).count()
+
+    # Recent activities (UserActivity)
+    from accounts.models import UserActivity
+    activities_list = UserActivity.objects.filter(user=request.user).order_by('-timestamp')
+    
+    paginator = Paginator(activities_list, 5)
+    page_number = request.GET.get('page')
+    recent_activities = paginator.get_page(page_number)
+
+    # Pet species breakdown with percentages
+    pet_species_breakdown = list(user_pets.values('species').annotate(count=Count('id')).order_by('-count'))
+    for species in pet_species_breakdown:
+        species['percentage'] = round((species['count'] / pet_count * 100), 1) if pet_count > 0 else 0
+    pet_species_json = json.dumps(pet_species_breakdown)
+
+    # Vaccination appointments tracking
+    vaccination_appointments = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        reason_for_visit__code='VACCINATION',
+        appointment_date__gte=today - timedelta(days=30),
+        appointment_date__lte=today,
+        **appt_branch_filter,
+    ).count()
+
+    # Appointment cancellation stats (past 30 days)
+    cancelled_appointments_count = Appointment.objects.filter(
+        user=request.user,
+        status='CANCELLED',
+        appointment_date__gte=today - timedelta(days=30),
+        **appt_branch_filter,
+    ).count()
+
+    # Appointments this month
+    month_start = date(today.year, today.month, 1)
+    if today.month == 12:
+        month_end = date(today.year + 1, 1, 1) - timedelta(days=1)
+    else:
+        month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
+    
+    appointments_this_month = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        appointment_date__range=[month_start, month_end],
+        **appt_branch_filter,
+    ).exclude(status='CANCELLED').count()
+
+    # Reservation tracking (pending/approved)
+    pending_reservations = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        status='PENDING',
+        appointment_date__gte=today,
+        **appt_branch_filter,
+    ).count()
+
+    approved_reservations = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        status='CONFIRMED',
+        appointment_date__gte=today,
+        **appt_branch_filter,
+    ).count()
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEW: Spending & Financial Data
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    # Total spending (this year)
+    year_start = date(today.year, 1, 1)
+    total_spent_this_year = Sale.objects.filter(
+        customer=request.user,
+        status='COMPLETED',
+        completed_at__date__gte=year_start,
+        **branch_filter,
+    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    
+    # Total spending (all time)
+    total_spent_all_time = Sale.objects.filter(
+        customer=request.user,
+        status='COMPLETED',
+        **branch_filter,
+    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    
+    # Spending breakdown by service category
+    spending_by_category = SaleItem.objects.filter(
+        sale__customer=request.user,
+        sale__status='COMPLETED',
+        **sale_branch_filter,
+    ).values('item_type').annotate(
+        total=Sum(F('unit_price') * F('quantity') - F('discount'))
+    ).order_by('-total')
+    
+    category_labels = {
+        'SERVICE': 'Services',
+        'PRODUCT': 'Products',
+        'MEDICATION': 'Medications'
+    }
+    spending_breakdown = []
+    for item in spending_by_category:
+        spending_breakdown.append({
+            'category': category_labels.get(item['item_type'], item['item_type']),
+            'total': float(item['total'] or 0)
+        })
+    spending_breakdown_json = json.dumps(spending_breakdown)
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEW: Monthly Appointment History (last 6 months)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    monthly_appointments = []
+    for i in range(5, -1, -1):
+        m_start = get_month_offset(today, i)
+        if m_start.month == 12:
+            m_end = date(m_start.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            m_end = date(m_start.year, m_start.month + 1, 1) - timedelta(days=1)
+        
+        count = Appointment.objects.filter(
+            user=request.user,
+            pet__isnull=False,
+            appointment_date__range=[m_start, m_end],
+            **appt_branch_filter,
+        ).exclude(status='CANCELLED').count()
+        
+        monthly_appointments.append({
+            'month': m_start.strftime('%b'),
+            'count': count
+        })
+    monthly_appointments_json = json.dumps(monthly_appointments)
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEW: Pet Health Status Distribution
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    pet_health_stats = list(
+        user_pets.values('clinical_status__code').annotate(count=Count('id')).order_by('-count')
+    )
+    health_labels = {
+        'HEALTHY': 'Healthy',
+        'MONITOR': 'Monitoring',
+        'TREATMENT': 'In Treatment',
+        'SURGERY': 'Post-Surgery',
+        'DIAGNOSTICS': 'Diagnostics',
+        'CRITICAL': 'Critical'
+    }
+    pet_health_breakdown = []
+    for stat in pet_health_stats:
+        status_code = stat['clinical_status__code'] or 'HEALTHY'
+        pet_health_breakdown.append({
+            'status': health_labels.get(status_code, status_code),
+            'count': stat['count']
+        })
+    pet_health_json = json.dumps(pet_health_breakdown)
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEW: Appointment Status Distribution (for chart)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    appointment_status_stats = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        appointment_date__gte=today - timedelta(days=90),
+        **appt_branch_filter,
+    ).values('status').annotate(count=Count('id')).order_by('-count')
+    
+    status_labels = {
+        'PENDING': 'Pending',
+        'CONFIRMED': 'Confirmed',
+        'COMPLETED': 'Completed',
+        'CANCELLED': 'Cancelled'
+    }
+    appointment_status_breakdown = []
+    for stat in appointment_status_stats:
+        appointment_status_breakdown.append({
+            'status': status_labels.get(stat['status'], stat['status']),
+            'count': stat['count']
+        })
+    appointment_status_json = json.dumps(appointment_status_breakdown)
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEW: Visits per Pet (for chart)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    visits_per_pet = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        **appt_branch_filter,
+    ).exclude(status='CANCELLED').values('pet__name').annotate(
+        visits=Count('id')
+    ).order_by('-visits')[:6]
+    visits_per_pet_json = json.dumps(list(visits_per_pet))
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEW: Recent completed appointments (for medical records section)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    recent_completed = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        status='COMPLETED',
+        **appt_branch_filter,
+    ).select_related('branch', 'preferred_vet', 'pet').order_by('-appointment_date')[:5]
+
+    # Upcoming appointments pagination
+    paginator_upcoming = Paginator(upcoming_appointments, 3)
+    upcoming_page_number = request.GET.get('upcoming_page')
+    paginated_upcoming = paginator_upcoming.get_page(upcoming_page_number)
+
+    return render(request, 'accounts/user_dashboard.html', {
+        # Basic stats
+        'pet_count': pet_count,
+        'upcoming_appointments': paginated_upcoming,
+        'upcoming_count': upcoming_count,
+        'upcoming_confirmed': upcoming_confirmed,
+        'upcoming_pending': upcoming_pending,
+        'follow_ups': follow_ups,
+        'follow_up_count': follow_up_count,
+        'overdue_follow_ups': overdue_follow_ups,
+        'unread_notif_count': unread_notif_count,
+        'recent_activities': recent_activities,
+        'pet_species_breakdown': pet_species_breakdown,
+        'pet_species_json': pet_species_json,
+        'vaccination_appointments': vaccination_appointments,
+        'cancelled_appointments_count': cancelled_appointments_count,
+        'appointments_this_month': appointments_this_month,
+        'pending_reservations': pending_reservations,
+        'approved_reservations': approved_reservations,
+        
+        # New: Financial data
+        'total_spent_this_year': total_spent_this_year,
+        'total_spent_all_time': total_spent_all_time,
+        'spending_breakdown_json': spending_breakdown_json,
+        
+        # New: Chart data
+        'monthly_appointments_json': monthly_appointments_json,
+        'pet_health_json': pet_health_json,
+        'appointment_status_json': appointment_status_json,
+        'visits_per_pet_json': visits_per_pet_json,
+        
+        # New: Recent medical records
+        'recent_completed': recent_completed,
+    })
+
+
+@login_required
+def profile_view(request):
+    """User profile page."""
+    from .forms import UserProfileUpdateForm
+    if request.method == 'POST':
+        form = UserProfileUpdateForm(
+            request.POST, request.FILES, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Your profile was successfully updated.')
+            return redirect('profile')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = UserProfileUpdateForm(instance=request.user)
+
+    if request.user.is_clinic_staff():
+        template_name = 'accounts/profile_admin.html'
+    else:
+        template_name = 'accounts/profile.html'
+
+    return render(request, template_name, {
+        'user': request.user,
+        'form': form,
+    })
+
+
+@login_required
+@staff_only
+def admin_dashboard_view(request):
+    """Admin portal dashboard — restricted to clinic staff roles."""
+    from appointments.models import Appointment
+    from patients.models import Pet
+    from employees.models import StaffMember
+    from notifications.models import Notification
+    from pos.models import Sale, Payment, SaleItem
+    from inventory.models import Product
+    from billing.models import Service
+    from inquiries.models import Inquiry
+
+    # Check if user is a veterinarian and redirect to vet dashboard
+    if request.user.assigned_role and request.user.assigned_role.code == 'veterinarian':
+        return redirect('vet_dashboard')
+
+    # Check if user is a vet assistant and redirect to vet dashboard
+    if request.user.assigned_role and request.user.assigned_role.code == 'vet_assistant':
+        return redirect('vet_dashboard')
+
+    # Check if user is a receptionist and redirect to receptionist dashboard
+    if request.user.assigned_role and request.user.assigned_role.code == 'receptionist':
+        return redirect('receptionist_dashboard')
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    # ── Active patients ──
+    patient_count = Pet.objects.count()
+
+    # ── Staff ──
+    total_staff = StaffMember.objects.count()
+    active_staff = StaffMember.objects.filter(is_active=True).count()
+
+    # ── Branches ──
+    branches = Branch.objects.filter(is_active=True)
+
+    # ── Recent appointments (activity) ──
+    # Filter out appointments where the pet has been deleted (pet=NULL)
+    recent_appointments = Appointment.objects.filter(
+        pet__isnull=False
+    ).select_related(
+        'branch', 'preferred_vet'
+    ).order_by('-created_at')[:5]
+
+    # ── Unread notifications ──
+    unread_notif_count = Notification.scoped_for_user(request.user).filter(
+        is_read=False
+    ).count()
+
+    # ─── COMPREHENSIVE ANALYTICS ───
+
+    # Revenue chart data (last 7 days)
+    revenue_by_day = []
+    for i in range(7):
+        day = today - timedelta(days=6-i)
+        
+        sales_q = Sale.objects.filter(
+            created_at__range=get_day_bounds(day),
+            status='COMPLETED'
+        )
+        if not request.user.is_admin_role():
+            sales_q = sales_q.filter(branch=request.user.branch)
+            
+        daily_revenue = sales_q.aggregate(total=Sum('total'))['total'] or 0
+        
+        revenue_by_day.append({
+            'date': day.strftime('%a'),
+            'revenue': float(daily_revenue)
+        })
+
+    # Monthly revenue chart data (last 6 months)
+    monthly_revenue_data = []
+    for i in range(6):
+        # Calculate the first day of the month, i months ago
+        if i == 0:
+            # Current month
+            month_start = today.replace(day=1)
+        else:
+            # Previous months
+            if today.month - i <= 0:
+                month_start = today.replace(year=today.year - 1, month=today.month - i + 12, day=1)
+            else:
+                month_start = today.replace(month=today.month - i, day=1)
+        
+        # Calculate the last day of that month
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
+        
+        # Calculate revenue for that month
+        if request.user.is_admin_role():  # HQ admin sees all branches
+            monthly_revenue = Sale.objects.filter(
+                created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(month_end)[1]),
+                status='COMPLETED'
+            ).aggregate(total=Sum('total'))['total'] or 0
+        else:  # Branch admin sees only their branch
+            monthly_revenue = Sale.objects.filter(
+                branch=request.user.branch,
+                created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(month_end)[1]),
+                status='COMPLETED'
+            ).aggregate(total=Sum('total'))['total'] or 0
+            
+        monthly_revenue_data.insert(0, {  # Insert at beginning to maintain chronological order
+            'month': month_start.strftime('%b %Y'),
+            'revenue': float(monthly_revenue)
+        })
+
+    # Appointment by status breakdown
+    appointment_status_breakdown = [
+        {'status': 'Pending', 'count': Appointment.objects.filter(status='PENDING', pet__isnull=False).count()},
+        {'status': 'Confirmed', 'count': Appointment.objects.filter(status='CONFIRMED', pet__isnull=False).count()},
+        {'status': 'Completed', 'count': Appointment.objects.filter(status='COMPLETED', pet__isnull=False).count()},
+        {'status': 'Cancelled', 'count': Appointment.objects.filter(status='CANCELLED', pet__isnull=False).count()},
+    ]
+
+    # ─── WEEKLY PERFORMANCE COMPARISON DATA ───
+    last_week_start = week_start - timedelta(days=7)
+    last_week_end = week_start - timedelta(days=1)
+    
+    # This week metrics
+    this_week_appointments = Appointment.objects.filter(
+        appointment_date__gte=week_start,
+        appointment_date__lte=week_end,
+        pet__isnull=False
+    ).count()
+    
+    this_week_completed = Appointment.objects.filter(
+        appointment_date__gte=week_start,
+        appointment_date__lte=week_end,
+        pet__isnull=False,
+        status='COMPLETED'
+    ).count()
+    
+    this_week_revenue = Sale.objects.filter(
+        created_at__gte=get_day_bounds(week_start)[0],
+        created_at__lte=get_day_bounds(week_end)[1],
+        status='COMPLETED'
+    ).aggregate(total=Sum('total'))['total'] or 0
+    this_week_revenue_k = round(float(this_week_revenue) / 1000, 1)
+    
+    this_week_products = SaleItem.objects.filter(
+        sale__created_at__gte=get_day_bounds(week_start)[0],
+        sale__created_at__lte=get_day_bounds(week_end)[1],
+        sale__status='COMPLETED'
+    ).aggregate(total=Sum('quantity'))['total'] or 0
+    
+    # Last week metrics
+    last_week_appointments = Appointment.objects.filter(
+        appointment_date__gte=last_week_start,
+        appointment_date__lte=last_week_end,
+        pet__isnull=False
+    ).count()
+    
+    last_week_completed = Appointment.objects.filter(
+        appointment_date__gte=last_week_start,
+        appointment_date__lte=last_week_end,
+        pet__isnull=False,
+        status='COMPLETED'
+    ).count()
+    
+    last_week_customers = User.objects.filter(
+        date_joined__date__gte=last_week_start,
+        date_joined__date__lte=last_week_end
+    ).count()
+    
+    last_week_revenue = Sale.objects.filter(
+        created_at__gte=get_day_bounds(last_week_start)[0],
+        created_at__lte=get_day_bounds(last_week_end)[1],
+        status='COMPLETED'
+    ).aggregate(total=Sum('total'))['total'] or 0
+    last_week_revenue_k = round(float(last_week_revenue) / 1000, 1)
+    
+    last_week_products = SaleItem.objects.filter(
+        sale__created_at__gte=get_day_bounds(last_week_start)[0],
+        sale__created_at__lte=get_day_bounds(last_week_end)[1],
+        sale__status='COMPLETED'
+    ).aggregate(total=Sum('quantity'))['total'] or 0
+
+    # Branch-wise appointment statistics
+    branch_appointments = Branch.objects.filter(is_active=True).annotate(
+        appointment_count=Count('appointments', filter=Q(appointments__pet__isnull=False)),
+        completed_count=Count('appointments', filter=Q(
+            appointments__pet__isnull=False,
+            appointments__status='COMPLETED'
+        ))
+    ).values('name', 'appointment_count', 'completed_count')
+
+    # Staff performance metrics
+    staff_performance = StaffMember.objects.filter(is_active=True).annotate(
+        total_appointments=Count('appointments', filter=Q(appointments__pet__isnull=False)),
+        completed_appointments=Count('appointments', filter=Q(
+            appointments__pet__isnull=False,
+            appointments__status='COMPLETED'
+        ))
+    ).values('first_name', 'last_name', 'total_appointments', 'completed_appointments')
+
+    # Inventory value calculation
+    total_inventory_value = sum(
+        product.inventory_value for product in Product.objects.all()
+    ) or 0
+
+    # Expiring products list (next 30 days)
+    expiring_products = Product.objects.filter(
+        expiration_date__isnull=False,
+        expiration_date__gte=today,
+        expiration_date__lte=today + timedelta(days=30),
+        is_available=True
+    ).order_by('expiration_date')[:10]
+
+    # Pet species breakdown
+    pet_species_breakdown_query = Pet.objects.values('species').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Convert to list and calculate percentages
+    pet_species_breakdown = list(pet_species_breakdown_query)
+    if pet_species_breakdown:
+        max_count = pet_species_breakdown[0]['count'] or 1
+        pet_count = sum(item['count'] for item in pet_species_breakdown)
+        for species in pet_species_breakdown:
+            species['percentage'] = (species['count'] / pet_count * 100) if pet_count > 0 else 0
+
+    # Appointment sources (WALKIN vs PORTAL)
+    appointment_sources = {
+        'WALKIN': Appointment.objects.filter(
+            source='WALKIN', pet__isnull=False
+        ).count(),
+        'PORTAL': Appointment.objects.filter(
+            source='PORTAL', pet__isnull=False
+        ).count(),
+    }
+
+    # Business metrics
+    total_revenue_this_week = Sale.objects.filter(
+        created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
+        status='COMPLETED'
+    ).aggregate(total=Sum('total'))['total'] or 0
+
+    total_revenue_last_week = Sale.objects.filter(
+        created_at__range=(get_day_bounds(week_start - timedelta(days=7))[0], get_day_bounds(week_start - timedelta(days=1))[1]),
+        status='COMPLETED'
+    ).aggregate(total=Sum('total'))['total'] or 0
+
+    revenue_growth = (
+        ((total_revenue_this_week - total_revenue_last_week) / total_revenue_last_week * 100)
+        if total_revenue_last_week > 0 else 0
+    )
+
+    total_cancelled = Appointment.objects.filter(
+        status='CANCELLED', pet__isnull=False
+    ).count()
+    total_appointments = Appointment.objects.filter(
+        pet__isnull=False
+    ).count()
+    cancellation_rate = (
+        (total_cancelled / total_appointments * 100)
+        if total_appointments > 0 else 0
+    )
+
+    # New patients this week
+    new_patients_this_week = Pet.objects.filter(
+        created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(today)[1])
+    ).count()
+
+    # Customer analytics (new vs returning)
+    # Count new user registrations (customers) this week
+    # Include users with no role or non-staff roles (pet owners)
+    new_customers_this_week = User.objects.filter(
+        date_joined__date__range=[week_start, today],
+        is_superuser=False
+    ).exclude(
+        assigned_role__is_staff_role=True
+    ).count()
+
+    # Count returning customers (users who booked appointments this week but joined before this week)
+    returning_customers_this_week = Appointment.objects.filter(
+        created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(today)[1]),
+        user__date_joined__date__lt=week_start,
+        pet__isnull=False
+    ).values('user').distinct().count()
+
+    # Service breakdown (consultation types)
+    services_q = Service.objects.all()
+
+    service_breakdown_query = services_q.annotate(
+        usage_count=Count('sale_items__sale', filter=Q(sale_items__sale__status='COMPLETED'))
+    ).values('name', 'usage_count').order_by('-usage_count')[:10]
+    
+    # Convert to list and calculate percentages
+    service_breakdown = list(service_breakdown_query)
+    if service_breakdown:
+        max_count = service_breakdown[0]['usage_count'] or 1
+        for service in service_breakdown:
+            service['percentage'] = (service['usage_count'] / max_count * 100) if max_count > 0 else 0
+
+    # Payment method statistics
+    payment_method_stats = Payment.objects.filter(
+        sale__status='COMPLETED'
+    ).values('method').annotate(
+        count=Count('id'),
+        total=Sum('amount')
+    ).order_by('-count')
+
+    # Pet health status distribution
+    pet_health_stats = [
+        {'status': 'HEALTHY', 'count': Pet.objects.filter(clinical_status__code='HEALTHY').count()},
+        {'status': 'MONITOR', 'count': Pet.objects.filter(clinical_status__code='MONITOR').count()},
+        {'status': 'TREATMENT', 'count': Pet.objects.filter(clinical_status__code='TREATMENT').count()},
+        {'status': 'SURGERY', 'count': Pet.objects.filter(clinical_status__code='SURGERY').count()},
+        {'status': 'DIAGNOSTICS', 'count': Pet.objects.filter(clinical_status__code='DIAGNOSTICS').count()},
+        {'status': 'CRITICAL', 'count': Pet.objects.filter(clinical_status__code='CRITICAL').count()},
+    ]
+
+    # Low stock alerts and refunds
+    low_stock_products = Product.objects.filter(
+        stock_quantity__lte=F('min_stock_level'),
+        is_available=True
+    ).order_by('stock_quantity')[:10]
+    
+    low_stock_count = low_stock_products.count()
+
+    refunds_today = Sale.objects.filter(
+        created_at__range=get_day_bounds(today),
+        status='REFUNDED'
+    ).aggregate(total=Sum('total'))['total'] or 0
+
+    # ── New Inquiries ──
+    # Wrap in try/except in case migrations haven't been run yet
+    try:
+        new_inquiry_count = Inquiry.objects.filter(status='NEW').count()
+        recent_inquiries = Inquiry.objects.filter(
+            status='NEW'
+        ).select_related('branch').order_by('-created_at')[:5]
+    except Exception:
+        # Table doesn't exist yet (migrations not run)
+        new_inquiry_count = 0
+        recent_inquiries = []
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # MULTI-BRANCH ANALYTICS (HQ VIEW)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # Check if user is HQ admin (can see all branches)
+    is_hq_admin = request.user.hierarchy_level >= 10 if hasattr(request.user, 'hierarchy_level') else False
+
+    # Branch Customer Distribution (This Week) - for pie chart with percentages
+    branch_customer_data = []
+    total_customers_all_branches = 0
+    
+    for branch in branches:
+        # Count branch-linked pet owners using both Pet.branch and owner.branch.
+        # Older records often only have the owner branch populated, so we use
+        # both sources to keep the card accurate.
+        base_qs = Pet.objects.filter(
+            Q(branch=branch) | Q(owner__branch=branch) | Q(appointments__branch=branch)
+        )
+        registered_customers = base_qs.filter(owner__isnull=False).values('owner_id').distinct().count()
+        walkin_customers = base_qs.filter(owner__isnull=True).exclude(guest_owner_name='').values('guest_owner_name').distinct().count()
+        total_branch_customers = registered_customers + walkin_customers
+        total_customers_all_branches += total_branch_customers
+        
+        branch_customer_data.append({
+            'name': branch.name,
+            'customers': total_branch_customers,
+            'percentage': 0  # Will calculate after totaling
+        })
+    
+    # Calculate percentages
+    for branch_data in branch_customer_data:
+        if total_customers_all_branches > 0:
+            branch_data['percentage'] = round(
+                (branch_data['customers'] / total_customers_all_branches) * 100, 1
+            )
+
+    # Branch Revenue Comparison (This Week)
+    branch_revenue_data = []
+    total_revenue_all_branches = Decimal('0')
+    
+    for branch in branches:
+        branch_revenue = Sale.objects.filter(
+            branch=branch,
+            created_at__gte=get_day_bounds(week_start)[0],
+            created_at__lte=get_day_bounds(week_end)[1],
+            status='COMPLETED'
+        ).aggregate(total=Sum('total'))['total'] or Decimal('0')
+        
+        total_revenue_all_branches += branch_revenue
+        
+        branch_revenue_data.append({
+            'name': branch.name,
+            'revenue': float(branch_revenue),
+            'percentage': 0
+        })
+    
+    # Calculate revenue percentages
+    for branch_data in branch_revenue_data:
+        if total_revenue_all_branches > 0:
+            branch_data['percentage'] = round(
+                (Decimal(str(branch_data['revenue'])) / total_revenue_all_branches) * 100, 1
+            )
+
+    # Branch Appointment Count (This Week)
+    branch_appointment_data = []
+    total_appointments_all_branches = 0
+    
+    for branch in branches:
+        appt_count = Appointment.objects.filter(
+            branch=branch,
+            appointment_date__gte=week_start,
+            appointment_date__lte=week_end,
+            pet__isnull=False
+        ).count()
+        
+        total_appointments_all_branches += appt_count
+        
+        branch_appointment_data.append({
+            'name': branch.name,
+            'appointments': appt_count,
+            'percentage': 0
+        })
+    
+    # Calculate appointment percentages
+    for branch_data in branch_appointment_data:
+        if total_appointments_all_branches > 0:
+            branch_data['percentage'] = round(
+                (branch_data['appointments'] / total_appointments_all_branches) * 100, 1
+            )
+
+    # Branch Trend Data (Last 7 Days) - for multi-line chart
+    branch_trend_data = {branch.name: [] for branch in branches}
+    trend_labels = []
+    
+    for i in range(7):
+        day = today - timedelta(days=6-i)
+        trend_labels.append(day.strftime('%a'))
+        
+        for branch in branches:
+            day_customers = Appointment.objects.filter(
+                branch=branch,
+                appointment_date=day,
+                pet__isnull=False
+            ).values('user').distinct().count()
+            
+            # Add walk-ins
+            day_walkins = Appointment.objects.filter(
+                branch=branch,
+                appointment_date=day,
+                pet__isnull=False,
+                user__isnull=True
+            ).count()
+            
+            branch_trend_data[branch.name].append(day_customers + day_walkins)
+
+    # Monthly Branch Performance (Last 6 months)
+    branch_monthly_data = {branch.name: [] for branch in branches}
+    monthly_labels = []
+    
+    for i in range(5, -1, -1):
+        # Calculate month offset
+        month_date = today.replace(day=1)
+        for _ in range(i):
+            month_date = (month_date - timedelta(days=1)).replace(day=1)
+        
+        monthly_labels.append(month_date.strftime('%b'))
+        
+        # Get last day of month
+        if month_date.month == 12:
+            next_month = month_date.replace(year=month_date.year + 1, month=1)
+        else:
+            next_month = month_date.replace(month=month_date.month + 1)
+        last_day = (next_month - timedelta(days=1)).day
+        month_end = month_date.replace(day=last_day)
+        
+        for branch in branches:
+            # Count branch-linked owners registered up to the end of this month.
+            base_qs = Pet.objects.filter(
+                (Q(branch=branch) | Q(owner__branch=branch) | Q(appointments__branch=branch)) &
+                Q(created_at__lte=get_day_bounds(month_end)[1])
+            )
+            registered_customers = base_qs.filter(owner__isnull=False).values('owner_id').distinct().count()
+            walkin_customers = base_qs.filter(owner__isnull=True).exclude(guest_owner_name='').values('guest_owner_name').distinct().count()
+            monthly_customers = registered_customers + walkin_customers
+            
+            branch_monthly_data[branch.name].append(monthly_customers)
+
+    # Branch colors for consistent styling
+    branch_colors = ['#009688', '#00BCD4', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0']
+
+    # Convert data to JSON for charts (use DjangoJSONEncoder for Decimal support)
+    revenue_by_day_json = json.dumps(revenue_by_day, cls=DjangoJSONEncoder)
+    monthly_revenue_data_json = json.dumps(monthly_revenue_data, cls=DjangoJSONEncoder)
+    appointment_status_breakdown_json = json.dumps(appointment_status_breakdown, cls=DjangoJSONEncoder)
+    pet_species_breakdown_json = json.dumps(pet_species_breakdown, cls=DjangoJSONEncoder)
+    payment_method_stats_list = list(payment_method_stats)
+    payment_method_stats_json = json.dumps(payment_method_stats_list, cls=DjangoJSONEncoder)
+    appointment_sources_json = json.dumps([
+        {'source': 'Walk-in', 'count': appointment_sources['WALKIN']},
+        {'source': 'Online Portal', 'count': appointment_sources['PORTAL']}
+    ], cls=DjangoJSONEncoder)
+    
+    # Multi-branch chart data JSON
+    branch_customer_json = json.dumps(branch_customer_data, cls=DjangoJSONEncoder)
+    branch_revenue_json = json.dumps(branch_revenue_data, cls=DjangoJSONEncoder)
+    branch_appointment_json = json.dumps(branch_appointment_data, cls=DjangoJSONEncoder)
+    branch_trend_json = json.dumps({
+        'labels': trend_labels,
+        'datasets': branch_trend_data
+    }, cls=DjangoJSONEncoder)
+    branch_monthly_json = json.dumps({
+        'labels': monthly_labels,
+        'datasets': branch_monthly_data
+    }, cls=DjangoJSONEncoder)
+    branch_colors_json = json.dumps(branch_colors[:len(branches)], cls=DjangoJSONEncoder)
+
+    return render(request, 'accounts/admin_dashboard.html', {
+        'patient_count': patient_count,
+        'total_staff': total_staff,
+        'active_staff': active_staff,
+        'branches': branches,
+        'recent_appointments': recent_appointments,
+        'unread_notif_count': unread_notif_count,
+        'revenue_by_day': revenue_by_day_json,
+        'monthly_revenue_data': monthly_revenue_data_json,
+        'appointment_status_breakdown': appointment_status_breakdown_json,
+        'branch_appointments': branch_appointments,
+        'staff_performance': staff_performance,
+        'total_inventory_value': total_inventory_value,
+        'expiring_products': expiring_products,
+        'pet_species_breakdown': pet_species_breakdown,
+        'pet_species_breakdown_json': pet_species_breakdown_json,
+        'appointment_sources': appointment_sources,
+        'appointment_sources_json': appointment_sources_json,
+        'revenue_growth': revenue_growth,
+        'cancellation_rate': cancellation_rate,
+        'new_patients_this_week': new_patients_this_week,
+        'new_customers_this_week': new_customers_this_week,
+        'returning_customers_this_week': returning_customers_this_week,
+        'service_breakdown': service_breakdown,
+        'payment_method_stats': payment_method_stats_list,
+        'payment_method_stats_json': payment_method_stats_json,
+        'pet_health_stats': pet_health_stats,
+        'low_stock_products': low_stock_products,
+        'low_stock_count': low_stock_count,
+        'refunds_today': refunds_today,
+        'total_revenue_this_week': total_revenue_this_week,
+        'new_inquiry_count': new_inquiry_count,
+        'recent_inquiries': recent_inquiries,
+        # Multi-branch analytics
+        'is_hq_admin': is_hq_admin,
+        'branch_customer_data': branch_customer_data,
+        'branch_customer_json': branch_customer_json,
+        'branch_revenue_data': branch_revenue_data,
+        'branch_revenue_json': branch_revenue_json,
+        'branch_appointment_data': branch_appointment_data,
+        'branch_appointment_json': branch_appointment_json,
+        'branch_trend_json': branch_trend_json,
+        'branch_monthly_json': branch_monthly_json,
+        'branch_colors_json': branch_colors_json,
+        'total_customers_all_branches': total_customers_all_branches,
+        'total_revenue_all_branches': float(total_revenue_all_branches),
+        'total_appointments_all_branches': total_appointments_all_branches,
+        # Weekly comparison chart data
+        'this_week_appointments': this_week_appointments,
+        'this_week_completed': this_week_completed,
+        'this_week_revenue_k': this_week_revenue_k,
+        'this_week_products': this_week_products,
+        'last_week_appointments': last_week_appointments,
+        'last_week_completed': last_week_completed,
+        'last_week_customers': last_week_customers,
+        'last_week_revenue_k': last_week_revenue_k,
+        'last_week_products': last_week_products,
+    })
+
+
+@login_required
+@staff_only
+def vet_dashboard_view(request):
+    """
+    Veterinarian / Vet-Assistant dashboard.
+
+    Design principles
+    ─────────────────
+    • A vet's patient universe = pets reached via Appointment.preferred_vet
+      UNION pets reached via MedicalRecord.vet.  This single queryset
+      (`vet_pet_qs`) is built once and reused everywhere.
+    • Calendar months use the exact `get_month_offset()` helper (no timedelta
+      approximation) to guarantee correct labels and zero duplicates.
+    • Every context variable is always initialised so the template never
+      crashes, even when `staff_profile` is None.
+    """
+    from appointments.models import Appointment
+    from patients.models import Pet
+    from employees.models import StaffMember, VetSchedule
+    from notifications.models import Notification, FollowUp
+    from records.models import MedicalRecord, RecordEntry
+
+    today = date.today()
+    week_end = today + timedelta(days=7)
+    month_start = date(today.year, today.month, 1)
+    if today.month == 12:
+        month_end = date(today.year + 1, 1, 1) - timedelta(days=1)
+    else:
+        month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
+
+    try:
+        staff_profile = request.user.staff_profile
+    except StaffMember.DoesNotExist:
+        staff_profile = None
+
+    is_vet_assistant = (
+        request.user.assigned_role
+        and request.user.assigned_role.code == 'vet_assistant'
+    )
+    dashboard_title = (
+        "Vet Assistant Dashboard" if is_vet_assistant
+        else "Veterinarian Dashboard"
+    )
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # BRANCH RESTRICTIONS & FILTERING
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # Get the vet's assigned branch
+    user_branch = request.user.branch
+
+    # Helper to produce branch filters per-module only when the user's role
+    # restricts that module to the user's branch. This avoids accidentally
+    # filtering data for users who are not branch-restricted but happen to
+    # have a branch set on their profile.
+    def branch_q(module_code, field='branch', prefix=''):
+        if request.user.is_module_branch_restricted(module_code):
+            return {f"{prefix}{field}": user_branch} if user_branch else {}
+        return {}
+
+    # Common filters for vet modules
+    appt_filter = branch_q('appointments')
+    patients_filter = branch_q('patients')
+    records_filter = branch_q('medical_records')
+
+    # Veterinarian dashboard is branch-scoped to the account branch.
+    if user_branch:
+        appt_filter['branch'] = user_branch
+        records_filter['branch'] = user_branch
+
+    # Safety guard: without an assigned branch, branch-scoped metrics must be empty.
+    appt_restricted_no_branch = not user_branch
+    patients_restricted_no_branch = not user_branch
+    records_restricted_no_branch = not user_branch
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # VET'S PATIENT UNIVERSE (Branch-wide)
+    # ═══════════════════════════════════════════════════════════════════════
+    # A pet belongs to this vet if it belongs to their branch:
+    if staff_profile and not patients_restricted_no_branch:
+        vet_pet_qs = Pet.objects.filter(
+            Q(owner__branch=user_branch) |
+            Q(branch=user_branch) |
+            Q(appointments__branch=user_branch) |
+            Q(medical_records__branch=user_branch)
+        ).distinct()
+    else:
+        vet_pet_qs = Pet.objects.none()
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # HERO STAT CARDS
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # 1) Today's appointments ──────────────────────────────────────────────
+    if staff_profile and not appt_restricted_no_branch:
+        todays_appointments = (
+            Appointment.objects.filter(
+                appointment_date=today,
+                preferred_vet=staff_profile,
+                pet__isnull=False,
+                **appt_filter
+            )
+            .exclude(status='CANCELLED')
+            .select_related('pet', 'branch', 'preferred_vet')
+            .order_by('appointment_time')
+        )
+        all_branch_appointments_today = (
+            Appointment.objects.filter(
+                appointment_date=today,
+                pet__isnull=False,
+                **appt_filter
+            )
+            .exclude(status='CANCELLED')
+            .select_related('pet', 'branch', 'preferred_vet')
+            .order_by('appointment_time')
+        )
+    else:
+        todays_appointments = Appointment.objects.none()
+        all_branch_appointments_today = Appointment.objects.none()
+
+    today_count = all_branch_appointments_today.count()
+
+    # 2) Assigned patients (all-time) ─────────────────────────────────────
+    assigned_patients = vet_pet_qs.count()
+
+    # 3) Completed consultations (all-time) ───────────────────────────────
+    if staff_profile and not appt_restricted_no_branch:
+        completed_consultations = Appointment.objects.filter(
+            status='COMPLETED',
+            pet__isnull=False,
+            **appt_filter
+        ).count()
+    else:
+        completed_consultations = 0
+
+    # 4) Medical records (all-time) ───────────────────────────────────────
+    if staff_profile and not records_restricted_no_branch:
+        medical_records_count = MedicalRecord.objects.filter(
+            **records_filter
+        ).count()
+    else:
+        medical_records_count = 0
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # SCHEDULE, UPCOMING & FOLLOW-UPS
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # Upcoming appointments (next 7 days) ─────────────────────────────────
+    if staff_profile and not appt_restricted_no_branch:
+        upcoming_appointments = (
+            Appointment.objects.filter(
+                appointment_date__gt=today,
+                appointment_date__lte=week_end,
+                pet__isnull=False,
+                **appt_filter
+            )
+            .exclude(status='CANCELLED')
+            .select_related('pet', 'branch')
+            .order_by('appointment_date', 'appointment_time')
+        )
+    else:
+        upcoming_appointments = Appointment.objects.none()
+
+    upcoming_count = upcoming_appointments.count()
+
+    # This week's schedule ────────────────────────────────────────────────
+    if staff_profile and user_branch:
+        this_week_schedule = (
+            VetSchedule.objects.filter(
+                staff=staff_profile,
+                branch=user_branch,
+                date__gte=today,
+                date__lte=week_end,
+            )
+            .select_related('branch')
+            .order_by('date', 'start_time')[:7]
+        )
+    else:
+        this_week_schedule = VetSchedule.objects.none()
+
+    # Pending follow-ups (includes overdue — sorted earliest-first) ───────
+    if staff_profile and not appt_restricted_no_branch:
+        follow_ups = (
+            FollowUp.objects.filter(
+                is_completed=False,
+                **{f"appointment__{k}": v for k, v in appt_filter.items()}
+            )
+            .select_related('appointment', 'appointment__pet')
+            .order_by('follow_up_date')[:10]
+        )
+    else:
+        follow_ups = FollowUp.objects.none()
+
+    follow_up_count = follow_ups.count()
+
+    # Unread notifications ────────────────────────────────────────────────
+    unread_notif_count = Notification.scoped_for_user(request.user).filter(
+        is_read=False,
+    ).count()
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # CHART 1 — PATIENT HEALTH STATUS  (pie chart)
+    # ═══════════════════════════════════════════════════════════════════════
+    # Groups pets from the vet's universe by their current clinical_status.
+
+    patient_status_distribution = []
+    if staff_profile and not patients_restricted_no_branch:
+        status_counts = {}
+        for pet in vet_pet_qs.select_related('clinical_status').iterator():
+            cs = pet.clinical_status
+            name  = cs.name  if cs else 'Unassigned'
+            code  = cs.code  if cs else 'UNKNOWN'
+            color = cs.color if cs else '#94a3b8'
+            key = (name, code, color)
+            status_counts[key] = status_counts.get(key, 0) + 1
+
+        patient_status_distribution = sorted(
+            [
+                {'status': n, 'code': c, 'color': cl, 'count': ct}
+                for (n, c, cl), ct in status_counts.items()
+            ],
+            key=lambda x: x['count'],
+            reverse=True,
+        )
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # CHART 2 — APPOINTMENT TYPES  (doughnut chart)
+    # ═══════════════════════════════════════════════════════════════════════
+    # All-time breakdown of appointment reasons for this branch.
+
+    consultation_reasons = []
+    if staff_profile and not appt_restricted_no_branch:
+        reasons_qs = (
+            Appointment.objects.filter(
+                pet__isnull=False,
+                **appt_filter
+            )
+            .values('reason_for_visit__name')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+        consultation_reasons = list(reasons_qs)
+        if consultation_reasons:
+            total_reasons = sum(r['count'] for r in consultation_reasons)
+            for r in consultation_reasons:
+                r['reason'] = r.pop('reason_for_visit__name') or 'Unspecified'
+                r['percentage'] = (
+                    round(r['count'] / total_reasons * 100, 1)
+                    if total_reasons > 0 else 0
+                )
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # CHART 3 — WEEKLY WORKLOAD  (bar chart, Mon–Sun)
+    # ═══════════════════════════════════════════════════════════════════════
+    # Index 0 = Monday … 6 = Sunday
+
+    weekly_workload = [0] * 7
+    if staff_profile and not appt_restricted_no_branch:
+        # Monday-aligned start of the current week
+        py_dow = today.weekday()                   # Mon=0 … Sun=6
+        start_of_week = today - timedelta(days=py_dow)
+        end_of_week = start_of_week + timedelta(days=6)
+
+        # Single aggregate query for the whole week for this branch
+        week_daily = (
+            Appointment.objects.filter(
+                pet__isnull=False,
+                appointment_date__gte=start_of_week,
+                appointment_date__lte=end_of_week,
+                **appt_filter
+            )
+            .exclude(status='CANCELLED')
+            .values('appointment_date')
+            .annotate(cnt=Count('id'))
+        )
+        for row in week_daily:
+            # Convert DB date → Mon-based index (Mon=0, Sun=6)
+            d = row['appointment_date']
+            idx = d.weekday()
+            weekly_workload[idx] = row['cnt']
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # CHART 4 — MONTHLY PERFORMANCE  (line graph, last 6 calendar months)
+    # ═══════════════════════════════════════════════════════════════════════
+    monthly_labels     = []
+    monthly_registered = []
+    monthly_walkin     = []
+
+    for months_back in range(5, -1, -1):
+        m_start = get_month_offset(today, months_back)
+        if m_start.month == 12:
+            m_end = date(m_start.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            m_end = date(m_start.year, m_start.month + 1, 1) - timedelta(days=1)
+
+        monthly_labels.append(m_start.strftime('%b'))
+
+        if staff_profile and not patients_restricted_no_branch:
+            # Count pets CREATED in this month belonging to the branch universe
+            month_pets = vet_pet_qs.filter(created_at__range=[m_start, m_end])
+            monthly_registered.append(month_pets.filter(source='PORTAL').count())
+            monthly_walkin.append(month_pets.filter(source='WALKIN').count())
+        else:
+            monthly_registered.append(0)
+            monthly_walkin.append(0)
+
+
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # INSIGHT CARDS
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # ── Average daily consultations (last 30 days) ───────────────────────
+    # Divide by actual working days (days that had at least 1 appt), not always 30.
+    if staff_profile and not appt_restricted_no_branch:
+        last_30_appts = Appointment.objects.filter(
+            appointment_date__range=[today - timedelta(days=30), today],
+            status='COMPLETED',
+            pet__isnull=False,
+            **appt_filter,
+        )
+        last_30_count = last_30_appts.count()
+        working_days = last_30_appts.values('appointment_date').distinct().count()
+        avg_daily_consultations = round(last_30_count / working_days, 1) if working_days > 0 else 0
+    else:
+        avg_daily_consultations = 0
+
+    # ── Patient Flow (this month) ────────────────────────────────────────
+    if staff_profile and not patients_restricted_no_branch:
+        # Count pets strictly registered this month belonging to the branch's universe (up to today)
+        new_patients_this_month = vet_pet_qs.filter(
+            created_at__range=[month_start, today + timedelta(days=1)]
+        ).count()
+
+        # Total unique patients seen this month for the entire branch (including upcoming)
+        total_patients_this_month = Appointment.objects.filter(
+            appointment_date__range=[month_start, month_end],
+            pet__isnull=False,
+            **appt_filter,
+        ).exclude(status='CANCELLED').values('pet').distinct().count()
+    else:
+        new_patients_this_month = 0
+        total_patients_this_month = 0
+
+    # ── Clinical Activity (this month) ───────────────────────────────────
+    # Uses ALL non-cancelled appointments this month (not just completed)
+    # so that pending/confirmed appointments are also counted for the entire branch.
+    _month_appts_all = Appointment.objects.none()
+    _month_appts_completed = Appointment.objects.none()
+    if staff_profile and not appt_restricted_no_branch:
+        _base_filter = dict(
+            appointment_date__range=[month_start, month_end],
+            pet__isnull=False,
+            **appt_filter
+        )
+
+        _month_appts_all = Appointment.objects.filter(
+            **_base_filter
+        ).exclude(status='CANCELLED')
+
+        _month_appts_completed = Appointment.objects.filter(
+            status='COMPLETED', **_base_filter
+        )
+
+    clinical_activities = list(
+        _month_appts_all.exclude(reason_for_visit__isnull=True)
+        .values('reason_for_visit__name')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:3]
+    )
+
+    # ── Monthly Summary ──────────────────────────────────────────────────
+    if staff_profile and not records_restricted_no_branch:
+        medical_records_this_month = MedicalRecord.objects.filter(
+            **records_filter,
+            date_recorded__range=[month_start, month_end],
+        ).count()
+
+        consultations_this_month = _month_appts_completed.count()
+
+        # Branch-level cancelled: any appt at this vet's branch OR assigned to this vet
+        cancelled_this_month = Appointment.objects.filter(
+            appointment_date__range=[month_start, month_end],
+            status='CANCELLED',
+            pet__isnull=False,
+            **appt_filter,
+        ).distinct().count()
+    else:
+        medical_records_this_month = 0
+        consultations_this_month = 0
+        cancelled_this_month = 0
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # RENDER
+    # ═══════════════════════════════════════════════════════════════════════
+
+    return render(request, 'accounts/vet_dashboard.html', {
+        # Hero stats
+        'today_count': today_count,
+        'assigned_patients': assigned_patients,
+        'completed_consultations': completed_consultations,
+        'medical_records_count': medical_records_count,
+        # Schedule & lists
+        'todays_appointments': todays_appointments[:10],
+        'all_branch_appointments_today': all_branch_appointments_today[:10],
+        'upcoming_appointments': upcoming_appointments[:10],
+        'upcoming_count': upcoming_count,
+        'this_week_schedule': this_week_schedule,
+        'follow_ups': follow_ups,
+        'follow_up_count': follow_up_count,
+        'unread_notif_count': unread_notif_count,
+        # Charts
+        'patient_status_distribution': patient_status_distribution,
+        'consultation_reasons': consultation_reasons,
+        'weekly_workload': weekly_workload,
+        'monthly_labels': monthly_labels,
+        'monthly_registered': monthly_registered,
+        'monthly_walkin': monthly_walkin,
+        # Insight cards
+        'avg_daily_consultations': avg_daily_consultations,
+        'new_patients_this_month': new_patients_this_month,
+        'total_patients_this_month': total_patients_this_month,
+        'clinical_activities': clinical_activities,
+        'medical_records_this_month': medical_records_this_month,
+        'consultations_this_month': consultations_this_month,
+        'cancelled_this_month': cancelled_this_month,
+        # Meta
+        'staff_profile': staff_profile,
+        'today': today,
+        'dashboard_title': dashboard_title,
+        'is_vet_assistant': is_vet_assistant,
+    })
+
+
+def get_day_bounds(d):
+    from django.utils import timezone
+    from datetime import datetime, time
+    start = timezone.make_aware(datetime.combine(d, time.min))
+    end = timezone.make_aware(datetime.combine(d, time.max))
+    return (start, end)
+
+@login_required
+@staff_only
+def receptionist_dashboard_view(request):
+    """Receptionist-specific dashboard with POS, appointments, and customer management focus."""
+    from appointments.models import Appointment
+    from patients.models import Pet
+    from pos.models import Sale, Payment, SaleItem
+    from notifications.models import Notification
+    from inventory.models import Product, StockAdjustment
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    
+    # Get the receptionist's assigned branch
+    user_branch = request.user.branch
+
+    # Helper to produce branch filters per-module only when the user's role
+    # restricts that module to the user's branch. This avoids accidentally
+    # filtering data for users who are not branch-restricted but happen to
+    # have a branch set on their profile.
+    def branch_q(module_code, field='branch', prefix=''):
+        if request.user.is_module_branch_restricted(module_code):
+            return {f"{prefix}{field}": user_branch} if user_branch else {}
+        return {}
+
+    # Common filters
+    appt_filter = branch_q('appointments')
+    sale_filter = branch_q('pos')
+    sale_branch_prefix_filter = branch_q('pos', prefix='sale__')
+    product_branch_filter = branch_q('inventory')
+
+    # Receptionists are always scoped to their own branch when assigned.
+    if user_branch:
+        appt_filter['branch'] = user_branch
+        sale_filter['branch'] = user_branch
+        sale_branch_prefix_filter['sale__branch'] = user_branch
+        product_branch_filter['branch'] = user_branch
+
+    sale_own_branch_filter = {'sale__branch': user_branch} if user_branch else {}
+
+    # Safety guard: no branch assignment means receptionist dashboard should
+    # not display cross-branch operational data.
+    appt_restricted_no_branch = not user_branch
+    pos_restricted_no_branch = not user_branch
+    inventory_restricted_no_branch = not user_branch
+    patients_restricted_no_branch = not user_branch
+
+    # ── Today's appointments (branch-specific) ──
+    if appt_restricted_no_branch:
+        todays_appointments = Appointment.objects.none()
+    else:
+        todays_appointments = Appointment.objects.filter(
+            appointment_date=today,
+            pet__isnull=False,
+            **appt_filter
+        ).select_related('branch', 'preferred_vet', 'pet', 'pet__owner').order_by('appointment_time')
+
+    today_count = todays_appointments.count()
+    today_confirmed = todays_appointments.filter(status='CONFIRMED').count()
+    today_pending = todays_appointments.filter(status='PENDING').count()
+
+    # ── Today's sales statistics (branch-specific) ──
+    if pos_restricted_no_branch:
+        todays_sales = Sale.objects.none()
+    else:
+        todays_sales = Sale.objects.filter(
+            created_at__range=get_day_bounds(today),
+            status='COMPLETED',
+            **sale_filter
+        )
+    todays_sales_count = todays_sales.count()
+    todays_revenue = sum(sale.total for sale in todays_sales) if todays_sales else 0
+
+    # ── This week's statistics (branch-specific) ──
+    if pos_restricted_no_branch:
+        weekly_sales = Sale.objects.none()
+    else:
+        weekly_sales = Sale.objects.filter(
+            created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
+            status='COMPLETED',
+            **sale_filter
+        )
+    weekly_sales_count = weekly_sales.count()
+    weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
+
+    # ── Pending tasks (branch-specific) ──
+    if appt_restricted_no_branch:
+        pending_appointments = 0
+    else:
+        pending_appointments = Appointment.objects.filter(
+            status='PENDING',
+            appointment_date__gte=today,
+            **appt_filter
+        ).count()
+
+
+    # ── Recent sales (branch-specific) ──
+    if pos_restricted_no_branch:
+        recent_sales_qs = Sale.objects.none()
+    else:
+        recent_sales_qs = Sale.objects.filter(
+            status__in=['COMPLETED', 'REFUNDED'],
+            **sale_filter
+        ).select_related('customer', 'pet').order_by('-created_at')
+
+    # Enforce receptionist-only branch scoping for Recent Sales: always
+    # restrict to the user's branch if it exists. This ensures receptionists
+    # cannot see other branches' sales regardless of role configuration.
+    if user_branch:
+        recent_sales_qs = recent_sales_qs.filter(branch=user_branch)
+    
+    # Pagination for recent sales
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(recent_sales_qs, 5)
+    recent_sales = paginator.get_page(page_number)
+
+    # ── Upcoming appointments (next 3 days, branch-specific) ──
+    if appt_restricted_no_branch:
+        upcoming_appointments = []
+    else:
+        upcoming_appointments = Appointment.objects.filter(
+            appointment_date__range=[today + timedelta(days=1), today + timedelta(days=3)],
+            pet__isnull=False,
+            **appt_filter
+        ).select_related('branch', 'preferred_vet').order_by('appointment_date', 'appointment_time')[:10]
+
+    # ── Recent registrations (new pets this week) ──
+    # Respect branch restriction for patient registrations when applicable
+    pet_filter = {'branch': user_branch} if user_branch else {}
+
+    if patients_restricted_no_branch:
+        new_pets_this_week = 0
+    else:
+        new_pets_this_week = Pet.objects.filter(
+            created_at__range=[week_start, week_end],
+            **pet_filter
+        ).count()
+
+    # ── Unread notifications ──
+    unread_notif_count = Notification.scoped_for_user(request.user).filter(
+        is_read=False
+    ).count()
+
+    # ─── COMPREHENSIVE ANALYTICS ───
+    last_week_start = week_start - timedelta(days=7)
+    last_week_end = week_start - timedelta(days=1)
+
+    # Walk-in vs Portal appointments (today, branch-specific)
+    if appt_restricted_no_branch:
+        walkin_week = 0
+        portal_week = 0
+    else:
+        walkin_week = Appointment.objects.filter(
+            appointment_date__range=[week_start, week_end],
+            source='WALKIN',
+            pet__isnull=False,
+            **appt_filter
+        ).count()
+        portal_week = Appointment.objects.filter(
+            appointment_date__range=[week_start, week_end],
+            source='PORTAL',
+            pet__isnull=False,
+            **appt_filter
+        ).count()
+
+    # ─── APPOINTMENT STATUS DISTRIBUTION (This Week vs Last Week, branch-specific) ───
+    if appt_restricted_no_branch:
+        status_counts_this_week = []
+        status_counts_last_week = []
+    else:
+        status_counts_this_week = Appointment.objects.filter(
+            appointment_date__range=[week_start, week_end],
+            pet__isnull=False,
+            **appt_filter
+        ).values('status').annotate(count=Count('id'))
+        
+        status_counts_last_week = Appointment.objects.filter(
+            appointment_date__range=[last_week_start, last_week_end],
+            pet__isnull=False,
+            **appt_filter
+        ).values('status').annotate(count=Count('id'))
+    
+    appointment_status_dict = {}
+    for item in status_counts_this_week:
+        appointment_status_dict[item['status']] = {'this_week': item['count'], 'last_week': 0}
+    
+    for item in status_counts_last_week:
+        if item['status'] not in appointment_status_dict:
+            appointment_status_dict[item['status']] = {'this_week': 0, 'last_week': 0}
+        appointment_status_dict[item['status']]['last_week'] = item['count']
+
+    appointment_status_data = []
+    for status, counts in appointment_status_dict.items():
+        appointment_status_data.append({
+            'status': status,
+            'this_week': counts['this_week'],
+            'last_week': counts['last_week']
+        })
+
+    # ─── WALK-IN VS PORTAL APPOINTMENTS DATA (This Week, branch-specific) ───
+    appointment_source_data = [
+        {'source': 'Walk-in', 'count': walkin_week},
+        {'source': 'Online Booking', 'count': portal_week}
+    ]
+
+    # Hourly distribution of appointments (today, branch-specific)
+    if appt_restricted_no_branch:
+        hourly_distribution = []
+    else:
+        hourly_distribution = Appointment.objects.filter(
+            appointment_date=today,
+            pet__isnull=False,
+            **appt_filter
+        ).values('appointment_time__hour').annotate(
+            count=Count('id')
+        ).order_by('appointment_time__hour')
+
+    # Registered vs Walk-in sales (today, branch-specific)
+    if pos_restricted_no_branch:
+        registered_sales_today = 0
+        walkin_sales_today = 0
+    else:
+        registered_sales_today = Sale.objects.filter(
+            created_at__range=get_day_bounds(today),
+            customer_type='REGISTERED',
+            status='COMPLETED',
+            **sale_filter
+        ).aggregate(total=Sum('total'))['total'] or 0
+
+        walkin_sales_today = Sale.objects.filter(
+            created_at__range=get_day_bounds(today),
+            customer_type='WALKIN',
+            status='COMPLETED',
+            **sale_filter
+        ).aggregate(total=Sum('total'))['total'] or 0
+
+    # Refunds today with amount (branch-specific)
+    if pos_restricted_no_branch:
+        refunds_today = Sale.objects.none()
+        refunds_count = 0
+        refunds_amount = 0
+    else:
+        refunds_today = Sale.objects.filter(
+            created_at__range=get_day_bounds(today),
+            status='REFUNDED',
+            **sale_filter
+        )
+        refunds_count = refunds_today.count()
+        refunds_amount = sum(sale.total for sale in refunds_today) if refunds_today else 0
+
+    # Pending reservations (branch-specific)
+    if appt_restricted_no_branch:
+        pending_reservations = 0
+    else:
+        pending_reservations = Appointment.objects.filter(
+            appointment_date__gte=today,
+            status='PENDING',
+            pet__isnull=False,
+            **appt_filter
+        ).count()
+
+    # Appointment by reason breakdown (today, branch-specific)
+    if appt_restricted_no_branch:
+        appointment_reasons_today_query = []
+    else:
+        appointment_reasons_today_query = Appointment.objects.filter(
+            appointment_date=today,
+            pet__isnull=False,
+            **appt_filter
+        ).values('reason_for_visit__name').annotate(
+            count=Count('id')
+        ).order_by('-count')
+    
+    # Convert to list and calculate percentages
+    appointment_reasons_today = list(appointment_reasons_today_query)
+    if appointment_reasons_today:
+        for reason in appointment_reasons_today:
+            reason['reason'] = reason.pop('reason_for_visit__name') or 'Unspecified'
+        max_count = appointment_reasons_today[0]['count'] or 1
+        for reason in appointment_reasons_today:
+            reason['percentage'] = (reason['count'] / max_count * 100) if max_count > 0 else 0
+
+    # Revenue comparison vs yesterday (branch-specific)
+    if pos_restricted_no_branch:
+        yesterdays_revenue = 0
+    else:
+        yesterdays_revenue = Sale.objects.filter(
+            created_at__range=get_day_bounds(yesterday),
+            status='COMPLETED',
+            **sale_filter
+        ).aggregate(total=Sum('total'))['total'] or 0
+
+    revenue_diff = float(todays_revenue) - float(yesterdays_revenue)
+    revenue_diff_pct = (
+        (revenue_diff / float(yesterdays_revenue) * 100)
+        if yesterdays_revenue > 0 else 0
+    )
+
+    # Payment method breakdown (branch-specific)
+    if pos_restricted_no_branch:
+        payment_method_breakdown_query = []
+    else:
+        payment_method_breakdown_query = Payment.objects.filter(
+            sale__created_at__range=get_day_bounds(today),
+            sale__status='COMPLETED',
+            **sale_branch_prefix_filter
+        ).values('method').annotate(
+            count=Count('id'),
+            total=Sum('amount')
+        ).order_by('-count')
+    
+    # Convert to list and calculate percentages
+    payment_method_breakdown = list(payment_method_breakdown_query)
+    if payment_method_breakdown:
+        max_count = payment_method_breakdown[0]['count'] or 1
+        for method in payment_method_breakdown:
+            method['percentage'] = (method['count'] / max_count * 100) if max_count > 0 else 0
+
+    # Check-in statistics (today, branch-specific)
+    if appt_restricted_no_branch:
+        checked_in_today = 0
+    else:
+        checked_in_today = Appointment.objects.filter(
+            appointment_date=today,
+            status='COMPLETED',
+            pet__isnull=False,
+            **appt_filter
+        ).count()
+
+    # ─── WEEKLY REVENUE TREND (Last 7 Days, branch-specific) ───
+    weekly_revenue_data = []
+    for i in range(6, -1, -1):  # Last 7 days
+        day = today - timedelta(days=i)
+        if pos_restricted_no_branch:
+            day_revenue = 0
+        else:
+            day_revenue = Sale.objects.filter(
+                created_at__range=get_day_bounds(day),
+                status='COMPLETED',
+                **sale_filter
+            ).aggregate(total=Sum('total'))['total'] or 0
+        weekly_revenue_data.append({
+            'date': day.strftime('%a'),  # Mon, Tue, etc.
+            'revenue': float(day_revenue)
+        })
+
+    # ─── TOP SELLING PRODUCTS (This Week, own branch) ───
+    if pos_restricted_no_branch:
+        top_products = []
+    else:
+        top_products_query = SaleItem.objects.filter(
+            sale__created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
+            sale__status='COMPLETED',
+            item_type='PRODUCT',
+            product__isnull=False,
+            **sale_own_branch_filter
+        ).values('product__name').annotate(
+            total_qty=Sum('quantity'),
+            total_sales=Sum(F('quantity') * F('unit_price'))
+        ).order_by('-total_qty')[:5]
+        top_products = list(top_products_query)
+    for product in top_products:
+        product['total_sales'] = float(product['total_sales']) if product['total_sales'] else 0
+
+    # ─── LOW STOCK PRODUCTS (own branch) ───
+    if inventory_restricted_no_branch:
+        low_stock_products = Product.objects.none()
+        low_stock_count = 0
+    else:
+        low_stock_products = Product.objects.filter(
+            is_available=True,
+            stock_quantity__lte=F('min_stock_level'),
+            **product_branch_filter
+        ).order_by('stock_quantity')[:5]
+        
+        low_stock_count = Product.objects.filter(
+            is_available=True,
+            stock_quantity__lte=F('min_stock_level'),
+            **product_branch_filter
+        ).count()
+
+    # ─── PRODUCT CATEGORY SALES (This Week, own branch) ───
+    if pos_restricted_no_branch:
+        category_sales = []
+    else:
+        category_sales_query = SaleItem.objects.filter(
+            sale__created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
+            sale__status='COMPLETED',
+            **sale_own_branch_filter
+        ).values('item_type').annotate(
+            count=Count('id'),
+            total=Sum(F('quantity') * F('unit_price'))
+        ).order_by('-total')
+        
+        category_sales = []
+        for item in category_sales_query:
+            category_sales.append({
+                'type': item['item_type'],
+                'count': item['count'],
+                'total': float(item['total']) if item['total'] else 0
+            })
+
+    # ─── HOURLY SALES TREND (Today, branch-specific) ───
+    hourly_sales_data = []
+    for hour in range(8, 20):  # 8 AM to 8 PM
+        if pos_restricted_no_branch:
+            hour_count = 0
+            hour_total = 0
+        else:
+            hour_sales = Sale.objects.filter(
+                created_at__range=get_day_bounds(today),
+                created_at__hour=hour,
+                status='COMPLETED',
+                **sale_filter
+            ).aggregate(
+                count=Count('id'),
+                total=Sum('total')
+            )
+            hour_count = hour_sales['count'] or 0
+            hour_total = float(hour_sales['total']) if hour_sales['total'] else 0
+        hourly_sales_data.append({
+            'hour': f'{hour}:00',
+            'count': hour_count,
+            'total': hour_total
+        })
+
+    context = {
+        # Branch info
+        'user_branch': user_branch,
+        'branch_name': user_branch.name if user_branch else 'All Branches',
+        
+        # Appointment stats
+        'today_count': today_count,
+        'today_confirmed': today_confirmed,
+        'today_pending': today_pending,
+        'pending_appointments': pending_appointments,
+        'pending_reservations': pending_reservations,
+
+        # Sales stats
+        'todays_sales_count': todays_sales_count,
+        'todays_revenue': todays_revenue,
+        'weekly_sales_count': weekly_sales_count,
+        'weekly_revenue': weekly_revenue,
+        'registered_sales_today': float(registered_sales_today) if registered_sales_today else 0,
+        'walkin_sales_today': float(walkin_sales_today) if walkin_sales_today else 0,
+
+        # Customer stats
+        'new_pets_this_week': new_pets_this_week,
+
+        # Recent activity
+        'todays_appointments': todays_appointments[:10],
+        'upcoming_appointments': upcoming_appointments,
+        'recent_sales': recent_sales,
+        'page_obj': recent_sales,
+
+        # Notifications
+        'unread_notif_count': unread_notif_count,
+
+        # Additional analytics
+        'walkin_today': walkin_week,
+        'portal_today': portal_week,
+        'hourly_distribution': hourly_distribution,
+        'refunds_count': refunds_count,
+        'refunds_amount': refunds_amount,
+        'appointment_reasons_today': appointment_reasons_today,
+        'yesterdays_revenue': yesterdays_revenue,
+        'revenue_diff': revenue_diff,
+        'revenue_diff_pct': revenue_diff_pct,
+        'payment_method_breakdown': json.dumps(payment_method_breakdown, cls=DjangoJSONEncoder),
+        'checked_in_today': checked_in_today,
+        
+        # NEW: Revenue & Product Analytics
+        'weekly_revenue_data': json.dumps(weekly_revenue_data, cls=DjangoJSONEncoder),
+        'top_products': json.dumps(top_products, cls=DjangoJSONEncoder),
+        'low_stock_products': low_stock_products,
+        'low_stock_count': low_stock_count,
+        'category_sales': json.dumps(category_sales, cls=DjangoJSONEncoder),
+        
+        # NEW: Appointment Analytics (replacing hourly sales & payment methods)
+        'appointment_status_data': json.dumps(appointment_status_data, cls=DjangoJSONEncoder),
+        'appointment_source_data': json.dumps(appointment_source_data, cls=DjangoJSONEncoder),
+    }
+
+    return render(request, 'accounts/receptionist_dashboard.html', context)
+
+
+@login_required
+@admin_only
+@module_permission_required('staff', 'CREATE')
+def admin_create_account(request):
+    """Admin view to create new staff accounts (not Pet Owners).
+    
+    Staff accounts must be created through this form. Pet Owners register
+    themselves via the public registration page.
+    """
+    from .forms import AdminAccountCreationForm
+    from django.db import IntegrityError
+
+    if request.method == 'POST':
+        form = AdminAccountCreationForm(request.POST)
+        if form.is_valid():
+            try:
+                user = form.save()
+
+                # Auto-create StaffMember if staff role assigned
+                if user.assigned_role and user.assigned_role.is_staff_role:
+                    from employees.models import StaffMember
+                    # Map RBAC role to StaffMember position
+                    role_to_position = {
+                        'veterinarian': StaffMember.Position.VETERINARIAN,
+                        'vet_assistant': StaffMember.Position.VET_ASSISTANT,
+                        'receptionist': StaffMember.Position.RECEPTIONIST,
+                        'branch_admin': StaffMember.Position.ADMIN,
+                        'superadmin': StaffMember.Position.ADMIN,
+                        'admin': StaffMember.Position.ADMIN,
+                    }
+                    position = role_to_position.get(
+                        user.assigned_role.code,
+                        StaffMember.Position.RECEPTIONIST
+                    )
+
+                    # Create or update StaffMember record
+                    StaffMember.objects.update_or_create(
+                        user=user,
+                        defaults={
+                            'first_name': user.first_name,
+                            'last_name': user.last_name,
+                            'email': user.email,
+                            'phone': user.phone_number or '',
+                            'position': position,
+                            'branch': user.branch,
+                            'is_active': True,
+                        }
+                    )
+
+                messages.success(request, f'Account created for {user.get_full_name() or user.username}.')
+                return redirect('accounts:user_role_list')
+            
+            except IntegrityError as e:
+                # Handle the case where the form validation didn't catch the duplicate
+                if 'username' in str(e):
+                    form.add_error('username', 'This username is already in use. Please choose another.')
+                    messages.error(request, 'Username already exists. Please choose a different username.')
+                elif 'email' in str(e):
+                    form.add_error('email', 'This email is already in use. Please choose another.')
+                    messages.error(request, 'Email already exists. Please choose a different email.')
+                else:
+                    form.add_error(None, 'An error occurred while creating the account. Please try again.')
+                    messages.error(request, 'An error occurred while creating the account. Please check your input and try again.')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminAccountCreationForm()
+
+    return render(request, 'accounts/admin_create_account.html', {'form': form})
+
+
+# =============================================================================
+# Password Reset & Change Views
+# =============================================================================
+
+def forgot_password_view(request):
+    """Forgot password — sends OTP to user's registered email."""
+    from .otp_models import OTPToken
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        if not email:
+            messages.error(request, 'Please enter your email address.')
+            return render(request, 'accounts/forgot_password.html')
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Don't reveal whether the email exists (security)
+            messages.success(
+                request,
+                'If an account with that email exists, an OTP has been sent.'
+            )
+            return render(request, 'accounts/forgot_password.html')
+
+        # Generate OTP
+        token = OTPToken.generate(user)
+
+        # Send OTP via email
+        try:
+            send_mail(
+                subject='FMH Animal Clinic — Password Reset OTP',
+                message=(
+                    f'Hello {user.get_full_name() or user.username},\n\n'
+                    f'Your one-time password (OTP) for password reset is:\n\n'
+                    f'    {token.otp_code}\n\n'
+                    f'This code is valid for 10 minutes.\n'
+                    f'If you did not request this, please ignore this email.\n\n'
+                    f'— FMH Animal Clinic'
+                ),
+                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Email send error: {e}")
+            # Still show success message to not leak info
+
+        messages.success(
+            request,
+            'If an account with that email exists, an OTP has been sent.'
+        )
+        # Store email in session for the verify step
+        request.session['reset_email'] = email
+        return redirect('accounts:verify_otp')
+
+    return render(request, 'accounts/forgot_password.html')
+
+
+def verify_otp_view(request):
+    """Verify OTP code for password reset."""
+    from .otp_models import OTPToken
+
+    email = request.session.get('reset_email')
+    if not email:
+        messages.error(request, 'Please start the password reset process first.')
+        return redirect('accounts:forgot_password')
+
+    if request.method == 'POST':
+        otp_code = request.POST.get('otp_code', '').strip()
+        if not otp_code or len(otp_code) != 6:
+            messages.error(request, 'Please enter a valid 6-digit OTP code.')
+            return render(request, 'accounts/verify_otp.html', {'email': email})
+
+        user = OTPToken.verify(email, otp_code)
+        if user:
+            # Mark OTP as used
+            token = OTPToken.objects.filter(
+                user=user, otp_code=otp_code, is_used=False
+            ).first()
+            if token:
+                token.mark_used()
+
+            # Store user ID in session for reset step
+            request.session['reset_user_id'] = user.pk
+            return redirect('accounts:reset_password')
+        else:
+            messages.error(request, 'Invalid or expired OTP. Please try again.')
+
+    return render(request, 'accounts/verify_otp.html', {'email': email})
+
+
+def reset_password_view(request):
+    """Reset password after OTP verification."""
+    user_id = request.session.get('reset_user_id')
+    if not user_id:
+        messages.error(request, 'Session expired. Please restart the password reset process.')
+        return redirect('accounts:forgot_password')
+
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        messages.error(request, 'User not found.')
+        return redirect('accounts:forgot_password')
+
+    if request.method == 'POST':
+        password1 = request.POST.get('password1', '')
+        password2 = request.POST.get('password2', '')
+
+        if not password1 or not password2:
+            messages.error(request, 'Please fill in both password fields.')
+            return render(request, 'accounts/reset_password.html')
+
+        if password1 != password2:
+            messages.error(request, 'Passwords do not match.')
+            return render(request, 'accounts/reset_password.html')
+
+        if len(password1) < 8:
+            messages.error(request, 'Password must be at least 8 characters.')
+            return render(request, 'accounts/reset_password.html')
+
+        user.set_password(password1)
+        user.save()
+
+        # Clean up session
+        request.session.pop('reset_email', None)
+        request.session.pop('reset_user_id', None)
+
+        messages.success(request, 'Your password has been reset successfully. Please log in.')
+        return redirect('accounts:login_page')
+
+    return render(request, 'accounts/reset_password.html')
+
+
+@login_required
+def change_password_view(request):
+    """Change password from profile page (for logged-in users)."""
+    if request.method == 'POST':
+        current_password = request.POST.get('current_password', '')
+        new_password1 = request.POST.get('new_password1', '')
+        new_password2 = request.POST.get('new_password2', '')
+
+        if not current_password or not new_password1 or not new_password2:
+            messages.error(request, 'Please fill in all password fields.')
+            return redirect('accounts:profile')
+
+        if not request.user.check_password(current_password):
+            messages.error(request, 'Current password is incorrect.')
+            return redirect('accounts:profile')
+
+        if new_password1 != new_password2:
+            messages.error(request, 'New passwords do not match.')
+            return redirect('accounts:profile')
+
+        if len(new_password1) < 8:
+            messages.error(request, 'New password must be at least 8 characters.')
+            return redirect('accounts:profile')
+
+        request.user.set_password(new_password1)
+        request.user.save()
+
+        # Re-authenticate to keep the user logged in
+        from django.contrib.auth import update_session_auth_hash
+        update_session_auth_hash(request, request.user)
+
+        messages.success(request, 'Your password has been changed successfully.')
+        return redirect('accounts:profile')
+
+    return redirect('accounts:profile')
+
+
+# =============================================================================
+# In-Profile Inline Password Reset APIs
+# =============================================================================
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
+@login_required
+@require_POST
+def profile_send_otp_api(request):
+    """Generate and send an OTP to the currently logged in user's email."""
+    from .otp_models import OTPToken
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+
+    try:
+        user = request.user
+        if not user.email:
+            return JsonResponse({'success': False, 'error': 'You do not have a registered email address.'})
+
+        # Generate OTP
+        token = OTPToken.generate(user)
+        
+        # Send Email
+        subject = 'FMH Animal Clinic — Password Reset OTP'
+        message = (
+            f"Hello {user.get_full_name()},\n\n"
+            f"Your one-time password (OTP) for password reset is:\n\n"
+            f"    {token.otp_code}\n\n"
+            f"This code is valid for 10 minutes.\n"
+            f"If you did not request this, please ignore this email.\n\n"
+            f"— FMH Animal Clinic"
+        )
+        try:
+            send_mail(
+                subject,
+                message,
+                getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@fmhanimalclinic.com'),
+                [user.email],
+                fail_silently=False,
+            )
+            
+            # Send obscured email back
+            parts = user.email.split('@')
+            if len(parts[0]) > 2:
+                obscured = f"{parts[0][0]}{'*' * (len(parts[0])-2)}{parts[0][-1]}@{parts[1]}"
+            else:
+                obscured = f"{'*'*len(parts[0])}@{parts[1]}"
+                
+            return JsonResponse({'success': True, 'email': obscured})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f"Failed to send email: {str(e)}"})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def profile_verify_otp_api(request):
+    """Verify the submitted OTP code."""
+    from .otp_models import OTPToken
+    import json
+    
+    try:
+        data = json.loads(request.body)
+        otp_code = data.get('otp_code', '').strip()
+        
+        if not otp_code or len(otp_code) != 6:
+            return JsonResponse({'success': False, 'error': 'Invalid 6-digit code format.'})
+            
+        user = OTPToken.verify(request.user.email, otp_code)
+        if user and user == request.user:
+            # Mark OTP as used
+            token = OTPToken.objects.filter(
+                user=user, otp_code=otp_code, is_used=False
+            ).first()
+            if token:
+                token.mark_used()
+                
+            # Put a short-lived token in session guaranteeing they verified
+            request.session['inline_otp_verified'] = True
+            return JsonResponse({'success': True})
+        else:
+            return JsonResponse({'success': False, 'error': 'Invalid or expired OTP.'})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def profile_reset_password_api(request):
+    """Reset the password after inline verify."""
+    import json
+    from django.contrib.auth import update_session_auth_hash
+    
+    try:
+        if not request.session.get('inline_otp_verified'):
+            return JsonResponse({'success': False, 'error': 'OTP not verified.'})
+            
+        data = json.loads(request.body)
+        password1 = data.get('password1', '')
+        password2 = data.get('password2', '')
+        
+        if not password1 or not password2:
+            return JsonResponse({'success': False, 'error': 'Missing password fields.'})
+            
+        if password1 != password2:
+            return JsonResponse({'success': False, 'error': 'Passwords do not match.'})
+            
+        if len(password1) < 8:
+            return JsonResponse({'success': False, 'error': 'Password must be at least 8 characters.'})
+            
+        request.user.set_password(password1)
+        request.user.save()
+        
+        # Keep user logged in
+        update_session_auth_hash(request, request.user)
+        
+        # Clear session key
+        request.session.pop('inline_otp_verified', None)
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

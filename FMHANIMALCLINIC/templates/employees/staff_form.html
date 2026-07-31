@@ -1,0 +1,328 @@
+<!-- prettier-ignore -->
+{% extends 'base/portal_admin.html' %}
+
+<!-- prettier-ignore -->
+{% block title %}{{ action }} Staff{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<style>
+  .pm-header {
+    margin-bottom: 24px;
+  }
+  .pm-title {
+    color: var(--text-primary);
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .pm-subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 0;
+  }
+  .admin-form-container {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    max-width: 800px;
+    margin-top: 24px;
+  }
+  .admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .admin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .admin-field label {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .admin-input {
+    width: 100%;
+    padding: 12px 16px;
+    background-color: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .admin-input:focus {
+    border-color: var(--primary);
+  }
+  select.admin-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+  }
+  .admin-field-full {
+    grid-column: 1 / -1;
+  }
+  .admin-actions {
+    margin-top: 32px;
+    display: flex;
+    gap: 16px;
+    justify-content: flex-end;
+  }
+  .btn-cancel {
+    padding: 10px 24px;
+    background-color: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.2s;
+  }
+  .btn-cancel:hover {
+    background-color: var(--surface-hover);
+  }
+  .btn-submit {
+    padding: 10px 24px;
+    background-color: var(--primary);
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-submit:hover {
+    opacity: 0.9;
+  }
+  .error-text {
+    color: #ff4d4d;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 32px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    grid-column: 1 / -1; /* Make it span across grid */
+  }
+  .form-section-title:first-of-type {
+    margin-top: 0;
+  }
+  .form-section-title i {
+    color: var(--primary);
+    font-size: 1.1rem;
+  }
+  .form-section-hint {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin-left: 4px;
+  }
+  .form-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .form-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+  }
+</style>
+
+<div class="pm-header">
+  <h1 class="pm-title">{{ action }} Staff Member</h1>
+  <p class="pm-subtitle">
+    {% if action == 'Add' %}Register a new staff member to the clinic{% else
+    %}Update {{ member.full_name }}'s information{% endif %}
+  </p>
+</div>
+
+<div class="admin-form-container">
+  <form method="POST" autocomplete="off">
+    {% csrf_token %}
+
+    <div class="admin-grid">
+      <div class="form-section-title">
+        <i class="bx bx-user"></i> Personal Details
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.first_name.id_for_label }}">First Name *</label>
+        {{ form.first_name }}
+        <script>
+          document
+            .getElementById("{{ form.first_name.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.first_name.errors %}
+        <div class="error-text">{{ form.first_name.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.last_name.id_for_label }}">Last Name *</label>
+        {{ form.last_name }}
+        <script>
+          document
+            .getElementById("{{ form.last_name.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.last_name.errors %}
+        <div class="error-text">{{ form.last_name.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.email.id_for_label }}">Email *</label>
+        {{ form.email }}
+        <script>
+          document
+            .getElementById("{{ form.email.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.email.errors %}
+        <div class="error-text">{{ form.email.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.phone.id_for_label }}">Phone</label>
+        {{ form.phone }}
+        <script>
+          document
+            .getElementById("{{ form.phone.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.phone.errors %}
+        <div class="error-text">{{ form.phone.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class="bx bx-briefcase"></i> Employment Details
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.position.id_for_label }}">Position *</label>
+        {{ form.position }}
+        <script>
+          document
+            .getElementById("{{ form.position.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.position.errors %}
+        <div class="error-text">{{ form.position.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.salary.id_for_label }}">Salary (₱) *</label>
+        {{ form.salary }}
+        <script>
+          document
+            .getElementById("{{ form.salary.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.salary.errors %}
+        <div class="error-text">{{ form.salary.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.branch.id_for_label }}">Branch *</label>
+        {{ form.branch }}
+        <script>
+          document
+            .getElementById("{{ form.branch.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.branch.errors %}
+        <div class="error-text">{{ form.branch.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.date_hired.id_for_label }}">Date Hired *</label>
+        {{ form.date_hired }}
+        <script>
+          document
+            .getElementById("{{ form.date_hired.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.date_hired.errors %}
+        <div class="error-text">{{ form.date_hired.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-section-title">
+        <i class="bx bx-id-card"></i> License Information
+        <span class="form-section-hint">(For Veterinarians)</span>
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.license_number.id_for_label }}"
+          >License Number</label
+        >
+        {{ form.license_number }}
+        <script>
+          document
+            .getElementById("{{ form.license_number.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.license_number.errors %}
+        <div class="error-text">{{ form.license_number.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field">
+        <label for="{{ form.license_expiry.id_for_label }}"
+          >License Expiry</label
+        >
+        {{ form.license_expiry }}
+        <script>
+          document
+            .getElementById("{{ form.license_expiry.id_for_label }}")
+            .classList.add("admin-input");
+        </script>
+        {% if form.license_expiry.errors %}
+        <div class="error-text">{{ form.license_expiry.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="admin-field admin-field-full" style="margin-top: 8px">
+        <label class="form-checkbox-label">
+          {{ form.is_active }}
+          <span>Active Staff Member</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="admin-actions">
+      <a href="{% url 'employees:staff_list' %}" class="btn-cancel">Cancel</a>
+      <button type="submit" class="btn-submit">{{ action }} Staff</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

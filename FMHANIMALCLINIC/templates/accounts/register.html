@@ -1,0 +1,380 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- ============================================
+     REGISTER PAGE
+     ============================================ -->
+<section class="auth-page auth-register">
+  <!-- Background Decorations -->
+  <div class="auth-bg-shapes">
+    <div class="auth-shape auth-shape-1"></div>
+    <div class="auth-shape auth-shape-2"></div>
+    <div class="auth-shape auth-shape-3"></div>
+  </div>
+
+  <div class="auth-container">
+    <!-- Left Side: Branding -->
+    <div class="auth-branding">
+      <!-- Scattered static paw prints -->
+      <span class="auth-paw-scatter" style="top:5%;left:10%;font-size:9rem;opacity:0.18;transform:rotate(25deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:18%;left:65%;font-size:7rem;opacity:0.15;transform:rotate(-35deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:36%;left:4%;font-size:10rem;opacity:0.14;transform:rotate(50deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:50%;left:68%;font-size:8rem;opacity:0.18;transform:rotate(-15deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:63%;left:25%;font-size:7rem;opacity:0.16;transform:rotate(40deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:76%;left:52%;font-size:11rem;opacity:0.13;transform:rotate(-50deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:87%;left:8%;font-size:8rem;opacity:0.19;transform:rotate(20deg);">🐾</span>
+      <span class="auth-paw-scatter" style="top:40%;left:42%;font-size:9rem;opacity:0.12;transform:rotate(-70deg);">🐾</span>
+
+      <div class="auth-branding-content">
+        <a href="{% url 'landing_page' %}" class="auth-logo">
+          {% if CLINIC_LOGO %}
+            <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} logo" class="auth-logo-img">
+          {% else %}
+            <img src="{% static 'image/fmh-logo.png' %}" alt="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} logo" class="auth-logo-img">
+          {% endif %}
+          <span>{{ CLINIC_NAME|default:'FMH Animal Clinic' }}</span>
+        </a>
+        
+        <a href="{% url 'landing_page' %}" class="auth-home-btn"><i class='bx bx-arrow-back'></i> Return Home</a>
+        
+        <h1>Join {{ CLINIC_NAME|default:'FMH Animal Clinic' }}</h1>
+        <p>Create your account and give your pets access to next-generation veterinary care powered by AI technology.</p>
+        
+        <div class="auth-features">
+          <div class="auth-feature">
+            <i class='bx bx-shield-plus'></i>
+            <span>Secure Pet Profiles</span>
+          </div>
+          <div class="auth-feature">
+            <i class='bx bx-bell'></i>
+            <span>Appointment Reminders</span>
+          </div>
+          <div class="auth-feature">
+            <i class='bx bx-history'></i>
+            <span>Health History Access</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Side: Register Form -->
+    <div class="auth-form-section">
+      <div class="auth-form-wrapper">
+        <div class="auth-form-header">
+          <h2>Create Account</h2>
+          <p>Fill in your details to get started</p>
+        </div>
+
+
+
+        <form id="registerForm" class="auth-form" method="POST" action="{% url 'register_page' %}" novalidate>
+          {% csrf_token %}
+          
+          <div class="auth-form-row">
+            <div class="auth-form-group">
+              <label for="firstName">First Name <span class="required">*</span></label>
+              <div class="auth-input-wrapper">
+                <i class='bx bx-user'></i>
+                <input type="text" id="firstName" name="first_name" placeholder="First name" required autocomplete="given-name" value="{{ form.first_name.value|default:'' }}">
+              </div>
+              {% if form.first_name.errors %}<span class="auth-error">{{ form.first_name.errors.0 }}</span>{% endif %}
+            </div>
+
+            <div class="auth-form-group">
+              <label for="lastName">Last Name <span class="required">*</span></label>
+              <div class="auth-input-wrapper">
+                <i class='bx bx-user'></i>
+                <input type="text" id="lastName" name="last_name" placeholder="Last name" required autocomplete="family-name" value="{{ form.last_name.value|default:'' }}">
+              </div>
+              {% if form.last_name.errors %}<span class="auth-error">{{ form.last_name.errors.0 }}</span>{% endif %}
+            </div>
+          </div>
+
+          <div class="auth-form-group">
+            <label for="username">Username <span class="required">*</span></label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-user-circle'></i>
+              <input type="text" id="username" name="username" placeholder="Create a username" required autocomplete="username" value="{{ form.username.value|default:'' }}">
+            </div>
+            {% if form.username.errors %}<span class="auth-error">{{ form.username.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="regEmail">Email Address <span class="required">*</span></label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-envelope'></i>
+              <input type="email" id="regEmail" name="email" placeholder="Enter your email" required autocomplete="email" value="{{ form.email.value|default:'' }}">
+            </div>
+            {% if form.email.errors %}<span class="auth-error">{{ form.email.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="phone">Phone Number <span class="required">*</span></label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-phone'></i>
+              <input type="tel" id="phone" name="phone_number" placeholder="09XXXXXXXXX"
+                     inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11" required
+                     oninput="this.value=this.value.replace(/\D/g,'')"
+                     autocomplete="tel" value="{{ form.phone_number.value|default:'' }}">
+            </div>
+            {% if form.phone_number.errors %}<span class="auth-error">{{ form.phone_number.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="address">Address</label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-map'></i>
+              <input id="address" name="address" placeholder="Enter your Address" rows="2" value="{{ form.address.value|default:'' }}">
+            </div>
+            {% if form.address.errors %}<span class="auth-error">{{ form.address.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="regPassword">Password <span class="required">*</span></label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-lock-alt'></i>
+              <input type="password" id="regPassword" name="password1" placeholder="Create a password" required autocomplete="new-password">
+              <button type="button" class="password-toggle" data-target="regPassword" aria-label="Toggle password visibility">
+                <i class='bx bx-hide'></i>
+              </button>
+            </div>
+            <div class="password-strength">
+              <div class="strength-bar"><span></span></div>
+              <span class="strength-text">Password strength</span>
+            </div>
+            {% if form.password1.errors %}<span class="auth-error">{{ form.password1.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-group">
+            <label for="confirmPassword">Confirm Password <span class="required">*</span></label>
+            <div class="auth-input-wrapper">
+              <i class='bx bx-lock-alt'></i>
+              <input type="password" id="confirmPassword" name="password2" placeholder="Confirm your password" required autocomplete="new-password">
+              <button type="button" class="password-toggle" data-target="confirmPassword" aria-label="Toggle password visibility">
+                <i class='bx bx-hide'></i>
+              </button>
+            </div>
+            {% if form.password2.errors %}<span class="auth-error">{{ form.password2.errors.0 }}</span>{% endif %}
+          </div>
+
+          <div class="auth-form-options">
+            <label class="auth-checkbox">
+              <input type="checkbox" name="terms" required>
+              <span class="checkmark"></span>
+              I agree to the <a href="#" onclick="event.preventDefault(); openLegalModal('tosModal');">Terms of Service</a> and <a href="#" onclick="event.preventDefault(); openLegalModal('privacyModal');">Privacy Policy</a>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg auth-submit">
+            <span>Create Account</span>
+            <i class='bx bx-right-arrow-alt'></i>
+          </button>
+        </form>
+
+        <div class="auth-footer">
+          <p>Already have an account? <a href="{% url 'login_page' %}">Sign In</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Terms of Service Modal -->
+<div class="auth-legal-modal" id="tosModal">
+  <div class="auth-legal-modal-content">
+    <button class="auth-legal-modal-close" onclick="document.getElementById('tosModal').style.display='none';" title="Close">&times;</button>
+    <div class="auth-legal-modal-header">
+      <h3>
+        <i class='bx bx-file'></i>
+        {% if tos_document %}{{ tos_document.title }}{% else %}Terms of Service{% endif %}
+      </h3>
+      {% if tos_document %}<small>Version {{ tos_document.version }}</small>{% endif %}
+    </div>
+    <div class="auth-legal-modal-body">
+      {% if tos_document %}
+        {{ tos_document.content|linebreaks }}
+      {% else %}
+        <p class="auth-legal-empty">
+          <i class='bx bx-info-circle'></i><br>
+          Terms of Service content has not been configured yet.<br>
+          Please contact the clinic administrator.
+        </p>
+      {% endif %}
+    </div>
+    <div class="auth-legal-modal-footer">
+      <button class="btn btn-primary" onclick="document.getElementById('tosModal').style.display='none';">
+        I Understand
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Privacy Policy Modal -->
+<div class="auth-legal-modal" id="privacyModal">
+  <div class="auth-legal-modal-content">
+    <button class="auth-legal-modal-close" onclick="document.getElementById('privacyModal').style.display='none';" title="Close">&times;</button>
+    <div class="auth-legal-modal-header">
+      <h3>
+        <i class='bx bx-shield-quarter'></i>
+        {% if privacy_document %}{{ privacy_document.title }}{% else %}Privacy Policy{% endif %}
+      </h3>
+      {% if privacy_document %}<small>Version {{ privacy_document.version }}</small>{% endif %}
+    </div>
+    <div class="auth-legal-modal-body">
+      {% if privacy_document %}
+        {{ privacy_document.content|linebreaks }}
+      {% else %}
+        <p class="auth-legal-empty">
+          <i class='bx bx-info-circle'></i><br>
+          Privacy Policy content has not been configured yet.<br>
+          Please contact the clinic administrator.
+        </p>
+      {% endif %}
+    </div>
+    <div class="auth-legal-modal-footer">
+      <button class="btn btn-primary" onclick="document.getElementById('privacyModal').style.display='none';">
+        I Understand
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Terms Consent Warning Modal -->
+<div class="auth-legal-modal" id="termsWarningModal">
+  <div class="auth-legal-modal-content" style="max-width: 520px;">
+    <button class="auth-legal-modal-close" onclick="closeTermsWarningModal();" title="Close">&times;</button>
+    <div class="auth-legal-modal-header">
+      <h3>
+        <i class='bx bx-shield-x'></i>
+        Agreement Required
+      </h3>
+      <small>Please review and accept the clinic terms before continuing.</small>
+    </div>
+    <div class="auth-legal-modal-body" style="text-align: center; padding-top: 28px;">
+      <p class="auth-legal-empty" style="padding: 10px 0 24px; margin: 0; color: var(--text-2);">
+        You need to agree to the Terms of Service and Privacy Policy before creating an account.
+      </p>
+    </div>
+    <div class="auth-legal-modal-footer">
+      <button class="btn btn-primary" onclick="closeTermsWarningModal();">
+        OK, I Understand
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Independent styles for auth legal modals */
+.auth-legal-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.6);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.auth-legal-modal-content {
+  background: var(--surface, #ffffff);
+  width: 90%;
+  max-width: 640px;
+  max-height: 85vh;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  position: relative;
+  animation: modalFadeIn 0.3s ease;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.auth-legal-modal-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border, #e0e0e0);
+}
+.auth-legal-modal-header h3 {
+  font-size: 1.25rem; font-weight: 800; color: var(--text-1, #333); margin: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.auth-legal-modal-header h3 i {
+  color: var(--primary, #009688);
+}
+.auth-legal-modal-header small {
+  color: var(--text-3, #999); display: block; margin-top: 4px;
+}
+.auth-legal-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 0.95rem; line-height: 1.7; color: var(--text-2, #555);
+}
+.auth-legal-modal-body h1, .auth-legal-modal-body h2, .auth-legal-modal-body h3 {
+  color: var(--text-1); margin-top: 20px; margin-bottom: 10px;
+}
+.auth-legal-modal-body p {
+  margin-bottom: 12px;
+}
+.auth-legal-empty {
+  text-align: center; color: var(--text-3, #999); padding: 40px 0;
+}
+.auth-legal-empty i {
+  font-size: 2.5rem; display: block; margin-bottom: 8px;
+}
+.auth-legal-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border, #e0e0e0);
+  text-align: right;
+  background: var(--bg, #f9f9f9);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.auth-legal-modal-close {
+  position: absolute; top: 16px; right: 24px;
+  background: none; border: none; font-size: 1.5rem; color: var(--text-3);
+  cursor: pointer; transition: color 0.2s;
+}
+.auth-legal-modal-close:hover {
+  color: var(--danger, #ff5252);
+}
+
+.auth-form-group .required {
+  color: #d32f2f;
+}
+</style>
+
+<!-- Auth JS -->
+<script src="{% static 'js/accounts/auth.js' %}"></script>
+<script>
+  function openLegalModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  // Close when clicking outside content
+  document.querySelectorAll('.auth-legal-modal').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+      if (e.target === this) {
+        this.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    });
+  });
+
+  // Re-enable scrolling on close buttons
+  document.querySelectorAll('.auth-legal-modal-footer button, .auth-legal-modal-close').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.body.style.overflow = 'auto';
+    });
+  });
+</script>
+
+{% endblock %}

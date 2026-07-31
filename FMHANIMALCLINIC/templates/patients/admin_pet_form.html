@@ -1,0 +1,1247 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}{{ action }} Patient{% endblock %}
+
+{% block content %}
+<style>
+  .apf-page { max-width: 740px; margin: 0 auto; }
+
+  /* Source toggle pills */
+  .apf-source-toggle {
+    display: flex; gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    margin-bottom: 0;
+  }
+  .apf-source-toggle.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .apf-source-btn {
+    flex: 1; padding: 12px 16px; border: none;
+    background: var(--bg); color: var(--text-secondary);
+    font-size: 0.85rem; font-weight: 500; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; transition: all 0.2s;
+  }
+  .apf-source-btn:not(:last-child) { border-right: 1px solid var(--border); }
+  .apf-source-btn.active { background: var(--primary); color: #fff; font-weight: 600; }
+  .apf-source-btn i { font-size: 1.1rem; }
+  .apf-source-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  /* Walk-in notice */
+  .apf-walkin-notice {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 16px; border-radius: 8px;
+    background: #fff8e1; border: 1px solid #ffe082;
+    color: #f57f17; font-size: 0.82rem; margin-bottom: 16px;
+  }
+  .apf-walkin-notice i { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+
+  /* Link-to-account notice */
+  .apf-link-notice {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 18px; border-radius: 10px;
+    background: linear-gradient(135deg, #e3f2fd, #e8eaf6);
+    border: 1px solid #90caf9;
+    color: #1565c0; font-size: 0.82rem; margin-bottom: 18px;
+    line-height: 1.5;
+  }
+  .apf-link-notice i {
+    font-size: 1.4rem; flex-shrink: 0; margin-top: 2px;
+    color: #1976d2;
+  }
+  .apf-link-notice strong {
+    display: block; margin-bottom: 4px; font-size: 0.88rem;
+    color: #0d47a1;
+  }
+  .apf-link-notice span { color: #37474f; }
+
+  /* Confirmation modal – uses system .modal-overlay / .modal-content */
+  #apfConfirmModal .modal-body { text-align: center; padding-top: 30px; }
+  #apfConfirmModal .modal-body .confirm-icon {
+    font-size: 4rem; color: var(--primary); margin-bottom: 16px;
+  }
+  #apfConfirmModal .modal-body h4 {
+    margin-bottom: 12px; font-size: 1.25rem;
+  }
+  #apfConfirmModal .modal-body p {
+    color: var(--text-muted, var(--text-secondary, #666));
+    font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;
+  }
+  #apfConfirmModal .modal-body p strong { color: var(--primary, #009688); }
+  #apfConfirmModal .modal-footer .btn-cancel {
+    display: inline-flex !important; align-items: center !important; gap: 6px !important;
+    padding: 8px 16px !important; border-radius: var(--radius-sm, 6px) !important;
+    font-size: 0.85rem !important; font-weight: 600 !important; cursor: pointer !important;
+    border: 1px solid var(--border) !important; background: var(--surface) !important;
+    color: var(--text-1) !important; transition: all 0.2s !important; text-decoration: none !important;
+  }
+  #apfConfirmModal .modal-footer .btn-cancel:hover {
+    border-color: var(--border-hover) !important; background: var(--bg) !important;
+  }
+  #apfConfirmModal .modal-footer .btn-submit {
+    display: inline-flex !important; align-items: center !important; gap: 6px !important;
+    padding: 8px 16px !important; border-radius: var(--radius-sm, 6px) !important;
+    font-size: 0.85rem !important; font-weight: 600 !important; cursor: pointer !important;
+    border: 1px solid var(--primary) !important; background: var(--primary) !important;
+    color: #fff !important; transition: all 0.2s !important; text-decoration: none !important;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25) !important;
+  }
+  #apfConfirmModal .modal-footer .btn-submit:hover {
+    opacity: 0.95 !important; transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(0, 150, 136, 0.35) !important;
+  }
+
+  /* Link sub-tabs */
+  .apf-link-tabs {
+    display: flex; gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .apf-link-tab {
+    flex: 1; padding: 11px 14px; border: none;
+    background: var(--bg); color: var(--text-secondary);
+    font-size: 0.82rem; font-weight: 500; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; transition: all 0.2s;
+  }
+  .apf-link-tab:not(:last-child) { border-right: 1px solid var(--border); }
+  .apf-link-tab.active {
+    background: linear-gradient(135deg, #1976d2, #1565c0);
+    color: #fff; font-weight: 600;
+  }
+  .apf-link-tab i { font-size: 1rem; }
+  .apf-link-panel { animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Account preview card */
+  .apf-create-preview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .apf-create-preview-header {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 16px 18px;
+    background: linear-gradient(135deg, rgba(25, 118, 210, 0.08), rgba(21, 101, 192, 0.04));
+    border-bottom: 1px solid var(--border);
+  }
+  .apf-create-preview-header > i {
+    font-size: 1.6rem; color: #1976d2; flex-shrink: 0; margin-top: 2px;
+  }
+  .apf-create-preview-header strong {
+    display: block; font-size: 0.88rem; color: var(--text-primary); margin-bottom: 2px;
+  }
+  .apf-create-preview-header span {
+    font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4;
+  }
+  .apf-create-preview-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0; padding: 0;
+  }
+  @media (max-width: 480px) { .apf-create-preview-grid { grid-template-columns: 1fr; } }
+  .apf-preview-item {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .apf-preview-item:nth-child(odd) { border-right: 1px solid var(--border); }
+  @media (max-width: 480px) { .apf-preview-item:nth-child(odd) { border-right: none; } }
+  .apf-preview-label {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .apf-preview-label i { font-size: 0.85rem; }
+  .apf-preview-value {
+    font-size: 0.88rem; color: var(--text-primary); font-weight: 500;
+  }
+  .apf-preview-value em { color: var(--text-secondary); font-weight: 400; }
+  .apf-create-hint {
+    padding: 12px 18px;
+    font-size: 0.78rem; color: #1565c0;
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(25, 118, 210, 0.04);
+  }
+  .apf-create-hint i { font-size: 1rem; flex-shrink: 0; }
+
+  /* Credentials success modal */
+  .apf-creds-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; animation: fadeIn 0.3s ease;
+  }
+  .apf-creds-modal {
+    background: var(--surface, #fff);
+    border-radius: 20px;
+    padding: 0; max-width: 460px; width: 92%;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+    overflow: hidden;
+    animation: scaleIn 0.3s ease;
+  }
+  @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .apf-creds-header {
+    background: linear-gradient(135deg, #1976d2, #0d47a1);
+    padding: 24px 28px; color: #fff; text-align: center;
+  }
+  .apf-creds-header-icon {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 12px;
+  }
+  .apf-creds-header-icon i { font-size: 1.6rem; }
+  .apf-creds-header h3 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 700; }
+  .apf-creds-header p { margin: 0; font-size: 0.82rem; opacity: 0.85; }
+  .apf-creds-body { padding: 24px 28px; }
+  .apf-creds-field {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; margin-bottom: 10px;
+    background: var(--bg, #f5f5f5); border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .apf-creds-field i { font-size: 1.2rem; color: var(--primary); flex-shrink: 0; }
+  .apf-creds-field-content { flex: 1; }
+  .apf-creds-field-label {
+    font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+    color: var(--text-secondary); letter-spacing: 0.04em;
+  }
+  .apf-creds-field-value {
+    font-size: 1rem; font-weight: 700;
+    color: var(--text-primary); font-family: 'Courier New', monospace;
+    letter-spacing: 0.05em;
+  }
+  .apf-creds-copy {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface); color: var(--text-secondary);
+    font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .apf-creds-copy:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .apf-creds-warning {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 12px 14px; border-radius: 8px;
+    background: #fff3e0; border: 1px solid #ffe0b2;
+    color: #e65100; font-size: 0.78rem; line-height: 1.4;
+    margin-bottom: 18px;
+  }
+  .apf-creds-warning i { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+  .apf-creds-actions { display: flex; justify-content: center; }
+  .apf-creds-done {
+    padding: 11px 32px; border: none; border-radius: 10px;
+    background: var(--primary); color: #fff;
+    font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .apf-creds-done:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* Owner panels */
+  .apf-owner-panel { display: none; }
+  .apf-owner-panel.visible { display: block; }
+
+  /* ── rest inherited / same as before ── */
+  .apf-breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 16px;
+  }
+  .apf-breadcrumb a { color: var(--primary); text-decoration: none; }
+  .apf-breadcrumb a:hover { text-decoration: underline; }
+
+  .apf-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 12px);
+    overflow: hidden;
+  }
+  .apf-card-header {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary), #00796b);
+    padding: 32px 28px;
+    color: #fff;
+    overflow: hidden;
+  }
+  .apf-card-header::before {
+    content: '';
+    position: absolute; top: -50%; right: -20%;
+    width: 200px; height: 200px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+  }
+  .apf-header-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; margin-bottom: 12px;
+  }
+  .apf-card-header h1 { font-size: 1.3rem; margin: 0 0 4px 0; font-weight: 700; }
+  .apf-card-header p { font-size: 0.85rem; opacity: 0.85; margin: 0; }
+
+  .apf-form-body { padding: 28px; }
+
+  /* Section dividers */
+  .apf-section {
+    margin-bottom: 28px;
+  }
+  .apf-section-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    margin-bottom: 16px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .apf-section-title i { font-size: 1rem; color: var(--primary); }
+
+  /* Field grid */
+  .apf-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 640px) {
+    .apf-grid { grid-template-columns: 1fr; }
+  }
+  .apf-field-full { grid-column: 1 / -1; }
+
+  /* Field container */
+  .apf-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .apf-field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+  }
+  .apf-field label .req { color: #ef5350; margin-left: 2px; }
+  .apf-field input,
+  .apf-field select,
+  .apf-field textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+  }
+  .apf-field input:disabled,
+  .apf-field select:disabled,
+  .apf-field textarea:disabled {
+    background: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  .apf-field input:focus,
+  .apf-field select:focus,
+  .apf-field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0,150,136,0.12);
+  }
+  .apf-field .apf-field-error {
+    font-size: 0.75rem;
+    color: #ef5350;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .apf-field.has-error input,
+  .apf-field.has-error select {
+    border-color: #ef5350;
+  }
+
+  /* Photo upload Modern Redesign */
+  .apf-photo-upload-modern {
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: all 0.3s ease;
+  }
+  .apf-photo-upload-modern:hover {
+    background: rgba(0, 150, 136, 0.02);
+    border-color: var(--primary);
+  }
+  .apf-photo-upload-modern.has-error {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.02);
+  }
+  .apf-photo-label-modern {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .apf-photo-box-modern {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .apf-photo-preview-modern {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: white;
+  }
+  .apf-photo-preview-modern img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .apf-photo-placeholder-modern {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: rgba(0, 150, 136, 0.08);
+    border: 2px dashed rgba(0, 150, 136, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--primary);
+    font-size: 2.5rem;
+  }
+  .apf-photo-actions-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .apf-photo-title-modern {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .apf-photo-actions-modern small {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .apf-photo-buttons-modern {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .apf-btn-upload {
+    padding: 0.6rem 1.2rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s ease;
+  }
+  .apf-btn-upload:hover {
+    background: #008577;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.3);
+  }
+  .apf-btn-remove {
+    padding: 0.6rem 1.2rem;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s ease;
+  }
+  .apf-btn-remove:hover {
+    background: rgba(239, 68, 68, 0.2);
+    transform: translateY(-2px);
+  }
+  @media (max-width: 480px) {
+    .apf-photo-box-modern {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  /* Error banner */
+  .apf-error-banner {
+    background: #ffebee; border: 1px solid #ef9a9a; border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 20px;
+    color: #c62828; font-size: 0.85rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Actions */
+  .apf-actions {
+    display: flex; gap: 12px; padding-top: 20px;
+    border-top: 1px solid var(--border); margin-top: 8px;
+  }
+  .apf-submit-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 24px; border: none; border-radius: 8px;
+    background: var(--primary); color: #fff;
+    font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; transition: opacity 0.2s;
+  }
+  .apf-submit-btn:hover { opacity: 0.9; }
+  .apf-cancel-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border: 1px solid var(--border); border-radius: 8px;
+    background: transparent; color: var(--text-primary);
+    font-size: 0.9rem; text-decoration: none; font-weight: 500;
+    transition: background 0.2s;
+  }
+  .apf-cancel-btn:hover { background: var(--bg); }
+
+  /* Modern Active Status Toggle */
+  .apf-active-toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+  }
+  .apf-active-toggle-wrapper:hover {
+    border-color: var(--primary);
+    background: rgba(0, 150, 136, 0.02);
+  }
+
+  .apf-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 54px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .apf-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .apf-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.35s ease;
+    border-radius: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+  }
+  .apf-toggle-slider:before {
+    content: '';
+    position: absolute;
+    height: 26px;
+    width: 26px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.35s ease;
+    border-radius: 50%;
+  }
+  input:checked + .apf-toggle-slider {
+    background-color: var(--primary);
+  }
+  input:checked + .apf-toggle-slider:before {
+    transform: translateX(22px);
+  }
+
+  .apf-toggle-label-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+  .apf-toggle-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .apf-toggle-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+  }
+  .apf-toggle-icon {
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+  }
+  .apf-toggle-icon.inactive {
+    color: #999;
+  }
+  .apf-toggle-icon.active {
+    color: var(--primary);
+  }
+</style>
+
+<div class="apf-page">
+
+  <!-- Breadcrumb -->
+  <div class="apf-breadcrumb">
+    <a href="{% url 'patients:admin_list' %}"><i class='bx bxs-dog'></i> Patients</a>
+    <i class='bx bx-chevron-right'></i>
+    {% if pet %}
+      <a href="{% url 'patients:admin_detail' pet.pk %}">{{ pet.name }}</a>
+      <i class='bx bx-chevron-right'></i>
+      <span>Edit</span>
+    {% else %}
+      <span>Add Patient</span>
+    {% endif %}
+  </div>
+
+  <div class="apf-card">
+
+    <!-- Header -->
+    <div class="apf-card-header">
+      <div class="apf-header-icon">
+        {% if action == 'Register' %}<i class='bx bx-plus-circle'></i>
+        {% else %}<i class='bx bx-edit-alt'></i>{% endif %}
+      </div>
+      <h1>{{ action }} Patient</h1>
+      <p>{% if action == 'Register' %}Register a new patient — linked to a portal account or as a walk-in guest{% else %}Update {{ pet.name }}'s information{% endif %}</p>
+    </div>
+
+    <!-- Form Body -->
+    <form method="POST" class="apf-form-body" autocomplete="off" enctype="multipart/form-data" id="apfForm">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="apf-error-banner">
+        <i class='bx bx-error-circle'></i> {{ form.non_field_errors.as_text }}
+      </div>
+      {% endif %}
+
+      <!-- ── Source Toggle ── -->
+      <div class="apf-section">
+        <div class="apf-section-title"><i class='bx bx-toggle-right'></i> Patient Type</div>
+        {# Hidden select submits the value #}
+        <div style="display:none;">{{ form.source }}</div>
+        <div class="apf-source-toggle">
+          <button type="button" class="apf-source-btn" id="btn-portal" onclick="setSource('PORTAL')">
+            <i class='bx bx-user-circle'></i> Registered Portal User
+          </button>
+          <button type="button" class="apf-source-btn" id="btn-walkin" onclick="setSource('WALKIN')">
+            <i class='bx bx-walk'></i> Walk-in Guest (No Account)
+          </button>
+        </div>
+        {% if pet %}
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; display: flex; align-items: center; gap: 6px;">
+          <i class='bx bx-lock-alt'></i>
+          <span>{{ form.source.help_text }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ── Portal Owner Section ── -->
+      <div class="apf-section apf-owner-panel" id="panel-portal">
+        <div class="apf-section-title"><i class='bx bxs-user-detail'></i> Registered Owner</div>
+        <div class="apf-grid">
+          <div class="apf-field apf-field-full {% if form.owner.errors %}has-error{% endif %}">
+            <label for="{{ form.owner.id_for_label }}">Portal Account <span class="req">*</span></label>
+            {{ form.owner }}
+            {% if form.owner.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.owner.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Walk-in Guest Owner Section ── -->
+      <div class="apf-section apf-owner-panel" id="panel-walkin">
+        <div class="apf-section-title"><i class='bx bx-id-card'></i> Guest Owner Information</div>
+        <div class="apf-walkin-notice">
+          <i class='bx bx-info-circle'></i>
+          <span>This patient has no portal account. Fill in their contact details below. They can be linked to an account later.</span>
+        </div>
+        <div class="apf-grid">
+          <div class="apf-field {% if form.guest_owner_name.errors %}has-error{% endif %}">
+            <label for="{{ form.guest_owner_name.id_for_label }}">Owner Name <span class="req">*</span></label>
+            {{ form.guest_owner_name }}
+            {% if form.guest_owner_name.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_name.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.guest_owner_phone.errors %}has-error{% endif %}">
+            <label for="{{ form.guest_owner_phone.id_for_label }}">Phone Number</label>
+            {{ form.guest_owner_phone }}
+            {% if form.guest_owner_phone.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_phone.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.guest_owner_email.errors %}has-error{% endif %}">
+            <label for="{{ form.guest_owner_email.id_for_label }}">Email Address</label>
+            {{ form.guest_owner_email }}
+            {% if form.guest_owner_email.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_email.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.guest_owner_address.errors %}has-error{% endif %}">
+            <label for="{{ form.guest_owner_address.id_for_label }}">Address</label>
+            {{ form.guest_owner_address }}
+            {% if form.guest_owner_address.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_address.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if pet and pet.source == 'WALKIN' and can_transfer %}
+      <!-- ── Convert to Portal Account Section (Walk-in only) ── -->
+      <div class="apf-section" id="panel-link-account">
+        <div class="apf-section-title"><i class='bx bx-link-alt'></i> Convert to Portal Account</div>
+        <div class="apf-link-notice">
+          <i class='bx bx-transfer-alt'></i>
+          <div>
+            <strong>Transfer this walk-in patient to a portal account</strong>
+            <span>This will transfer pet ownership, all medical records, and appointment history. Guest owner details will be cleared. This action cannot be undone.</span>
+          </div>
+        </div>
+
+        <!-- Sub-tabs -->
+        <div class="apf-link-tabs">
+          <button type="button" class="apf-link-tab active" id="tab-link-existing" onclick="switchLinkTab('existing')">
+            <i class='bx bx-search'></i> Link Existing Account
+          </button>
+          <button type="button" class="apf-link-tab" id="tab-create-new" onclick="switchLinkTab('create')">
+            <i class='bx bx-user-plus'></i> Create New Account
+          </button>
+        </div>
+
+        <!-- Tab 1: Link to Existing -->
+        <div class="apf-link-panel" id="panel-link-existing">
+          <div class="apf-grid">
+            <div class="apf-field apf-field-full {% if form.link_to_account.errors %}has-error{% endif %}">
+              <label for="{{ form.link_to_account.id_for_label }}">Select Portal User</label>
+              {{ form.link_to_account }}
+              {% if form.link_to_account.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.link_to_account.errors.0 }}</span>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Create New Account -->
+        <div class="apf-link-panel" id="panel-create-new" style="display: none;">
+          {{ form.create_new_account }}
+          <div class="apf-create-preview">
+            <div class="apf-create-preview-header">
+              <i class='bx bx-user-circle'></i>
+              <div>
+                <strong>Account Preview</strong>
+                <span>A new portal account will be auto-generated using the guest owner's information above.</span>
+              </div>
+            </div>
+            <div class="apf-create-preview-grid">
+              <div class="apf-preview-item">
+                <span class="apf-preview-label"><i class='bx bx-user'></i> Name</span>
+                <span class="apf-preview-value" id="preview-name">{{ pet.guest_owner_name|default:"—" }}</span>
+              </div>
+              <div class="apf-preview-item">
+                <span class="apf-preview-label"><i class='bx bx-at'></i> Username</span>
+                <span class="apf-preview-value" id="preview-username">
+                  <em>auto-generated</em>
+                </span>
+              </div>
+              <div class="apf-preview-item">
+                <span class="apf-preview-label"><i class='bx bx-lock-alt'></i> Password</span>
+                <span class="apf-preview-value"><em>auto-generated (shown after creation)</em></span>
+              </div>
+              <div class="apf-preview-item">
+                <span class="apf-preview-label"><i class='bx bx-phone'></i> Phone</span>
+                <span class="apf-preview-value">{{ pet.guest_owner_phone|default:"—" }}</span>
+              </div>
+              <div class="apf-preview-item">
+                <span class="apf-preview-label"><i class='bx bx-envelope'></i> Email</span>
+                <span class="apf-preview-value">{{ pet.guest_owner_email|default:"—" }}</span>
+              </div>
+            </div>
+            <div class="apf-create-hint">
+              <i class='bx bx-info-circle'></i>
+              The login credentials will be displayed after saving. Please share them with the client so they can access the portal.
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ── Photo Section ── -->
+      <div class="apf-section">
+        <div class="apf-photo-upload-modern {% if form.photo.errors %}has-error{% endif %}">
+          <label class="apf-photo-label-modern">Patient Photo <span style="font-weight: 400; color: var(--text-secondary); font-size: 0.8rem; margin-left: 5px;">(Optional)</span></label>
+          <div class="apf-photo-box-modern">
+            <div class="apf-photo-preview-modern" id="photoPreviewBox" style="{% if not pet.photo %}display: none;{% endif %}">
+              <img src="{% if pet.photo %}{{ pet.photo.url }}{% endif %}" alt="Patient Photo" id="chosenPhoto">
+            </div>
+
+            <div class="apf-photo-placeholder-modern" id="photoPlaceholderBox" style="{% if pet.photo %}display: none;{% endif %}">
+              <i class='bx bx-camera'></i>
+            </div>
+
+            <div class="apf-photo-actions-modern">
+              <span class="apf-photo-title-modern">Upload a photo</span>
+              <small>Supported formats: .png, .jpeg (Max 10MB)</small>
+              <div class="apf-photo-buttons-modern">
+                <button type="button" class="apf-btn-upload" onclick="document.getElementById('{{ form.photo.id_for_label }}').click();">
+                  <i class='bx bx-upload'></i> Choose Photo
+                </button>
+                <button type="button" class="apf-btn-remove" id="removePhotoBtn" style="{% if not pet.photo %}display: none;{% endif %}" onclick="removePhotoAction()">
+                  <i class='bx bx-trash'></i> Remove
+                </button>
+              </div>
+            </div>
+
+            <!-- Hidden original Django widget -->
+            <div class="apf-hidden-photo-input" style="opacity: 0; position: absolute; z-index: -1;">
+              {{ form.photo }}
+            </div>
+          </div>
+          {% if form.photo.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.photo.errors.0 }}</span>{% endif %}
+        </div>
+      </div>
+
+      <!-- ── Pet Information Section ── -->
+      <div class="apf-section">
+        <div class="apf-section-title"><i class='bx bxs-dog'></i> Pet Information</div>
+        <div class="apf-grid">
+          <div class="apf-field {% if form.name.errors %}has-error{% endif %}">
+            <label for="{{ form.name.id_for_label }}">Pet Name <span class="req">*</span></label>
+            {{ form.name }}
+            {% if form.name.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.name.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.species.errors %}has-error{% endif %}">
+            <label for="{{ form.species.id_for_label }}">Species <span class="req">*</span></label>
+            {{ form.species }}
+            {% if form.species.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.species.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.breed.errors %}has-error{% endif %}">
+            <label for="{{ form.breed.id_for_label }}">Breed</label>
+            {{ form.breed }}
+            {% if form.breed.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.breed.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.sex.errors %}has-error{% endif %}">
+            <label for="{{ form.sex.id_for_label }}">Sex <span class="req">*</span></label>
+            {{ form.sex }}
+            {% if form.sex.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.sex.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.date_of_birth.errors %}has-error{% endif %}">
+            <label for="{{ form.date_of_birth.id_for_label }}">Date of Birth</label>
+            {{ form.date_of_birth }}
+            {% if form.date_of_birth.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.date_of_birth.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="apf-field {% if form.color.errors %}has-error{% endif %}">
+            <label for="{{ form.color.id_for_label }}">Color</label>
+            {{ form.color }}
+            {% if form.color.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.color.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Clinical & Active Status Section ── -->
+      <div class="apf-section">
+        <div class="apf-section-title"><i class='bx bx-pulse'></i> Status settings</div>
+        <div class="apf-grid">
+          <div class="apf-field {% if form.clinical_status.errors %}has-error{% endif %}">
+            <label for="{{ form.clinical_status.id_for_label }}">Clinical Status</label>
+            {{ form.clinical_status }}
+            {% if form.clinical_status.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.clinical_status.errors.0 }}</span>{% endif %}
+          </div>
+          
+          <div class="apf-field {% if form.is_active.errors %}has-error{% endif %}">
+            <label for="{{ form.is_active.id_for_label }}">Active Profile</label>
+            <div class="apf-active-toggle-wrapper">
+              <label class="apf-toggle-switch">
+                {{ form.is_active }}
+                <span class="apf-toggle-slider"></span>
+              </label>
+              <div class="apf-toggle-label-content">
+                <div class="apf-toggle-title">
+                  <i class='bx bxs-circle apf-toggle-icon inactive' id="activeStatusIcon"></i>
+                  <span id="activeStatusText">Inactive</span>
+                </div>
+                <span class="apf-toggle-desc">This pet {% if form.is_active.value %}will appear{% else %}won't appear{% endif %} in appointment booking list</span>
+              </div>
+            </div>
+            {% if form.is_active.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.is_active.errors.0 }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Actions ── -->
+      <div class="apf-actions">
+        <button type="submit" class="apf-submit-btn">
+          <i class='bx {% if action == "Register" %}bx-plus{% else %}bx-check{% endif %}'></i> {{ action }} Patient
+        </button>
+        <a href="{% if pet %}{% url 'patients:admin_detail' pet.pk %}{% else %}{% url 'patients:admin_list' %}{% endif %}" class="apf-cancel-btn">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const selectEl = document.getElementById('id_source');
+  const isDisabled = selectEl && selectEl.disabled;
+
+  function setSource(val) {
+    // Prevent changes if field is disabled (editing existing pet)
+    if (isDisabled) return;
+
+    if (selectEl) selectEl.value = val;
+    document.getElementById('btn-portal').classList.toggle('active', val === 'PORTAL');
+    document.getElementById('btn-walkin').classList.toggle('active', val === 'WALKIN');
+    document.getElementById('panel-portal').classList.toggle('visible', val === 'PORTAL');
+    document.getElementById('panel-walkin').classList.toggle('visible', val === 'WALKIN');
+  }
+
+  // Initialise on page load — respects existing value (fresh form or re-display after error)
+  (function() {
+    const initial = (selectEl && selectEl.value) ? selectEl.value : 'PORTAL';
+    setSource(initial);
+
+    // If field is disabled, disable toggle buttons and show locked state
+    if (isDisabled) {
+      const toggleContainer = document.querySelector('.apf-source-toggle');
+      const toggleButtons = document.querySelectorAll('.apf-source-btn');
+
+      if (toggleContainer) {
+        toggleContainer.classList.add('disabled');
+      }
+
+      toggleButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.cursor = 'not-allowed';
+      });
+
+      // Ensure the correct panel is always visible based on current source
+      document.getElementById('btn-portal').classList.toggle('active', initial === 'PORTAL');
+      document.getElementById('btn-walkin').classList.toggle('active', initial === 'WALKIN');
+      document.getElementById('panel-portal').classList.toggle('visible', initial === 'PORTAL');
+      document.getElementById('panel-walkin').classList.toggle('visible', initial === 'WALKIN');
+    }
+  })();
+
+  // Live photo preview
+  const photoInput = document.getElementById('{{ form.photo.id_for_label }}');
+  const photoPreviewBox = document.getElementById('photoPreviewBox');
+  const chosenPhoto = document.getElementById('chosenPhoto');
+  const photoPlaceholderBox = document.getElementById('photoPlaceholderBox');
+  const removePhotoBtn = document.getElementById('removePhotoBtn');
+
+  if (photoInput) {
+    photoInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          chosenPhoto.src = e.target.result;
+          photoPreviewBox.style.display = 'block';
+          photoPlaceholderBox.style.display = 'none';
+          removePhotoBtn.style.display = 'inline-flex';
+        };
+        reader.readAsDataURL(this.files[0]);
+      }
+    });
+  }
+
+  // Remove photo
+  function removePhotoAction() {
+    if (photoInput) {
+      photoInput.value = '';
+
+      const clearCheckbox = document.querySelector('input[name="{{ form.photo.name }}-clear"]');
+      if (clearCheckbox) {
+        clearCheckbox.checked = true;
+      }
+
+      chosenPhoto.src = '';
+      photoPreviewBox.style.display = 'none';
+      photoPlaceholderBox.style.display = 'flex';
+      removePhotoBtn.style.display = 'none';
+    }
+  }
+
+  // Modern Active Status Toggle
+  (function initActiveToggle() {
+    const activeCheckbox = document.getElementById('{{ form.is_active.id_for_label }}');
+    const activeStatusIcon = document.getElementById('activeStatusIcon');
+    const activeStatusText = document.getElementById('activeStatusText');
+
+    function updateToggleStatus() {
+      const isChecked = activeCheckbox.checked;
+      activeStatusIcon.classList.toggle('active', isChecked);
+      activeStatusIcon.classList.toggle('inactive', !isChecked);
+      activeStatusIcon.classList.toggle('bxs-check-circle', isChecked);
+      activeStatusIcon.classList.toggle('bxs-circle', !isChecked);
+      activeStatusText.textContent = isChecked ? 'Active' : 'Inactive';
+    }
+
+    if (activeCheckbox) {
+      activeCheckbox.addEventListener('change', updateToggleStatus);
+      updateToggleStatus(); // Initialize on page load
+    }
+  })();
+
+  // Auto-Capitalize for Client and Pet Details (first letter only)
+  (function initAutoCapitalize() {
+    function capitalizeFirstLetter(str) {
+      if (!str) return str;
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Fields to auto-capitalize (Guest Owner and Pet Details)
+    const fieldsToCapitalize = [
+      'guest_owner_name', 'guest_owner_address',
+      'name', 'breed', 'color'
+    ];
+
+    fieldsToCapitalize.forEach(function(fieldName) {
+      const field = document.querySelector('[name="' + fieldName + '"]');
+      if (field && (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA')) {
+        field.addEventListener('input', function() {
+          const start = this.selectionStart;
+          const end = this.selectionEnd;
+          this.value = capitalizeFirstLetter(this.value);
+          this.setSelectionRange(start, end);
+        });
+      }
+    });
+  })();
+
+  // ── Tab switching for Link / Create ──
+  function switchLinkTab(mode) {
+    const tabExisting = document.getElementById('tab-link-existing');
+    const tabCreate = document.getElementById('tab-create-new');
+    const panelExisting = document.getElementById('panel-link-existing');
+    const panelCreate = document.getElementById('panel-create-new');
+    const createFlag = document.getElementById('id_create_new_account');
+    const linkSelect = document.getElementById('id_link_to_account');
+
+    if (!tabExisting) return;
+
+    if (mode === 'create') {
+      tabExisting.classList.remove('active');
+      tabCreate.classList.add('active');
+      panelExisting.style.display = 'none';
+      panelCreate.style.display = 'block';
+      if (createFlag) createFlag.value = 'True';
+      // Force-clear link dropdown when switching to create
+      if (linkSelect) { linkSelect.selectedIndex = 0; linkSelect.value = ''; }
+    } else {
+      tabCreate.classList.remove('active');
+      tabExisting.classList.add('active');
+      panelCreate.style.display = 'none';
+      panelExisting.style.display = 'block';
+      // Clear create flag when switching to link mode
+      if (createFlag) createFlag.value = '';
+    }
+  }
+
+  // ── Username preview ──
+  (function initUsernamePreview() {
+    const previewEl = document.getElementById('preview-username');
+    const nameInput = document.querySelector('[name="guest_owner_name"]');
+    if (!previewEl || !nameInput) return;
+
+    function generatePreview(name) {
+      if (!name || !name.trim()) return '<em>auto-generated</em>';
+      const parts = name.trim().split(/\s+/);
+      let base;
+      if (parts.length >= 2) {
+        base = parts[0].toLowerCase() + '.' + parts.slice(1).join('').toLowerCase();
+      } else {
+        base = parts[0].toLowerCase();
+      }
+      base = base.replace(/[^a-z0-9.]/g, '');
+      return base || '<em>auto-generated</em>';
+    }
+
+    // Update on load
+    previewEl.innerHTML = generatePreview(nameInput.value);
+
+    // Update live as name changes
+    nameInput.addEventListener('input', function() {
+      previewEl.innerHTML = generatePreview(this.value);
+    });
+  })();
+
+  // ── Confirmation modal for both Link Existing and Create New ──
+  (function initConfirmModal() {
+    const linkSelect = document.getElementById('id_link_to_account');
+    const createFlag = document.getElementById('id_create_new_account');
+    const form = document.getElementById('apfForm');
+    if (!form) return;
+
+    let confirmed = false;
+
+    form.addEventListener('submit', function(e) {
+      if (confirmed) return;
+
+      const isCreateMode = createFlag && createFlag.value === 'True';
+      const isLinkMode = linkSelect && linkSelect.value;
+
+      if (!isCreateMode && !isLinkMode) return; // Normal save, no modal needed
+
+      e.preventDefault();
+
+      let title, body, btnText, iconClass;
+
+      if (isCreateMode) {
+        const nameInput = document.querySelector('[name="guest_owner_name"]');
+        const guestName = nameInput ? nameInput.value.trim() : 'this guest';
+        const petName = '{{ pet.name|escapejs }}';
+        title = 'Create New Portal Account';
+        body = `A new portal account will be created for <strong>${guestName}</strong>. ` +
+               `<strong>${petName}</strong>'s medical records and appointments will be transferred to this new account.<br><br>` +
+               `Login credentials will be shown after creation.`;
+        btnText = '<i class="bx bx-user-plus"></i> Create Account & Transfer';
+        iconClass = 'bx-user-plus';
+      } else {
+        const selectedOption = linkSelect.options[linkSelect.selectedIndex];
+        const userName = selectedOption.textContent.trim();
+        const petName = '{{ pet.name|escapejs }}';
+        title = 'Confirm Account Link';
+        body = `You are about to transfer <strong>${petName}</strong> to <strong>${userName}</strong>'s portal account.<br>` +
+               `All medical records and appointments will be linked to this user. This action cannot be undone.`;
+        btnText = '<i class="bx bx-check"></i> Confirm Transfer';
+        iconClass = 'bx-transfer-alt';
+      }
+
+      // Build modal using system modal structure
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'apfConfirmModal';
+      overlay.innerHTML = `
+        <div class="modal-content" style="max-width: 480px;">
+          <div class="modal-header">
+            <h3 style="color: var(--primary);"><i class='bx ${iconClass}'></i> ${title}</h3>
+            <button type="button" class="modal-close" id="confirmClose">&times;</button>
+          </div>
+          <div class="modal-body">
+            <i class='bx ${iconClass} confirm-icon'></i>
+            <h4>${title}</h4>
+            <p>${body}</p>
+          </div>
+          <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+            <button type="button" class="btn-cancel" id="confirmCancel">Cancel</button>
+            <button type="button" class="btn-submit" id="confirmProceed">
+              ${btnText}
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('active'));
+
+      function closeConfirmModal() {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.remove(), 300);
+      }
+
+      overlay.querySelector('#confirmClose').addEventListener('click', closeConfirmModal);
+      overlay.querySelector('#confirmCancel').addEventListener('click', closeConfirmModal);
+      overlay.querySelector('#confirmProceed').addEventListener('click', () => {
+        confirmed = true;
+        // Safety: force-clear dropdown when in create mode to prevent stale values
+        if (isCreateMode && linkSelect) { linkSelect.selectedIndex = 0; linkSelect.value = ''; }
+        overlay.remove();
+        form.submit();
+      });
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeConfirmModal();
+      });
+    });
+  })();
+
+  // ── Credentials modal (shown after successful account creation) ──
+  {% if created_credentials %}
+  (function showCredentials() {
+    const creds = {
+      username: '{{ created_credentials.username|escapejs }}',
+      password: '{{ created_credentials.password|escapejs }}',
+      fullName: '{{ created_credentials.full_name|escapejs }}',
+      petName:  '{{ created_credentials.pet_name|escapejs }}',
+    };
+
+    const overlay = document.createElement('div');
+    overlay.className = 'apf-creds-overlay';
+    overlay.innerHTML = `
+      <div class="apf-creds-modal">
+        <div class="apf-creds-header">
+          <div class="apf-creds-header-icon"><i class='bx bx-check-circle'></i></div>
+          <h3>Account Created Successfully</h3>
+          <p>${creds.petName} has been linked to ${creds.fullName}'s new account</p>
+        </div>
+        <div class="apf-creds-body">
+          <div class="apf-creds-warning">
+            <i class='bx bx-error'></i>
+            <span>These credentials are shown <strong>only once</strong>. Please share them with the client or write them down now.</span>
+          </div>
+          <div class="apf-creds-field">
+            <i class='bx bx-user'></i>
+            <div class="apf-creds-field-content">
+              <div class="apf-creds-field-label">Username</div>
+              <div class="apf-creds-field-value">${creds.username}</div>
+            </div>
+            <button type="button" class="apf-creds-copy" onclick="copyCredential('${creds.username}', this)">
+              <i class='bx bx-copy'></i> Copy
+            </button>
+          </div>
+          <div class="apf-creds-field">
+            <i class='bx bx-lock-alt'></i>
+            <div class="apf-creds-field-content">
+              <div class="apf-creds-field-label">Temporary Password</div>
+              <div class="apf-creds-field-value">${creds.password}</div>
+            </div>
+            <button type="button" class="apf-creds-copy" onclick="copyCredential('${creds.password}', this)">
+              <i class='bx bx-copy'></i> Copy
+            </button>
+          </div>
+          <div class="apf-creds-actions">
+            <button type="button" class="apf-creds-done" onclick="this.closest('.apf-creds-overlay').remove()">
+              <i class='bx bx-check'></i> Done
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  })();
+  {% endif %}
+
+  function copyCredential(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="bx bx-check"></i> Copied!';
+      btn.style.background = 'var(--primary)';
+      btn.style.color = '#fff';
+      btn.style.borderColor = 'var(--primary)';
+      setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }, 2000);
+    });
+  }
+</script>
+
+{% endblock %}

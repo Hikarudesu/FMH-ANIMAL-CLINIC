@@ -1,0 +1,106 @@
+{% comment %}
+  ═══════════════════════════════════════════════════════════
+  COMPONENT: Filter Bar  —  Modern Glassmorphic Search & Filters
+  ═══════════════════════════════════════════════════════════
+
+  Usage:
+    {% include "components/filter_bar.html" with
+       form_action="/appointments/"
+       form_id="apptFilterForm"
+       search_name="q"
+       search_value=q
+       search_placeholder="Search by owner, pet, or email..."
+       search_id="apptSearch"
+       filters=filter_list
+       active_filters=active_filter_list
+       clear_url="/appointments/"
+       show_clear=True
+       hidden_fields=hidden_list
+       search_dropdown_id="apptSearchDropdown"
+    %}
+
+  Context variables:
+    form_action        — URL the form submits to (GET)
+    form_id            — HTML id for the <form>
+    search_name        — name attribute for the search input (default: "q")
+    search_value       — current search value
+    search_placeholder — placeholder text
+    search_id          — id for the search input
+    search_dropdown_id — id for a search autocomplete dropdown (optional)
+    filters            — list of filter dicts:
+                         { name, icon, default_label, options: [{ value, label, selected }] }
+    active_filters     — list of active filter dicts (auto-generated if empty):
+                         { name, label, value_label }
+    clear_url          — URL for the "Clear All" link
+    show_clear         — boolean, show clear button
+    hidden_fields      — list of dicts: { name, value } for hidden inputs
+{% endcomment %}
+
+<div class="c-filter-bar" id="{{ bar_id|default:'filterBar' }}">
+  <div class="c-filter-bar__glow"></div>
+
+  <form method="GET"
+        {% if form_action %}action="{{ form_action }}"{% endif %}
+        id="{{ form_id|default:'filterForm' }}"
+        class="c-filter-bar__form"
+        autocomplete="off">
+
+    {% for field in hidden_fields %}
+    <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+    {% endfor %}
+
+    <!-- ── Search Input (optional) ── -->
+    {% if show_search|default:True %}
+    <div class="c-filter-bar__search">
+      <i class='bx bx-search c-filter-bar__search-icon'></i>
+      <input
+        type="text"
+        name="{{ search_name|default:'q' }}"
+        value="{{ search_value }}"
+        placeholder="{{ search_placeholder|default:'Search...' }}"
+        id="{{ search_id|default:'filterSearch' }}"
+        class="c-filter-bar__search-input"
+        autocomplete="off"
+      >
+      {% if search_dropdown_id %}
+      <div class="search-dropdown" id="{{ search_dropdown_id }}"></div>
+      {% endif %}
+      <div class="c-filter-bar__shortcut">
+        <span>⌘</span><span>K</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Filter Dropdowns Row ── -->
+    <div class="c-filter-bar__filters">
+      {% for filter in filters %}
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if filter.has_value %} active{% endif %}">
+          <i class='bx {{ filter.icon }} c-filter-dropdown__icon'></i>
+          <span class="c-filter-dropdown__label">
+            {% if filter.label_prefix %}<span class="prefix">{{ filter.label_prefix }}:</span> {% endif %}
+            {% if filter.has_value %}{{ filter.selected_label }}{% else %}{{ filter.default_label }}{% endif %}
+          </span>
+          <i class='bx bx-chevron-down c-filter-dropdown__arrow'></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert"
+                name="{{ filter.name }}"
+                onchange="this.form.submit()">
+          <option value="">{{ filter.default_label }}</option>
+          {% for option in filter.options %}
+          <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>
+            {{ option.label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+
+      {% if show_clear %}
+      <a href="{{ clear_url }}" class="c-filter-bar__clear" title="Clear Filters">
+        <i class='bx bx-x'></i>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+</div>

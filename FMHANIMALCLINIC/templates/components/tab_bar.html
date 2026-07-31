@@ -1,0 +1,45 @@
+{% comment %}
+  ═══════════════════════════════════════════════════════════
+  COMPONENT: Tab Bar  —  Modern Glassmorphic Tabs
+  ═══════════════════════════════════════════════════════════
+
+  Usage:
+    {% include "components/tab_bar.html" with tabs=tab_list active_tab="pending" tab_id="appointmentTabs" %}
+
+  Context variables:
+    tabs       — list of dicts: { id, label, icon, count (optional), url (optional) }
+    active_tab — string id of the currently active tab
+    tab_id     — optional HTML id for the wrapper (default: "componentTabs")
+
+  Each tab is rendered as a link (if url provided) or button with data-tab="{{ tab.id }}"
+{% endcomment %}
+
+<div class="c-tab-bar" id="{{ tab_id|default:'componentTabs' }}">
+  <!-- Glow background -->
+  <div class="c-tab-bar__glow"></div>
+
+  {% for tab in tabs %}
+  {% if tab.url %}
+  <a href="{{ tab.url }}" class="c-tab-btn {% if active_tab == tab.id %}active{% endif %}" id="tab-btn-{{ tab.id }}" style="text-decoration: none;">
+    <i class='bx {{ tab.icon }} c-tab-btn__icon'></i>
+    <span class="c-tab-btn__label">{{ tab.label }}</span>
+    {% if tab.count is not None %}
+    <span class="c-tab-btn__badge">{{ tab.count }}</span>
+    {% endif %}
+  </a>
+  {% else %}
+  <button
+    class="c-tab-btn {% if active_tab == tab.id %}active{% endif %}"
+    data-tab="{{ tab.id }}"
+    id="tab-btn-{{ tab.id }}"
+    type="button"
+  >
+    <i class='bx {{ tab.icon }} c-tab-btn__icon'></i>
+    <span class="c-tab-btn__label">{{ tab.label }}</span>
+    {% if tab.count is not None %}
+    <span class="c-tab-btn__badge">{{ tab.count }}</span>
+    {% endif %}
+  </button>
+  {% endif %}
+  {% endfor %}
+</div>

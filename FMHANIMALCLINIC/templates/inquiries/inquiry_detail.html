@@ -1,0 +1,485 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Inquiry from {{ inquiry.full_name }}{% endblock %}
+
+{% block content %}
+<div class="inquiry-detail-page">
+
+<!-- Page Hero -->
+{% include "components/page_hero.html" with title="Inquiry Details" icon="bx-envelope" action_url=inquiry_list_url action_label="Back to Inquiries" action_icon="bx-arrow-back" %}
+
+<!-- Main Layout Grid -->
+<div class="modern-inquiry-layout">
+  
+  <!-- Left Side: User Information & Message -->
+  <div class="inquiry-content-card">
+    <div class="card-header-styled">
+      <div class="card-title-wrap">
+        <i class='bx bx-user-circle'></i>
+        <h3>Sender Information</h3>
+      </div>
+      <div class="status-badge-wrap">
+        <span class="status-badge status-{{ inquiry.status|lower }}">
+          <span class="status-dot"></span>
+          {{ inquiry.get_status_display }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Sender Details Grid -->
+    <div class="sender-info-grid">
+      <div class="sender-info-item">
+        <div class="item-icon"><i class='bx bx-id-card'></i></div>
+        <div class="item-content">
+          <small>Full Name</small>
+          <strong>{{ inquiry.full_name }}</strong>
+        </div>
+      </div>
+      
+      <div class="sender-info-item">
+        <div class="item-icon"><i class='bx bx-envelope'></i></div>
+        <div class="item-content">
+          <small>Email Address</small>
+          <strong><a href="mailto:{{ inquiry.email }}">{{ inquiry.email }}</a></strong>
+        </div>
+      </div>
+      
+      <div class="sender-info-item">
+        <div class="item-icon"><i class='bx bx-phone'></i></div>
+        <div class="item-content">
+          <small>Phone Number</small>
+          <strong><a href="tel:{{ inquiry.phone }}">{{ inquiry.phone }}</a></strong>
+        </div>
+      </div>
+      
+      <div class="sender-info-item">
+        <div class="item-icon"><i class='bx bx-store'></i></div>
+        <div class="item-content">
+          <small>Branch</small>
+          <strong>{{ inquiry.branch.name|default:"Not specified" }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message Bubble -->
+    <div class="message-section-modern">
+      <h3><i class='bx bx-message-square-detail'></i> Message Content</h3>
+      <div class="message-bubble">
+        {{ inquiry.message|linebreaks }}
+      </div>
+      <div class="message-meta">
+        <span><i class='bx bx-time-five'></i> Received: {{ inquiry.created_at|date:"M d, Y g:i A" }}</span>
+        <span><i class='bx bx-hash'></i> ID: #{{ inquiry.id }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side: Management Form -->
+  <div class="inquiry-management-card">
+    <form method="POST" class="management-form">
+      {% csrf_token %}
+      
+      <div class="form-header-styled">
+        <i class='bx bx-slider-alt'></i>
+        <h3>Management</h3>
+      </div>
+
+      <div class="management-body">
+        
+        <!-- Status Management -->
+        <div class="control-group">
+          <label><i class='bx bx-sync'></i> Update Status</label>
+          {{ form.status }}
+          
+          <div class="quick-status-actions">
+            <button type="button" class="quick-btn {% if inquiry.status == 'READ' %}active{% endif %}" onclick="updateStatus('READ')" title="Mark Read">
+              <i class='bx bx-envelope-open'></i> Read
+            </button>
+            <button type="button" class="quick-btn {% if inquiry.status == 'RESPONDED' %}active{% endif %}" onclick="updateStatus('RESPONDED')" title="Mark Responded">
+              <i class='bx bx-check-circle'></i> Responded
+            </button>
+            <button type="button" class="quick-btn {% if inquiry.status == 'ARCHIVED' %}active{% endif %}" onclick="updateStatus('ARCHIVED')" title="Archive">
+              <i class='bx bx-archive'></i> Archive
+            </button>
+          </div>
+        </div>
+
+        <!-- Priority Management -->
+        <div class="control-group">
+          <label><i class='bx bx-star'></i> Priority Level</label>
+          {{ form.priority }}
+        </div>
+
+        <!-- Internal Notes -->
+        <div class="control-group">
+          <label><i class='bx bx-notepad'></i> Internal Notes <small>(Staff only)</small></label>
+          {{ form.internal_notes }}
+        </div>
+
+      </div>
+
+      <!-- Action Footer -->
+      <div class="management-footer">
+        <a href="{% url 'inquiries:list' %}" class="btn-cancel">Cancel</a>
+        <button type="submit" class="btn-save"><i class='bx bx-check'></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+
+</div>
+
+</div>
+
+<script>
+function updateStatus(status) {
+  fetch("{% url 'inquiries:update_status' inquiry.pk %}", {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": "{{ csrf_token }}",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ status: status })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      window.location.reload();
+    }
+  });
+}
+</script>
+
+<style>
+/* ══════ MODERN INQUIRY DETAIL STYLES ══════ */
+.inquiry-detail-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+.modern-inquiry-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+/* Cards Shared */
+.inquiry-content-card,
+.inquiry-management-card {
+  background: var(--surface);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header Styles */
+.card-header-styled, .form-header-styled {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: linear-gradient(to right, rgba(var(--primary-rgb), 0.05), transparent);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.card-title-wrap, .form-header-styled {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-title-wrap i, .form-header-styled i {
+  font-size: 1.5rem;
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.card-header-styled h3, .form-header-styled h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Sender Grid */
+.sender-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 24px;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.sender-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.item-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  border: 1px solid var(--border-color);
+}
+
+.item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-content small {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.item-content strong, .item-content a {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.item-content a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Message Section */
+.message-section-modern {
+  padding: 24px;
+  flex-grow: 1;
+  background: var(--bg);
+}
+
+.message-section-modern h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+}
+
+.message-section-modern h3 i {
+  color: var(--text-secondary);
+}
+
+.message-bubble {
+  background: var(--surface);
+  padding: 24px;
+  border-radius: 0 16px 16px 16px;
+  border: 1px solid var(--border-color);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.message-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.message-meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 0 8px;
+}
+
+.message-meta span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Form Controls */
+.management-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.management-body {
+  padding: 24px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.control-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.control-group label i {
+  color: var(--primary);
+}
+
+.control-group label small {
+  font-weight: normal;
+  opacity: 0.7;
+  margin-left: auto;
+}
+
+.control-group select, 
+.control-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.control-group select:focus,
+.control-group textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+  background: var(--surface);
+}
+
+.control-group textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* Quick Status Actions */
+.quick-status-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.quick-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-btn:hover {
+  background: var(--surface);
+  border-color: var(--text-secondary);
+}
+
+.quick-btn.active {
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* Management Footer */
+.management-footer {
+  padding: 20px 24px;
+  background: var(--bg);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 12px;
+}
+
+.btn-cancel, .btn-save {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-cancel {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-cancel:hover {
+  background: var(--border-color);
+}
+
+.btn-save {
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+
+.btn-save:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .modern-inquiry-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .inquiry-detail-page {
+    padding: 0 16px;
+  }
+  
+  .sender-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .management-footer {
+    flex-direction: column;
+  }
+}
+</style>
+
+{% endblock %}

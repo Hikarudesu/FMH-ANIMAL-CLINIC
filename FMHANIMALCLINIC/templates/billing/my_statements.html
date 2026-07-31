@@ -1,0 +1,315 @@
+{% extends 'base/portal_user.html' %}
+
+{% block title %}Statement of Account{% endblock %}
+
+{% block content %}
+<div class="dashboard-shell">
+  <style>
+    .soa-subhead {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .soa-muted {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .soa-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 14px;
+    }
+
+    /* SIMPLE & COMPACT SOA CARD */
+    .soa-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 252, 251, 0.98) 100%);
+      border: 1px solid rgba(0, 150, 136, 0.08);
+      border-radius: 16px;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      min-height: 170px;
+    }
+
+    .soa-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(0, 150, 136, 0.16);
+      box-shadow: 0 16px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    .soa-card-top {
+      padding: 14px 16px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .soa-number {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin: 0 0 4px 0;
+      letter-spacing: 0.01em;
+    }
+
+    .soa-date {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .soa-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--primary, #009688);
+      background: rgba(0, 150, 136, 0.08);
+      border: 1px solid rgba(0, 150, 136, 0.16);
+    }
+
+    .soa-summary {
+      padding: 0 16px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-grow: 1;
+    }
+
+    .soa-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .soa-meta-item {
+      background: rgba(0, 150, 136, 0.04);
+      border: 1px solid rgba(0, 150, 136, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .soa-meta-item .label {
+      color: var(--text-secondary);
+      font-weight: 700;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      flex: 0 0 auto;
+    }
+
+    .soa-meta-item .value {
+      font-weight: 700;
+      color: var(--text-primary);
+      font-size: 0.88rem;
+      line-height: 1.25;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .soa-finance-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .soa-finance-chip {
+      border-radius: 12px;
+      padding: 10px 10px 9px;
+      background: rgba(15, 23, 42, 0.025);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+    }
+
+    .soa-finance-chip .label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .soa-finance-chip .value {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .soa-finance-chip.balance {
+      background: rgba(0, 150, 136, 0.08);
+      border-color: rgba(0, 150, 136, 0.14);
+    }
+
+    .soa-finance-chip.balance .value {
+      color: var(--primary, #009688);
+    }
+
+    .soa-actions {
+      padding: 8px 16px 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      border-top: 1px solid rgba(15, 23, 42, 0.06);
+    }
+
+    .soa-btn {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      border-radius: 12px;
+      padding: 9px 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+      cursor: pointer;
+      border: 1px solid transparent;
+      min-height: 42px;
+    }
+
+    .soa-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .soa-btn-outline {
+      background: #fafafa;
+      color: var(--text-primary);
+      border-color: rgba(15, 23, 42, 0.1);
+    }
+    
+    .soa-btn-outline:hover {
+      background: rgba(0, 150, 136, 0.08);
+      border-color: rgba(0, 150, 136, 0.2);
+      color: var(--primary, #009688);
+    }
+
+    .soa-btn-primary {
+      background: var(--primary, #009688);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(0, 150, 136, 0.16);
+    }
+
+    .soa-btn-primary:hover {
+      background: #00796b;
+    }
+
+    .soa-empty {
+      background: #f7fafb;
+      border: 1px dashed rgba(15, 23, 42, 0.12);
+      border-radius: 18px;
+      padding: 24px 20px;
+      text-align: center;
+      color: var(--text-secondary);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+    }
+
+    @media (max-width: 576px) {
+      .soa-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .soa-card-top {
+        padding: 12px 14px 8px;
+      }
+      .soa-summary {
+        padding: 4px 14px 10px;
+      }
+      .soa-actions {
+        padding: 8px 14px 12px;
+      }
+      .soa-number {
+        font-size: 0.98rem;
+      }
+      .soa-meta-grid,
+      .soa-finance-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  {% include "components/page_hero.html" with title="Statement of Account" subtitle="View released statements and print official copies anytime." icon="bx-receipt" %}
+
+  <div class="card" style="padding: 16px;">
+    <div class="soa-subhead">
+      <strong style="font-size: 1rem;">My Statements</strong>
+      <span class="soa-muted">Released statements only</span>
+    </div>
+    <div style="margin-top:12px;">
+      {% if statements %}
+      <div class="soa-grid">
+        {% for statement in statements %}
+        <article class="soa-card">
+          <div class="soa-card-top">
+            <div>
+              <p class="soa-number">{{ statement.statement_number }}</p>
+            </div>
+            <span class="soa-status">{{ statement.get_status_display }}</span>
+          </div>
+
+          <aside class="soa-summary">
+            <div class="soa-meta-grid">
+              <div class="soa-meta-item">
+                <span class="label">Pet</span>
+                <span class="value">{{ statement.patient_name|default:"-" }}</span>
+              </div>
+            </div>
+            <div class="soa-finance-strip">
+              <div class="soa-finance-chip">
+                <span class="label">Total</span>
+                <span class="value">₱{{ statement.total_amount|floatformat:2 }}</span>
+              </div>
+              <div class="soa-finance-chip balance">
+                <span class="label">Balance</span>
+                <span class="value">₱{{ statement.balance|floatformat:2 }}</span>
+              </div>
+            </div>
+          </aside>
+
+          <div class="soa-actions">
+            <a href="{% url 'billing:my_statement_detail' statement.pk %}" class="soa-btn soa-btn-primary">
+              <i class='bx bx-show-alt'></i> View
+            </a>
+            <a href="{% url 'billing:my_statement_detail' statement.pk %}?format=print" target="_blank" class="soa-btn soa-btn-outline">
+              <i class='bx bx-printer'></i> Print
+            </a>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      
+      <!-- Modern Pagination -->
+      {% if statements %}
+        <div style="margin-top: 24px;">
+          {% include "components/modern_pagination.html" %}
+        </div>
+      {% endif %}
+      
+      {% else %}
+      <div class="soa-empty">
+        <i class='bx bx-receipt' style="font-size: 2rem; color: var(--primary); display: block; margin-bottom: 8px;"></i>
+        No released statements yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

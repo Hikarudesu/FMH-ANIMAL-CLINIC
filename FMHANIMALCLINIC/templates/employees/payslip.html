@@ -1,0 +1,532 @@
+<!-- prettier-ignore -->
+{% extends 'base/portal_admin.html' %}
+{% load currency_filters %}
+
+<!-- prettier-ignore -->
+{% load static %}
+
+<!-- prettier-ignore -->
+{% block title %}Payslip - {{ payslip.staff.full_name }}{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<div class="page-header no-print">
+  <h1><i class="bx bx-file"></i> Payslip</h1>
+  <div class="page-header-actions">
+    <a
+      href="{% url 'employees:payslip_list' %}?month={{ month }}&year={{ year }}"
+      class="btn-action outline"
+      ><i class="bx bx-left-arrow-alt"></i> Back</a
+    >
+    <button onclick="window.print()" class="btn-action primary">
+      <i class="bx bx-printer"></i> Print Payslip
+    </button>
+  </div>
+</div>
+
+<div class="payslip-container">
+  <!-- Decorative Top Bar -->
+  <div class="payslip-accent-bar"></div>
+
+  <div class="payslip-inner">
+    <div class="payslip-header">
+      <div class="payslip-brand">
+        <img
+          src="{% static 'image/fmh-logo.png' %}"
+          alt="FMH Logo"
+          class="brand-logo"
+        />
+        <div class="brand-text">
+          <h2>FMH Animal Clinic</h2>
+          <p>11 Ruby Road, Pilar Village, Las Piñas, Philippines, 1740</p>
+          <p>Contact: 09323145969 / (02) 8806-5772 | Email: fmhvet@gmail.com</p>
+        </div>
+      </div>
+      <div class="payslip-title">
+        <h3>PAYSLIP</h3>
+        <div class="period-badge">
+          <i class="bx bx-calendar"></i> {{ payslip.period }}
+        </div>
+      </div>
+    </div>
+
+    <div class="payslip-employee-details shadow-sm">
+      <div class="detail-group">
+        <span class="detail-label">Employee Name</span>
+        <span class="detail-value highlight"
+          >{{ payslip.staff.full_name }}</span
+        >
+      </div>
+      <div class="detail-group">
+        <span class="detail-label">Position</span>
+        <span class="detail-value"
+          >{{ payslip.staff.get_position_display }}</span
+        >
+      </div>
+      <div class="detail-group">
+        <span class="detail-label">Branch</span>
+        <span class="detail-value"
+          >{{ payslip.staff.branch.name|default:"Head Office" }}</span
+        >
+      </div>
+      <div class="detail-group">
+        <span class="detail-label">Base Salary</span>
+        <span class="detail-value">&#8369;{{ payslip.base_salary|peso }}</span>
+      </div>
+    </div>
+
+    <div class="payslip-grid">
+      <!-- Earnings Section -->
+      <div class="payslip-section">
+        <div class="section-header earnings-header">
+          <i class="bx bx-trending-up"></i>
+          <h4>EARNINGS</h4>
+        </div>
+        <table class="payslip-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style="text-align: right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="item-title">Basic Pay</div>
+                <div class="sub-text">
+                  {{ payslip.days_worked }} days worked @ &#8369;{{
+                  payslip.daily_rate|peso }} / day
+                </div>
+              </td>
+              <td style="text-align: right" class="item-amount">
+                &#8369;{{ payslip.gross_pay|peso }}
+              </td>
+            </tr>
+            <tr class="spacer-row">
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="total-row earnings-total">
+              <td><strong>Gross Earnings</strong></td>
+              <td style="text-align: right">
+                <strong>&#8369;{{ payslip.gross_pay|peso }}</strong>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Deductions Section -->
+      <div class="payslip-section">
+        <div class="section-header deductions-header">
+          <i class="bx bx-trending-down"></i>
+          <h4>DEDUCTIONS</h4>
+        </div>
+        <table class="payslip-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style="text-align: right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="item-title">SSS Contribution</div></td>
+              <td style="text-align: right" class="item-amount danger">
+                - &#8369;{{ payslip.sss|peso }}
+              </td>
+            </tr>
+            <tr>
+              <td><div class="item-title">PhilHealth Contribution</div></td>
+              <td style="text-align: right" class="item-amount danger">
+                - &#8369;{{ payslip.philhealth|peso }}
+              </td>
+            </tr>
+            <tr>
+              <td><div class="item-title">PAG-IBIG Contribution</div></td>
+              <td style="text-align: right" class="item-amount danger">
+                - &#8369;{{ payslip.pagibig|peso }}
+              </td>
+            </tr>
+            <tr class="spacer-row">
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="total-row deductions-total">
+              <td><strong>Total Deductions</strong></td>
+              <td style="text-align: right">
+                <strong>- &#8369;{{ payslip.total_deductions|peso }}</strong>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="payslip-summary-bottom">
+      <div class="net-pay-wrapper">
+        <div class="net-pay-label">Net Pay for this Period</div>
+        <div class="net-pay-amount">&#8369;{{ payslip.net_pay|peso }}</div>
+      </div>
+    </div>
+
+    <div class="payslip-footer">
+      <div class="footer-line"></div>
+      <p>
+        <i class="bx bx-check-shield"></i> This is a system-generated document.
+        No signature is required.
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Payslip Typography and Base */
+  .payslip-container {
+    background: var(--surface, #ffffff);
+    border-radius: var(--radius-lg, 16px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    max-width: 900px;
+    margin: 0 auto;
+    color: var(--text-1, #1e293b);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .payslip-accent-bar {
+    height: 8px;
+    width: 100%;
+    background: linear-gradient(90deg, var(--primary), #fb3b66);
+  }
+
+  .payslip-inner {
+    padding: 48px;
+  }
+
+  /* Header */
+  .payslip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid var(--border-hover, #e2e8f0);
+  }
+
+  .payslip-brand {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand-logo {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+  }
+
+  .brand-text h2 {
+    color: var(--text-1);
+    margin-bottom: 4px;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .brand-text p {
+    color: var(--text-2, #64748b);
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+  }
+
+  .payslip-title {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .payslip-title h3 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: var(--border-hover, #e2e8f0);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  .period-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--primary-light, #eff6ff);
+    color: var(--primary, #2563eb);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  /* Employee Details Grid */
+  .payslip-employee-details {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    background: var(--bg-1, #f8fafc);
+    border: 1px solid var(--border, #f1f5f9);
+    padding: 24px;
+    border-radius: var(--radius-md, 12px);
+    margin-bottom: 40px;
+  }
+
+  .detail-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-right: 1px solid var(--border, #f1f5f9);
+  }
+  .detail-group:last-child {
+    border-right: none;
+  }
+
+  .detail-label {
+    color: var(--text-3, #94a3b8);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .detail-value {
+    color: var(--text-1);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .detail-value.highlight {
+    color: var(--primary);
+    font-weight: 800;
+  }
+
+  /* Main Grid */
+  .payslip-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 40px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border, #f1f5f9);
+  }
+
+  .section-header i {
+    font-size: 1.25rem;
+  }
+
+  .earnings-header {
+    color: var(--success, #10b981);
+  }
+  .earnings-header h4 {
+    color: var(--text-1);
+  }
+
+  .deductions-header {
+    color: var(--danger, #ef4444);
+  }
+  .deductions-header h4 {
+    color: var(--text-1);
+  }
+
+  .section-header h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  /* Tables */
+  .payslip-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .payslip-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    color: var(--text-3);
+    text-transform: uppercase;
+    font-weight: 600;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .payslip-table td {
+    padding: 16px 0;
+    font-size: 0.95rem;
+  }
+
+  .spacer-row td {
+    padding: 10px 0;
+  }
+
+  .payslip-table tbody tr:not(:last-child) td {
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .item-title {
+    font-weight: 600;
+    color: var(--text-2);
+  }
+
+  .item-amount {
+    font-family: monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  .item-amount.danger {
+    color: var(--danger, #ef4444);
+  }
+
+  .payslip-table .sub-text {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 4px;
+  }
+
+  /* Totals */
+  .total-row td {
+    border-top: 2px solid var(--border-hover);
+    padding-top: 16px;
+    font-size: 1.05rem;
+  }
+
+  .earnings-total {
+    color: var(--success, #10b981);
+  }
+  .deductions-total {
+    color: var(--danger, #ef4444);
+  }
+
+  /* Net Pay */
+  .payslip-summary-bottom {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 40px;
+  }
+
+  .net-pay-wrapper {
+    background: var(--primary);
+    color: white;
+    padding: 24px 40px;
+    border-radius: var(--radius-md, 12px);
+    text-align: right;
+    min-width: 300px;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .net-pay-wrapper::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0) 70%
+    );
+    transform: rotate(45deg);
+    pointer-events: none;
+  }
+
+  .net-pay-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .net-pay-amount {
+    font-size: 2.5rem;
+    font-weight: 800;
+    font-family: monospace;
+    letter-spacing: -1px;
+  }
+
+  /* Footer */
+  .payslip-footer {
+    text-align: center;
+    margin-top: 40px;
+  }
+
+  .footer-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin-bottom: 24px;
+  }
+
+  .payslip-footer p {
+    font-size: 0.85rem;
+    color: var(--text-3);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Print Rules */
+  @media print {
+    @page {
+      margin: 0;
+      size: A4;
+    }
+    body,
+    html {
+      background: white !important;
+    }
+    .no-print,
+    .sidebar,
+    .topbar,
+    .portal-messages {
+      display: none !important;
+    }
+    .portal-content {
+      margin-left: 0 !important;
+      padding: 0 !important;
+    }
+    .payslip-container {
+      box-shadow: none;
+      border-radius: 0;
+      padding: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+    .payslip-inner {
+      padding: 40px;
+    }
+    .net-pay-wrapper {
+      box-shadow: none !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .payslip-accent-bar,
+    .period-badge,
+    .payslip-employee-details {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+</style>
+{% endblock %}

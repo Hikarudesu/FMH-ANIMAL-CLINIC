@@ -1,0 +1,238 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- Emergency Banner -->
+<div class="emergency-banner">
+  <div class="container">
+    <div class="emergency-content">
+      <i class='bx bx-error-circle'></i>
+      <div>
+        <strong>For emergencies, please contact the clinic directly</strong>
+        <span>Call us at <a href="tel:+639123456789">0912-345-6789</a> or visit the nearest FMH Animal Clinic branch immediately.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Booking Section -->
+<section class="booking-section">
+  <div class="container">
+
+    <div class="booking-header">
+      <h1 class="section-title">Book an <span class="teal-text">Appointment</span></h1>
+      <p class="section-subtitle">Schedule a visit for your pet — no account needed. Fill in the details below and we'll confirm your appointment.</p>
+    </div>
+
+    <div class="booking-card">
+      <div class="booking-card-header">
+        <div class="booking-card-icon"><i class='bx bx-calendar-check'></i></div>
+        <div>
+          <h3>Walk-in Appointment Request</h3>
+          <p>All fields marked with * are required</p>
+        </div>
+      </div>
+
+      <form method="POST" class="booking-form" id="bookingForm">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="booking-form-errors" style="background: #ffebee; border: 1px solid #ef9a9a; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;">
+          {% for error in form.non_field_errors %}
+          <p style="color: #c62828; font-size: 0.88rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class='bx bx-error-circle' style="font-size: 1.2rem;"></i> {{ error }}
+          </p>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Returning Client Question -->
+        <div class="booking-step" style="background-color: #e0f2f1; border-left: 4px solid var(--teal); padding: 1.5rem;">
+          <div class="step-label" style="color: var(--teal); margin-bottom: 0.5rem;"><i class='bx bx-user-circle'></i> Are you an existing client?</div>
+          <p style="font-size: 0.9rem; color: #555; margin-bottom: 1rem;">Let us know if you've been to any of our branches before.</p>
+          
+          <div class="form-group-radio" style="display: flex; gap: 2rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500;">
+              <input type="radio" name="is_returning" value="yes" onchange="toggleLoginPrompt(true)"> 
+              Yes, I am a returning client
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500;">
+              <input type="radio" name="is_returning" value="no" onchange="toggleLoginPrompt(false)" checked> 
+              No, I'm a new user
+            </label>
+          </div>
+
+          <!-- Alert box that appears if they select Yes -->
+          <div id="loginPromptAlert" style="display: none; margin-top: 1rem; padding: 1rem; background-color: #fff; border: 1px solid #b2dfdb; border-radius: 8px;">
+            <p style="margin: 0; font-size: 0.95rem; color: #00796b;">
+              <strong>Welcome back!</strong> For a faster booking experience and access to your pet's full medical history, we recommend logging into your portal account. 
+              <br><br>
+              <a href="{% url 'login_page' %}?next={% url 'appointments:portal_book' %}" class="btn btn-primary btn-sm" style="display: inline-block; text-decoration: none;">
+                <i class='bx bx-log-in'></i> Log In to Portal
+              </a>
+            </p>
+          </div>
+        </div>
+
+        <script>
+          function toggleLoginPrompt(show) {
+            const alertBox = document.getElementById('loginPromptAlert');
+            if (show) {
+              alertBox.style.display = 'block';
+            } else {
+              alertBox.style.display = 'none';
+            }
+          }
+        </script>
+
+        <!-- Step 1: Owner Info -->
+        <div class="booking-step">
+          <div class="step-label"><span class="step-number">1</span> Owner Information</div>
+          <div class="form-grid-book">
+            <div class="form-group-book">
+              <label for="{{ form.owner_name.id_for_label }}">Full Name *</label>
+              {{ form.owner_name }}
+              {% if form.owner_name.errors %}<span class="form-error">{{ form.owner_name.errors.0 }}</span>{% endif %}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.owner_email.id_for_label }}">Email</label>
+              {{ form.owner_email }}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.owner_phone.id_for_label }}">Phone Number</label>
+              {{ form.owner_phone }}
+            </div>
+            <div class="form-group-book full-width">
+              <label for="{{ form.owner_address.id_for_label }}">Address</label>
+              {{ form.owner_address }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Pet Info -->
+        <div class="booking-step">
+          <div class="step-label"><span class="step-number">2</span> Pet Information</div>
+          <div class="form-grid-book">
+            <div class="form-group-book">
+              <label for="{{ form.pet_name.id_for_label }}">Pet Name *</label>
+              {{ form.pet_name }}
+              {% if form.pet_name.errors %}<span class="form-error">{{ form.pet_name.errors.0 }}</span>{% endif %}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.pet_species.id_for_label }}">Species</label>
+              {{ form.pet_species }}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.pet_breed.id_for_label }}">Breed</label>
+              {{ form.pet_breed }}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.pet_dob.id_for_label }}">Date of Birth</label>
+              {{ form.pet_dob }}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.pet_sex.id_for_label }}">Sex</label>
+              {{ form.pet_sex }}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.pet_color.id_for_label }}">Color</label>
+              {{ form.pet_color }}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.reason.id_for_label }}">Reason for Appointment *</label>
+              {{ form.reason }}
+              {% if form.reason.errors %}<span class="form-error">{{ form.reason.errors.0 }}</span>{% endif %}
+            </div>
+          </div>
+          <div class="form-group-book full-width">
+            <label for="{{ form.pet_symptoms.id_for_label }}">Pet Symptoms</label>
+            {{ form.pet_symptoms }}
+          </div>
+        </div>
+
+        <!-- Step 3: Schedule -->
+        <div class="booking-step">
+          <div class="step-label"><span class="step-number">3</span> Appointment Schedule</div>
+          <div class="form-grid-book">
+            <div class="form-group-book">
+              <label for="{{ form.branch.id_for_label }}">Clinic Branch *</label>
+              {{ form.branch }}
+              {% if form.branch.errors %}<span class="form-error">{{ form.branch.errors.0 }}</span>{% endif %}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.appointment_date.id_for_label }}">Preferred Date *</label>
+              {{ form.appointment_date }}
+              {% if form.appointment_date.errors %}<span class="form-error">{{ form.appointment_date.errors.0 }}</span>{% endif %}
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.preferred_vet.id_for_label }}">Preferred Veterinarian</label>
+              {{ form.preferred_vet }}
+              <span class="form-hint">Leave blank for any available vet (time will show AM/PM options)</span>
+            </div>
+            <div class="form-group-book">
+              <label for="{{ form.appointment_time.id_for_label }}">Preferred Time *</label>
+              {{ form.appointment_time }}
+              <span class="form-hint" id="timeHint">Select a branch and date to see available time slots</span>
+              {% if form.appointment_time.errors %}<span class="form-error">{{ form.appointment_time.errors.0 }}</span>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="booking-form-actions">
+          <button type="submit" class="btn btn-red btn-lg">
+            <i class='bx bx-calendar-check'></i> Confirm Appointment
+          </button>
+          <a href="{% url 'landing_page' %}" class="btn btn-outline btn-lg">
+            <i class='bx bx-arrow-back'></i> Go Back
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Already have an account? -->
+    <div class="booking-alt-cta">
+      <p>Already have an account? <a href="{% url 'login_page' %}">Sign in</a> for a faster booking experience with saved pet info.</p>
+    </div>
+
+  </div>
+</section>
+
+<script>
+const API_VETS = "{% url 'appointments:api_vets' %}";
+const API_TIMES = "{% url 'appointments:api_times' %}";
+const API_DATES = "{% url 'appointments:api_dates' %}";
+</script>
+<script src="{% static 'js/appointments/booking.js' %}"></script>
+
+<!-- Auto-Capitalize Script for Client and Pet Details -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Function to capitalize only the first letter of the text
+  function capitalizeFirstLetter(str) {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  // Fields to auto-capitalize (Owner and Pet Details)
+  const fieldsToCapitalize = [
+    'owner_name', 'owner_address',
+    'pet_name', 'pet_species', 'pet_breed', 'pet_color'
+  ];
+
+  fieldsToCapitalize.forEach(function(fieldName) {
+    const field = document.querySelector('[name="' + fieldName + '"]');
+    if (field && (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA')) {
+      // Capitalize on input
+      field.addEventListener('input', function() {
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        this.value = capitalizeFirstLetter(this.value);
+        this.setSelectionRange(start, end);
+      });
+    }
+  });
+});
+</script>
+
+{% endblock %}

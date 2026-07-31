@@ -1,0 +1,179 @@
+{% extends 'payroll/base.html' %}
+{% load currency_filters %}
+{% load static %}
+
+{% block title %}Generate Payslips{% endblock %}
+
+{% block payroll_content %}
+<style>
+  .generate-header { margin-bottom: 24px; }
+  .generate-header h2 { margin: 0; color: var(--text-1); font-size: 1.3rem; font-weight: 700; }
+  .period-selector { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; margin-bottom: 24px; }
+  .selector-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: flex-end; }
+  .form-group { display: flex; flex-direction: column; gap: 8px; }
+  .form-group label { font-weight: 600; color: var(--text-2); font-size: 0.9rem; }
+  .form-group select { padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-family: inherit; }
+  .form-group select:focus { outline: none; border-color: var(--primary); }
+  .btn { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; }
+  .btn:hover { opacity: 0.9; }
+  .period-status { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; margin-bottom: 24px; }
+  .employees-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .employees-list table { width: 100%; border-collapse: collapse; }
+  .employees-list thead { background: var(--bg); }
+  .employees-list th { padding: 16px; text-align: left; font-weight: 600; font-size: 0.85rem; color: var(--text-2); }
+  .employees-list td { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .employees-list tbody tr:hover { background: var(--bg); }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+  .badge-exists { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
+  .badge-pending { background: rgba(158, 158, 158, 0.15); color: #9E9E9E; }
+  
+  /* Modal Styles */
+  .generate-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+  .generate-modal-overlay.active { opacity: 1; visibility: visible; }
+  .generate-modal { background: var(--surface); border-radius: 16px; box-shadow: 0 24px 48px rgba(0,0,0,0.15); width: 90%; max-width: 420px; overflow: hidden; transform: translateY(20px); transition: all 0.3s ease; }
+  .generate-modal-overlay.active .generate-modal { transform: translateY(0); }
+  .generate-modal-header { padding: 24px 24px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .generate-modal-header h3 { margin: 0; font-size: 1.15rem; color: var(--text-1); font-weight: 700; }
+  .modal-close-btn { background: none; border: none; font-size: 1.8rem; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; margin-top: -8px; margin-right: -8px; padding: 8px; border-radius: 50%; transition: all 0.2s;}
+  .modal-close-btn:hover { color: var(--text-1); background: var(--bg); }
+  .generate-modal-body { padding: 0 24px 24px; color: var(--text-2); line-height: 1.6; font-size: 0.95rem; }
+  .generate-modal-footer { padding: 16px 24px 24px; display: flex; justify-content: flex-end; gap: 12px; }
+  .btn-outline { padding: 10px 20px; background: transparent; border: 1px solid var(--border); color: var(--text-2); border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-outline:hover { background: var(--bg); color: var(--text-1); }
+</style>
+
+<div class="generate-header">
+  <h2><i class='bx bx-calculator' style="color: var(--primary);"></i> Generate Payslips</h2>
+</div>
+
+<!-- Period Selection -->
+<div class="period-selector">
+  <form method="get" action="{% url 'payroll:generate' %}" style="margin: 0;">
+    <div class="selector-group">
+      <div class="form-group">
+        <label>Month</label>
+        <select name="month" required>
+          {% for m in months %}
+          <option value="{{ m.num }}" {% if m.num == selected_month %}selected{% endif %}>{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Year</label>
+        <select name="year" required>
+          <option value="2024" {% if selected_year == 2024 %}selected{% endif %}>2024</option>
+          <option value="2025" {% if selected_year == 2025 %}selected{% endif %}>2025</option>
+          <option value="2026" {% if selected_year == 2026 %}selected{% endif %}>2026</option>
+          <option value="2027" {% if selected_year == 2027 %}selected{% endif %}>2027</option>
+        </select>
+      </div>
+      <button type="submit" class="btn"><i class='bx bx-search'></i> Load Period</button>
+    </div>
+  </form>
+</div>
+
+<!-- Period Status -->
+{% if period %}
+<div class="period-status">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <h3 style="margin: 0; color: var(--text-1);">{{ period.period_display }}</h3>
+      <p style="margin: 4px 0 0; color: var(--text-3); font-size: 0.9rem;">
+        Status: <strong>{{ period.get_status_display }}</strong>
+      </p>
+    </div>
+    {% if period.status == 'RELEASED' %}
+    <a href="{% url 'payroll:payslips' period.id %}" class="btn"><i class='bx bx-show'></i> View Payslips</a>
+    {% elif period.status == 'GENERATED' %}
+    <a href="{% url 'payroll:payslips' period.id %}" class="btn"><i class='bx bx-show'></i> Review Payslips</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Employees List -->
+{% if employees %}
+<div class="employees-list">
+  <table>
+    <thead>
+      <tr>
+        <th>Employee Name</th>
+        <th>Position</th>
+        <th>Base Salary</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in employees %}
+      <tr>
+        <td>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #0097a7); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+              {% if emp.user and emp.user.profile_picture %}
+                <img src="{{ emp.user.profile_picture.url }}" alt="{{ emp.full_name }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+              {% else %}
+                {{ emp.first_name.0 }}{{ emp.last_name.0 }}
+              {% endif %}
+            </div>
+            <div>
+              <strong style="display: block; color: var(--text-1);">{{ emp.full_name }}</strong>
+              <small style="display: block; color: var(--text-3); font-size: 0.8rem;">{{ emp.branch.name|default:"No Branch" }}</small>
+            </div>
+          </div>
+        </td>
+        <td>{{ emp.position|default:"-" }}</td>
+        <td style="font-weight: 600;">₱{{ emp.salary|peso }}</td>
+        <td>
+          {% if emp.id in existing_payslips.keys %}
+          <span class="badge badge-exists"><i class='bx bx-check'></i> Has Payslip</span>
+          {% else %}
+          <span class="badge badge-pending">Pending</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Action Buttons -->
+<div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+  <a href="{% url 'payroll:dashboard' %}" class="btn" style="background: var(--text-3);"><i class='bx bx-x'></i> Cancel</a>
+  {% if period %}
+  <form method="post" action="{% url 'payroll:generate_action' %}" style="display: inline;" id="generateForm">
+    {% csrf_token %}
+    <input type="hidden" name="month" value="{{ selected_month }}">
+    <input type="hidden" name="year" value="{{ selected_year }}">
+    <button type="button" class="btn" onclick="document.getElementById('generateModalOverlay').classList.add('active');">
+      <i class='bx bx-calculator'></i> Generate Payslips
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- Custom Confirmation Modal -->
+<div class="generate-modal-overlay" id="generateModalOverlay">
+  <div class="generate-modal">
+    <div class="generate-modal-header">
+      <h3><i class='bx bx-error-circle' style="color: var(--primary); margin-right: 6px; font-size: 1.3rem; vertical-align: middle;"></i> Confirm Generation</h3>
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('generateModalOverlay').classList.remove('active');">
+        <i class='bx bx-x'></i>
+      </button>
+    </div>
+    <div class="generate-modal-body">
+      <p style="margin: 0;">Generate payslips for <strong>{{ employee_count }} employees</strong>?</p>
+      <p style="margin: 12px 0 0; font-size: 0.85rem; color: var(--text-3);">This will initialize draft payslips for the selected time period based on existing clinic settings.</p>
+    </div>
+    <div class="generate-modal-footer">
+      <button type="button" class="btn-outline" onclick="document.getElementById('generateModalOverlay').classList.remove('active');">Cancel</button>
+      <button type="button" class="btn" onclick="document.getElementById('generateForm').submit();"><i class='bx bx-check'></i> Proceed</button>
+    </div>
+  </div>
+</div>
+{% else %}
+<div style="text-align: center; padding: 60px 20px; color: var(--text-3);">
+  <i class='bx bx-user-x' style="font-size: 3rem; margin-bottom: 12px; display: block;"></i>
+  <p>No active employees found</p>
+</div>
+{% endif %}
+{% endblock %}

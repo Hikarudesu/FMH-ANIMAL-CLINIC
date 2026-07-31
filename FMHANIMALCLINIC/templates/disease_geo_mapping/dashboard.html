@@ -1,0 +1,318 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Disease Geo Mapping{% endblock %}
+
+{% block content %}
+<style>
+  .geo-shell { margin-top: 18px; }
+  .geo-banner {
+    border-radius: 18px;
+    padding: 16px 18px;
+    background: linear-gradient(120deg, rgba(14,116,144,0.16), rgba(16,185,129,0.14));
+    border: 1px solid rgba(14,116,144,0.18);
+    color: var(--text-primary);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+    box-shadow: 0 10px 28px rgba(15,23,42,.06);
+  }
+  .geo-banner i { font-size: 24px; color: var(--primary); }
+  .geo-grid { display: grid; gap: 20px; }
+  .geo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 18px 40px rgba(15,23,42,.06); overflow: hidden; }
+  .geo-card-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .geo-card-title { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text-primary); }
+  .geo-card-body { padding: 20px; }
+  .geo-controls { display: grid; gap: 16px; }
+  .geo-filter-grid { display: grid; grid-template-columns: repeat(3, minmax(200px, 1fr)); gap: 16px; align-items: end; }
+  .geo-select, .geo-input { width: 100%; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--bg); color: var(--text-primary); }
+  .geo-filter-pill { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 999px; background: rgba(15,23,42,.05); color: var(--text-secondary); font-size: .88rem; }
+  .geo-stat-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+  .geo-stat { padding: 18px; border-radius: 18px; background: linear-gradient(135deg, rgba(13,148,136,.08), rgba(14,116,144,.06)); }
+  .geo-stat strong { display: block; font-size: 1.25rem; color: var(--primary); }
+  .geo-panel { display: grid; gap: 18px; margin-top: 18px; }
+  .geo-distribution { display: grid; gap: 18px; }
+  .geo-chart-card { display: grid; gap: 14px; }
+  .geo-chart-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .geo-summary { padding: 14px 18px; border-radius: 18px; background: rgba(15,23,42,.04); color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
+  .geo-chart { display: grid; gap: 12px; }
+  .geo-bar-graph { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; align-items: end; }
+  .geo-column { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; border-radius: 16px; background: var(--bg); border: 1px solid var(--border); }
+  .geo-column-fill { width: 100%; border-radius: 999px; background: linear-gradient(180deg, #14b8a6, #0f766e); min-height: 14px; transition: height .3s ease; }
+  .geo-column-label { font-size: .82rem; color: var(--text-secondary); text-align: center; }
+  .geo-prediction-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .geo-prediction-card { padding: 14px 16px; border-radius: 16px; background: var(--bg); border: 1px solid var(--border); display: grid; gap: 8px; }
+  .geo-prediction-card strong { font-size: 1rem; color: var(--text-primary); }
+  .geo-prediction-meta { display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); font-size: .84rem; gap: 8px; }
+  .geo-prediction-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 999px; background: rgba(20,184,166,.12); color: var(--primary); font-size: .78rem; font-weight: 600; }
+  .geo-list { display: grid; gap: 12px; }
+  .geo-item { padding: 14px 16px; border-radius: 16px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .geo-item strong { font-size: 1rem; color: var(--text-primary); }
+  .geo-item small { color: var(--text-secondary); }
+  .geo-warning { border-radius: 18px; border: 1px dashed rgba(245,158,11,.45); padding: 18px; background: rgba(254,243,199,.65); color: #92400e; }
+  .geo-chip { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 999px; background: rgba(15,23,42,.05); color: var(--text-secondary); font-size: .88rem; }
+  .geo-chip strong { color: var(--text-primary); }
+  .geo-prediction-card { cursor: pointer; transition: all 0.3s ease; }
+  .geo-prediction-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15,23,42,.12); border-color: var(--primary); }
+  .geo-modal { display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); align-items: flex-start; justify-content: center; padding-top: 110px; }
+  .geo-modal.active { display: flex; }
+  .geo-modal-content { background: var(--surface); border-radius: 24px; padding: 20px; margin-top: 20px; max-width: 360px; width: 80%; max-height: calc(100vh - 160px); overflow-y: auto; box-shadow: 0 25px 50px rgba(15,23,42,.15); }
+  .geo-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .geo-modal-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
+  .geo-modal-close { background: none; border: none; font-size: 28px; color: var(--text-secondary); cursor: pointer; }
+  .geo-modal-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .geo-modal-section:last-child { border-bottom: none; margin-bottom: 0; }
+  .geo-modal-section strong { display: block; color: var(--primary); font-size: 0.95rem; margin-bottom: 8px; }
+  .geo-modal-section p { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; margin: 0; }
+  .geo-stat-badge { display: inline-block; background: rgba(20,184,166,.12); color: var(--primary); padding: 8px 14px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; margin-right: 8px; margin-bottom: 8px; }
+  @media (max-width: 1140px) { .geo-distribution { grid-template-columns: 1fr; } }
+  @media (max-width: 960px) { .geo-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 780px) { .geo-filter-grid { grid-template-columns: 1fr; } .geo-stat-row { grid-template-columns: 1fr; } }
+</style>
+
+{% include 'components/page_hero.html' with title='Disease Geo Mapping' icon='bx-map' subtitle='AI-assisted disease trend analysis across branches' icons_theme='medical' %}
+
+<div class="geo-shell">
+  <div class="geo-banner">
+    <i class='bx bx-info-circle'></i>
+    <div>
+      <strong>Assumption Notice:</strong> This module provides AI-assisted trend estimates from historical case patterns and should be reviewed with local clinical judgment. It is not a fully accurate forecast.
+    </div>
+  </div>
+
+  <div class="geo-grid">
+    <div class="geo-card">
+      <div class="geo-card-header">
+        <div class="geo-card-title"><i class='bx bx-filter-alt'></i> Analysis Filters</div>
+      </div>
+      <div class="geo-card-body">
+        <div class="geo-stat-row">
+          <div class="geo-stat">
+            <strong>{{ branch_label|default:'Branch' }}</strong>
+            <small>Selected analysis region</small>
+          </div>
+          <div class="geo-stat">
+            <strong>{{ total_cases|default:0 }}</strong>
+            <small>Estimated case records</small>
+          </div>
+        </div>
+
+        <form method="get" id="geoFiltersForm" class="geo-controls">
+          {% if not branch_restricted %}
+            <label class="form-label">Branch</label>
+            <select name="branch" class="geo-select">
+              {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if selected_branch_id == branch.id|stringformat:'s' %}selected{% endif %}>{{ branch.name }}</option>
+              {% endfor %}
+            </select>
+          {% endif %}
+
+          <div class="geo-filter-grid">
+            <div>
+              <label class="form-label">Date From</label>
+              <input type="date" name="date_from" value="{{ date_from }}" class="geo-input" />
+            </div>
+            <div>
+              <label class="form-label">Date To</label>
+              <input type="date" name="date_to" value="{{ date_to }}" class="geo-input" />
+            </div>
+            <div>
+              <label class="form-label">Disease Type</label>
+              <select name="disease_type" class="geo-select">
+                <option value="">All diseases</option>
+                {% for disease in available_diseases %}
+                  <option value="{{ disease }}" {% if selected_disease_type == disease %}selected{% endif %}>{{ disease }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="geo-chip" style="margin:0;">Analysis updates automatically when filters change.</div>
+        </form>
+
+      </div>
+    </div>
+
+    <div class="geo-card">
+      <div class="geo-card-header">
+        <div class="geo-card-title"><i class='bx bx-bar-chart-alt-2'></i> Disease Distribution</div>
+      </div>
+      <div class="geo-card-body">
+        <div class="geo-panel">
+          <div class="geo-distribution">
+            <div class="geo-chart-card">
+              <div class="geo-chart-title">
+                <div class="geo-card-title"><i class='bx bx-chart'></i> Top Predicted Diseases</div>
+              </div>
+              <div class="geo-summary">{{ summary|default:'No prediction summary available for the current view.' }}</div>
+              <div class="geo-chart">
+                {% if disease_counts %}
+                  <div class="geo-prediction-list">
+                    {% for disease in disease_counts %}
+                      <div class="geo-prediction-card" onclick="openDiseaseDetail('{{ disease.name|escapejs }}', {{ disease.confidence|floatformat:0 }}, {{ disease.value }}, '{{ branch_label|escapejs }}', '{{ date_from }}', '{{ date_to }}')">
+                        <div class="geo-prediction-meta">
+                          <span class="geo-prediction-badge">AI Prediction</span>
+                          <span>{{ disease.confidence|floatformat:0 }}%</span>
+                        </div>
+                        <strong>{{ disease.name }}</strong>
+                        <small>{{ disease.detail }}</small>
+                        <div class="geo-prediction-meta">
+                          <span>{{ disease.value }} visit{{ disease.value|pluralize }}</span>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <div id="noDataWarning" class="geo-warning" style="display:none;">No data available for the selected filters.</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="diseaseModal" class="geo-modal">
+  <div class="geo-modal-content">
+    <div class="geo-modal-header">
+      <h3 class="geo-modal-title" id="modalDiseaseName">Disease Prediction Details</h3>
+      <button class="geo-modal-close" onclick="closeDiseaseDetail()">&times;</button>
+    </div>
+    
+    <div class="geo-modal-section">
+      <strong>Disease Breakdown</strong>
+      <p id="modalBreakdown">This disease has been identified as a potential outbreak in your area based on recent visit patterns.</p>
+      <div id="modalPrevention" style="display:none; margin-top:12px;">
+        <strong>Prevention & Guidance</strong>
+        <p id="modalPreventionText">-</p>
+      </div>
+      <button id="modalMoreBtn" style="margin-top:12px; background:none; border:1px solid var(--border); padding:8px 12px; border-radius:8px; cursor:pointer;">Show more details</button>
+    </div>
+    
+    <div class="geo-modal-section">
+      <strong>Clinical Summary</strong>
+      <p id="modalClinicalSummary">This section provides a concise clinical overview of the predicted condition, highlighting key presenting features and rationale behind the prediction.</p>
+    </div>
+
+    <div class="geo-modal-section">
+      <strong>Suggested Investigations</strong>
+      <p id="modalInvestigations">• Review recent clinical notes for common symptoms<br>• Perform targeted diagnostics (CBC, imaging) as clinically indicated<br>• Consider cultures or specific tests based on suspected etiology</p>
+    </div>
+    
+    <div class="geo-modal-section">
+      <strong>Location & Timeframe</strong>
+      <p><strong>Branch:</strong> <span id="modalBranch">-</span></p>
+      <p><strong>Period:</strong> <span id="modalPeriod">-</span></p>
+    </div>
+    
+    <div class="geo-modal-section">
+      <strong>Recommended Actions</strong>
+      <p>• Review recent case files for common symptoms</p>
+      <p>• Monitor new admissions matching this condition</p>
+      <p>• Consult with veterinary team for clinical assessment</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openDiseaseDetail(diseaseName, confidence, visits, branch, dateFrom, dateTo) {
+    document.getElementById('modalDiseaseName').textContent = diseaseName + ' - Prediction Details';
+    document.getElementById('modalBranch').textContent = branch;
+    
+    const dateDisplay = (dateFrom && dateTo) ? dateFrom + ' to ' + dateTo : 'Current period';
+    document.getElementById('modalPeriod').textContent = dateDisplay;
+    
+    const breakdownTexts = {
+      'Pneumonia': 'Pneumonia cases have been trending in your area. Review respiratory symptoms and treatment protocols.',
+      'Asthma': 'Asthma cases are showing increased frequency. Monitor breathing-related visits closely.',
+      'Seizure Disorder': 'Seizure-related cases are appearing in records. Ensure neurological assessments are current.',
+      'Gastroenteritis': 'Gastrointestinal issues are elevated. Check sanitation and food handling practices.',
+      'Respiratory Infection': 'Respiratory infections are rising. Implement isolation protocols if needed.',
+      'Bacterial Infection': 'Bacterial infections are detected. Review antibiotic protocols and resistance patterns.',
+      'Dermatitis': 'Skin conditions are increasing. Review dermatological care and hygiene practices.',
+      'Worm Infestation': 'Parasite cases are noted. Update deworming schedules and prevention measures.',
+      'Arthritis': 'Orthopedic conditions are detected. Review mobility and pain management strategies.'
+    };
+    
+    document.getElementById('modalBreakdown').textContent = breakdownTexts[diseaseName] || 'This condition has been identified as significant in your area based on recent visit data.';
+    // set extended prevention/guidance text
+    const preventionTexts = {
+      'Pneumonia': 'Keep affected animals isolated where possible, ensure proper nebulization and supportive care, maintain hygiene when handling respiratory secretions, and follow vaccination recommendations.',
+      'Asthma': 'Avoid known triggers, maintain clean indoor air, use prescribed inhalers or bronchodilators under vet guidance, and monitor for respiratory distress.',
+      'Seizure Disorder': 'Keep records of seizure events, ensure pets are in a safe environment during episodes, review anticonvulsant therapy with veterinarian.',
+      'Gastroenteritis': 'Isolate symptomatic animals, ensure proper sanitation, provide rehydration therapy and review feeding sources; practice strict hand hygiene.',
+      'Respiratory Infection': 'Use PPE when handling symptomatic patients, clean and disinfect surfaces, limit mixing of animals from different households, and consult on empiric therapy when indicated.',
+      'Bacterial Infection': 'Complete prescribed antibiotic courses, obtain cultures when possible, and enforce hygiene measures to reduce spread.',
+      'Dermatitis': 'Identify and remove contact irritants, maintain skin hygiene, and follow topical/systemic treatments as directed.',
+      'Worm Infestation': 'Update deworming protocols, treat all household contacts as recommended, and review preventive schedules.',
+      'Arthritis': 'Manage weight, provide pain management and physiotherapy as advised; monitor mobility changes.'
+    };
+
+    document.getElementById('modalPreventionText').textContent = preventionTexts[diseaseName] || 'Follow general infection control: isolate symptomatic animals, maintain hygiene, monitor cases, and consult clinical team.';
+    document.getElementById('modalPrevention').style.display = 'none';
+    document.getElementById('modalMoreBtn').textContent = 'Show more details';
+    document.getElementById('modalMoreBtn').onclick = function() {
+      const panel = document.getElementById('modalPrevention');
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        this.textContent = 'Hide details';
+      } else {
+        panel.style.display = 'none';
+        this.textContent = 'Show more details';
+      }
+    };
+
+    const clinicalSummaryTexts = {
+      'Pneumonia': 'Acute respiratory presentation with coughing, nasal discharge, and potential breathing difficulty. Consider supportive care and targeted diagnostics to confirm bacterial vs viral etiology.',
+      'Asthma': 'Episodes of bronchoconstriction presenting with coughing and wheeze; consider environmental triggers and inhaled therapies under guidance.',
+      'Seizure Disorder': 'Intermittent neurologic events marked by loss of control or convulsions; recommend neurologic assessment and review of anticonvulsant therapy.',
+      'Gastroenteritis': 'Acute onset vomiting/diarrhea suggesting enteric inflammation; assess hydration, food history, and consider stool diagnostics.',
+      'Respiratory Infection': 'Clustered cases with upper/lower respiratory signs; evaluate for transmissible agents and institute infection-control measures.',
+      'Bacterial Infection': 'Signs consistent with bacterial involvement; obtain cultures when possible and tailor antimicrobials based on sensitivities.',
+      'Dermatitis': 'Localized or generalized skin inflammation; evaluate for contact, allergic, or infectious causes and adjust topical/systemic therapy accordingly.',
+      'Worm Infestation': 'Clinical signs of parasitism; confirm with fecal testing and update deworming strategy for the population.',
+      'Arthritis': 'Chronic or progressive mobility impairment; focus on pain management, supportive care, and lifestyle adjustments.'
+    };
+
+    const investigationsTexts = {
+      'Pneumonia': '• Thoracic radiographs\n• CBC and biochemistry\n• Airway sampling or culture when indicated',
+      'Asthma': '• Thoracic radiographs\n• Trial of bronchodilator therapy\n• Allergen exposure review',
+      'Seizure Disorder': '• Neurologic exam\n• CBC/Chemistry\n• Advanced imaging (MRI) if available',
+      'Gastroenteritis': '• Fecal analysis\n• CBC and chemistry\n• Dietary and exposure history',
+      'Respiratory Infection': '• Respiratory swabs or cultures\n• Imaging as needed\n• Isolation and monitoring',
+      'Bacterial Infection': '• Culture & sensitivity\n• Targeted antimicrobial therapy\n• Monitor treatment response',
+      'Dermatitis': '• Skin scrapings/cytology\n• Allergen testing if suspected\n• Review topical/systemic treatments',
+      'Worm Infestation': '• Fecal flotation or PCR\n• Treat and re-test post-therapy\n• Review prevention schedule',
+      'Arthritis': '• Orthopedic exam\n• Pain scoring and mobility assessment\n• Consider imaging and physiotherapy'
+    };
+
+    document.getElementById('modalClinicalSummary').textContent = clinicalSummaryTexts[diseaseName] || (breakdownTexts[diseaseName] || 'Clinical summary is not available for this condition.');
+    document.getElementById('modalInvestigations').innerHTML = (investigationsTexts[diseaseName] || '• Review records and consider targeted diagnostics based on presenting signs.').replace(/\n/g, '<br>');
+
+    document.getElementById('diseaseModal').classList.add('active');
+  }
+  
+  function closeDiseaseDetail() {
+    document.getElementById('diseaseModal').classList.remove('active');
+  }
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('geoFiltersForm');
+    if (!form) { return; }
+    const inputs = form.querySelectorAll('select, input[type="date"]');
+    inputs.forEach(function(field) {
+      field.addEventListener('change', function() {
+        form.submit();
+      });
+    });
+    
+    document.getElementById('diseaseModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeDiseaseDetail();
+      }
+    });
+  });
+</script>
+{% endblock %}

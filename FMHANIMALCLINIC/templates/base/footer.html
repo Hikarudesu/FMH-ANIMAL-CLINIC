@@ -1,0 +1,70 @@
+<!-- ============================================
+     FOOTER — ENHANCED
+     ============================================ -->
+{% load static %}
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+
+      <!-- Brand -->
+      <div class="footer-brand">
+        <a href="{% url 'landing_page' %}" class="nav-logo" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: inherit; font-size: 1.25rem; font-weight: 700;">
+          {% if CLINIC_LOGO %}
+          <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} logo" class="logo-icon" style="max-height: 40px; width: auto;">
+          {% else %}
+          <img src="{% static 'image/fmh-logo.png' %}" alt="Logo" class="logo-icon" style="max-height: 40px; width: auto;">
+          {% endif %}
+          {{ CLINIC_NAME|default:'FMH Animal Clinic' }}
+        </a>
+        <p>A Web-Based Management Information System with AI-Powered Diagnostics for FMH Animal Clinic. Providing trusted, technology-driven veterinary care across multiple branches.</p>
+        
+        <!-- Social Links -->
+        <div class="footer-social">
+          {% if CLINIC_FACEBOOK_URL %}<a href="{{ CLINIC_FACEBOOK_URL }}" target="_blank" rel="noopener noreferrer" class="facebook" aria-label="Facebook"><i class='bx bxl-facebook'></i></a>{% endif %}
+          {% if CLINIC_INSTAGRAM_URL %}<a href="{{ CLINIC_INSTAGRAM_URL }}" target="_blank" rel="noopener noreferrer" class="instagram" aria-label="Instagram"><i class='bx bxl-instagram'></i></a>{% endif %}
+          {% if CLINIC_MESSENGER_URL %}<a href="{{ CLINIC_MESSENGER_URL }}" target="_blank" rel="noopener noreferrer" class="messenger" aria-label="Messenger"><i class='bx bxl-messenger'></i></a>{% endif %}
+          {% if CLINIC_TIKTOK_URL %}<a href="{{ CLINIC_TIKTOK_URL }}" target="_blank" rel="noopener noreferrer" class="tiktok" aria-label="TikTok"><i class='bx bxl-tiktok'></i></a>{% endif %}
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="{% url 'landing_page' %}#home">Home</a></li>
+          <li><a href="{% url 'services_page' %}">Services</a></li>
+          <li><a href="{% url 'aboutus_page' %}">About Us</a></li>
+          <li><a href="{% url 'contact_page' %}">Contact</a></li>
+        </ul>
+      </div>
+
+      <!-- Services -->
+      <div class="footer-col">
+        <h4>Services</h4>
+        <ul>
+          <li><a href="#services">Consultation &amp; Treatment</a></li>
+          <li><a href="#services">Wellness Check</a></li>
+          <li><a href="#services">Soft Tissue Surgery</a></li>
+          <li><a href="#services">Diagnostics</a></li>
+          <li><a href="#services">Ultrasound / X-Ray</a></li>
+          <li><a href="#services">Pet Grooming</a></li>
+        </ul>
+      </div>
+
+      <!-- Branches -->
+      <div class="footer-col">
+        <h4>Branches</h4>
+        <ul>
+          <li><a href="{% url 'contact_page' %}">Pilar Branch</a></li>
+          <li><a href="{% url 'contact_page' %}">Molino Branch</a></li>
+          <li><a href="{% url 'contact_page' %}">Queensrow Branch</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <p>&copy; 2026 {{ CLINIC_NAME|default:'FMH Animal Clinic' }}.</p>
+    </div>
+  </div>
+</footer>

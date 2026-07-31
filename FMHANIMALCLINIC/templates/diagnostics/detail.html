@@ -1,0 +1,896 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}AI Diagnosis Result - {{ diagnosis.pet.name }}{% endblock %}
+
+{% block content %}
+
+<style>
+  .detail-shell {
+    margin-top: 20px;
+  }
+
+  .detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .detail-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 0.84rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+  }
+  .detail-action-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+  }
+
+  .delete-action-btn {
+    background: transparent;
+    border: 1px solid var(--danger, #dc3545);
+    color: var(--danger, #dc3545);
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.84rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .delete-action-btn:hover {
+    background: var(--danger, #dc3545);
+    color: #fff;
+  }
+
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+  }
+  .btn-cancel:hover {
+    border-color: var(--border-hover);
+    background: var(--bg);
+  }
+  .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.25);
+  }
+  .btn-submit:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(230, 57, 70, 0.35);
+  }
+
+  .detail-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .detail-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .result-card,
+  .sidebar-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 1) 100%);
+    border: 1px solid rgba(30, 41, 59, 0.08);
+    border-radius: 18px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+
+  .result-header {
+    padding: 20px 22px;
+    color: #fff;
+    background:
+      radial-gradient(circle at 80% -20%, rgba(255, 255, 255, 0.25), transparent 45%),
+      linear-gradient(135deg, #0f766e 0%, #0f766e 35%, #0c5f57 100%);
+  }
+
+  .result-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .result-pet {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .result-pet-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .result-pet-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .result-pet-meta {
+    font-size: 0.88rem;
+    opacity: 0.9;
+    margin-top: 4px;
+  }
+
+  .result-date {
+    font-size: 0.8rem;
+    opacity: 0.95;
+    text-align: right;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .result-body {
+    padding: 18px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .result-section {
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    background: var(--surface);
+  }
+
+  .result-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+
+  .result-section-title i {
+    color: var(--primary);
+    font-size: 1.1rem;
+  }
+
+  .result-summary {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #a7f3d0;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 0.9rem;
+    color: #065f46;
+    line-height: 1.65;
+  }
+
+  .condition-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 9px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--surface);
+  }
+  .condition-card:hover {
+    border-color: rgba(13, 148, 136, 0.5);
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.11);
+  }
+  .condition-card.selected {
+    border-color: #0d9488;
+    background: #f0fdfa;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+  .condition-card.primary-condition {
+    border-left: 4px solid #0f766e;
+  }
+
+  .condition-card input[type="radio"] {
+    margin-top: 2px;
+    accent-color: #0f766e;
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+
+  .condition-card-content {
+    flex: 1;
+  }
+
+  .condition-card-name {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+
+  .condition-card-reasoning {
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  .condition-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: #0f766e;
+    color: #fff;
+    font-size: 0.69rem;
+    font-weight: 700;
+    border-radius: 999px;
+    margin-left: 8px;
+  }
+
+  .test-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    background: var(--surface);
+  }
+  .test-item:hover {
+    border-color: rgba(15, 118, 110, 0.45);
+    background: #f8fffe;
+  }
+  .test-item.selected {
+    background: #f0fdfa;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+  }
+  .test-item input[type="checkbox"] {
+    margin-top: 2px;
+    accent-color: #0d9488;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .test-item label {
+    flex: 1;
+    cursor: pointer;
+    line-height: 1.45;
+  }
+
+  .warning-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .warning-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: #78350f;
+  }
+  .warning-list li i {
+    color: #d97706;
+    font-size: 1rem;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .detail-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: sticky;
+    top: 90px;
+  }
+  @media (max-width: 1100px) {
+    .detail-sidebar {
+      position: static;
+    }
+  }
+
+  .sidebar-card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(180deg, #fafafa 0%, #f7f7f9 100%);
+  }
+  .sidebar-card-header i {
+    color: #0f766e;
+  }
+  .sidebar-card-body {
+    padding: 14px;
+  }
+
+  .rx-textarea {
+    width: 100%;
+    min-height: 108px;
+    padding: 11px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s ease;
+    background: #fff;
+  }
+  .rx-textarea:focus {
+    outline: none;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.13);
+  }
+  .rx-label {
+    display: block;
+    font-size: 0.79rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+  }
+  .rx-required {
+    color: #dc2626;
+    margin-left: 2px;
+  }
+
+  .review-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .review-status i {
+    font-size: 1.4rem;
+    color: #059669;
+  }
+  .review-status-label {
+    font-weight: 800;
+    color: #065f46;
+    font-size: 0.92rem;
+  }
+  .review-status-meta {
+    font-size: 0.8rem;
+    color: #047857;
+    margin-top: 2px;
+  }
+
+  .submit-btn {
+    width: 100%;
+    padding: 13px 16px;
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+    border: none;
+    border-radius: 11px;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    margin-top: 14px;
+    box-shadow: 0 10px 20px rgba(15, 118, 110, 0.2);
+  }
+  .submit-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 24px rgba(15, 118, 110, 0.28);
+  }
+  .submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .linked-record-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    color: #0c4a6e;
+    background: #e0f2fe;
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .reviewed-data-section {
+    margin-top: 10px;
+  }
+  .reviewed-data-label {
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+  }
+  .reviewed-data-value {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 9px 10px;
+    border-radius: 10px;
+  }
+
+  .diag-disclaimer {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    color: #78350f;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .related-diag-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s ease;
+  }
+  .related-diag-item:hover {
+    background: var(--bg);
+  }
+  .related-diag-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    background: #ecfdf5;
+    color: #047857;
+  }
+
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+  .validation-error {
+    color: #dc2626;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    display: none;
+  }
+  .validation-error.show {
+    display: block;
+  }
+</style>
+
+<div class="detail-shell">
+  <!-- Actions Bar -->
+  <div class="detail-actions">
+    <a href="{% url 'diagnostics:dashboard' %}" class="detail-action-btn">
+      <i class="bx bx-arrow-back"></i> Back to Dashboard
+    </a>
+    <a href="{% url 'diagnostics:run_diagnosis' diagnosis.pet.pk %}" class="detail-action-btn">
+      <i class="bx bx-refresh"></i> Run New Diagnosis
+    </a>
+    {% if can_delete %}
+      <button type="button" class="delete-action-btn" onclick="openDiagnosisDeleteModal('{% url 'diagnostics:delete' diagnosis.pk %}', '{{ diagnosis.primary_condition|escapejs }}')" style="margin-left: auto;">
+        <i class="bx bx-trash"></i> Delete Diagnosis
+      </button>
+    {% endif %}
+  </div>
+
+{% if not diagnosis.is_reviewed %}
+<form method="post" action="{% url 'diagnostics:mark_reviewed' diagnosis.pk %}" id="reviewForm">
+  {% csrf_token %}
+{% endif %}
+
+<div class="detail-container">
+  <!-- Main Result -->
+  <div class="result-card">
+    <div class="result-header">
+      <div class="result-header-top">
+        <div class="result-pet">
+          <div class="result-pet-avatar" {% if diagnosis.pet.photo %}style="background: transparent;"{% endif %}>
+            {% if diagnosis.pet.photo %}
+              <img src="{{ diagnosis.pet.photo.url }}" alt="{{ diagnosis.pet.name }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            {% else %}
+              {{ diagnosis.pet.name|make_list|first|upper }}
+            {% endif %}
+          </div>
+          <div>
+            <div class="result-pet-name">{{ diagnosis.pet.name }}</div>
+            <div class="result-pet-meta">{{ diagnosis.pet.species }} &middot; {{ diagnosis.pet.breed }}</div>
+          </div>
+        </div>
+        <div class="result-date">
+          <div><i class="bx bx-calendar"></i> {{ diagnosis.created_at|date:"M j, Y" }}</div>
+          <div><i class="bx bx-time"></i> {{ diagnosis.created_at|time:"g:i A" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-body">
+      <!-- Section 1: Summary -->
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-message-square-detail"></i>
+          AI Assessment Summary
+        </div>
+        <div class="result-summary">
+          {{ diagnosis.summary }}
+        </div>
+      </div>
+
+      <!-- Section 2: Select Diagnosis Condition -->
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-target-lock"></i>
+          Select Diagnosis
+          {% if not diagnosis.is_reviewed %}<span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">Choose one condition</span>{% endif %}
+        </div>
+
+        {% for cond in all_conditions %}
+        <div class="condition-card {% if cond.is_primary %}primary-condition{% endif %} {% if diagnosis.is_reviewed and diagnosis.selected_condition == cond.condition %}selected{% endif %}"
+             {% if not diagnosis.is_reviewed %}onclick="selectCondition(this, '{{ cond.condition|escapejs }}')"{% endif %}>
+          {% if not diagnosis.is_reviewed %}
+          <input type="radio" name="selected_condition" value="{{ cond.condition }}" id="cond_{{ forloop.counter }}" {% if forloop.first %}checked{% endif %}>
+          {% endif %}
+          <div class="condition-card-content">
+            <div class="condition-card-name">
+              {{ cond.condition }}
+              {% if cond.is_primary %}<span class="condition-badge">Primary</span>{% endif %}
+            </div>
+            <div class="condition-card-reasoning">{{ cond.reasoning }}</div>
+          </div>
+        </div>
+        {% endfor %}
+
+        {% if diagnosis.is_reviewed and diagnosis.diagnosis_notes %}
+        <div style="margin-top: 15px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md);">
+          <strong style="font-size: 0.85rem; color: var(--text-primary);">Diagnosis Notes:</strong>
+          <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-secondary);">{{ diagnosis.diagnosis_notes|linebreaksbr }}</p>
+        </div>
+        {% elif not diagnosis.is_reviewed %}
+        <div style="margin-top: 15px;">
+          <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
+            Diagnosis Notes (Optional)
+          </label>
+          <textarea name="diagnosis_notes" class="rx-textarea" style="min-height: 80px;" placeholder="Add extra details about the diagnosis..."></textarea>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Section 3: Select Recommended Tests -->
+      {% if diagnosis.recommended_tests %}
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-test-tube"></i>
+          Recommended Tests
+          {% if not diagnosis.is_reviewed %}<span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">Select tests to include</span>{% endif %}
+        </div>
+
+        {% for test in diagnosis.recommended_tests %}
+        <div class="test-item {% if diagnosis.is_reviewed and test in diagnosis.selected_tests %}selected{% endif %}"
+             {% if not diagnosis.is_reviewed %}onclick="toggleTest(this)"{% endif %}>
+          {% if not diagnosis.is_reviewed %}
+          <input type="checkbox" name="selected_tests" value="{{ test }}" id="test_{{ forloop.counter }}">
+          {% else %}
+          <i class="bx {% if test in diagnosis.selected_tests %}bx-check-circle{% else %}bx-circle{% endif %}" style="color: {% if test in diagnosis.selected_tests %}#009688{% else %}var(--text-secondary){% endif %};"></i>
+          {% endif %}
+          <label for="test_{{ forloop.counter }}">{{ test }}</label>
+        </div>
+        {% endfor %}
+
+        {% if diagnosis.is_reviewed and diagnosis.test_notes %}
+        <div style="margin-top: 15px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md);">
+          <strong style="font-size: 0.85rem; color: var(--text-primary);">Test Notes:</strong>
+          <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-secondary);">{{ diagnosis.test_notes|linebreaksbr }}</p>
+        </div>
+        {% elif not diagnosis.is_reviewed %}
+        <div style="margin-top: 15px;">
+          <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
+            Test Notes (Optional)
+          </label>
+          <textarea name="test_notes" class="rx-textarea" style="min-height: 80px;" placeholder="Add extra details about the tests..."></textarea>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Section 4: Warning Signs -->
+      {% if diagnosis.warning_signs %}
+      <div class="result-section">
+        <div class="result-section-title">
+          <i class="bx bx-error-circle"></i>
+          Warning Signs to Monitor
+        </div>
+        <ul class="warning-list">
+          {% for sign in diagnosis.warning_signs %}
+          <li><i class="bx bx-error"></i> {{ sign }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="detail-sidebar">
+    <!-- Review Panel -->
+    <div class="sidebar-card">
+      <div class="sidebar-card-header">
+        <i class="bx bx-check-shield"></i>
+        Veterinarian Review
+      </div>
+      <div class="sidebar-card-body">
+        {% if diagnosis.is_reviewed %}
+        <!-- Reviewed State -->
+        <div class="review-status">
+          <i class="bx bx-check-circle"></i>
+          <div class="review-status-text">
+            <div class="review-status-label">Reviewed & Recorded</div>
+            <div class="review-status-meta">
+              {% if diagnosis.reviewed_by %}by Dr. {{ diagnosis.reviewed_by.first_name }} {{ diagnosis.reviewed_by.last_name }}{% endif %}
+              on {{ diagnosis.reviewed_at|date:"M j, Y g:i A" }}
+            </div>
+          </div>
+        </div>
+
+        {% if diagnosis.linked_record_entry %}
+        <a href="{% url 'records:admin_detail' diagnosis.linked_record_entry.record.pk %}" class="linked-record-badge">
+          <i class="bx bx-link"></i>
+          View Medical Record
+        </a>
+        {% endif %}
+
+        <div class="reviewed-data-section">
+          <div class="reviewed-data-label">Selected Diagnosis:</div>
+          <div class="reviewed-data-value">{{ diagnosis.selected_condition }}</div>
+        </div>
+
+        {% if diagnosis.selected_tests %}
+        <div class="reviewed-data-section">
+          <div class="reviewed-data-label">Selected Tests:</div>
+          <div class="reviewed-data-value">
+            {% for test in diagnosis.selected_tests %}
+            &bull; {{ test }}{% if not forloop.last %}<br>{% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="reviewed-data-section">
+          <div class="reviewed-data-label">Prescription (Rx):</div>
+          <div class="reviewed-data-value" style="white-space: pre-line;">{{ diagnosis.vet_prescription }}</div>
+        </div>
+
+        {% else %}
+        <!-- Review Form -->
+        <div class="form-group">
+          <label class="rx-label">
+            <i class="bx bx-capsule" style="margin-right:4px;"></i>
+            Prescription (Rx)<span class="rx-required">*</span>
+          </label>
+          <textarea 
+            name="vet_prescription" 
+            class="rx-textarea" 
+            id="rxInput"
+            placeholder="Enter prescription details...
+
+Example:
+- Amoxicillin 250mg, 1 tablet BID x 7 days
+- Metacam 0.5mg/kg, once daily x 5 days
+- Probiotics: 1 capsule daily with food"
+            required></textarea>
+          <div class="validation-error" id="rxError">Prescription is required before marking as reviewed.</div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <i class="bx bx-check-double"></i>
+          Mark as Reviewed & Create Visit
+        </button>
+
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:12px;text-align:center;">
+          This will create a new medical record entry for {{ diagnosis.pet.name }}.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Related Diagnoses -->
+    {% if related_diagnoses %}
+    <div class="sidebar-card">
+      <div class="sidebar-card-header">
+        <i class="bx bx-history"></i>
+        Other Diagnoses for {{ diagnosis.pet.name }}
+      </div>
+      <div class="sidebar-card-body">
+        {% for rel in related_diagnoses %}
+        <a href="{% url 'diagnostics:detail' rel.pk %}" class="related-diag-item">
+          <div class="related-diag-badge">
+            <i class="bx bx-brain"></i>
+          </div>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:0.85rem;">{{ rel.primary_condition|truncatechars:25 }}</div>
+            <div style="font-size:0.75rem;color:var(--text-secondary);">
+              {{ rel.created_at|date:"M j, Y" }}
+              {% if rel.is_reviewed %}<span style="color:#2e7d32;"> &bull; Reviewed</span>{% endif %}
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Disclaimer -->
+    <div class="diag-disclaimer">
+      <i class="bx bx-info-circle"></i>
+      <div>
+        This AI diagnosis is for decision-support only and must be confirmed by a licensed veterinarian before any treatment.
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if not diagnosis.is_reviewed %}
+</form>
+{% endif %}
+
+</div>
+
+<div class="modal-overlay" id="deleteDiagnosisModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Delete AI Diagnosis</h3>
+      <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <form id="deleteDiagnosisForm" method="post" action="">
+      {% csrf_token %}
+      <div class="modal-body" style="text-align: center; padding-top: 16px;">
+        <i class='bx bx-info-circle' style="font-size: 3.5rem; color: var(--accent); margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 10px; font-size: 1.15rem;">Delete <span id="deleteDiagnosisName"></span>?</h4>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5;">
+          Are you sure you want to delete this AI diagnosis? This action cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn-submit">Yes, Delete Diagnosis</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openDiagnosisDeleteModal(url, name) {
+  document.getElementById('deleteDiagnosisForm').action = url;
+  document.getElementById('deleteDiagnosisName').textContent = name;
+  document.getElementById('deleteDiagnosisModal').classList.add('active');
+}
+function closeDeleteModal() {
+  document.getElementById('deleteDiagnosisModal').classList.remove('active');
+}
+
+// Select condition card
+function selectCondition(card, value) {
+  document.querySelectorAll('.condition-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  card.querySelector('input[type="radio"]').checked = true;
+}
+
+// Toggle test selection
+function toggleTest(item) {
+  const checkbox = item.querySelector('input[type="checkbox"]');
+  checkbox.checked = !checkbox.checked;
+  item.classList.toggle('selected', checkbox.checked);
+}
+
+// Form validation
+document.getElementById('reviewForm')?.addEventListener('submit', function(e) {
+  const rx = document.getElementById('rxInput').value.trim();
+  const rxError = document.getElementById('rxError');
+  
+  if (!rx) {
+    e.preventDefault();
+    rxError.classList.add('show');
+    document.getElementById('rxInput').focus();
+    return false;
+  }
+  
+  rxError.classList.remove('show');
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('submitBtn').innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Processing...';
+});
+
+// Clear error on input
+document.getElementById('rxInput')?.addEventListener('input', function() {
+  document.getElementById('rxError').classList.remove('show');
+});
+
+// Initialize first condition as selected
+document.addEventListener('DOMContentLoaded', function() {
+  const firstCondition = document.querySelector('.condition-card');
+  if (firstCondition && !document.querySelector('.condition-card.selected')) {
+    firstCondition.classList.add('selected');
+  }
+});
+</script>
+
+{% endblock %}

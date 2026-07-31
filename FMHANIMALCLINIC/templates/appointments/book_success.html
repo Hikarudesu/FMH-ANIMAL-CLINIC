@@ -1,0 +1,20 @@
+{% extends 'base/main.html' %}
+{% load static %}
+
+{% block content %}
+
+<section class="booking-section booking-success-section">
+  <div class="container">
+    <div class="booking-success-card">
+      <div class="success-icon"><i class='bx bx-check-circle'></i></div>
+      <h2>Appointment Booked!</h2>
+      <p>Your appointment request has been submitted successfully. We will contact you to confirm the details.</p>
+      <div class="success-actions">
+        <a href="{% url 'landing_page' %}" class="btn btn-red btn-lg"><i class='bx bx-home'></i> Back to Home</a>
+        <a href="#" onclick="openBookingSelectionModal(event)" class="btn btn-outline btn-lg"><i class='bx bx-calendar-plus'></i> Book Another</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

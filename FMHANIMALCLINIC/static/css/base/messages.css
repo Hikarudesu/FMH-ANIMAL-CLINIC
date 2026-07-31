@@ -1,0 +1,139 @@
+/* ===================== GLOBAL MESSAGES (TOASTS) ===================== */
+.portal-messages {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  pointer-events: none;
+  width: auto;
+  min-width: 320px;
+  max-width: 420px;
+}
+
+.portal-message {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  color: var(--text-1, #1e1e2d);
+  font-size: 0.9rem;
+  pointer-events: auto;
+  animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', 'Poppins', sans-serif;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08); /* slightly stronger floating shadow */
+}
+
+.portal-message > div {
+  flex: 1;
+}
+
+.portal-message > div > span {
+  display: block;
+  line-height: 1.4;
+  color: #5e6278; /* Muted text for the message body */
+}
+
+/* We will inject a fake title using JS or CSS, but for now we handle the raw Django message */
+.portal-message strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+/* The Main Icon Container */
+.portal-message > i { 
+  font-size: 1.35rem; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  margin-top: -2px;
+}
+
+/* =======================================
+   THEMES (Match Screenshot Exactly)
+======================================= */
+
+/* Warning Theme (Orange) */
+.portal-message.warning {
+  background: #fdf6e3;
+  border: 1px solid #f8e1b4;
+}
+.portal-message.warning strong { color: #d97706; }
+.portal-message.warning > i { 
+  color: #d97706; 
+  background: #fcebc5; 
+}
+.portal-message.warning .portal-message-close { color: #d97706; }
+
+/* Success Theme (Green/Teal) */
+.portal-message.success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+.portal-message.success strong { color: #15803d; }
+.portal-message.success > i { 
+  color: #15803d; 
+  background: #dcfce7; 
+}
+.portal-message.success .portal-message-close { color: #15803d; }
+
+/* Error/Danger Theme (Red) */
+.portal-message.error, .portal-message.danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+.portal-message.error strong, .portal-message.danger strong { color: #b91c1c; }
+.portal-message.error > i, .portal-message.danger > i { 
+  color: #b91c1c; 
+  background: #fee2e2; 
+}
+.portal-message.error .portal-message-close, .portal-message.danger .portal-message-close { color: #b91c1c; }
+
+/* Info Theme (Blue) */
+.portal-message.info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+.portal-message.info strong { color: #1d4ed8; }
+.portal-message.info > i { 
+  color: #1d4ed8; 
+  background: #dbeafe; 
+}
+.portal-message.info .portal-message-close { color: #1d4ed8; }
+
+/* Close Button */
+.portal-message-close {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.portal-message-close:hover { 
+  opacity: 1;
+  background: rgba(0,0,0,0.05);
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}

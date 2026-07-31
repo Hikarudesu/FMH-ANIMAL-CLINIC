@@ -1,0 +1,397 @@
+{% extends 'base/portal_user.html' %}
+{% load static %}
+
+{% block title %}Statement of Account{% endblock %}
+
+{% block content %}
+<div class="dashboard-shell">
+  <style>
+    .statement-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .statement-detail-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .statement-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .statement-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .statement-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 10px;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      text-decoration: none;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 700;
+      transition: all 0.18s ease;
+      background: var(--card-bg, #fff);
+    }
+
+    .statement-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .statement-btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .statement-btn-primary:hover {
+      background: var(--primary-dark, #00796b);
+      border-color: var(--primary-dark, #00796b);
+      color: #fff;
+    }
+
+    .soa-preview-card {
+      background: var(--card-bg, #ffffff);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+    }
+
+    .soa-preview-header {
+      padding: 16px 18px;
+      background: rgba(0, 150, 136, 0.05);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .soa-preview-body {
+      padding: 28px;
+      background: transparent;
+    }
+
+    .soa-doc {
+      max-width: 550px;
+      margin: 0 auto;
+      font-family: Arial, sans-serif;
+      color: #000;
+    }
+
+    .soa-doc-header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .soa-doc-logo {
+      max-height: 120px;
+      width: 100%;
+      object-fit: contain;
+    }
+
+    .soa-info-line {
+      display: flex;
+      font-size: 14px;
+      margin-bottom: 5px;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .soa-info-line.two-col {
+      justify-content: space-between;
+    }
+
+    .soa-info-line label {
+      font-weight: bold;
+    }
+
+    .soa-info-line .value {
+      border-bottom: 1px solid #000;
+      flex: 1;
+      margin-left: 5px;
+      min-width: 150px;
+      text-align: left;
+      padding: 0 4px;
+    }
+
+    .soa-info-line .value.date {
+      flex: none;
+      min-width: 120px;
+    }
+
+    .soa-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 14px;
+    }
+
+    .soa-table th {
+      border: 1px solid #000;
+      padding: 8px;
+      background: #f0f0f0;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .soa-table td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+    }
+
+    .soa-table .part-col {
+      width: 75%;
+    }
+
+    .soa-table .amt-col {
+      width: 25%;
+      text-align: right;
+    }
+
+    .soa-table .category {
+      font-weight: 700;
+    }
+
+    .soa-table .item-row td {
+      padding-left: 20px;
+      font-size: 13px;
+      border-top: none;
+    }
+
+    .soa-table .blank-row td {
+      height: 22px;
+      border-top: 1px dashed #999;
+    }
+
+    .soa-totals {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+
+    .soa-totals td {
+      border: 1px solid #000;
+      padding: 7px;
+    }
+
+    .soa-totals .label {
+      background: #f0f0f0;
+      width: 30%;
+    }
+
+    .soa-totals .php {
+      width: 15%;
+      text-align: center;
+    }
+
+    .soa-totals .amount {
+      width: 55%;
+      text-align: right;
+      font-weight: 800;
+    }
+  </style>
+
+  <div class="statement-container">
+    <div class="statement-detail-top">
+      <h2 class="statement-title"><i class='bx bx-receipt'></i> Statement of Account</h2>
+      <div class="statement-actions">
+        <a href="{% url 'billing:my_statements' %}" class="statement-btn">
+          <i class='bx bx-arrow-back'></i> Back
+        </a>
+        <a href="{% url 'billing:my_statement_detail' statement.pk %}?format=print" target="_blank" class="statement-btn statement-btn-primary">
+          <i class='bx bx-printer'></i> Print
+        </a>
+      </div>
+    </div>
+
+    <div class="soa-preview-card">
+      <div class="soa-preview-header">
+        <i class='bx bx-file'></i> Statement Preview
+      </div>
+      <div class="soa-preview-body">
+        <div class="soa-doc">
+          <div class="soa-doc-header">
+            <img class="soa-doc-logo" src="{% static 'image/SOA-LOGO.png' %}" alt="FMH Animal Clinic SOA">
+          </div>
+
+          <div class="soa-info-line two-col">
+            <div style="display:flex; flex:1; margin-right:20px;">
+              <label>Patient:</label>
+              <span class="value">{{ statement.patient_name|default:"-" }}</span>
+            </div>
+            <div style="display:flex;">
+              <label>Date:</label>
+              <span class="value date">{{ statement.date|date:"M j, Y" }}</span>
+            </div>
+          </div>
+          <div class="soa-info-line">
+            <label>Owner's Name:</label>
+            <span class="value">{{ statement.owner_name|default:statement.customer.get_full_name|default:statement.customer.email|default:"-" }}</span>
+          </div>
+
+          <table class="soa-table">
+            <tr>
+              <th class="part-col">Particulars</th>
+              <th class="amt-col">Amount</th>
+            </tr>
+            
+            <!-- Prof. Fee / Consultation -->
+            <tr>
+              <td class="category">Prof. Fee / Consultation</td>
+              <td class="amt-col">{% if consultation_total > 0 %}{{ consultation_total|floatformat:2 }}{% endif %}</td>
+            </tr>
+            {% for item in consultation_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }}</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="blank-row"><td></td><td></td></tr>
+            
+            <!-- Treatment -->
+            <tr>
+              <td class="category">Treatment:</td>
+              <td class="amt-col">{% if treatment_total > 0 %}{{ treatment_total|floatformat:2 }}{% endif %}</td>
+            </tr>
+            {% for item in treatment_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }}</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="blank-row"><td></td><td></td></tr>
+            
+            <!-- Boarding / Confinement -->
+            <tr>
+              <td class="category">Boarding / Confinement</td>
+              <td class="amt-col">{% if boarding_total > 0 %}{{ boarding_total|floatformat:2 }}{% endif %}</td>
+            </tr>
+            {% for item in boarding_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }} (x{{ item.quantity }})</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="blank-row"><td></td><td></td></tr>
+            
+            <!-- Vaccinations -->
+            <tr>
+              <td class="category">Vaccinations:</td>
+              <td class="amt-col">{% if vaccination_total > 0 %}{{ vaccination_total|floatformat:2 }}{% endif %}</td>
+            </tr>
+            {% for item in vaccination_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }} (x{{ item.quantity }})</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="blank-row"><td></td><td></td></tr>
+            
+            <!-- Surgery -->
+            <tr>
+              <td class="category">Surgery:</td>
+              <td class="amt-col">{% if surgery_total > 0 %}{{ surgery_total|floatformat:2 }}{% endif %}</td>
+            </tr>
+            {% for item in surgery_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }} (x{{ item.quantity }})</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="blank-row"><td></td><td></td></tr>
+            
+            <!-- Laboratory Exam -->
+            <tr>
+              <td class="category">Laboratory Exam:</td>
+              <td class="amt-col">{% if lab_total > 0 %}{{ lab_total|floatformat:2 }}{% endif %}</td>
+            </tr>
+            {% for item in lab_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }} (x{{ item.quantity }})</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="blank-row"><td></td><td></td></tr>
+            
+            <!-- Grooming -->
+            <tr>
+              <td class="category">Grooming:</td>
+              <td class="amt-col">{% if grooming_total > 0 %}{{ grooming_total|floatformat:2 }}{% endif %}</td>
+            </tr>
+            {% for item in grooming_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }} (x{{ item.quantity }})</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="blank-row"><td></td><td></td></tr>
+            
+            <!-- Others -->
+            <tr>
+              <td class="category">Others:</td>
+              <td class="amt-col">{% if others_total > 0 %}{{ others_total|floatformat:2 }}{% endif %}</td>
+            </tr>
+            {% for item in product_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }} (x{{ item.quantity }})</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            {% for item in other_items %}
+            <tr class="item-row">
+              <td>• {{ item.name }} (x{{ item.quantity }})</td>
+              <td class="amt-col">{{ item.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="blank-row"><td></td><td></td></tr>
+          </table>
+
+          <table class="soa-totals">
+            <tr>
+              <td class="label">Amount</td>
+              <td class="php">Php</td>
+              <td class="amount">{{ statement.total_amount|floatformat:2 }}</td>
+            </tr>
+            <tr>
+              <td class="label">Deposit</td>
+              <td class="php"></td>
+              <td class="amount">{{ total_paid|default:statement.deposit|floatformat:2 }}</td>
+            </tr>
+            <tr>
+              <td class="label">Balance</td>
+              <td class="php"></td>
+              <td class="amount">{{ balance_due|default:statement.balance|floatformat:2 }}</td>
+            </tr>
+          </table>
+
+          <div style="text-align:center;margin-top:30px;padding-top:10px;">
+            <div style="width:200px;border-top:1px solid #000;margin:0 auto;padding-top:5px;font-size:14px;">Signature</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,682 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Edit Statement of Account - {{ sale.transaction_id }}{% endblock %}
+
+{% block content %}
+<style>
+  .edit-soa-container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .edit-soa-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .edit-soa-header {
+    padding: 16px 20px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .edit-soa-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .edit-soa-body {
+    padding: 24px;
+  }
+
+  .info-box {
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #1565c0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .category-section {
+    margin-bottom: 30px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .category-header {
+    background: var(--bg);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .category-body {
+    padding: 16px;
+  }
+
+  .item-row {
+    display: grid;
+    grid-template-columns: 2fr 80px 120px 120px 40px;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .item-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .item-input {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 13px;
+    background: var(--surface);
+    color: var(--text-1);
+  }
+
+  .item-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+  }
+
+  .item-total {
+    font-weight: 600;
+    color: var(--text-1);
+    text-align: right;
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  .add-item-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .add-item-btn:hover {
+    background: var(--primary-dark);
+  }
+
+  .remove-item-btn {
+    background: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .remove-item-btn:hover {
+    background: #cc0000;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 6px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--text-1);
+  }
+
+  .form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+  }
+
+  .totals-section {
+    background: var(--bg);
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 20px;
+  }
+
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 14px;
+  }
+
+  .total-row.grand {
+    border-top: 2px solid var(--border);
+    margin-top: 8px;
+    padding-top: 12px;
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn {
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+
+  .btn.primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn.primary:hover {
+    background: var(--primary-dark);
+  }
+
+  .btn.outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-1);
+  }
+
+  .btn.outline:hover {
+    background: var(--bg);
+  }
+
+  .empty-category {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-3);
+    font-style: italic;
+  }
+</style>
+
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-edit'></i> Edit Statement</h1>
+      <p>{{ sale.transaction_id }}</p>
+    </div>
+    <div class="page-hero-actions">
+      <a href="{% url 'pos:sale_soa' sale.pk %}" class="page-hero-btn">
+        <i class='bx bx-arrow-back'></i> Back to SOA
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="edit-soa-container">
+  <div class="edit-soa-card">
+    <div class="edit-soa-header">
+      <i class='bx bx-file-blank' style="font-size: 20px; color: var(--primary);"></i>
+      <h2>Edit Statement Items</h2>
+    </div>
+    <div class="edit-soa-body">
+      <div class="info-box">
+        <i class='bx bx-info-circle'></i>
+        <div>
+          Edit individual items for each category. You can add new items, modify existing ones, or remove items completely.
+          {% if sale.customer %}Changes are automatically saved to the customer's account.{% endif %}
+        </div>
+      </div>
+
+      <form method="POST" id="soaEditForm">
+        {% csrf_token %}
+
+        <!-- Customer Info -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Customer</label>
+            <input type="text" class="form-input" value="{{ customer_name }}" readonly style="background: var(--bg);">
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="text" class="form-input" value="{{ sale.created_at|date:'F j, Y' }}" readonly style="background: var(--bg);">
+          </div>
+        </div>
+
+        <!-- Prof. Fee / Consultation -->
+        <div class="category-section">
+          <div class="category-header">
+            <span>Prof. Fee / Consultation</span>
+            <button type="button" class="add-item-btn" onclick="addItem('consultation')">
+              <i class='bx bx-plus'></i> Add Item
+            </button>
+          </div>
+          <div class="category-body">
+            <div id="consultation_items">
+              {% for item in consultation_items %}
+              <div class="item-row">
+                <input type="text" class="item-input" name="consultation_item_{{ forloop.counter0 }}_name" 
+                       value="{{ item.name }}" placeholder="Item description">
+                <input type="number" class="item-input" name="consultation_item_{{ forloop.counter0 }}_quantity" 
+                       value="{{ item.quantity }}" min="1" onchange="calculateItemTotal(this)">
+                <input type="number" class="item-input" name="consultation_item_{{ forloop.counter0 }}_price" 
+                       value="{{ item.unit_price }}" step="0.01" min="0" onchange="calculateItemTotal(this)">
+                <div class="item-total">₱{{ item.line_total|floatformat:2 }}</div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+              </div>
+              {% empty %}
+              <div class="empty-category">No consultation items</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="consultation_item_count" id="consultation_item_count" value="{{ consultation_items|length }}">
+          </div>
+        </div>
+
+        <!-- Treatment -->
+        <div class="category-section">
+          <div class="category-header">
+            <span>Treatment</span>
+            <button type="button" class="add-item-btn" onclick="addItem('treatment')">
+              <i class='bx bx-plus'></i> Add Item
+            </button>
+          </div>
+          <div class="category-body">
+            <div id="treatment_items">
+              {% for item in treatment_items %}
+              <div class="item-row">
+                <input type="text" class="item-input" name="treatment_item_{{ forloop.counter0 }}_name" 
+                       value="{{ item.name }}" placeholder="Item description">
+                <input type="number" class="item-input" name="treatment_item_{{ forloop.counter0 }}_quantity" 
+                       value="{{ item.quantity }}" min="1" onchange="calculateItemTotal(this)">
+                <input type="number" class="item-input" name="treatment_item_{{ forloop.counter0 }}_price" 
+                       value="{{ item.unit_price }}" step="0.01" min="0" onchange="calculateItemTotal(this)">
+                <div class="item-total">₱{{ item.line_total|floatformat:2 }}</div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+              </div>
+              {% empty %}
+              <div class="empty-category">No treatment items</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="treatment_item_count" id="treatment_item_count" value="{{ treatment_items|length }}">
+          </div>
+        </div>
+
+        <!-- Boarding / Confinement -->
+        <div class="category-section">
+          <div class="category-header">
+            <span>Boarding / Confinement</span>
+            <button type="button" class="add-item-btn" onclick="addItem('boarding')">
+              <i class='bx bx-plus'></i> Add Item
+            </button>
+          </div>
+          <div class="category-body">
+            <div id="boarding_items">
+              {% for item in boarding_items %}
+              <div class="item-row">
+                <input type="text" class="item-input" name="boarding_item_{{ forloop.counter0 }}_name" 
+                       value="{{ item.name }}" placeholder="Item description">
+                <input type="number" class="item-input" name="boarding_item_{{ forloop.counter0 }}_quantity" 
+                       value="{{ item.quantity }}" min="1" onchange="calculateItemTotal(this)">
+                <input type="number" class="item-input" name="boarding_item_{{ forloop.counter0 }}_price" 
+                       value="{{ item.unit_price }}" step="0.01" min="0" onchange="calculateItemTotal(this)">
+                <div class="item-total">₱{{ item.line_total|floatformat:2 }}</div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+              </div>
+              {% empty %}
+              <div class="empty-category">No boarding items</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="boarding_item_count" id="boarding_item_count" value="{{ boarding_items|length }}">
+          </div>
+        </div>
+
+        <!-- Vaccinations -->
+        <div class="category-section">
+          <div class="category-header">
+            <span>Vaccinations</span>
+            <button type="button" class="add-item-btn" onclick="addItem('vaccination')">
+              <i class='bx bx-plus'></i> Add Item
+            </button>
+          </div>
+          <div class="category-body">
+            <div id="vaccination_items">
+              {% for item in vaccination_items %}
+              <div class="item-row">
+                <input type="text" class="item-input" name="vaccination_item_{{ forloop.counter0 }}_name" 
+                       value="{{ item.name }}" placeholder="Item description">
+                <input type="number" class="item-input" name="vaccination_item_{{ forloop.counter0 }}_quantity" 
+                       value="{{ item.quantity }}" min="1" onchange="calculateItemTotal(this)">
+                <input type="number" class="item-input" name="vaccination_item_{{ forloop.counter0 }}_price" 
+                       value="{{ item.unit_price }}" step="0.01" min="0" onchange="calculateItemTotal(this)">
+                <div class="item-total">₱{{ item.line_total|floatformat:2 }}</div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+              </div>
+              {% empty %}
+              <div class="empty-category">No vaccination items</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="vaccination_item_count" id="vaccination_item_count" value="{{ vaccination_items|length }}">
+          </div>
+        </div>
+
+        <!-- Surgery -->
+        <div class="category-section">
+          <div class="category-header">
+            <span>Surgery</span>
+            <button type="button" class="add-item-btn" onclick="addItem('surgery')">
+              <i class='bx bx-plus'></i> Add Item
+            </button>
+          </div>
+          <div class="category-body">
+            <div id="surgery_items">
+              {% for item in surgery_items %}
+              <div class="item-row">
+                <input type="text" class="item-input" name="surgery_item_{{ forloop.counter0 }}_name" 
+                       value="{{ item.name }}" placeholder="Item description">
+                <input type="number" class="item-input" name="surgery_item_{{ forloop.counter0 }}_quantity" 
+                       value="{{ item.quantity }}" min="1" onchange="calculateItemTotal(this)">
+                <input type="number" class="item-input" name="surgery_item_{{ forloop.counter0 }}_price" 
+                       value="{{ item.unit_price }}" step="0.01" min="0" onchange="calculateItemTotal(this)">
+                <div class="item-total">₱{{ item.line_total|floatformat:2 }}</div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+              </div>
+              {% empty %}
+              <div class="empty-category">No surgery items</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="surgery_item_count" id="surgery_item_count" value="{{ surgery_items|length }}">
+          </div>
+        </div>
+
+        <!-- Laboratory Exam -->
+        <div class="category-section">
+          <div class="category-header">
+            <span>Laboratory Exam</span>
+            <button type="button" class="add-item-btn" onclick="addItem('lab')">
+              <i class='bx bx-plus'></i> Add Item
+            </button>
+          </div>
+          <div class="category-body">
+            <div id="lab_items">
+              {% for item in lab_items %}
+              <div class="item-row">
+                <input type="text" class="item-input" name="lab_item_{{ forloop.counter0 }}_name" 
+                       value="{{ item.name }}" placeholder="Item description">
+                <input type="number" class="item-input" name="lab_item_{{ forloop.counter0 }}_quantity" 
+                       value="{{ item.quantity }}" min="1" onchange="calculateItemTotal(this)">
+                <input type="number" class="item-input" name="lab_item_{{ forloop.counter0 }}_price" 
+                       value="{{ item.unit_price }}" step="0.01" min="0" onchange="calculateItemTotal(this)">
+                <div class="item-total">₱{{ item.line_total|floatformat:2 }}</div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+              </div>
+              {% empty %}
+              <div class="empty-category">No lab items</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="lab_item_count" id="lab_item_count" value="{{ lab_items|length }}">
+          </div>
+        </div>
+
+        <!-- Grooming -->
+        <div class="category-section">
+          <div class="category-header">
+            <span>Grooming</span>
+            <button type="button" class="add-item-btn" onclick="addItem('grooming')">
+              <i class='bx bx-plus'></i> Add Item
+            </button>
+          </div>
+          <div class="category-body">
+            <div id="grooming_items">
+              {% for item in grooming_items %}
+              <div class="item-row">
+                <input type="text" class="item-input" name="grooming_item_{{ forloop.counter0 }}_name" 
+                       value="{{ item.name }}" placeholder="Item description">
+                <input type="number" class="item-input" name="grooming_item_{{ forloop.counter0 }}_quantity" 
+                       value="{{ item.quantity }}" min="1" onchange="calculateItemTotal(this)">
+                <input type="number" class="item-input" name="grooming_item_{{ forloop.counter0 }}_price" 
+                       value="{{ item.unit_price }}" step="0.01" min="0" onchange="calculateItemTotal(this)">
+                <div class="item-total">₱{{ item.line_total|floatformat:2 }}</div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+              </div>
+              {% empty %}
+              <div class="empty-category">No grooming items</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="grooming_item_count" id="grooming_item_count" value="{{ grooming_items|length }}">
+          </div>
+        </div>
+
+        <!-- Others -->
+        <div class="category-section">
+          <div class="category-header">
+            <span>Others</span>
+            <button type="button" class="add-item-btn" onclick="addItem('other')">
+              <i class='bx bx-plus'></i> Add Item
+            </button>
+          </div>
+          <div class="category-body">
+            <div id="other_items">
+              {% for item in other_items %}
+              <div class="item-row">
+                <input type="text" class="item-input" name="other_item_{{ forloop.counter0 }}_name" 
+                       value="{{ item.name }}" placeholder="Item description">
+                <input type="number" class="item-input" name="other_item_{{ forloop.counter0 }}_quantity" 
+                       value="{{ item.quantity }}" min="1" onchange="calculateItemTotal(this)">
+                <input type="number" class="item-input" name="other_item_{{ forloop.counter0 }}_price" 
+                       value="{{ item.unit_price }}" step="0.01" min="0" onchange="calculateItemTotal(this)">
+                <div class="item-total">₱{{ item.line_total|floatformat:2 }}</div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+              </div>
+              {% empty %}
+              <div class="empty-category">No other items</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="other_item_count" id="other_item_count" value="{{ other_items|length }}">
+          </div>
+        </div>
+
+        <!-- Deposit -->
+        <div class="form-group">
+          <label>Deposit / Amount Paid</label>
+          <input type="number" step="0.01" min="0" name="deposit" class="form-input" 
+                 value="{{ total_paid|floatformat:2 }}" id="depositInput">
+        </div>
+
+        <!-- Totals -->
+        <div class="totals-section">
+          <div class="total-row">
+            <span>Grand Total</span>
+            <span id="grandTotal">₱0.00</span>
+          </div>
+          <div class="total-row">
+            <span>Deposit</span>
+            <span id="totalDeposit">₱{{ total_paid|floatformat:2 }}</span>
+          </div>
+          <div class="total-row grand">
+            <span>Balance Due</span>
+            <span id="totalBalance">₱0.00</span>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn primary">
+            <i class='bx bx-check'></i> Save Changes
+          </button>
+          <a href="{% url 'pos:sale_soa' sale.pk %}" class="btn outline">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Add new item to category
+function addItem(category) {
+  const container = document.getElementById(category + '_items');
+  const countInput = document.getElementById(category + '_item_count');
+  const currentCount = parseInt(countInput.value);
+  
+  // Remove empty message if exists
+  const emptyMsg = container.querySelector('.empty-category');
+  if (emptyMsg) {
+    emptyMsg.remove();
+  }
+  
+  // Create new item row
+  const newRow = document.createElement('div');
+  newRow.className = 'item-row';
+  newRow.innerHTML = `
+    <input type="text" class="item-input" name="${category}_item_${currentCount}_name" 
+           placeholder="Item description">
+    <input type="number" class="item-input" name="${category}_item_${currentCount}_quantity" 
+           value="1" min="1" onchange="calculateItemTotal(this)">
+    <input type="number" class="item-input" name="${category}_item_${currentCount}_price" 
+           value="0" step="0.01" min="0" onchange="calculateItemTotal(this)">
+    <div class="item-total">₱0.00</div>
+    <button type="button" class="remove-item-btn" onclick="removeItem(this)">×</button>
+  `;
+  
+  container.appendChild(newRow);
+  countInput.value = currentCount + 1;
+  calculateGrandTotal();
+}
+
+// Remove item
+function removeItem(button) {
+  const row = button.closest('.item-row');
+  const container = row.parentElement;
+  
+  row.remove();
+  
+  // Add empty message if no items left
+  if (container.children.length === 0) {
+    container.innerHTML = '<div class="empty-category">No items</div>';
+  }
+  
+  // Re-index remaining items in this category
+  reindexItems(container);
+  calculateGrandTotal();
+}
+
+// Re-index items after removal
+function reindexItems(container) {
+  const category = container.id.replace('_items', '');
+  const rows = container.querySelectorAll('.item-row');
+  
+  rows.forEach((row, index) => {
+    const inputs = row.querySelectorAll('input');
+    if (inputs.length >= 3) {
+      inputs[0].name = `${category}_item_${index}_name`;
+      inputs[1].name = `${category}_item_${index}_quantity`;
+      inputs[2].name = `${category}_item_${index}_price`;
+    }
+  });
+  
+  // Update count
+  const countInput = document.getElementById(category + '_item_count');
+  countInput.value = rows.length;
+}
+
+// Calculate item total
+function calculateItemTotal(input) {
+  const row = input.closest('.item-row');
+  const quantityInput = row.querySelector('input[name$="_quantity"]');
+  const priceInput = row.querySelector('input[name$="_price"]');
+  const totalDiv = row.querySelector('.item-total');
+  
+  const quantity = parseInt(quantityInput.value) || 0;
+  const price = parseFloat(priceInput.value) || 0;
+  const total = quantity * price;
+  
+  totalDiv.textContent = '₱' + total.toFixed(2);
+  calculateGrandTotal();
+}
+
+// Calculate grand total
+function calculateGrandTotal() {
+  let grandTotal = 0;
+  
+  // Sum all item totals
+  document.querySelectorAll('.item-total').forEach(div => {
+    const amount = parseFloat(div.textContent.replace('₱', '')) || 0;
+    grandTotal += amount;
+  });
+  
+  const deposit = parseFloat(document.getElementById('depositInput').value) || 0;
+  const balance = grandTotal - deposit;
+  
+  document.getElementById('grandTotal').textContent = '₱' + grandTotal.toFixed(2);
+  document.getElementById('totalDeposit').textContent = '₱' + deposit.toFixed(2);
+  document.getElementById('totalBalance').textContent = '₱' + balance.toFixed(2);
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Calculate initial totals
+  calculateGrandTotal();
+  
+  // Listen for deposit changes
+  document.getElementById('depositInput').addEventListener('input', calculateGrandTotal);
+});
+</script>
+
+{% endblock %}

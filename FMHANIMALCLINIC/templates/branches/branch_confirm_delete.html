@@ -1,0 +1,32 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Delete Branch{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Delete Branch</h1>
+    <p class="page-subtitle text-danger"><i class='bx bx-error'></i> Warning: Destructive Action</p>
+  </div>
+</div>
+
+<div class="dashboard-card" style="max-width: 600px; margin: 0 auto; margin-top: 2rem;">
+  <div class="card-body" style="text-align: center; padding: 3rem 2rem;">
+    <i class='bx bx-error-circle' style="font-size: 4rem; color: var(--danger); margin-bottom: 1rem;"></i>
+    <h2 style="margin-bottom: 1rem;">Delete {{ branch.name }}?</h2>
+    
+    <p style="color: var(--text-color); margin-bottom: 2rem;">
+      Are you completely sure you want to delete the branch located in <strong>{{ branch.city }}</strong>? 
+      This action cannot be undone. Any references to this branch might be affected.
+    </p>
+
+    <form method="POST" style="display: flex; gap: 1rem; justify-content: center;">
+      {% csrf_token %}
+      <a href="{% url 'branches:list' %}" class="btn-action outline">Cancel</a>
+      <button type="submit" class="btn-action danger">
+        <i class='bx bx-trash'></i> Yes, Delete Branch
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

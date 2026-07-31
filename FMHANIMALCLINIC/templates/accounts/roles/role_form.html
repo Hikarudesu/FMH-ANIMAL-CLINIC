@@ -1,0 +1,871 @@
+{% extends 'base/portal_admin.html' %}
+{% load permission_tags %}
+
+{% block title %}{% if role %}Edit Role{% else %}Create Role{% endif %}{% endblock %}
+
+{% block content %}
+
+<!-- Page Hero -->
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-hero-text">
+      <h1><i class='bx bx-shield-plus'></i> {% if role %}Edit Role: {{ role.name }}{% else %}Create New Role{% endif %}</h1>
+      <p>{% if role %}Modify role permissions and settings{% else %}Define a new role with specific access permissions{% endif %}</p>
+    </div>
+    <div class="page-hero-actions">
+      <a href="{% url 'accounts:role_list' %}" class="page-hero-btn">
+        <i class='bx bx-arrow-back'></i> Back
+      </a>
+    </div>
+  </div>
+</div>
+
+{% if role.is_system_role %}
+<!-- System Role Warning -->
+<div class="system-warning">
+  <i class='bx bx-error'></i>
+  <div>
+    <strong>System Role</strong>
+    <span>Changes could affect core functionality. Proceed with caution.</span>
+  </div>
+</div>
+{% endif %}
+
+<form method="POST" id="roleForm">
+  {% csrf_token %}
+
+  <!-- Basic Information -->
+  <div class="dashboard-card">
+    <div class="card-header">
+      <h3><i class='bx bx-info-circle'></i> Basic Information</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Role Name <span class="required">*</span></label>
+          <input type="text" name="name" class="admin-input" required
+                 value="{% if role %}{{ role.name }}{% else %}{{ form_data.name|default:'' }}{% endif %}"
+                 placeholder="e.g., Veterinarian, Receptionist">
+        </div>
+
+        {% if not role %}
+        <div class="form-group">
+          <label class="form-label">Hierarchy Level</label>
+          <select name="hierarchy_level" class="admin-input" id="hierarchyLevelSelect">
+            <option value="2">Level 2 — Vet Assistant</option>
+            <option value="4">Level 4 — Receptionist</option>
+            <option value="6">Level 6 — Veterinarian</option>
+            <option value="8">Level 8 — Admin</option>
+          </select>
+          <small class="form-hint">Higher level = more authority.</small>
+        </div>
+        {% endif %}
+
+        <div class="form-group full-width">
+          <label class="form-label">Description</label>
+          <textarea name="description" class="admin-input" rows="2"
+                    placeholder="Brief description of this role">{% if role %}{{ role.description }}{% else %}{{ form_data.description|default:'' }}{% endif %}</textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Module Permissions -->
+  <div class="dashboard-card" style="margin-top: 20px;">
+    <div class="card-header">
+      <h3><i class='bx bx-lock-open'></i> Module Permissions</h3>
+    </div>
+    <div class="card-body">
+      <div class="perm-legend">
+        <span><strong>V</strong> View</span>
+        <span><strong>C</strong> Create</span>
+        <span><strong>E</strong> Edit</span>
+        <span><strong>D</strong> Delete</span>
+        <span><strong>All</strong> Select All for module</span>
+        <span><strong><i class='bx bx-building-house' style="font-size: 13px; vertical-align: middle;"></i></strong> Restrict to Own Branch</span>
+      </div>
+
+      <div class="perm-table-wrap">
+        <table class="perm-table">
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>V</th>
+              <th>C</th>
+              <th>E</th>
+              <th>D</th>
+              <th>All</th>
+              <th title="Restrict data to own branch"><i class='bx bx-building-house'></i></th>
+            </tr>
+          </thead>
+          <tbody>
+            {# Render modules in exact sequence requested by the user. #}
+            {# 1) Patients #}
+            {% for module in modules %}{% if module.code == 'patients' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# 2) Appointments #}
+            {% for module in modules %}{% if module.code == 'appointments' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# 3) Medical Records #}
+            {% for module in modules %}{% if module.code == 'medical_records' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# 4) AI Diagnostics #}
+            {% for module in modules %}{% if module.code == 'ai_diagnostics' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# 5) Disease Geo Mapping #}
+            {% for module in modules %}{% if module.code == 'disease_geo_mapping' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# 6) Inquiries #}
+            {% for module in modules %}{% if module.code == 'inquiries' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# 7) Clinic Services #}
+            {% for module in modules %}{% if module.code == 'clinic_services' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# 8) Inventory #}
+            {% for module in modules %}{% if module.code == 'inventory' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# 9) Reservations #}
+            {% for module in modules %}{% if module.code == 'reservations' %}
+            <tr data-module="{{ module.code }}">
+              <td>
+                <div class="module-cell">
+                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                  <span>{{ module.display_name }}</span>
+                </div>
+              </td>
+              {% for perm_type, perm_label in permission_types %}
+              {% if perm_type != 'MANAGE' %}
+              <td>
+                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                       class="perm-cb module-perm perm-{{ perm_type }}"
+                       data-module="{{ module.code }}"
+                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+              </td>
+              {% endif %}
+              {% endfor %}
+              <td>
+                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+              </td>
+              <td>
+                <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                       class="perm-cb branch-restrict-cb"
+                       data-module="{{ module.code }}"
+                       {% if module.code in current_branch_restrict %}checked{% endif %}
+                       title="Restrict {{ module.display_name }} data to own branch">
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+
+            {# Finally render any remaining modules that were not in the explicit list #}
+            {% for module in modules %}
+              {% if module.code != 'patients' and module.code != 'appointments' and module.code != 'medical_records' and module.code != 'ai_diagnostics' and module.code != 'disease_geo_mapping' and module.code != 'inquiries' and module.code != 'clinic_services' and module.code != 'inventory' and module.code != 'reservations' %}
+              <tr data-module="{{ module.code }}">
+                <td>
+                  <div class="module-cell">
+                    <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
+                    <span>{{ module.display_name }}</span>
+                  </div>
+                </td>
+                {% for perm_type, perm_label in permission_types %}
+                {% if perm_type != 'MANAGE' %}
+                <td>
+                  <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
+                         class="perm-cb module-perm perm-{{ perm_type }}"
+                         data-module="{{ module.code }}"
+                         {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
+                </td>
+                {% endif %}
+                {% endfor %}
+                <td>
+                  <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
+                         onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
+                </td>
+                <td>
+                  <input type="checkbox" name="branch_restrict_{{ module.code }}"
+                         class="perm-cb branch-restrict-cb"
+                         data-module="{{ module.code }}"
+                         {% if module.code in current_branch_restrict %}checked{% endif %}
+                         title="Restrict {{ module.display_name }} data to own branch">
+                </td>
+              </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Special Permissions -->
+  {% if special_permissions %}
+  <div class="dashboard-card" style="margin-top: 20px;">
+    <div class="card-header">
+      <h3><i class='bx bx-star'></i> Special Permissions</h3>
+    </div>
+    <div class="card-body">
+      <div class="special-grid">
+        {% for sp in special_permissions %}
+        <label class="special-item">
+          <input type="checkbox" name="special_{{ sp.code }}"
+                 {% if sp.code in current_special %}checked{% endif %}>
+          <div>
+            <strong>{{ sp.name }}</strong>
+            <small>{{ sp.description }}</small>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Form Actions -->
+  <div class="form-actions">
+    <a href="{% url 'accounts:role_list' %}" class="btn-action">Cancel</a>
+    <button type="submit" class="btn-action primary">
+      <i class='bx bx-save'></i> {% if role %}Update{% else %}Create{% endif %} Role
+    </button>
+  </div>
+</form>
+
+<style>
+  .system-warning {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    background: rgba(230, 57, 70, 0.08);
+    border: 1px solid rgba(230, 57, 70, 0.2);
+    border-radius: var(--radius);
+    color: var(--accent);
+  }
+  .system-warning i { font-size: 24px; }
+  .system-warning strong { display: block; font-size: 14px; }
+  .system-warning span { font-size: 13px; opacity: 0.9; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .form-group.full-width { grid-column: 1 / -1; }
+
+  .form-label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: var(--text-1);
+  }
+  .form-label .required { color: var(--accent); }
+  .form-hint {
+    display: block;
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 4px;
+  }
+
+  .admin-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-1);
+    transition: border-color 0.2s;
+  }
+  .admin-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  .module-row-disabled {
+    opacity: 0.55;
+  }
+  select.admin-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235e6278' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  textarea.admin-input {
+    min-height: 60px;
+    resize: vertical;
+  }
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .checkbox-item:hover { background: var(--border); }
+  .checkbox-item input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    cursor: pointer;
+  }
+  .checkbox-item span {
+    font-size: 13px;
+    font-weight: 500;
+    display: block;
+  }
+  .checkbox-item small {
+    font-size: 11px;
+    color: var(--text-3);
+    display: block;
+    margin-top: 2px;
+  }
+  .checkbox-item.system {
+    background: rgba(230, 57, 70, 0.05);
+    border: 1px solid rgba(230, 57, 70, 0.15);
+  }
+  .checkbox-item.system span { color: var(--accent); }
+
+  .perm-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .perm-legend strong {
+    color: var(--text-2);
+    margin-right: 4px;
+  }
+
+  .perm-table-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .perm-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .perm-table th,
+  .perm-table td {
+    padding: 10px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .perm-table th {
+    background: var(--bg);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+  }
+  .perm-table th:first-child,
+  .perm-table td:first-child {
+    text-align: left;
+    width: 200px;
+  }
+  .perm-table tbody tr:last-child td { border-bottom: none; }
+  .perm-table tbody tr:hover { background: var(--bg); }
+
+  .module-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .module-cell i {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  [data-theme="dark"] .module-cell i {
+    background: rgba(0, 150, 136, 0.15);
+  }
+
+  .perm-cb {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+  }
+  .branch-restrict-cb {
+    accent-color: #e07c24;
+  }
+
+  .special-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .special-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .special-item:hover { background: var(--border); }
+  .special-item input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    cursor: pointer;
+  }
+  .special-item strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  .special-item small {
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  @media (max-width: 768px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+  const rolePresets = JSON.parse('{{ role_presets_json|default:"{}"|escapejs }}');
+  const isEditingRole = {% if role %}true{% else %}false{% endif %};
+
+  // ─── Dashboard Mutual Exclusivity ──────────────────────────────
+  const STAFF_DASH_CODE = 'can_access_staff_dashboard';
+  const ADMIN_DASH_CODE = 'can_access_admin_dashboard';
+
+  const hierarchySelect = document.getElementById('hierarchyLevelSelect');
+  const roleForm = document.getElementById('roleForm');
+
+  function applyRolePreset(level) {
+    const preset = rolePresets[String(level)];
+    if (!preset) return;
+
+    document.querySelectorAll('.module-perm, .branch-restrict-cb, .special-item input').forEach((checkbox) => {
+      if (checkbox.type === 'checkbox') {
+        checkbox.checked = false;
+      }
+    });
+
+    preset.module_permissions.forEach((permission) => {
+      const selector = `input[name="perm_${permission.module}_${permission.permission_type}"]`;
+      const checkbox = document.querySelector(selector);
+      if (checkbox) {
+        checkbox.checked = true;
+      }
+
+      if (permission.restrict_to_branch) {
+        const branchCheckbox = document.querySelector(`input[name="branch_restrict_${permission.module}"]`);
+        if (branchCheckbox) {
+          branchCheckbox.checked = true;
+        }
+      }
+    });
+
+    preset.special_permissions.forEach((code) => {
+      const checkbox = document.querySelector(`input[name="special_${code}"]`);
+      if (checkbox) {
+        checkbox.checked = true;
+      }
+    });
+
+    document.querySelectorAll('tr[data-module]').forEach((row) => {
+      const moduleCode = row.dataset.module;
+      if (typeof updateAllToggle === 'function') {
+        updateAllToggle(moduleCode);
+      }
+    });
+
+    if (typeof syncReservationsDependency === 'function') {
+      syncReservationsDependency();
+    }
+  }
+
+  function enforceDashboardExclusivity(changedCode) {
+    const staffCb = document.querySelector(`input[name="special_${STAFF_DASH_CODE}"]`);
+    const adminCb = document.querySelector(`input[name="special_${ADMIN_DASH_CODE}"]`);
+    if (!staffCb || !adminCb) return;
+
+    if (changedCode === STAFF_DASH_CODE && staffCb.checked) {
+      adminCb.checked = false;
+      flashExclusivityHint(adminCb);
+    } else if (changedCode === ADMIN_DASH_CODE && adminCb.checked) {
+      staffCb.checked = false;
+      flashExclusivityHint(staffCb);
+    }
+  }
+
+  function flashExclusivityHint(uncheckedCb) {
+    // Brief visual pulse on the unchecked item's parent label
+    const label = uncheckedCb.closest('.special-item');
+    if (!label) return;
+    label.style.transition = 'background 0.3s ease';
+    label.style.background = 'rgba(230, 57, 70, 0.10)';
+    setTimeout(() => {
+      label.style.background = '';
+    }, 600);
+  }
+
+  // ─── Update "All" Checkbox State ───────────────────────────────
+  function updateAllToggle(moduleCode) {
+    const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
+    if (!row) return;
+    const perms = row.querySelectorAll('.module-perm');
+    const allToggle = row.querySelector('.all-perms-toggle');
+    if (perms.length > 0 && allToggle) {
+      const allChecked = Array.from(perms).every(p => p.checked);
+      allToggle.checked = allChecked;
+    }
+  }
+
+  // ─── Reservations Depend on Inventory ─────────────────────────
+  function syncReservationsDependency() {
+    const inventoryRow = document.querySelector('tr[data-module="inventory"]');
+    const reservationsRow = document.querySelector('tr[data-module="reservations"]');
+    if (!inventoryRow || !reservationsRow) return;
+
+    const inventoryEnabled = Array.from(inventoryRow.querySelectorAll('.module-perm'))
+      .some(cb => cb.checked);
+    const reservationControls = reservationsRow.querySelectorAll(
+      '.module-perm, .all-perms-toggle, .branch-restrict-cb'
+    );
+
+    reservationControls.forEach(control => {
+      control.disabled = !inventoryEnabled;
+      if (!inventoryEnabled) {
+        control.checked = false;
+      }
+    });
+
+    reservationsRow.classList.toggle('module-row-disabled', !inventoryEnabled);
+  }
+
+  // ─── Toggle All Permissions for a Module ───────────────────────
+  function toggleAllPerms(checkbox, moduleCode) {
+    const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
+    const perms = row.querySelectorAll('.module-perm');
+    perms.forEach(perm => {
+      perm.checked = checkbox.checked;
+    });
+    if (moduleCode === 'inventory') {
+      syncReservationsDependency();
+    }
+  }
+
+  // ─── Initialize on Page Load ───────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    if (hierarchySelect) {
+      hierarchySelect.addEventListener('change', function() {
+        applyRolePreset(this.value);
+      });
+
+      if (!isEditingRole && hierarchySelect.value) {
+        applyRolePreset(hierarchySelect.value);
+      }
+    }
+
+    // Initialize "All" checkboxes state
+    document.querySelectorAll('tr[data-module]').forEach(row => {
+      const moduleCode = row.dataset.module;
+      updateAllToggle(moduleCode);
+    });
+
+    syncReservationsDependency();
+
+    // Add change listeners to individual permission checkboxes
+    document.querySelectorAll('.module-perm').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const moduleCode = this.dataset.module;
+        updateAllToggle(moduleCode);
+        if (moduleCode === 'inventory') {
+          syncReservationsDependency();
+        }
+      });
+    });
+
+    const inventoryRow = document.querySelector('tr[data-module="inventory"]');
+    if (inventoryRow) {
+      inventoryRow.addEventListener('change', syncReservationsDependency);
+    }
+
+    // Dashboard mutual exclusivity listeners
+    const staffDashCb = document.querySelector(`input[name="special_${STAFF_DASH_CODE}"]`);
+    const adminDashCb = document.querySelector(`input[name="special_${ADMIN_DASH_CODE}"]`);
+    if (staffDashCb) {
+      staffDashCb.addEventListener('change', () => enforceDashboardExclusivity(STAFF_DASH_CODE));
+    }
+    if (adminDashCb) {
+      adminDashCb.addEventListener('change', () => enforceDashboardExclusivity(ADMIN_DASH_CODE));
+    }
+  });
+</script>
+
+{% endblock %}

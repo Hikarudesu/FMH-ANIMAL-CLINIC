@@ -1,0 +1,526 @@
+{% extends 'base/portal_admin.html' %}
+{% load currency_filters %}
+
+{% block title %}Edit Staff Profile{% endblock %}
+
+{% block content %}
+
+<!-- Page Hero -->
+{% url 'employees:staff_list' as back_url %}
+{% include "components/page_hero.html" with title="Staff Profile" subtitle=edited_user.get_full_name|default:edited_user.username icon="bx-user-check" action_url=back_url action_label="Back to Staff" action_icon="bx-arrow-back" %}
+
+<div class="dashboard-card staff-edit-card">
+  <!-- Modern Info Section -->
+  <div class="staff-info-section">
+    <div class="staff-header-grid">
+      <!-- Staff Avatar Card -->
+      <div class="staff-avatar-card">
+        <div class="avatar-display">
+          <div class="avatar-large">
+            {% if edited_user.profile_picture %}
+            <img src="{{ edited_user.profile_picture.url }}" alt="{{ edited_user.get_full_name }}">
+            {% else %}
+            <span class="avatar-initials">{{ edited_user.first_name|slice:":1"|upper|default:edited_user.username|slice:":1"|upper }}{{ edited_user.last_name|slice:":1"|upper|default:"" }}</span>
+            {% endif %}
+          </div>
+          <div class="avatar-info">
+            <h2>{{ edited_user.get_full_name|default:edited_user.username }}</h2>
+            <p class="role-badge">
+              <i class='bx {{ edited_user.assigned_role.code|default:"bx-user" }}'></i>
+              {{ edited_user.assigned_role.name|default:"No Role" }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <form method="POST" class="staff-edit-form">
+        {% csrf_token %}
+
+        <!-- Account Details Grid -->
+        <div class="account-details-grid">
+          <div class="detail-card">
+            <div class="detail-icon branch">
+              <i class='bx bx-building'></i>
+            </div>
+            <div class="detail-content">
+              <label>Branch</label>
+              <select name="branch" class="admin-input">
+                <option value="">— No Branch Assigned —</option>
+                {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if edited_user.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="detail-card">
+            <div class="detail-icon status">
+              <i class='bx {% if staff_profile.is_active %}bx-check-circle{% else %}bx-x-circle{% endif %}'></i>
+            </div>
+            <div class="detail-content">
+              <label>Active Staff Employee</label>
+              <label class="checkbox-item modern" style="padding: 0; margin-top: 6px;">
+                <input type="checkbox" name="is_active"
+                       {% if staff_profile.is_active or not staff_profile.pk %}checked{% endif %}>
+                <span class="checkbox-label">
+                  <strong>{% if staff_profile.is_active %}Active{% else %}Inactive{% endif %}</strong>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-divider"></div>
+        <small class="form-hint">Use this panel to update the staff branch and active state only.</small>
+
+        <div class="form-actions" style="padding-top: 24px;">
+          <a href="{% url 'employees:staff_list' %}" class="btn-action outline">
+            <i class='bx bx-x'></i> Cancel
+          </a>
+          <button type="submit" class="btn-action primary">
+            <i class='bx bx-save'></i> Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+<style>
+  /* ══════════════════════════════════════════════ */
+  /* CENTERED CARD LAYOUT */
+  /* ══════════════════════════════════════════════ */
+  .staff-edit-card {
+    max-width: 860px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ══════════════════════════════════════════════ */
+  /* MODERN STAFF INFO SECTION */
+  /* ══════════════════════════════════════════════ */
+  .staff-info-section {
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+  }
+
+  .staff-header-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 260px) 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Staff Avatar Card */
+  .staff-avatar-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    text-align: center;
+  }
+
+  .avatar-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .avatar-large {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-info h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0;
+  }
+
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg);
+    color: var(--text-2);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 0;
+    border: 1px solid var(--border);
+  }
+
+  /* Account Details Grid */
+  .account-details-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .detail-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .detail-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    background: var(--primary-light);
+    color: var(--primary);
+  }
+  .detail-icon.branch {
+    background: var(--primary-light);
+    color: var(--primary);
+  }
+
+  .detail-content label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-2);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .detail-content p {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin: 0;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .status-badge.active {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+  }
+
+  .status-badge.inactive {
+    background: rgba(148, 163, 184, 0.14);
+    color: #475569;
+  }
+
+  .staff-edit-form {
+    display: block;
+  }
+
+  .staff-edit-form .account-details-grid {
+    margin-top: 0;
+  }
+
+  .staff-edit-form .admin-input {
+    width: 100%;
+  }
+
+  .staff-edit-form .form-actions {
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 820px) {
+    .staff-header-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .info-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 24px 0;
+  }
+
+  /* ══════════════════════════════════════════════ */
+  /* FORM STYLING */
+  /* ══════════════════════════════════════════════ */
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--primary);
+  }
+
+  .section-title i {
+    font-size: 22px;
+    color: var(--primary);
+  }
+
+  .section-title h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-group.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .form-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: var(--text-1);
+  }
+
+  .form-label i {
+    font-size: 16px;
+    color: var(--primary);
+    opacity: 0.7;
+  }
+
+  .admin-input {
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-1);
+    transition: all 0.2s ease;
+  }
+
+  .admin-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.1);
+  }
+
+  .checkbox-item.modern {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    background: rgba(0, 150, 136, 0.04);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .checkbox-item.modern:hover {
+    background: rgba(0, 150, 136, 0.08);
+    border-color: var(--primary);
+  }
+
+  .checkbox-item.modern input {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    cursor: pointer;
+    accent-color: var(--primary);
+  }
+
+  .checkbox-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .checkbox-label strong {
+    font-size: 14px;
+    color: var(--text-1);
+  }
+
+  .checkbox-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .form-hint {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: block;
+  }
+
+  .form-hint a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .form-hint a:hover {
+    text-decoration: underline;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ══════════════════════════════════════════════ */
+  /* DARK MODE */
+  /* ══════════════════════════════════════════════ */
+  [data-theme="dark"] .staff-info-section {
+    background: linear-gradient(135deg, rgba(0, 150, 136, 0.04) 0%, rgba(0, 150, 136, 0.02) 100%);
+  }
+
+  [data-theme="dark"] .staff-avatar-card {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  [data-theme="dark"] .staff-avatar-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  [data-theme="dark"] .role-badge {
+    background: rgba(0, 150, 136, 0.15);
+    color: var(--primary);
+  }
+
+  [data-theme="dark"] .checkbox-item.modern {
+    background: rgba(0, 150, 136, 0.06);
+  }
+
+  [data-theme="dark"] .checkbox-item.modern:hover {
+    background: rgba(0, 150, 136, 0.12);
+  }
+
+  /* ══════════════════════════════════════════════ */
+  /* RESPONSIVE */
+  /* ══════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    .staff-header-grid {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .staff-info-section {
+      padding: 20px;
+    }
+
+    .detail-card {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .detail-icon {
+      margin: 0 auto;
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const salaryInput = document.getElementById('salaryInput');
+    
+    function formatCurrencyNumber(val) {
+      if (!val) return '';
+      // Remove all non-digits except first decimal point
+      let cleanVal = val.replace(/[^\d.]/g, '');
+      const parts = cleanVal.split('.');
+      if (parts.length > 2) {
+        cleanVal = parts[0] + '.' + parts.slice(1).join('');
+      }
+      
+      // Separate whole numbers and decimals
+      let [whole, dec] = cleanVal.split('.');
+      if (whole) {
+        whole = parseInt(whole, 10).toString(); // remove leading zeros
+        whole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+      
+      if (dec !== undefined) {
+        return whole + '.' + dec.substring(0, 2);
+      }
+      return whole;
+    }
+
+    if (salaryInput) {
+      // Format initial value
+      if (salaryInput.value && salaryInput.value !== '0') {
+        salaryInput.value = formatCurrencyNumber(salaryInput.value);
+      }
+
+      salaryInput.addEventListener('input', function(e) {
+        const cursor = this.selectionStart;
+        const oldLength = this.value.length;
+        
+        this.value = formatCurrencyNumber(this.value);
+        
+        // Adjust cursor position
+        const newLength = this.value.length;
+        if (newLength > oldLength) {
+          this.setSelectionRange(cursor + 1, cursor + 1);
+        } else if (newLength < oldLength) {
+          this.setSelectionRange(cursor - 1, cursor - 1);
+        } else {
+          this.setSelectionRange(cursor, cursor);
+        }
+      });
+      
+      // Clean up before form submit
+      const form = salaryInput.closest('form');
+      if (form) {
+        form.addEventListener('submit', function() {
+          salaryInput.value = salaryInput.value.replace(/,/g, '');
+        });
+      }
+    }
+  });
+</script>
+
+{% endblock %}
