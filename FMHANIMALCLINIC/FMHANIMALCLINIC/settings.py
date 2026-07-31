@@ -14,6 +14,32 @@ import os
 import warnings
 from pathlib import Path
 
+
+def _load_environment_file(env_path):
+    """Load key/value pairs from a .env file into os.environ without overriding existing values."""
+    if not env_path.exists():
+        return
+
+    with open(env_path, encoding='utf-8') as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith('#'):
+                continue
+
+            if line.startswith('export '):
+                line = line[7:].strip()
+
+            if '=' not in line:
+                continue
+
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+
+            if key:
+                os.environ.setdefault(key, value)
+
+
 # Suppress naive datetime warnings caused by Django admin internals querying
 # DateTimeField (e.g. Pet.created_at) while USE_TZ=True is active.
 warnings.filterwarnings(
@@ -28,13 +54,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env file
 env_path = BASE_DIR / '.env'
-if env_path.exists():
-    with open(env_path, encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                os.environ.setdefault(key.strip(), value.strip())
+_load_environment_file(env_path)
 
 
 # Quick-start development settings - unsuitable for production

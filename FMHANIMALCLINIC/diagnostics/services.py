@@ -10,12 +10,45 @@ Vet-in-the-Loop Workflow:
 """
 import json
 import logging
+import os
 import re
 from datetime import date
+from pathlib import Path
 
 from django.conf import settings
 
 logger = logging.getLogger('fmh')
+
+
+def _get_groq_api_key(settings_obj):
+    """Read GROQ API key from Django settings, environment, or the project .env file."""
+    api_key = getattr(settings_obj, 'GROQ_API_KEY', None)
+    if isinstance(api_key, str):
+        api_key = api_key.strip()
+    if api_key:
+        return api_key
+
+    env_key = os.environ.get('GROQ_API_KEY')
+    if isinstance(env_key, str):
+        env_key = env_key.strip()
+    if env_key:
+        return env_key
+
+    env_path = Path(__file__).resolve().parent.parent / '.env'
+    if env_path.exists():
+        with open(env_path, encoding='utf-8') as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, value = line.split('=', 1)
+                if key.strip() == 'GROQ_API_KEY':
+                    value = value.strip().strip('"').strip("'")
+                    if value:
+                        return value
+
+    return None
+
 
 # ── System prompt ────────────────────────────────────────────────────────────
 _SYSTEM_PROMPT = """Role: You are a senior Veterinary Diagnostic Assistant AI \
@@ -115,9 +148,9 @@ def get_ai_diagnosis(pet, record_entries, appointment=None, additional_symptoms=
         logger.error("GROQ package not installed. Run: pip install groq")
         return _error_response("GROQ package not installed")
 
-    api_key = getattr(settings, 'GROQ_API_KEY', None)
+    api_key = _get_groq_api_key(settings)
     if not api_key:
-        logger.error("GROQ_API_KEY not configured in settings")
+        logger.error("GROQ_API_KEY not configured in settings, environment, or .env")
         return _error_response("API key not configured")
 
     groq_client = Groq(api_key=api_key)
