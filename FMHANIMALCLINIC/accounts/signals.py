@@ -34,14 +34,20 @@ def stash_old_profile_picture(sender, instance, **kwargs):
 def log_user_change(sender, instance, created, **kwargs):
     """Log when a user is created or updated."""
     if created:
-        # Log user creation
-        ActivityLog.objects.create(
-            user=instance,
-            action="User Account Created",
-            category=ActivityLog.Category.USER,
-            branch=instance.branch,
-            details=f"Username: {instance.username} | Role: {instance.get_display_role()}"
-        )
+        branch = None
+        try:
+            branch = instance.branch
+        except Exception:
+            branch = None
+
+        if branch is not None:
+            ActivityLog.objects.create(
+                user=instance,
+                action="User Account Created",
+                category=ActivityLog.Category.USER,
+                branch=branch,
+                details=f"Username: {instance.username} | Role: {instance.get_display_role()}"
+            )
 
 
 @receiver(post_save, sender=User)

@@ -74,6 +74,10 @@ def get_setting(key, default=None, use_cache=True):
         return value
     except SystemSetting.DoesNotExist:
         return default
+    except Exception:
+        # During initial migrations or before the settings table is available,
+        # return the default rather than crashing startup or checks.
+        return default
 
 
 def normalize_inventory_unit_options(raw_options):

@@ -134,22 +134,30 @@ def sync_pet_clinical_status(sender, instance, **kwargs):
     from settings.models import ClinicalStatus
     from settings.utils import get_setting
 
-    pet = instance.record.pet
-
-    clinical_status_obj = instance.action_required
-    if clinical_status_obj is None:
-        clinical_status_obj = ClinicalStatus.get_default()
-        instance.action_required = clinical_status_obj
-        instance.save(update_fields=['action_required'])
-
-    new_status_code = clinical_status_obj.code
-
-    old_status_code = pet.clinical_status.code if pet.clinical_status else None
-    if old_status_code == new_status_code:
+    try:
+        pet = instance.record.pet
+    except Exception:
         return
 
-    pet.clinical_status = clinical_status_obj
-    pet.save(update_fields=['clinical_status'])
+    try:
+        clinical_status_obj = instance.action_required
+        if clinical_status_obj is None:
+            clinical_status_obj = ClinicalStatus.get_default()
+            instance.action_required = clinical_status_obj
+            instance.save(update_fields=['action_required'])
+    except Exception:
+        return
+
+    try:
+        new_status_code = clinical_status_obj.code
+        old_status_code = pet.clinical_status.code if pet.clinical_status else None
+        if old_status_code == new_status_code:
+            return
+
+        pet.clinical_status = clinical_status_obj
+        pet.save(update_fields=['clinical_status'])
+    except Exception:
+        return
 
     auto_actions_enabled = bool(get_setting('medical_clinical_status_auto_actions', True))
     if not auto_actions_enabled:
@@ -167,12 +175,12 @@ def sync_pet_clinical_status(sender, instance, **kwargs):
             notification_type=Notification.NotificationType.GENERAL,
             module_context=Notification.ModuleContext.MEDICAL_RECORDS,
         )
-    
+
     # Also notify vet assistants in the same branch (they have medical records access)
     if instance.record.branch:
         from accounts.models import User
         from notifications.models import Notification
-        
+
         vet_assistants = User.objects.filter(
             is_active=True,
             assigned_role__code='vet_assistant',

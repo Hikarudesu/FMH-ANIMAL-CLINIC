@@ -369,7 +369,12 @@ def create_pet_owner_profile(sender, instance, created, **kwargs):
     """Automatically create a PetOwner profile for non-staff users."""
     if instance.is_superuser:
         return
+    if not created:
+        return
     # Only create for pet owners (no staff role)
-    if instance.is_pet_owner():
-        from accounts.pet_owner_models import PetOwner
-        PetOwner.objects.get_or_create(user=instance)
+    try:
+        if instance.is_pet_owner():
+            from accounts.pet_owner_models import PetOwner
+            PetOwner.objects.get_or_create(user=instance)
+    except Exception:
+        pass

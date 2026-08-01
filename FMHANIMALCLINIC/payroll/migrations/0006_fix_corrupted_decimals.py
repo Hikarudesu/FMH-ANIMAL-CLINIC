@@ -70,13 +70,12 @@ def _fix_column(cursor, table, col, nullable):
     if nullable:
         cursor.execute(
             f"UPDATE {table} SET {col} = NULL"  # noqa: S608
-            f" WHERE {col} = '' OR TRIM(CAST({col} AS TEXT)) = ''"
+            f" WHERE {col} IS NULL OR TRIM(CAST({col} AS TEXT)) = ''"
         )
     else:
         cursor.execute(
-            f"UPDATE {table} SET {col} = '0.00'"  # noqa: S608
-            f" WHERE {col} IS NULL OR {col} = ''"
-            f" OR TRIM(CAST({col} AS TEXT)) = ''"
+            f"UPDATE {table} SET {col} = 0.00"  # noqa: S608
+            f" WHERE {col} IS NULL OR TRIM(CAST({col} AS TEXT)) = ''"
         )
 
     # Python scan for remaining non-parseable values
@@ -104,12 +103,17 @@ def fix_corrupted_decimals(apps, schema_editor):
     cursor = schema_editor.connection.cursor()
     for table, columns in DECIMAL_COLUMNS.items():
         # Skip tables that don't exist yet (e.g. fresh installs running all migrations)
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=%s",
-            [table],
-        )
-        if not cursor.fetchone():
-            continue
+        if schema_editor.connection.vendor == "postgresql":
+            cursor.execute("SELECT to_regclass(%s)", [table])
+            if not cursor.fetchone()[0]:
+                continue
+        else:
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=%s",
+                [table],
+            )
+            if not cursor.fetchone():
+                continue
         for col, nullable in columns:
             _fix_column(cursor, table, col, nullable)
 

@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('billing', '0006_service_deleted_at_service_is_deleted'),
+        ('billing', '0007_rename_billableitem_to_service'),
         ('branches', '0004_branch_badge_label_branch_display_order_and_more'),
         ('inventory', '0012_reservation_pickup_date'),
         ('patients', '0012_pet_patients_pe_owner_i_722327_idx_and_more'),

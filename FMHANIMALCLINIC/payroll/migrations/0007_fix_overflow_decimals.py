@@ -93,12 +93,17 @@ def _fix_column(cursor, table, col, nullable, max_digits, decimal_places):
 def fix_overflow_decimals(apps, schema_editor):
     cursor = schema_editor.connection.cursor()
     for table, columns in DECIMAL_COLUMNS.items():
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=%s",
-            [table],
-        )
-        if not cursor.fetchone():
-            continue
+        if schema_editor.connection.vendor == "postgresql":
+            cursor.execute("SELECT to_regclass(%s)", [table])
+            if not cursor.fetchone()[0]:
+                continue
+        else:
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=%s",
+                [table],
+            )
+            if not cursor.fetchone():
+                continue
         for col, nullable, max_digits, decimal_places in columns:
             _fix_column(cursor, table, col, nullable, max_digits, decimal_places)
 
