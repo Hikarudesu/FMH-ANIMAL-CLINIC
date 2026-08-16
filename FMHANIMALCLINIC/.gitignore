@@ -33,6 +33,10 @@ env/
 local_settings.py
 /media
 /staticfiles
+db.sqlite3
+*.sqlite3
+*.sqlite
+*.dump
 
 # IDEs
 .vscode/
@@ -46,6 +50,7 @@ local_settings.py
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # OS
 Thumbs.db
