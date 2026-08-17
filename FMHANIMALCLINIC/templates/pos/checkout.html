@@ -934,7 +934,7 @@
         <div class="pos-cart-item-info">
           <div class="pos-cart-item-name" title="{{ item.name }}">{{ item.name }}</div>
           {% if item.product %}
-          <div style="font-size: 0.72rem; color: var(--text-3);">{{ item.quantity }} {{ item.product.unit_display }} · {{ item.product.sale_type_label }}</div>
+          <div style="font-size: 0.72rem; color: var(--text-3);">{{ item.product.unit_display }}{% if item.product.sale_type_label %} · {{ item.product.sale_type_label }}{% endif %}</div>
           {% endif %}
         </div>
         <div class="pos-cart-item-qty">
@@ -1357,7 +1357,7 @@ function addItemToCart(item) {
       <div class="pos-cart-item" data-item-id="${item.id}">
         <div class="pos-cart-item-info">
           <div class="pos-cart-item-name" title="${item.name}">${item.name}</div>
-          ${item.unit_display ? `<div style="font-size: 0.72rem; color: var(--text-3);">${item.quantity} ${item.unit_display}${item.sale_type_label ? ' · ' + item.sale_type_label : ''}</div>` : ''}
+          ${item.unit_display ? `<div style="font-size: 0.72rem; color: var(--text-3);">${item.unit_display}${item.sale_type_label ? ' · ' + item.sale_type_label : ''}</div>` : ''}
         </div>
         <div class="pos-cart-item-qty">
             <form method="post" action="{% url 'pos:update_quantity' %}" style="display:inline-flex; margin:0;">

@@ -105,20 +105,22 @@ class Product(SoftDeleteModel):
         return 0
 
     @property
-    def unit_display(self):
-        """Return the stock quantity with its unit of measurement."""
-        # Prefer the human-readable choice display; if the stored value
-        # doesn't match an available choice, fall back to a cleaned label.
+    def unit_label(self):
+        """Return the human-readable unit label without stock quantity."""
         try:
             unit_label = self.get_unit_of_measurement_display()
         except Exception:
             unit_label = ''
 
         if not unit_label or unit_label == self.unit_of_measurement:
-            # Transform legacy values (underscores, hyphens) into readable form
             unit_label = str(self.unit_of_measurement or '').replace('_', ' ').replace('-', ' ').title()
 
-        return f"{self.stock_quantity} {unit_label}"
+        return unit_label
+
+    @property
+    def unit_display(self):
+        """Return the stock quantity with its unit of measurement."""
+        return f"{self.stock_quantity} {self.unit_label}"
 
     @property
     def sale_type_label(self):
