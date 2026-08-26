@@ -74,6 +74,10 @@
         <input type="text" name="staff_allowance" class="currency-input" value="{{ payslip.staff_allowance|default:default_staff_allowance }}" inputmode="decimal" placeholder="2,000.00">
         <small style="color: var(--text-3); font-size: 0.75rem;">Split: ₱1,000 on 15th + ₱1,000 on 30th</small>
       </div>
+      <div class="form-group">
+        <label>Allowances from Report (₱)</label>
+        <input type="text" name="allowance" class="currency-input" value="{{ payslip.allowance|default:0 }}" inputmode="decimal" placeholder="0.00">
+      </div>
     </div>
   </div>
   
@@ -146,8 +150,28 @@
         <input type="number" name="days_worked" value="{{ payslip.days_worked|default:22 }}">
       </div>
       <div class="form-group">
+        <label>Working Days</label>
+        <input type="number" name="working_days" value="{{ payslip.working_days|default:22 }}">
+      </div>
+      <div class="form-group">
         <label>Days Absent</label>
         <input type="number" name="days_absent" value="{{ payslip.days_absent|default:0 }}">
+      </div>
+      <div class="form-group">
+        <label>Overtime Hours</label>
+        <input type="text" name="overtime_hours" value="{{ payslip.overtime_hours|default:0 }}">
+      </div>
+      <div class="form-group">
+        <label>Sick Hours</label>
+        <input type="text" name="sick_hours" value="{{ payslip.sick_hours|default:0 }}">
+      </div>
+      <div class="form-group">
+        <label>Leave Hours</label>
+        <input type="text" name="leave_hours" value="{{ payslip.leave_hours|default:0 }}">
+      </div>
+      <div class="form-group">
+        <label>Daily Salary (₱)</label>
+        <input type="text" name="daily_salary" value="{{ payslip.daily_salary|default:0 }}">
       </div>
     </div>
   </div>

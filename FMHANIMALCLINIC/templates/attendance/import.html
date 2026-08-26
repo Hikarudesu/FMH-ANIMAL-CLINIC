@@ -1,0 +1,62 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Import Attendance Data{% endblock %}
+
+{% block content %}
+{% include "components/page_hero.html" with title="Import Attendance File" icon="bx-upload" subtitle="Scanner export → staff match → schedule check → payroll-ready attendance" action_url="/attendance/" action_label="Back to Dashboard" action_icon="bx-arrow-back" action_url_2="/attendance/review/" action_label_2="Review Attendance" action_icon_2="bx-check" %}
+
+<div class="container-fluid" style="margin-top: 24px;">
+    <div class="dashboard-grid" style="grid-template-columns: 1.4fr 0.8fr; gap: 20px; margin-bottom: 24px;">
+        <div class="dashboard-card full-width" style="grid-column: 1 / 2;">
+                <div class="card-header">
+                <h3><i class='bx bx-file-import'></i> Upload Attendance Summary</h3>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" class="needs-validation">
+                    {% csrf_token %}
+
+                    <div class="admin-field" style="margin-bottom: 18px;">
+                        <label for="{{ form.import_file.id_for_label }}">{{ form.import_file.label }} <span style="color: var(--danger);">*</span></label>
+                        {{ form.import_file }}
+                        {% if form.import_file.help_text %}<small style="color: var(--text-2);">{{ form.import_file.help_text }}</small>{% endif %}
+                        {% if form.import_file.errors %}<div class="error-text">{{ form.import_file.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div style="border-top: 1px solid var(--border); margin: 24px 0 18px; padding-top: 18px;">
+                        <h4 style="margin: 0 0 8px; color: var(--text-1); font-size: 1.05rem;">Monthly summary import</h4>
+                        <p style="margin: 0 0 18px; color: var(--text-secondary); font-size: 0.8rem;">The file is matched using the biometric ID registered in Staff Management.</p>
+                    </div>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px;">
+                        <button type="submit" class="page-hero-btn" style="background: linear-gradient(135deg, var(--success), #10b981); border: none;">
+                            <i class='bx bx-upload'></i> Import Data
+                        </button>
+                        <a href="{% url 'attendance:dashboard' %}" class="page-hero-btn" style="background: rgba(148,163,184,0.16); color: var(--text-1);">
+                            <i class='bx bx-x'></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="dashboard-card" style="grid-column: 2 / 3;">
+            <div class="card-header">
+                <h3><i class='bx bx-info-circle'></i> File Format Guide</h3>
+            </div>
+            <div class="card-body">
+                <h6 style="font-size: 0.8rem; color: var(--text-1); margin: 0 0 10px;">Monthly summary fields</h6>
+                <p style="color: var(--text-secondary); font-size: 0.8rem;">Biometric ID, date, status, time in, time out, late minutes, overtime minutes, and total work minutes.</p>
+
+                <h6 style="font-size: 0.8rem; color: var(--text-1); margin: 0 0 10px;">Supported files</h6>
+                <ul style="margin: 0 0 18px 18px; color: var(--text-secondary); font-size: 0.8rem; line-height: 1.8;">
+                    <li>CSV, XLS, XLSX, ODS, or XML spreadsheet</li>
+                    <li>Upload one completed month per payroll cycle</li>
+                    <li>Staff are matched by Biometric ID</li>
+                </ul>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

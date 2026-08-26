@@ -76,6 +76,39 @@
     </div>
 
     <div class="payslip-grid">
+      <div class="payslip-section">
+        <div class="section-header earnings-header">
+          <i class="bx bx-calendar-check"></i>
+          <h4>ATTENDANCE SUMMARY</h4>
+        </div>
+        <table class="payslip-table">
+          <tbody>
+            <tr><td>Working Days</td><td style="text-align:right">{{ payslip.working_days }}</td></tr>
+            <tr><td>Attendance Days</td><td style="text-align:right">{{ payslip.attendance_days }}</td></tr>
+            <tr><td>Absences Days</td><td style="text-align:right">{{ payslip.absence_days }}</td></tr>
+            <tr><td>Overtime Hours</td><td style="text-align:right">{{ payslip.overtime_hours }}</td></tr>
+            <tr><td>Sick Hours</td><td style="text-align:right">{{ payslip.sick_hours }}</td></tr>
+            <tr><td>Leave Hours</td><td style="text-align:right">{{ payslip.leave_hours }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="payslip-section">
+        <div class="section-header deductions-header">
+          <i class="bx bx-wallet"></i>
+          <h4>PAYROLL SUMMARY</h4>
+        </div>
+        <table class="payslip-table">
+          <tbody>
+            <tr><td>Daily Salary</td><td style="text-align:right">&#8369;{{ payslip.daily_salary|peso }}</td></tr>
+            <tr><td>Overtime Pay</td><td style="text-align:right">&#8369;{{ payslip.overtime_pay|peso }}</td></tr>
+            <tr><td>Allowances</td><td style="text-align:right">&#8369;{{ payslip.allowances|peso }}</td></tr>
+            <tr><td>Charges</td><td style="text-align:right">&#8369;{{ payslip.charges|peso }}</td></tr>
+            <tr><td><strong>Real Pay</strong></td><td style="text-align:right"><strong>&#8369;{{ payslip.net_pay|peso }}</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
       <!-- Earnings Section -->
       <div class="payslip-section">
         <div class="section-header earnings-header">

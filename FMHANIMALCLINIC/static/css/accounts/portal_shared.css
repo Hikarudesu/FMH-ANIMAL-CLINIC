@@ -2182,24 +2182,37 @@
   align-items: center;
   gap: 8px;
   padding: 10px 24px;
-  background: rgba(255,255,255,0.18);
-  backdrop-filter: blur(6px);
+  background: linear-gradient(135deg, #0f766e 0%, #0b5c58 100%);
+  border: 1px solid rgba(255,255,255,0.22);
   color: #fff;
   border-radius: 10px;
   font-weight: 600;
   font-size: 0.9rem;
   text-decoration: none;
-  border: none;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.2s, transform 0.18s, box-shadow 0.2s;
+  transition: transform 0.18s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .page-hero-btn:hover {
-  background: rgba(255,255,255,0.28);
+  background: linear-gradient(135deg, #115e59 0%, #0c4d4a 100%);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
   color: #fff;
+  filter: brightness(1.04);
+}
+
+[data-theme="light"] .page-hero-btn,
+body:not([data-theme="dark"]) .page-hero-btn {
+  background: linear-gradient(135deg, #0f766e 0%, #0b5c58 100%);
+  border-color: rgba(15, 118, 110, 0.35);
+  color: #ffffff;
+}
+
+[data-theme="light"] .page-hero-btn:hover,
+body:not([data-theme="dark"]) .page-hero-btn:hover {
+  background: linear-gradient(135deg, #115e59 0%, #0c4d4a 100%);
+  color: #ffffff;
 }
 
 .page-hero-btn i {

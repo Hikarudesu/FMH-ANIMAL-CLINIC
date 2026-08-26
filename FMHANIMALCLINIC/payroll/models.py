@@ -132,6 +132,10 @@ class Payslip(models.Model):
     )
     days_worked = models.PositiveIntegerField(default=0)
     days_absent = models.PositiveIntegerField(default=0)
+    working_days = models.PositiveIntegerField(default=0)
+    sick_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    leave_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    daily_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
     # ─────────── ALLOWANCES (Earnings) ───────────
     overtime_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
@@ -296,8 +300,15 @@ class Payslip(models.Model):
         
         # Use configurable default work days from settings
         default_days = get_setting('payroll_default_work_days', 22)
+        self.working_days = int(default_days)
         self.days_worked = getattr(self.employee, 'default_days_worked', None) or int(default_days)
         self.days_absent = 0
+        self.sick_hours = Decimal('0')
+        self.leave_hours = Decimal('0')
+        self.daily_salary = (
+            self.base_salary / Decimal(str(default_days))
+            if self.base_salary and default_days else Decimal('0')
+        )
         
         # Staff allowance from employee defaults, falling back to settings default
         default_staff_allowance = get_setting('payroll_default_staff_allowance', 2000)

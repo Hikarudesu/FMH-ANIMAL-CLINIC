@@ -1,0 +1,351 @@
+"""Models for attendance and biometric management."""
+from datetime import timedelta
+from django.db import models
+from django.utils import timezone
+from django.core.validators import MinValueValidator
+from employees.models import StaffMember
+from branches.models import Branch
+
+
+class BiometricDevice(models.Model):
+    """Represents a physical fingerprint scanner at a clinic branch."""
+    
+    class DeviceStatus(models.TextChoices):
+        ACTIVE = 'ACTIVE', 'Active'
+        INACTIVE = 'INACTIVE', 'Inactive'
+        MAINTENANCE = 'MAINTENANCE', 'Maintenance'
+        ERROR = 'ERROR', 'Error'
+    
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE,
+        related_name='biometric_devices',
+    )
+    device_name = models.CharField(
+        max_length=100,
+        help_text='e.g., Branch A Main Entrance',
+    )
+    device_model = models.CharField(
+        max_length=100,
+        default='Fingerprint Scanner',
+        help_text='e.g., ZKTeco K20, Suprema BioEntry',
+    )
+    device_serial = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text='Serial number or unique ID from device',
+    )
+    
+    # Network/Connection
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text='IP address if connected to network',
+    )
+    port = models.PositiveIntegerField(
+        default=5005,
+        help_text='Device connection port',
+    )
+    connection_type = models.CharField(
+        max_length=50,
+        default='USB',
+        choices=[
+            ('USB', 'USB Export'),
+            ('LAN', 'Local Network'),
+            ('API', 'Device API'),
+            ('MANUAL', 'Manual CSV/Excel Import'),
+        ],
+        help_text='How device syncs with system',
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=DeviceStatus.choices,
+        default=DeviceStatus.ACTIVE,
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Sync Settings
+    last_sync_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Last successful sync time',
+    )
+    sync_interval_minutes = models.PositiveIntegerField(
+        default=15,
+        help_text='Auto-sync interval (unused if MANUAL)',
+    )
+    
+    # Metadata
+    notes = models.TextField(blank=True, help_text='Location, setup notes, etc.')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['branch', 'device_name']
+        verbose_name = 'Biometric Device'
+        verbose_name_plural = 'Biometric Devices'
+    
+    def __str__(self):
+        return f'{self.branch.name} — {self.device_name}'
+
+
+class AttendanceLog(models.Model):
+    """Raw punch data from the biometric device."""
+    
+    class PunchType(models.TextChoices):
+        CHECK_IN = 'CHECK_IN', 'Check In'
+        CHECK_OUT = 'CHECK_OUT', 'Check Out'
+        BREAK_IN = 'BREAK_IN', 'Break In'
+        BREAK_OUT = 'BREAK_OUT', 'Break Out'
+        UNKNOWN = 'UNKNOWN', 'Unknown'
+    
+    class SyncStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        MATCHED = 'MATCHED', 'Matched to Staff'
+        UNMATCHED = 'UNMATCHED', 'Unmatched'
+        DUPLICATE = 'DUPLICATE', 'Duplicate'
+        ERROR = 'ERROR', 'Error'
+    
+    device = models.ForeignKey(
+        BiometricDevice,
+        on_delete=models.CASCADE,
+        related_name='attendance_logs',
+    )
+    # Raw Device Data
+    external_user_id = models.CharField(
+        max_length=50,
+        help_text='Device user ID from raw punch',
+    )
+    punch_datetime = models.DateTimeField(
+        help_text='When the punch was recorded',
+    )
+    punch_type = models.CharField(
+        max_length=20,
+        choices=PunchType.choices,
+        default=PunchType.CHECK_IN,
+    )
+    
+    # Raw data preservation
+    raw_payload = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Original data from device (full record)',
+    )
+    source_record_id = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text='Unique ID from device to prevent duplicates',
+    )
+    
+    # Processing
+    sync_status = models.CharField(
+        max_length=20,
+        choices=SyncStatus.choices,
+        default=SyncStatus.PENDING,
+    )
+    sync_notes = models.TextField(blank=True)
+    
+    # Timestamps
+    imported_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-punch_datetime']
+        indexes = [
+            models.Index(fields=['external_user_id', 'punch_datetime']),
+            models.Index(fields=['device', 'punch_datetime']),
+            models.Index(fields=['sync_status']),
+        ]
+        verbose_name = 'Attendance Log'
+        verbose_name_plural = 'Attendance Logs'
+    
+    def __str__(self):
+        staff_name = self.mapping.staff.full_name if self.mapping else f'Device ID {self.external_user_id}'
+        return f'{staff_name} — {self.punch_datetime} ({self.get_punch_type_display()})'
+
+
+class DailyAttendance(models.Model):
+    """Processed daily attendance for each staff (used by payroll)."""
+    
+    class AttendanceStatus(models.TextChoices):
+        PRESENT = 'PRESENT', 'Present'
+        ABSENT = 'ABSENT', 'Absent'
+        LATE = 'LATE', 'Late'
+        HALF_DAY = 'HALF_DAY', 'Half Day'
+        ON_LEAVE = 'ON_LEAVE', 'On Leave'
+        APPROVED_ABSENCE = 'APPROVED_ABSENCE', 'Approved Absence'
+    
+    staff = models.ForeignKey(
+        StaffMember,
+        on_delete=models.CASCADE,
+        related_name='daily_attendance',
+    )
+    attendance_date = models.DateField(
+        help_text='Date of attendance record',
+    )
+    
+    # Expected shift (from schedule)
+    expected_start = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Expected start time from schedule',
+    )
+    expected_end = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Expected end time from schedule',
+    )
+    expected_hours = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text='Expected working hours',
+    )
+    
+    # Actual punch data
+    check_in = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Actual check-in time',
+    )
+    check_out = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Actual check-out time',
+    )
+    
+    # Calculated metrics
+    total_work_minutes = models.PositiveIntegerField(
+        default=0,
+        help_text='Total actual worked minutes',
+    )
+    late_minutes = models.PositiveIntegerField(
+        default=0,
+        help_text='Minutes late (if check-in is after expected start)',
+    )
+    overtime_minutes = models.PositiveIntegerField(
+        default=0,
+        help_text='Minutes worked beyond expected end',
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=AttendanceStatus.choices,
+        default=AttendanceStatus.ABSENT,
+    )
+    is_present = models.BooleanField(
+        default=False,
+        help_text='Did staff come in this day?',
+    )
+    
+    # Manual adjustment
+    is_manually_adjusted = models.BooleanField(
+        default=False,
+        help_text='Was this record manually edited?',
+    )
+    adjustment_notes = models.TextField(
+        blank=True,
+        help_text='Notes about manual adjustments',
+    )
+    adjusted_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='adjusted_attendance',
+    )
+    
+    # Approval
+    is_approved = models.BooleanField(default=False)
+    approved_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_attendance',
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-attendance_date', 'staff']
+        unique_together = ['staff', 'attendance_date']
+        indexes = [
+            models.Index(fields=['staff', 'attendance_date']),
+            models.Index(fields=['attendance_date', 'status']),
+            models.Index(fields=['is_approved']),
+        ]
+        verbose_name = 'Daily Attendance'
+        verbose_name_plural = 'Daily Attendance'
+    
+    def __str__(self):
+        return f'{self.staff.full_name} — {self.attendance_date} ({self.get_status_display()})'
+
+
+class MonthlyAttendanceSummary(models.Model):
+    """Monthly attendance totals exported by a biometric device for payroll."""
+
+    class ReviewStatus(models.TextChoices):
+        IMPORTED = 'IMPORTED', 'Imported'
+        APPROVED = 'APPROVED', 'Approved'
+        LOCKED = 'LOCKED', 'Locked'
+
+    staff = models.ForeignKey(
+        StaffMember,
+        on_delete=models.CASCADE,
+        related_name='monthly_attendance_summaries',
+    )
+    period_start = models.DateField()
+    period_end = models.DateField()
+    working_days = models.PositiveIntegerField(default=0)
+    attendance_days = models.PositiveIntegerField(default=0)
+    absence_days = models.PositiveIntegerField(default=0)
+    late_days = models.PositiveIntegerField(default=0)
+    overtime_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    sick_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    leave_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    daily_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    overtime_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    allowances = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    charges = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    real_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    review_status = models.CharField(
+        max_length=20,
+        choices=ReviewStatus.choices,
+        default=ReviewStatus.IMPORTED,
+    )
+    source_filename = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='monthly_attendance_uploads',
+    )
+    approved_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_monthly_attendance',
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    imported_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-period_start', 'staff']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['staff', 'period_start', 'period_end'],
+                name='unique_staff_attendance_month',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.staff.full_name} — {self.period_start:%B %Y}'

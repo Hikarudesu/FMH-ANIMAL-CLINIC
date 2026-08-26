@@ -292,10 +292,23 @@
           <span class="label">Branch / Department</span>
           <span class="val">{{ payslip.employee.branch.name|default:"Main Branch" }}</span>
         </td>
-        <td colspan="2">
-          <span class="label">Status</span>
-          <span class="val">{{ payslip.status }}</span>
+        <td>
+          <span class="label">Working Days</span>
+          <span class="val">{{ payslip.working_days }}</span>
         </td>
+        <td>
+          <span class="label">Attendance / Absences</span>
+          <span class="val">{{ payslip.days_worked }} / {{ payslip.days_absent }}</span>
+        </td>
+      </tr>
+    </table>
+
+    <table class="info-grid" style="margin-top: 12px;">
+      <tr>
+        <td><span class="label">Overtime Hours</span><span class="val">{{ payslip.overtime_hours }}</span></td>
+        <td><span class="label">Sick Hours</span><span class="val">{{ payslip.sick_hours }}</span></td>
+        <td><span class="label">Leave Hours</span><span class="val">{{ payslip.leave_hours }}</span></td>
+        <td><span class="label">Daily Salary</span><span class="val">₱{{ payslip.daily_salary|peso }}</span></td>
       </tr>
     </table>
     
@@ -340,7 +353,7 @@
           {% endif %}
           {% if payslip.allowance > 0 %}
           <tr>
-            <td>Other Allowances</td>
+            <td>Allowances</td>
             <td class="amt">{{ payslip.allowance|peso }}</td>
           </tr>
           {% endif %}
@@ -425,7 +438,7 @@
           <tr><td style="color:transparent;">-</td><td></td></tr>
           
           <tr class="total-row">
-            <td>TOTAL DEDUCTIONS</td>
+            <td>CHARGES / TOTAL DEDUCTIONS</td>
             <td class="amt">{{ payslip.total_deductions|peso }}</td>
           </tr>
         </tbody>

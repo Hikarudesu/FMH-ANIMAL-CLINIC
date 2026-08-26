@@ -1,0 +1,109 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Device Details - {{ device.device_name }}{% endblock %}
+
+{% block content %}
+{% url 'attendance:device_edit' device.id as device_edit_url %}
+{% include "components/page_hero.html" with title=device.device_name icon="bx-hardware" subtitle="Device details and legacy punch history" action_url="/attendance/devices/" action_label="Back to Devices" action_icon="bx-arrow-back" action_url_2=device_edit_url action_label_2="Edit Device" action_icon_2="bx-edit" %}
+
+<div class="container-fluid" style="margin-top: 24px;">
+    <div class="dashboard-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 24px;">
+        <div class="dashboard-card">
+            <div class="card-header"><h3><i class='bx bx-info-circle'></i> Device Information</h3></div>
+            <div class="card-body">
+                <dl style="margin: 0; display: grid; gap: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Device Model</dt>
+                        <dd style="color: var(--text-1); margin: 0;">{{ device.device_model }}</dd>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Serial Number</dt>
+                        <dd style="color: var(--text-1); margin: 0;"><code>{{ device.device_serial }}</code></dd>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Branch</dt>
+                        <dd style="color: var(--text-1); margin: 0;">{{ device.branch.name }}</dd>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Connection Type</dt>
+                        <dd style="color: var(--text-1); margin: 0;"><span class="admin-badge neutral">{{ device.get_connection_type_display }}</span></dd>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Status</dt>
+                        <dd style="color: var(--text-1); margin: 0;">{% if device.status == 'ACTIVE' %}<span class="admin-badge active">Active</span>{% elif device.status == 'INACTIVE' %}<span class="admin-badge inactive">Inactive</span>{% elif device.status == 'MAINTENANCE' %}<span class="admin-badge pending">Maintenance</span>{% else %}<span class="admin-badge cancelled">Error</span>{% endif %}</dd>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Last Sync</dt>
+                        <dd style="color: var(--text-1); margin: 0;">{% if device.last_sync_at %}{{ device.last_sync_at|date:"M d, Y H:i" }}{% else %}<span class="admin-badge cancelled">Never</span>{% endif %}</dd>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Sync Interval</dt>
+                        <dd style="color: var(--text-1); margin: 0;">{{ device.sync_interval_minutes }} min</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header"><h3><i class='bx bx-import'></i> File Import Profile</h3></div>
+            <div class="card-body">
+                <dl style="margin: 0; display: grid; gap: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Source</dt>
+                        <dd style="color: var(--text-1); margin: 0;">USB or SD card export</dd>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Accepted files</dt>
+                        <dd style="color: var(--text-1); margin: 0;">CSV, XLS, XLSX, ODS, XML</dd>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Last import</dt>
+                        <dd style="color: var(--text-1); margin: 0;">{% if device.last_sync_at %}{{ device.last_sync_at|date:"M d, Y H:i" }}{% else %}No import yet{% endif %}</dd>
+                    </div>
+                </dl>
+                {% if device.notes %}
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+                    <h6 style="margin: 0 0 8px; color: var(--text-1); font-size: 0.9rem; font-weight: 600;">Notes</h6>
+                    <p style="margin: 0; color: var(--text-2); font-size: 0.875rem; line-height: 1.4;">{{ device.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-table-card">
+        <div class="card-header"><h3><i class='bx bx-history'></i> Recent Punches (Last 50)</h3></div>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Punch DateTime</th>
+                    <th>Staff Member</th>
+                    <th>User ID</th>
+                    <th>Punch Type</th>
+                    <th>Status</th>
+                    <th>Imported</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td>{{ log.punch_datetime|date:"M d H:i:s" }}</td>
+                    <td><span class="cell-secondary">Legacy punch record</span></td>
+                    <td><code>{{ log.external_user_id }}</code></td>
+                    <td>{{ log.get_punch_type_display }}</td>
+                    <td>
+                        {% if log.sync_status == 'MATCHED' %}<span class="admin-badge active">Matched</span>
+                        {% elif log.sync_status == 'PENDING' %}<span class="admin-badge neutral">Pending</span>
+                        {% elif log.sync_status == 'DUPLICATE' %}<span class="admin-badge warning">Duplicate</span>
+                        {% elif log.sync_status == 'ERROR' %}<span class="admin-badge inactive">Error</span>
+                        {% else %}<span class="admin-badge neutral">{{ log.get_sync_status_display }}</span>{% endif %}
+                    </td>
+                    <td>{{ log.imported_at|date:"M d H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

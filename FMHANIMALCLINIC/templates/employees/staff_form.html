@@ -218,6 +218,17 @@
         {% endif %}
       </div>
 
+      {% if form.biometric_id %}
+      <div class="admin-field">
+        <label for="{{ form.biometric_id.id_for_label }}">Biometric ID</label>
+        {{ form.biometric_id }}
+        <small class="form-hint">Use the exact ID printed by the biometric device, for example 00001.</small>
+        {% if form.biometric_id.errors %}
+        <div class="error-text">{{ form.biometric_id.errors.0 }}</div>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <div class="form-section-title">
         <i class="bx bx-briefcase"></i> Employment Details
       </div>

@@ -8,6 +8,7 @@ SUPERUSER_ONLY_MODULES = [
     'notifications',
     'roles',
     'payroll',
+    'attendance',       # Attendance & Biometrics for superuser only
     'soa',
     'stock_transfers',
     'reports',
@@ -94,6 +95,7 @@ class Module(models.Model):
     CLINIC_SERVICES = 'clinic_services'
     SOA = 'soa'
     PAYROLL = 'payroll'
+    ATTENDANCE = 'attendance'
     STAFF = 'staff'
     SCHEDULE = 'schedule'
     BRANCHES = 'branches'
@@ -119,6 +121,7 @@ class Module(models.Model):
         (CLINIC_SERVICES, 'Clinic Services'),
         (SOA, 'Statement of Account'),
         (PAYROLL, 'Payroll'),
+        (ATTENDANCE, 'Attendance & Biometrics'),
         (STAFF, 'Staff'),
         (SCHEDULE, 'Schedule'),
         (BRANCHES, 'Branches'),

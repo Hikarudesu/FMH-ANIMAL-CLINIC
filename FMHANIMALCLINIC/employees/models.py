@@ -58,6 +58,14 @@ class StaffMember(SoftDeleteModel):
     last_name = models.CharField(max_length=100)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=20, blank=True)
+    biometric_id = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text='Scanner/biometric ID used to match attendance import files to the same staff member.'
+    )
 
     # Employment
     position = models.CharField(max_length=20, choices=Position.choices)

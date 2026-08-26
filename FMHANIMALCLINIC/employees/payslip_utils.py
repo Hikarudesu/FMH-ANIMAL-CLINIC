@@ -59,13 +59,23 @@ def compute_payslip(staff_member, month, year):
         days_worked = working_days
 
     payslip.days_worked = days_worked
+    payslip.attendance_days = days_worked
     payslip.working_days = working_days
+    payslip.days_absent = max(0, working_days - days_worked)
+    payslip.absence_days = payslip.days_absent
+    payslip.overtime_hours = Decimal('0')
+    payslip.sick_hours = Decimal('0')
+    payslip.leave_hours = Decimal('0')
+    payslip.overtime_pay = Decimal('0')
+    payslip.allowances = Decimal('0')
+    payslip.charges = Decimal('0')
 
     # Calculate daily rate and gross pay
     daily_rate = base_salary / Decimal(working_days) if working_days > 0 else Decimal(0)
     gross_pay = daily_rate * Decimal(days_worked)
 
     payslip.daily_rate = round(daily_rate, 2)
+    payslip.daily_salary = payslip.daily_rate
     payslip.gross_pay = round(gross_pay, 2)
 
     # Calculate mandatory contributions (Philippine rates)
@@ -86,5 +96,27 @@ def compute_payslip(staff_member, month, year):
 
     # Net pay
     payslip.net_pay = round(payslip.gross_pay - payslip.total_deductions, 2)
+
+    from attendance.models import MonthlyAttendanceSummary
+    monthly_summary = MonthlyAttendanceSummary.objects.filter(
+        staff=staff_member,
+        period_start__year=year,
+        period_start__month=month,
+    ).order_by('-period_end').first()
+    if monthly_summary:
+        payslip.working_days = monthly_summary.working_days
+        payslip.attendance_days = monthly_summary.attendance_days
+        payslip.days_worked = monthly_summary.attendance_days
+        payslip.absence_days = monthly_summary.absence_days
+        payslip.days_absent = monthly_summary.absence_days
+        payslip.overtime_hours = monthly_summary.overtime_hours
+        payslip.sick_hours = monthly_summary.sick_hours
+        payslip.leave_hours = monthly_summary.leave_hours
+        payslip.daily_salary = monthly_summary.daily_salary or daily_rate
+        payslip.overtime_pay = monthly_summary.overtime_pay
+        payslip.allowances = monthly_summary.allowances
+        payslip.charges = monthly_summary.charges
+        if monthly_summary.real_pay:
+            payslip.net_pay = monthly_summary.real_pay
 
     return payslip

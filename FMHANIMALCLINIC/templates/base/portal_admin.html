@@ -318,11 +318,11 @@
 
           {% if user.is_superuser %}
           {# Overseer: Staff Management #}
-          {% if user|has_nav_module:'roles' or user|has_nav_module:'staff' or user|has_nav_special_permission:'can_manage_own_schedule' or user|has_nav_special_permission:'can_manage_others_schedule' or user|has_nav_module:'payroll' %}
+          {% if user|has_nav_module:'roles' or user|has_nav_module:'staff' or user|has_nav_module:'attendance' or user|has_nav_special_permission:'can_manage_own_schedule' or user|has_nav_special_permission:'can_manage_others_schedule' or user|has_nav_module:'payroll' %}
           <div class="sidebar-item has-submenu">
             <a
               href="#"
-              class="sidebar-link {% if 'roles' in request.path or 'employees' in request.path or request.resolver_match.url_name == 'schedule' or 'payroll' in request.path or request.resolver_match.url_name == 'admin_create_account' or request.resolver_match.url_name == 'user_role_list' %}active{% endif %}"
+              class="sidebar-link {% if 'roles' in request.path or 'employees' in request.path or 'attendance' in request.path or request.resolver_match.url_name == 'schedule' or 'payroll' in request.path or request.resolver_match.url_name == 'admin_create_account' or request.resolver_match.url_name == 'user_role_list' %}active{% endif %}"
               id="governanceDropdownToggle"
             >
               <i class="bx bx-shield-quarter"></i><span>Staff Management</span>
@@ -343,6 +343,14 @@
                 class="sidebar-submenu-link {% if 'roles' in request.path %}active{% endif %}"
               >
                 <i class="bx bx-shield"></i><span>Roles & Permissions</span>
+              </a>
+              {% endif %}
+              {% if user|has_nav_module:'attendance' %}
+              <a
+                href="{% url 'attendance:dashboard' %}"
+                class="sidebar-submenu-link {% if 'attendance' in request.path %}active{% endif %}"
+              >
+                <i class="bx bx-fingerprint"></i><span>Attendance</span>
               </a>
               {% endif %}
               {% if user|has_nav_special_permission:'can_manage_own_schedule' or user|has_nav_special_permission:'can_manage_others_schedule' %}

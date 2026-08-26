@@ -68,6 +68,16 @@
               </label>
             </div>
           </div>
+
+          {% if request.user.is_superuser or request.user.assigned_role.hierarchy_level >= 10 %}
+          <div class="detail-card">
+            <div class="detail-icon status"><i class='bx bx-fingerprint'></i></div>
+            <div class="detail-content">
+              <label for="biometric_id">Biometric ID</label>
+              <input id="biometric_id" name="biometric_id" class="admin-input" value="{{ staff_profile.biometric_id|default:'' }}" placeholder="For example 00001">
+            </div>
+          </div>
+          {% endif %}
         </div>
 
         <div class="info-divider"></div>

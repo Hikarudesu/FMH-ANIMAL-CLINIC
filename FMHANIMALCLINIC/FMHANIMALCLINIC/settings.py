@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     'inventory',
     'billing',
     'employees',
+    'attendance',
     'notifications',
     'payroll',
     'pos.apps.PosConfig',

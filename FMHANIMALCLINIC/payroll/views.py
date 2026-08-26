@@ -33,6 +33,7 @@ from accounts.decorators import module_permission_required, special_permission_r
 from employees.models import StaffMember
 from payroll.models import PayrollPeriod, Payslip
 from notifications.utils import notify_payroll_generated, notify_payroll_released
+from attendance.services import AttendanceProcessor
 from settings.utils import get_setting
 
 logger = logging.getLogger('fmh')
@@ -259,6 +260,24 @@ def generate_payslips(request):
         employees = []
         employee_count = 0
 
+    from attendance.models import MonthlyAttendanceSummary
+    approved_summary_count = MonthlyAttendanceSummary.objects.filter(
+        staff_id__in=emp_ids,
+        period_start__year=year,
+        period_start__month=month,
+        review_status__in=[
+            MonthlyAttendanceSummary.ReviewStatus.APPROVED,
+            MonthlyAttendanceSummary.ReviewStatus.LOCKED,
+        ],
+    ).count() if emp_ids else 0
+    if employee_count and approved_summary_count < employee_count:
+        messages.error(
+            request,
+            f'Payroll cannot be generated: approved attendance is missing for '
+            f'{employee_count - approved_summary_count} employee(s) for {month:02d}/{year}.'
+        )
+        return redirect('payroll:generate')
+
     # Check for existing payslips
     existing_payslips = {}
     try:
@@ -332,6 +351,42 @@ def generate_payslips_action(request):
 
                 # Generate/update payslip data
                 payslip.generate_from_employee()
+
+                # Attendance is the source of worked days, absences, and
+                # overtime for payroll when approved records exist.
+                attendance_metrics = AttendanceProcessor.calculate_payroll_metrics(
+                    emp, month, year
+                )
+                if attendance_metrics['approved_records'] > 0:
+                    payslip.days_worked = attendance_metrics['days_present']
+                    payslip.days_absent = attendance_metrics['days_absent']
+                    payslip.overtime_hours = attendance_metrics['total_overtime_hours']
+
+                from attendance.models import MonthlyAttendanceSummary
+                monthly_summary = MonthlyAttendanceSummary.objects.filter(
+                    staff=emp,
+                    period_start__year=year,
+                    period_start__month=month,
+                ).order_by('-period_end').first()
+                if monthly_summary:
+                    payslip.working_days = monthly_summary.working_days
+                    payslip.days_worked = monthly_summary.attendance_days
+                    payslip.days_absent = monthly_summary.absence_days
+                    payslip.overtime_hours = monthly_summary.overtime_hours
+                    payslip.sick_hours = monthly_summary.sick_hours
+                    payslip.leave_hours = monthly_summary.leave_hours
+                    payslip.daily_salary = (
+                        monthly_summary.daily_salary or
+                        (payslip.base_salary / Decimal(str(monthly_summary.working_days))
+                         if monthly_summary.working_days else Decimal('0'))
+                    )
+                    if monthly_summary.overtime_pay:
+                        payslip.overtime_pay = monthly_summary.overtime_pay
+                    if monthly_summary.allowances:
+                        payslip.allowance = monthly_summary.allowances
+                        payslip.staff_allowance = Decimal('0')
+                    if monthly_summary.charges:
+                        payslip.other_deductions = monthly_summary.charges
                 payslip.save()
 
                 default_custom_deductions = getattr(payslip, '_default_custom_deductions', [])
@@ -342,6 +397,8 @@ def generate_payslips_action(request):
                         amount=safe_decimal(deduction['amount']),
                     )
                 payslip.calculate()
+                if monthly_summary and monthly_summary.real_pay:
+                    payslip.net_pay = monthly_summary.real_pay
                 payslip.save(update_fields=['custom_deductions_total', 'gross_pay', 'total_allowances', 'total_deductions', 'total_clinic_contributions', 'net_pay'])
 
                 if created:
@@ -517,6 +574,10 @@ def payslip_edit(request, payslip_id):
                 # Update days
                 payslip.days_worked = safe_int(request.POST.get('days_worked', 22), 22)
                 payslip.days_absent = safe_int(request.POST.get('days_absent', 0))
+                payslip.working_days = safe_int(request.POST.get('working_days', 22), 22)
+                payslip.sick_hours = safe_decimal(request.POST.get('sick_hours', 0))
+                payslip.leave_hours = safe_decimal(request.POST.get('leave_hours', 0))
+                payslip.daily_salary = safe_decimal(request.POST.get('daily_salary', 0))
 
                 # Notes
                 payslip.notes = request.POST.get('notes', '')

@@ -6,10 +6,21 @@ from FMHANIMALCLINIC.form_mixins import FormControlMixin, validate_philippines_p
 class StaffMemberForm(FormControlMixin, forms.ModelForm):
     """Form for creating/editing staff members."""
 
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        is_superadmin = bool(
+            user and (
+                user.is_superuser or
+                getattr(getattr(user, 'assigned_role', None), 'hierarchy_level', 0) >= 10
+            )
+        )
+        if not is_superadmin:
+            self.fields.pop('biometric_id', None)
+
     class Meta:
         model = StaffMember
         fields = [
-            'first_name', 'last_name', 'email', 'phone',
+            'first_name', 'last_name', 'email', 'phone', 'biometric_id',
             'position', 'salary', 'branch', 'date_hired',
             'license_number', 'license_expiry', 'is_active',
         ]

@@ -80,7 +80,7 @@ def staff_list(request):
 def staff_add(request):
     """Add a new staff member."""
     if request.method == 'POST':
-        form = StaffMemberForm(request.POST)
+        form = StaffMemberForm(request.POST, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Staff member added successfully.')
@@ -88,7 +88,7 @@ def staff_add(request):
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        form = StaffMemberForm()
+        form = StaffMemberForm(user=request.user)
 
     return render(request, 'employees/staff_form.html', {
         'form': form,
@@ -142,7 +142,11 @@ def staff_edit(request, user_id):
 
         staff_profile.branch = branch
         staff_profile.is_active = is_active
-        staff_profile.save(update_fields=['branch', 'is_active'])
+        update_fields = ['branch', 'is_active']
+        if request.user.is_superuser or getattr(getattr(request.user, 'assigned_role', None), 'hierarchy_level', 0) >= 10:
+            staff_profile.biometric_id = request.POST.get('biometric_id', '').strip() or None
+            update_fields.append('biometric_id')
+        staff_profile.save(update_fields=update_fields)
 
         messages.success(request, f'{user.get_full_name()} profile updated successfully.')
         return redirect('employees:staff_list')

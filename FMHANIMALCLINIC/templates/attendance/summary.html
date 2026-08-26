@@ -1,0 +1,243 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Attendance Summary Report{% endblock %}
+
+{% block content %}
+{% include "components/page_hero.html" with title="Attendance Summary Report" icon="bx-file" subtitle="Review attendance rate, overtime, and staff productivity by period" action_url="/attendance/" action_label="Back to Dashboard" action_icon="bx-arrow-back" %}
+
+<div class="container-fluid" style="margin-top: 24px;">
+    <div class="dashboard-card full-width" style="margin-bottom: 24px;">
+        <div class="card-header">
+            <h3><i class='bx bx-filter-alt'></i> Report Filters</h3>
+        </div>
+        <div class="card-body">
+            <form method="get" class="report-filter-form">
+                <div class="report-filter-field">
+                    <label for="id_year">Year</label>
+                    <select name="year" id="id_year" class="form-select report-filter-control">
+                        {% for y in year_choices %}
+                            <option value="{{ y|stringformat:'d' }}" {% if y == selected_year %}selected{% endif %}>{{ y|stringformat:'d' }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="report-filter-field">
+                    <label for="id_month">Month</label>
+                    <select name="month" id="id_month" class="form-select report-filter-control">
+                        {% for m in month_choices %}
+                            <option value="{{ m.0 }}" {% if m.0 == selected_month %}selected{% endif %}>{{ m.1 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="report-filter-field">
+                    <label for="id_branch">Branch</label>
+                    <select name="branch" id="id_branch" class="form-select report-filter-control">
+                        <option value="">All Branches</option>
+                        {% for branch in branches %}
+                            <option value="{{ branch.id }}" {% if branch.id == selected_branch %}selected{% endif %}>{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="report-filter-actions">
+                    <button type="submit" class="page-hero-btn report-filter-submit">
+                        <i class='bx bx-filter'></i> Generate
+                    </button>
+                    <a href="{% url 'attendance:summary' %}" class="page-hero-btn report-filter-reset" title="Reset filters"><i class='bx bx-refresh'></i></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if summary_data %}
+        <div class="dashboard-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-bottom: 24px;">
+            <div class="dashboard-card">
+                <div class="card-header"><h3><i class='bx bx-user'></i> Staff Reviewed</h3></div>
+                <div class="card-body"><div style="font-size: 2rem; font-weight: 700; color: var(--text-1);">{{ summary_data|length }}</div></div>
+            </div>
+            <div class="dashboard-card">
+                <div class="card-header"><h3><i class='bx bx-calendar'></i> Working Days</h3></div>
+                <div class="card-body"><div style="font-size: 2rem; font-weight: 700; color: var(--text-1);">{{ total_working_days }}</div></div>
+            </div>
+            <div class="dashboard-card">
+                <div class="card-header"><h3><i class='bx bx-line-chart'></i> Avg Attendance</h3></div>
+                <div class="card-body"><div style="font-size: 2rem; font-weight: 700; color: var(--text-1);">{{ avg_attendance_rate|floatformat:1 }}%</div></div>
+            </div>
+            <div class="dashboard-card">
+                <div class="card-header"><h3><i class='bx bx-time-five'></i> OT Hours</h3></div>
+                <div class="card-body"><div style="font-size: 2rem; font-weight: 700; color: var(--text-1);">{{ total_overtime_hours|floatformat:1 }}</div></div>
+            </div>
+        </div>
+
+        <div class="admin-table-card">
+            <div class="card-header">
+                <h3><i class='bx bx-table'></i> Staff Attendance Summary</h3>
+            </div>
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Staff Member</th>
+                        <th>Designation</th>
+                        <th>Working Days</th>
+                        <th>Days Present</th>
+                        <th>Days Absent</th>
+                        <th>Days Late</th>
+                        <th>Late Minutes</th>
+                        <th>Overtime Hours</th>
+                        <th>Sick Hours</th>
+                        <th>Leave Hours</th>
+                        <th>Daily Salary</th>
+                        <th>Overtime Pay</th>
+                        <th>Allowances</th>
+                        <th>Charges</th>
+                        <th>Real Pay</th>
+                        <th>Attendance Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for staff, data in summary_data %}
+                        <tr>
+                            <td><strong>{{ staff.full_name }}</strong></td>
+                            <td><span class="cell-secondary">{{ staff.get_position_display }}</span></td>
+                            <td>{{ data.working_days }}</td>
+                            <td><span class="admin-badge active">{{ data.days_present }}</span></td>
+                            <td><span class="admin-badge inactive">{{ data.days_absent }}</span></td>
+                            <td><span class="admin-badge warning">{{ data.days_late }}</span></td>
+                            <td>{{ data.total_late_minutes }} mins</td>
+                            <td>{{ data.total_overtime_hours|floatformat:1 }} hrs</td>
+                            <td>{{ data.sick_hours|floatformat:2 }}</td>
+                            <td>{{ data.leave_hours|floatformat:2 }}</td>
+                            <td>{{ data.daily_salary|floatformat:2 }}</td>
+                            <td>{{ data.overtime_pay|floatformat:2 }}</td>
+                            <td>{{ data.allowances|floatformat:2 }}</td>
+                            <td>{{ data.charges|floatformat:2 }}</td>
+                            <td>{{ data.real_pay|floatformat:2 }}</td>
+                            <td>
+                                {% with rate=data.attendance_rate %}
+                                    {% if rate >= 95 %}
+                                        <span class="admin-badge active">{{ rate|floatformat:1 }}%</span>
+                                    {% elif rate >= 85 %}
+                                        <span class="admin-badge neutral">{{ rate|floatformat:1 }}%</span>
+                                    {% elif rate >= 75 %}
+                                        <span class="admin-badge warning">{{ rate|floatformat:1 }}%</span>
+                                    {% else %}
+                                        <span class="admin-badge inactive">{{ rate|floatformat:1 }}%</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 no-print" style="margin-top: 18px;">
+            <a href="?export=csv" class="page-hero-btn" style="background: rgba(14,116,144,0.14); color: var(--text-1);"><i class='bx bx-download'></i> Export as CSV</a>
+            <a href="?export=excel" class="page-hero-btn" style="background: rgba(16,185,129,0.14); color: var(--text-1);"><i class='bx bx-download'></i> Export as Excel</a>
+            <button onclick="window.print()" class="page-hero-btn"><i class='bx bx-printer'></i> Print</button>
+        </div>
+    {% else %}
+        <div class="dashboard-card full-width" style="margin-top: 18px;">
+            <div class="card-body">
+                <div class="empty-state-large">
+                    <div class="empty-state-icon"><i class='bx bx-info-circle'></i></div>
+                    <h3>No attendance data available</h3>
+                    <p>Select a month to generate a report from the imported attendance summary.</p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .report-filter-form {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+        gap: 16px;
+        align-items: end;
+        padding: 4px;
+    }
+
+    .report-filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .report-filter-field label {
+        color: var(--text-2);
+        font-size: 0.78rem;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+    }
+
+    .report-filter-control {
+        min-height: 42px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--text-1);
+        padding: 0 12px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .report-filter-control:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+        outline: none;
+    }
+
+    .report-filter-actions {
+        display: flex;
+        gap: 8px;
+        min-height: 42px;
+    }
+
+    .report-filter-submit {
+        min-width: 120px;
+        justify-content: center;
+    }
+
+    .report-filter-reset {
+        min-width: 42px;
+        justify-content: center;
+        background: var(--bg);
+        color: var(--text-1);
+    }
+
+    @media (max-width: 850px) {
+        .report-filter-form {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .report-filter-actions {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .report-filter-form {
+            grid-template-columns: 1fr;
+        }
+
+        .report-filter-actions {
+            grid-column: auto;
+        }
+
+        .report-filter-submit {
+            flex: 1;
+        }
+    }
+
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        .btn {
+            display: none !important;
+        }
+        .d-flex.justify-content-between {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+{% endblock %}

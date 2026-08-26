@@ -1,0 +1,24 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Attendance & Biometrics Dashboard{% endblock %}
+
+{% block content %}
+{% include "components/page_hero.html" with title="Attendance & Biometrics" icon="bx-fingerprint" subtitle="Import the scanner export, confirm staff attendance, and send approved hours to payroll" %}
+
+<div class="container-fluid" style="margin-top: 24px;">
+    <div class="dashboard-card full-width" style="margin-bottom: 24px;">
+        <div class="card-header">
+            <h3><i class='bx bx-transfer-alt'></i> Attendance Workflow</h3>
+        </div>
+        <div class="card-body">
+            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                <a href="{% url 'attendance:import' %}" class="page-hero-btn"><i class='bx bx-upload'></i> Import Data</a>
+                <a href="{% url 'attendance:review' %}" class="page-hero-btn"><i class='bx bx-check'></i> Review Attendance</a>
+                <a href="{% url 'attendance:summary' %}" class="page-hero-btn"><i class='bx bx-bar-chart'></i> Reports</a>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
