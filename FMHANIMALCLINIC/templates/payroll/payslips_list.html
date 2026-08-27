@@ -4,9 +4,6 @@
 {% block title %}Payslips - {{ period.period_display }}{% endblock %}
 
 {% block payroll_content %}
-<!-- ══════ PAYSLIPS HERO ══════ -->
-{% include "components/page_hero.html" with title="Payslips" icon="bx-file" subtitle="Review and manage employee payslips for " %}
-
 <style>
   /* Modal Button Styles */
   .btn-cancel {
@@ -130,13 +127,13 @@
     background: var(--bg);
   }
 
-  .payslips-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+  .payslips-header { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
   .payslips-header h2 { margin: 0; color: var(--text-1); font-size: 1.3rem; font-weight: 700; }
-  .payslips-table { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+  .payslips-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-card); }
   .payslips-table table { width: 100%; border-collapse: collapse; }
-  .payslips-table thead { background: var(--bg); border-bottom: 2px solid var(--border); }
-  .payslips-table th { padding: 16px 20px; text-align: left; font-weight: 600; font-size: 0.85rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.08em; }
-  .payslips-table td { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 0.95rem; color: var(--text-1); vertical-align: middle; }
+  .payslips-table thead { background: var(--bg); border-bottom: 1px solid var(--border); }
+  .payslips-table th { padding: 16px; text-align: left; font-weight: 600; font-size: 0.85rem; color: var(--text-2); }
+  .payslips-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 0.95rem; color: var(--text-1); vertical-align: middle; }
   .payslips-table tbody tr { transition: background-color 0.2s ease; }
   .payslips-table tbody tr:hover { background: var(--bg); }
   .actions { display: flex; gap: 8px; }
@@ -156,7 +153,10 @@
 </style>
 
 <div class="payslips-header">
-  <h2><i class='bx bx-file' style="color: var(--primary);"></i> Review Payslips - {{ period.period_display }}</h2>
+  <div>
+    <h2><i class='bx bx-file' style="color: var(--primary);"></i> Payroll Period - {{ period.period_display }}</h2>
+    <p style="margin: 5px 0 0; color: var(--text-3); font-size: 0.9rem;">{{ period.scope_display }} · Review and manage generated payslips</p>
+  </div>
   <div style="display: flex; gap: 12px; align-items: center;">
     {% if period.status != 'RELEASED' %}
     <button type="button" class="btn open-release-btn" data-release-url="{% url 'payroll:release' period.id %}" data-release-name="{{ period.period_display|escapejs }}" style="background:#059669; border-color:#059669;"><i class='bx bx-send'></i> Release Payroll</button>
@@ -203,16 +203,22 @@
         <td>
           <div class="actions">
             {% if payslip.status != 'RELEASED' %}
-            <a href="{% url 'payroll:payslip_edit' payslip.id %}" class="action-btn" title="Edit Payslip"><i class='bx bx-pencil'></i></a>
+            <a href="{% url 'payroll:payslip_edit' payslip.id %}?branch={{ selected_branch.id }}" class="action-btn" title="Edit Payslip"><i class='bx bx-pencil'></i></a>
             {% else %}
             {% if can_edit_released %}
-            <a href="{% url 'payroll:payslip_delete' payslip.id %}" class="action-btn action-btn-danger" title="Delete Released Payslip" onclick="return confirm('Delete this released payslip? This action will be logged.');"><i class='bx bx-trash'></i></a>
+            <form method="post" action="{% url 'payroll:payslip_delete' payslip.id %}" style="display: inline;" onsubmit="return confirm('Delete this released payslip? This action will be logged.');">
+              {% csrf_token %}
+              <button type="submit" class="action-btn action-btn-danger" title="Delete Released Payslip"><i class='bx bx-trash'></i></button>
+            </form>
             {% endif %}
             {% if payslip.employee.email %}
-            <a href="{% url 'payroll:send_email' payslip.id %}" class="action-btn" title="Resend Email" onclick="return confirm('Resend payslip email to {{ payslip.employee.full_name }}?');"><i class='bx bx-send'></i></a>
+            <form method="post" action="{% url 'payroll:send_email' payslip.id %}" style="display: inline;" onsubmit="return confirm('Resend payslip email to {{ payslip.employee.full_name }}?');">
+              {% csrf_token %}
+              <button type="submit" class="action-btn" title="Resend Email"><i class='bx bx-send'></i></button>
+            </form>
             {% endif %}
             {% endif %}
-            <a href="{% url 'payroll:payslip_print' payslip.id %}?return_to={{ request.get_full_path|urlencode }}" class="action-btn" title="View/Print Document"><i class='bx bx-printer'></i></a>
+            <a href="{% url 'payroll:payslip_print' payslip.id %}?branch={{ selected_branch.id }}&return_to={{ request.get_full_path|urlencode }}" class="action-btn" title="View/Print Document"><i class='bx bx-printer'></i></a>
           </div>
         </td>
       </tr>
@@ -242,7 +248,7 @@
     <button type="submit" class="btn"><i class='bx bx-plus-circle'></i> Generate Payslips for {{ period.period_display }}</button>
   </form>
   {% else %}
-  <a href="{% url 'payroll:generate' %}" class="btn" style="margin-top: 20px;"><i class='bx bx-plus-circle'></i> Document Generation Wizard</a>
+  <a href="{% url 'payroll:requests' %}" class="btn" style="margin-top: 20px;"><i class='bx bx-arrow-back'></i> Back to Payroll Periods</a>
   {% endif %}
 </div>
 {% endif %}

@@ -879,21 +879,29 @@ def payslip_list_view(request):
     except (ValueError, TypeError):
         year = today.year
 
+    branch_id = request.GET.get('branch', '').strip()
+    selected_branch = Branch.objects.filter(pk=branch_id, is_active=True).first() if branch_id.isdigit() else None
+
     # Generate list of months for the dropdown
     months = [{'num': i, 'name': date(2000, i, 1).strftime('%B')}
               for i in range(1, 13)]
 
-    staff = StaffMember.objects.filter(
-        is_active=True,
-        user__isnull=False,
-        user__assigned_role__is_staff_role=True
-    ).order_by('last_name', 'first_name')
+    staff = StaffMember.objects.none()
+    if selected_branch:
+        staff = StaffMember.objects.filter(
+            is_active=True,
+            user__isnull=False,
+            user__assigned_role__is_staff_role=True,
+            branch=selected_branch,
+        ).exclude(user__assigned_role__code='superadmin').order_by('last_name', 'first_name')
 
     return render(request, 'employees/payslip_list.html', {
         'staff_list': staff,
         'selected_month': month,
         'selected_year': year,
         'months': months,
+        'branches': Branch.objects.filter(is_active=True).order_by('name'),
+        'selected_branch': selected_branch,
     })
 
 
@@ -914,6 +922,14 @@ def payslip_detail_view(request, pk):
         year = int(request.GET.get('year', today.year))
     except (ValueError, TypeError):
         year = today.year
+
+    branch_id = request.GET.get('branch', '').strip()
+    selected_branch = Branch.objects.filter(pk=branch_id, is_active=True).first() if branch_id.isdigit() else None
+    if not selected_branch or staff_member.branch_id != selected_branch.id:
+        return redirect(
+            f'/employees/payslips/?month={month}&year={year}'
+            f'&branch={selected_branch.id if selected_branch else ""}'
+        )
 
     # Compute the payslip data
     payslip_data = compute_payslip(staff_member, month, year)

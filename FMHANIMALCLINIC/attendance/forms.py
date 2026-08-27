@@ -161,6 +161,43 @@ class AttendanceImportForm(forms.Form):
 
         if not rows:
             return []
+
+        # Scanner summary exports contain one employee block rather than a
+        # conventional header row. Convert each block to a monthly record.
+        records = []
+        for index, values in enumerate(rows):
+            joined = ' '.join(str(value).strip() for value in values if value)
+            if 'Name:' not in joined or 'ID:' not in joined or 'Date:' not in joined:
+                continue
+
+            identifier = re.search(r'ID\s*:\s*([^\s]+)', joined)
+            period = re.search(
+                r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2})\s*[\-–—~～]+\s*(\d{2})\.(\d{2})\.(\d{2})',
+                joined,
+            )
+            if not identifier or not period:
+                continue
+
+            start_year, start_month, start_day, end_year, end_month, end_day = period.groups()
+            summary = {
+                'Summary': 'MONTHLY',
+                'Biometric ID': identifier.group(1),
+                'Report Start': f'20{start_year}-{start_month}-{start_day}',
+                'Report End': f'20{end_year}-{end_month}-{end_day}',
+            }
+            for detail_row in rows[index + 1:index + 3]:
+                for value in detail_row:
+                    match = re.match(r'\s*([^:：]+)[:：]\s*(.*?)\s*$', str(value or ''))
+                    if match:
+                        label, amount = match.groups()
+                        if AttendanceImportForm._normalise_header(label) == 'real pay':
+                            continue
+                        summary[label.strip()] = amount.strip()
+            records.append(summary)
+
+        if records:
+            return records
+
         headers = [str(value).strip() for value in rows[0]]
         return [
             {
@@ -246,6 +283,8 @@ class AttendanceImportForm(forms.Form):
                     match = re.match(r'\s*([^:：]+)[:：]\s*(.*?)\s*$', str(value or ''))
                     if match:
                         label, amount = match.groups()
+                        if AttendanceImportForm._normalise_header(label) == 'real pay':
+                            continue
                         summary[label.strip()] = amount.strip()
             records.append(summary)
 

@@ -270,7 +270,7 @@ function filterByBranch() {
           </div>
         </div>
       </td>
-      <td style="text-align: center; color: var(--text-2);">{{ item.employee.position|default:"-" }}</td>
+      <td style="text-align: center; color: var(--text-2);">{% if item.employee.user and item.employee.user.assigned_role %}{{ item.employee.user.assigned_role.name }}{% else %}{{ item.employee.get_position_display|default:"-" }}{% endif %}</td>
       <td class="money-value" style="text-align: center;">₱{{ item.employee.salary|peso }}</td>
       <td style="text-align: center;">
         {% if item.current_payslip %}

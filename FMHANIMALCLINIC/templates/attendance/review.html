@@ -3,13 +3,11 @@
 {% block title %}Review Monthly Attendance{% endblock %}
 
 {% block content %}
-{% include "components/page_hero.html" with title="Review Monthly Attendance" icon="bx-check" subtitle="Verify the imported biometric summary before payroll uses it" action_url="/attendance/" action_label="Back to Attendance" action_icon="bx-arrow-back" action_url_2="/attendance/import/" action_label_2="Import Another File" action_icon_2="bx-upload" %}
+{% include "components/page_hero.html" with title="Review Monthly Attendance" icon="bx-check" subtitle="Verify the imported biometric summary before payroll uses it" action_url="/attendance/" action_label="Back to Attendance" action_icon="bx-arrow-back" %}
 
 <div class="container-fluid" style="margin-top: 24px;">
-    <div class="dashboard-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-bottom: 24px;">
+    <div class="dashboard-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 24px;">
         <div class="dashboard-card"><div class="card-header"><h3>Total Staff</h3></div><div class="card-body"><strong class="review-stat">{{ total_records }}</strong></div></div>
-        <div class="dashboard-card"><div class="card-header"><h3>Approved</h3></div><div class="card-body"><strong class="review-stat approved">{{ approved_records }}</strong></div></div>
-        <div class="dashboard-card"><div class="card-header"><h3>Needs Review</h3></div><div class="card-body"><strong class="review-stat pending">{{ unapproved_records }}</strong></div></div>
         <div class="dashboard-card"><div class="card-header"><h3>Period</h3></div><div class="card-body"><strong class="review-period">{{ selected_month|stringformat:'02d' }}/{{ selected_year|stringformat:'d' }}</strong></div></div>
     </div>
 
@@ -17,27 +15,35 @@
         <div class="card-header"><h3><i class='bx bx-table'></i> Imported Monthly Totals</h3></div>
         <div class="table-responsive">
             <table class="admin-table">
-                <thead><tr><th>Staff</th><th>Biometric ID</th><th>Working</th><th>Attendance</th><th>Absences</th><th>OT Hours</th><th>Daily Salary</th><th>Allowances</th><th>Charges</th><th>Real Pay</th><th>Status</th></tr></thead>
+                <thead><tr><th>Staff</th><th>Biometric ID</th><th>Working</th><th>Attendance</th><th>Absences</th><th>OT Hours</th><th>Daily Salary</th></tr></thead>
                 <tbody>
                 {% for summary in monthly_summaries %}
                 <tr>
                     <td><strong>{{ summary.staff.full_name }}</strong></td>
                     <td><code>{{ summary.staff.biometric_id }}</code></td>
                     <td>{{ summary.working_days }}</td><td>{{ summary.attendance_days }}</td><td>{{ summary.absence_days }}</td>
-                    <td>{{ summary.overtime_hours }}</td><td>{{ summary.daily_salary|default:'0.00' }}</td><td>{{ summary.allowances|default:'0.00' }}</td><td>{{ summary.charges|default:'0.00' }}</td><td>{{ summary.real_pay|default:'0.00' }}</td>
-                    <td>{% if summary.review_status == 'LOCKED' %}<span class="admin-badge neutral">Locked</span>{% elif summary.review_status == 'APPROVED' %}<span class="admin-badge active">Approved</span>{% else %}<span class="admin-badge warning">Imported</span>{% endif %}</td>
+                    <td>{{ summary.overtime_hours }}</td><td>{{ summary.system_daily_salary|floatformat:2 }}</td>
                 </tr>
-                {% empty %}<tr><td colspan="11" style="text-align:center; padding: 32px;">No monthly attendance was imported for this period.</td></tr>{% endfor %}
+                {% empty %}<tr><td colspan="7" style="text-align:center; padding: 32px;">No monthly attendance was imported for this period.</td></tr>{% endfor %}
                 </tbody>
             </table>
         </div>
-        {% if can_approve %}
-        <form method="post" style="padding: 18px 20px; display:flex; justify-content:flex-end;">{% csrf_token %}<button type="submit" class="page-hero-btn"><i class='bx bx-check-double'></i> Approve Month for Payroll</button></form>
+        {% if attendance_upload and attendance_upload.unmatched_biometric_ids %}
+        <div class="unmatched-alert">
+            <strong><i class='bx bx-error-circle'></i> Unmatched biometric IDs</strong>
+            <span>Not registered to active staff:</span>
+            <span class="unmatched-id-list">{% for biometric_id in attendance_upload.unmatched_biometric_ids %}<code>{{ biometric_id }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+        </div>
         {% endif %}
     </div>
 </div>
 <style>
-.review-stat { font-size: 2rem; color: var(--text-1); }.review-stat.approved { color: var(--success); }.review-stat.pending { color: var(--warning); }.review-period { font-size: 1.5rem; color: var(--primary); }
+.review-stat { font-size: 2rem; color: var(--text-1); }.review-period { font-size: 1.5rem; color: var(--primary); }
 .table-responsive { overflow-x: auto; }.admin-table { min-width: 1100px; }
+.unmatched-alert { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin: 16px 20px 20px; padding: 10px 14px; border: 1px solid rgba(183,121,31,.3); border-left: 4px solid #b7791f; background: rgba(183,121,31,.08); border-radius: 6px; color: var(--text-2); font-size: .84rem; line-height: 1.35; }
+.unmatched-alert strong { display: inline-flex; align-items: center; gap: 6px; color: var(--text-1); white-space: nowrap; }
+.unmatched-alert strong i { font-size: 1rem; }
+.unmatched-id-list { color: var(--text-1); font-weight: 600; }
+.unmatched-id-list code { padding: 2px 6px; border-radius: 4px; background: rgba(183,121,31,.14); color: inherit; }
 </style>
 {% endblock %}

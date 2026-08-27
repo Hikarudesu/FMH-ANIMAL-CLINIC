@@ -200,29 +200,6 @@
       font-family: 'Courier New', Courier, monospace;
     }
     
-    /* Signatures */
-    .signatures {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 50px;
-    }
-    
-    .sig-block {
-      width: 40%;
-      text-align: center;
-    }
-    
-    .sig-line {
-      border-bottom: 1px solid #000;
-      margin-bottom: 8px;
-      height: 30px;
-    }
-    
-    .sig-name {
-      font-size: 11px;
-      font-weight: bold;
-      text-transform: uppercase;
-    }
     
     .sig-title {
       font-size: 10px;
@@ -280,7 +257,7 @@
         </td>
         <td width="25%">
           <span class="label">Position</span>
-          <span class="val">{{ payslip.employee.get_position_display|default:"Staff" }}</span>
+          <span class="val">{% if payslip.employee.user and payslip.employee.user.assigned_role %}{{ payslip.employee.user.assigned_role.name }}{% else %}{{ payslip.employee.get_position_display|default:"Staff" }}{% endif %}</span>
         </td>
         <td width="25%">
           <span class="label">Days Worked</span>
@@ -289,7 +266,7 @@
       </tr>
       <tr>
         <td>
-          <span class="label">Branch / Department</span>
+          <span class="label">Branch</span>
           <span class="val">{{ payslip.employee.branch.name|default:"Main Branch" }}</span>
         </td>
         <td>
@@ -297,8 +274,8 @@
           <span class="val">{{ payslip.working_days }}</span>
         </td>
         <td>
-          <span class="label">Attendance / Absences</span>
-          <span class="val">{{ payslip.days_worked }} / {{ payslip.days_absent }}</span>
+          <span class="label">Days Absent</span>
+          <span class="val">{{ payslip.days_absent }}</span>
         </td>
       </tr>
     </table>
@@ -308,7 +285,6 @@
         <td><span class="label">Overtime Hours</span><span class="val">{{ payslip.overtime_hours }}</span></td>
         <td><span class="label">Sick Hours</span><span class="val">{{ payslip.sick_hours }}</span></td>
         <td><span class="label">Leave Hours</span><span class="val">{{ payslip.leave_hours }}</span></td>
-        <td><span class="label">Daily Salary</span><span class="val">₱{{ payslip.daily_salary|peso }}</span></td>
       </tr>
     </table>
     
@@ -351,13 +327,6 @@
             <td class="amt">{{ payslip.staff_allowance|peso }}</td>
           </tr>
           {% endif %}
-          {% if payslip.allowance > 0 %}
-          <tr>
-            <td>Allowances</td>
-            <td class="amt">{{ payslip.allowance|peso }}</td>
-          </tr>
-          {% endif %}
-          
           <!-- Empty spacer rows to align bottom -->
           <tr><td style="color:transparent;">-</td><td></td></tr>
           <tr><td style="color:transparent;">-</td><td></td></tr>
@@ -416,7 +385,7 @@
           {% endif %}
           {% if payslip.other_deductions > 0 %}
           <tr>
-            <td>Other Deductions</td>
+            <td>Imported Charges</td>
             <td class="amt">{{ payslip.other_deductions|peso }}</td>
           </tr>
           {% endif %}
@@ -438,7 +407,7 @@
           <tr><td style="color:transparent;">-</td><td></td></tr>
           
           <tr class="total-row">
-            <td>CHARGES / TOTAL DEDUCTIONS</td>
+            <td>TOTAL DEDUCTIONS</td>
             <td class="amt">{{ payslip.total_deductions|peso }}</td>
           </tr>
         </tbody>
@@ -452,20 +421,6 @@
     </div>
     
 
-    
-    <!-- Signatures -->
-    <div class="signatures">
-      <div class="sig-block">
-        <div class="sig-line"></div>
-        <div class="sig-name">{{ payroll_signatory|default:"Authorized by Finance / Human Resources" }}</div>
-        <div class="sig-title">Authorized Signatory</div>
-      </div>
-      <div class="sig-block">
-        <div class="sig-line"></div>
-        <div class="sig-name">{{ payslip.employee.full_name }}</div>
-        <div class="sig-title">Employee Signature / Date</div>
-      </div>
-    </div>
     
     <!-- Footer Notes -->
     <div class="footer-notes">

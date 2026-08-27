@@ -74,10 +74,6 @@
         <input type="text" name="staff_allowance" class="currency-input" value="{{ payslip.staff_allowance|default:default_staff_allowance }}" inputmode="decimal" placeholder="2,000.00">
         <small style="color: var(--text-3); font-size: 0.75rem;">Split: ₱1,000 on 15th + ₱1,000 on 30th</small>
       </div>
-      <div class="form-group">
-        <label>Allowances from Report (₱)</label>
-        <input type="text" name="allowance" class="currency-input" value="{{ payslip.allowance|default:0 }}" inputmode="decimal" placeholder="0.00">
-      </div>
     </div>
   </div>
   
@@ -106,6 +102,12 @@
       <div class="form-group">
         <label>Cash Advance (₱)</label>
         <input type="text" name="cash_advance" class="currency-input" value="{{ payslip.cash_advance|default:0 }}" inputmode="decimal" placeholder="0.00">
+      </div>
+
+      <div class="form-group">
+        <label>Imported Charges (₱)</label>
+        <input type="text" name="other_deductions" class="currency-input" value="{{ payslip.other_deductions|default:0 }}" inputmode="decimal" placeholder="0.00">
+        <small style="color: var(--text-3); font-size: 0.75rem;">Attendance-file charges. Custom deductions are listed separately below.</small>
       </div>
 
       <div class="form-group">
@@ -171,7 +173,7 @@
       </div>
       <div class="form-group">
         <label>Daily Salary (₱)</label>
-        <input type="text" name="daily_salary" value="{{ payslip.daily_salary|default:0 }}">
+        <input type="text" name="daily_salary" value="{{ daily_salary_display|floatformat:2 }}" readonly>
       </div>
     </div>
   </div>

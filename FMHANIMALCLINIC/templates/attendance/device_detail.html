@@ -34,10 +34,6 @@
                         <dd style="color: var(--text-1); margin: 0;">{% if device.status == 'ACTIVE' %}<span class="admin-badge active">Active</span>{% elif device.status == 'INACTIVE' %}<span class="admin-badge inactive">Inactive</span>{% elif device.status == 'MAINTENANCE' %}<span class="admin-badge pending">Maintenance</span>{% else %}<span class="admin-badge cancelled">Error</span>{% endif %}</dd>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Last Sync</dt>
-                        <dd style="color: var(--text-1); margin: 0;">{% if device.last_sync_at %}{{ device.last_sync_at|date:"M d, Y H:i" }}{% else %}<span class="admin-badge cancelled">Never</span>{% endif %}</dd>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <dt style="color: var(--text-2); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Sync Interval</dt>
                         <dd style="color: var(--text-1); margin: 0;">{{ device.sync_interval_minutes }} min</dd>
                     </div>

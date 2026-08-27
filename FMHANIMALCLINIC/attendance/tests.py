@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from attendance.forms import AttendanceImportForm
-from attendance.models import DailyAttendance, MonthlyAttendanceSummary
+from attendance.models import AttendanceUpload, DailyAttendance, MonthlyAttendanceSummary
 from attendance.services import AttendanceImportService
 from branches.models import Branch
 from employees.models import StaffMember
@@ -116,6 +116,30 @@ class AttendanceSummaryImportTests(TestCase):
 
     self.assertEqual(records, [{'Biometric ID': 'BIO-001', 'Date': '2026-08-10', 'Status': 'Present'}])
 
+  def test_form_parses_scanner_ods_monthly_blocks(self):
+    content = '''<?xml version="1.0" encoding="UTF-8"?>
+    <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+      xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+      xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
+      <office:body><office:spreadsheet><table:table>
+        <table:table-row><table:table-cell><text:p>Attendance Summary</text:p></table:table-cell></table:table-row>
+        <table:table-row><table:table-cell><text:p>Company Name:</text:p></table:table-cell><table:table-cell><text:p>Name:Ana</text:p></table:table-cell><table:table-cell><text:p>ID:00001</text:p></table:table-cell><table:table-cell><text:p>Date:26.08.01～26.08.31</text:p></table:table-cell></table:table-row>
+        <table:table-row><table:table-cell><text:p>Working days:31</text:p></table:table-cell><table:table-cell><text:p>Attendance days:1</text:p></table:table-cell></table:table-row>
+        <table:table-row><table:table-cell><text:p>Absences days:30</text:p></table:table-cell></table:table-row>
+      </table:table></office:spreadsheet></office:body></office:document-content>'''.encode('utf-8')
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, 'w') as archive:
+      archive.writestr('content.xml', content)
+    file = SimpleUploadedFile('scanner.ods', stream.getvalue())
+    records = AttendanceImportForm(data={}, files={'import_file': file})
+
+    self.assertTrue(records.is_valid())
+    parsed = records.get_records()
+    self.assertEqual(len(parsed), 1)
+    self.assertEqual(parsed[0]['Biometric ID'], '00001')
+    self.assertEqual(parsed[0]['Report Start'], '2026-08-01')
+    self.assertEqual(parsed[0]['Working days'], '31')
+
   def test_monthly_report_block_is_imported(self):
     xml = b'''<?xml version="1.0"?>
     <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet">
@@ -135,7 +159,7 @@ class AttendanceSummaryImportTests(TestCase):
     self.assertEqual(summary.working_days, 31)
     self.assertEqual(summary.attendance_days, 1)
     self.assertEqual(summary.absence_days, 30)
-    self.assertEqual(summary.real_pay, 1000)
+    self.assertEqual(summary.real_pay, 0)
 
   def test_monthly_import_starts_unapproved(self):
     records = [{
@@ -146,3 +170,38 @@ class AttendanceSummaryImportTests(TestCase):
     AttendanceImportService().import_summary_records(records)
     summary = MonthlyAttendanceSummary.objects.get(staff=self.staff)
     self.assertEqual(summary.review_status, MonthlyAttendanceSummary.ReviewStatus.IMPORTED)
+
+  def test_duplicate_monthly_upload_is_rejected(self):
+    records = [{
+      'Summary': 'MONTHLY', 'Biometric ID': 'BIO-001',
+      'Report Start': '2026-08-01', 'Report End': '2026-08-31',
+      'Working days': '31', 'Attendance days': '1', 'Absences days': '30',
+    }]
+    AttendanceImportService().import_summary_records(records)
+
+    with self.assertRaisesMessage(ValueError, "This month's attendance has already been uploaded."):
+      AttendanceImportService().import_summary_records(records)
+
+  def test_unmatched_biometric_ids_are_reported(self):
+    records = [{
+      'Summary': 'MONTHLY', 'Biometric ID': 'BIO-999',
+      'Report Start': '2026-09-01', 'Report End': '2026-09-30',
+      'Working days': '30', 'Attendance days': '25', 'Absences days': '5',
+    }]
+
+    unmatched = AttendanceImportService.get_unmatched_biometric_ids(records)
+
+    self.assertEqual(unmatched, ['BIO-999'])
+
+  def test_upload_history_preserves_original_file(self):
+    upload = AttendanceUpload.objects.create(
+      period_start=date(2026, 10, 1),
+      period_end=date(2026, 10, 31),
+      source_file=SimpleUploadedFile('october.csv', b'Biometric ID,Date\nBIO-999,2026-10-01\n'),
+      source_filename='october.csv',
+      unmatched_biometric_ids=['BIO-999'],
+    )
+
+    self.assertEqual(upload.source_filename, 'october.csv')
+    self.assertEqual(upload.source_file.read(), b'Biometric ID,Date\nBIO-999,2026-10-01\n')
+    upload.source_file.delete(save=False)

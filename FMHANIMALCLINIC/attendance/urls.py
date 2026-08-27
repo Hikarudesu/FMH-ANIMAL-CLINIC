@@ -16,6 +16,9 @@ urlpatterns = [
     
     # Import
     path('import/', views.attendance_import, name='import'),
+    path('history/', views.attendance_upload_history, name='history'),
+    path('import/<int:year>/<int:month>/delete/', views.attendance_import_delete, name='import_delete'),
+    path('import/<int:upload_id>/file/', views.attendance_import_file, name='import_file'),
     
     # Monthly Review & Approval
     path('review/', views.attendance_review, name='review'),
@@ -24,4 +27,5 @@ urlpatterns = [
     
     # Reports
     path('summary/', views.attendance_summary, name='summary'),
+    path('summary/export/excel/', views.attendance_summary_excel, name='summary_excel'),
 ]

@@ -67,7 +67,6 @@ def compute_payslip(staff_member, month, year):
     payslip.sick_hours = Decimal('0')
     payslip.leave_hours = Decimal('0')
     payslip.overtime_pay = Decimal('0')
-    payslip.allowances = Decimal('0')
     payslip.charges = Decimal('0')
 
     # Calculate daily rate and gross pay
@@ -112,9 +111,8 @@ def compute_payslip(staff_member, month, year):
         payslip.overtime_hours = monthly_summary.overtime_hours
         payslip.sick_hours = monthly_summary.sick_hours
         payslip.leave_hours = monthly_summary.leave_hours
-        payslip.daily_salary = monthly_summary.daily_salary or daily_rate
+        payslip.daily_salary = daily_rate
         payslip.overtime_pay = monthly_summary.overtime_pay
-        payslip.allowances = monthly_summary.allowances
         payslip.charges = monthly_summary.charges
         if monthly_summary.real_pay:
             payslip.net_pay = monthly_summary.real_pay

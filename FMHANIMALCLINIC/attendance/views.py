@@ -1,13 +1,19 @@
 """Views for Attendance and Biometrics Management."""
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import FileResponse, Http404
+from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, Count, Sum
 from django.utils import timezone
-from datetime import datetime, timedelta
+from calendar import monthrange
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 import logging
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 from accounts.decorators import admin_only
 from employees.models import StaffMember, VetSchedule
@@ -17,6 +23,7 @@ from .models import (
     AttendanceLog,
     DailyAttendance,
     MonthlyAttendanceSummary,
+    AttendanceUpload,
 )
 from .forms import (
     BiometricDeviceForm,
@@ -25,8 +32,23 @@ from .forms import (
     AttendanceFilterForm,
 )
 from .services import AttendanceImportService, AttendanceProcessor
+from settings.utils import get_setting
+
+
+def _system_daily_salary(staff):
+    """Calculate daily salary from the staff base salary and payroll workdays."""
+    payroll_work_days = get_setting('payroll_default_work_days', 22)
+    if staff.salary and payroll_work_days:
+        return staff.salary / Decimal(str(payroll_work_days))
+    return Decimal('0')
 
 logger = logging.getLogger(__name__)
+
+
+def _attendance_role_label(staff):
+    """Use the assigned RBAC role for attendance displays when available."""
+    assigned_role = getattr(getattr(staff, 'user', None), 'assigned_role', None)
+    return assigned_role.name if assigned_role else staff.get_position_display()
 
 
 # ─────────────────── DASHBOARD ───────────────────
@@ -144,11 +166,53 @@ def attendance_import(request):
             try:
                 service = AttendanceImportService()
                 records = form.get_records()
+                unmatched_ids = AttendanceImportService.get_unmatched_biometric_ids(records)
                 imported, matched, errors = service.import_summary_records(
                     records,
                     source_filename=form.cleaned_data['import_file'].name,
                     uploaded_by=request.user,
                 )
+
+                if unmatched_ids:
+                    messages.warning(
+                        request,
+                        'The following biometric IDs were not matched to active staff: ' + ', '.join(unmatched_ids)
+                    )
+
+                report_start = next(
+                    (service.parse_date_value(record.get('Report Start')) for record in records
+                     if isinstance(record, dict) and record.get('Report Start')),
+                    None,
+                )
+                report_end = next(
+                    (service.parse_date_value(record.get('Report End')) for record in records
+                     if isinstance(record, dict) and record.get('Report End')),
+                    None,
+                )
+                if not report_start:
+                    attendance_dates = [
+                        service.parse_date_value(service._get_first_matching_value(
+                            record, {'date', 'attendance date', 'work date'}
+                        ))
+                        for record in records if isinstance(record, dict)
+                    ]
+                    attendance_dates = [attendance_date for attendance_date in attendance_dates if attendance_date]
+                    if attendance_dates:
+                        report_start = min(attendance_dates).replace(day=1)
+                        report_end = report_start.replace(
+                            day=monthrange(report_start.year, report_start.month)[1]
+                        )
+                if report_start and report_end:
+                    import_file = form.cleaned_data['import_file']
+                    import_file.seek(0)
+                    AttendanceUpload.objects.create(
+                        period_start=report_start,
+                        period_end=report_end,
+                        source_file=import_file,
+                        source_filename=import_file.name,
+                        unmatched_biometric_ids=unmatched_ids,
+                        uploaded_by=request.user,
+                    )
                 
                 message = (
                     f'Monthly import completed: {imported} records imported, '
@@ -170,13 +234,60 @@ def attendance_import(request):
                 messages.error(request, f'Import failed: {str(e)}')
     else:
         form = AttendanceImportForm()
-    
+
     context = {
         'form': form,
         'page_title': 'Import Attendance Data',
     }
     
     return render(request, 'attendance/import.html', context)
+
+
+@login_required
+@admin_only
+def attendance_upload_history(request):
+    """List previously imported attendance files and their review state."""
+    upload_history = AttendanceUpload.objects.select_related('uploaded_by').all()
+    return render(request, 'attendance/history.html', {
+        'upload_history': upload_history,
+        'page_title': 'Attendance Upload History',
+    })
+
+
+@login_required
+@admin_only
+@require_http_methods(['POST'])
+def attendance_import_delete(request, year, month):
+    """Delete an imported month so a corrected file can be uploaded."""
+    upload = AttendanceUpload.objects.filter(
+        period_start__year=year,
+        period_start__month=month,
+    ).first()
+    summaries = MonthlyAttendanceSummary.objects.filter(
+        period_start__year=year,
+        period_start__month=month,
+    )
+    if not upload and not summaries.exists():
+        messages.error(request, 'No attendance upload exists for this month.')
+    elif summaries.filter(review_status=MonthlyAttendanceSummary.ReviewStatus.LOCKED).exists():
+        messages.error(request, 'Locked attendance cannot be deleted.')
+    else:
+        deleted_count, _ = summaries.delete()
+        if upload:
+            upload.source_file.delete(save=False)
+            upload.delete()
+        messages.success(request, f'Deleted the {month:02d}/{year} attendance upload ({deleted_count} records).')
+    return redirect('attendance:history')
+
+
+@login_required
+@admin_only
+def attendance_import_file(request, upload_id):
+    """Open the original uploaded attendance export."""
+    upload = get_object_or_404(AttendanceUpload, id=upload_id)
+    if not upload.source_file:
+        raise Http404('The original attendance file is unavailable.')
+    return FileResponse(upload.source_file.open('rb'), as_attachment=False, filename=upload.source_filename)
 
 
 # ─────────────────── ATTENDANCE REVIEW ───────────────────
@@ -186,37 +297,24 @@ def attendance_review(request):
     """Review and approve imported monthly attendance summaries."""
     year = _attendance_query_int(request.GET.get('year'), timezone.now().year, 2020, 2100)
     month = _attendance_query_int(request.GET.get('month'), timezone.now().month, 1, 12)
-    summaries = MonthlyAttendanceSummary.objects.filter(
+    summaries = list(MonthlyAttendanceSummary.objects.filter(
         period_start__year=year,
         period_start__month=month,
-    ).select_related('staff', 'uploaded_by', 'approved_by').order_by('staff__last_name', 'staff__first_name')
+    ).select_related('staff', 'uploaded_by', 'approved_by').order_by('staff__last_name', 'staff__first_name'))
+    for summary in summaries:
+        summary.system_daily_salary = _system_daily_salary(summary.staff)
 
-    if request.method == 'POST':
-        if summaries.filter(review_status=MonthlyAttendanceSummary.ReviewStatus.LOCKED).exists():
-            messages.error(request, 'This attendance month is already locked.')
-        elif not summaries.exists():
-            messages.error(request, 'No imported attendance summary exists for this month.')
-        else:
-            summaries.update(
-                review_status=MonthlyAttendanceSummary.ReviewStatus.APPROVED,
-                approved_by=request.user,
-                approved_at=timezone.now(),
-            )
-            messages.success(request, f'Attendance for {month:02d}/{year} was approved for payroll.')
-        return redirect(f'/attendance/review/?year={year}&month={month}')
-
-    total_records = summaries.count()
-    approved_records = summaries.filter(review_status__in=[MonthlyAttendanceSummary.ReviewStatus.APPROVED, MonthlyAttendanceSummary.ReviewStatus.LOCKED]).count()
-    unapproved_records = total_records - approved_records
+    total_records = len(summaries)
     context = {
         'monthly_summaries': summaries,
         'selected_year': year,
         'selected_month': month,
         'total_records': total_records,
-        'approved_records': approved_records,
-        'unapproved_records': unapproved_records,
-        'can_approve': total_records > 0 and unapproved_records > 0,
         'page_title': 'Review Monthly Attendance',
+        'attendance_upload': AttendanceUpload.objects.filter(
+            period_start__year=year,
+            period_start__month=month,
+        ).first(),
     }
     return render(request, 'attendance/review.html', context)
 
@@ -301,7 +399,7 @@ def attendance_summary(request):
         is_active=True,
     ).exclude(
         user__assigned_role__code='superadmin'
-    ).select_related('user')
+    ).select_related('user', 'user__assigned_role')
     if branch_id:
         staff_members = staff_members.filter(branch_id=branch_id)
     staff_members = staff_members.order_by('last_name', 'first_name')
@@ -355,11 +453,9 @@ def attendance_summary(request):
             'total_overtime_hours': Decimal(staff_overtime_minutes) / Decimal('60'),
             'sick_hours': monthly_summary.sick_hours if monthly_summary else Decimal('0'),
             'leave_hours': monthly_summary.leave_hours if monthly_summary else Decimal('0'),
-            'daily_salary': monthly_summary.daily_salary if monthly_summary else Decimal('0'),
+            'daily_salary': _system_daily_salary(staff) if monthly_summary else Decimal('0'),
             'overtime_pay': monthly_summary.overtime_pay if monthly_summary else Decimal('0'),
-            'allowances': monthly_summary.allowances if monthly_summary else Decimal('0'),
             'charges': monthly_summary.charges if monthly_summary else Decimal('0'),
-            'real_pay': monthly_summary.real_pay if monthly_summary else Decimal('0'),
             'attendance_rate': attendance_rate,
         }))
 
@@ -370,7 +466,7 @@ def attendance_summary(request):
     )
     
     context = {
-        'summary_data': summary_data,
+            'summary_data': summary_data,
         'year': year,
         'month': month,
         'start_date': start_date,
@@ -388,3 +484,98 @@ def attendance_summary(request):
     }
     
     return render(request, 'attendance/summary.html', context)
+
+
+@login_required
+@admin_only
+def attendance_summary_excel(request):
+    """Export the selected attendance summary as a formatted Excel workbook."""
+    current_year = timezone.now().year
+    year = _attendance_query_int(request.GET.get('year'), current_year, 2020, 2100)
+    month = _attendance_query_int(request.GET.get('month'), timezone.now().month, 1, 12)
+    branch_id = request.GET.get('branch') or ''
+    start_date = date(year, month, 1)
+    end_date = date(year + 1, 1, 1) - timedelta(days=1) if month == 12 else date(year, month + 1, 1) - timedelta(days=1)
+
+    staff_members = StaffMember.objects.filter(is_active=True).exclude(
+        user__assigned_role__code='superadmin'
+    ).select_related('user', 'user__assigned_role')
+    if branch_id.isdigit():
+        staff_members = staff_members.filter(branch_id=branch_id)
+    staff_members = staff_members.order_by('last_name', 'first_name')
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Attendance Summary'
+    worksheet.merge_cells('A1:N1')
+    worksheet['A1'] = f'Attendance Summary - {start_date.strftime("%B %Y")}'
+    worksheet['A1'].font = Font(bold=True, size=16, color='FFFFFF')
+    worksheet['A1'].fill = PatternFill('solid', fgColor='00796B')
+    worksheet['A1'].alignment = Alignment(horizontal='center')
+    worksheet.merge_cells('A2:O2')
+    worksheet['A2'] = f'Period: {start_date:%B %d, %Y} - {end_date:%B %d, %Y}'
+    worksheet['A2'].font = Font(italic=True, color='5E6278')
+
+    headers = [
+        'Staff Member', 'Designation', 'Working Days', 'Days Present',
+        'Days Absent', 'Days Late', 'Late Minutes', 'Overtime Hours',
+        'Sick Hours', 'Leave Hours', 'Daily Salary', 'Overtime Pay',
+        'Charges', 'Attendance Rate',
+    ]
+    header_row = 4
+    for column, header in enumerate(headers, 1):
+        cell = worksheet.cell(header_row, column, header)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill('solid', fgColor='009688')
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    for row_index, staff in enumerate(staff_members, header_row + 1):
+        monthly_summary = MonthlyAttendanceSummary.objects.filter(
+            staff=staff, period_start__year=year, period_start__month=month,
+        ).order_by('-period_end').first()
+        attendance_records = DailyAttendance.objects.filter(
+            staff=staff, attendance_date__range=[start_date, end_date],
+        )
+        present_days = monthly_summary.attendance_days if monthly_summary else attendance_records.filter(is_present=True).count()
+        absent_days = monthly_summary.absence_days if monthly_summary else attendance_records.filter(is_present=False).count()
+        late_days = monthly_summary.late_days if monthly_summary else attendance_records.filter(status='LATE').count()
+        late_minutes = attendance_records.aggregate(total=Sum('late_minutes'))['total'] or 0
+        overtime_hours = monthly_summary.overtime_hours if monthly_summary else Decimal(attendance_records.aggregate(total=Sum('overtime_minutes'))['total'] or 0) / Decimal('60')
+        working_days = monthly_summary.working_days if monthly_summary else VetSchedule.objects.filter(staff=staff, date__range=[start_date, end_date], is_available=True).count()
+        attendance_rate = present_days / working_days if working_days else 0
+        values = [
+            staff.full_name, _attendance_role_label(staff), working_days, present_days,
+            absent_days, late_days, late_minutes, overtime_hours,
+            monthly_summary.sick_hours if monthly_summary else 0,
+            monthly_summary.leave_hours if monthly_summary else 0,
+            _system_daily_salary(staff) if monthly_summary else 0,
+            monthly_summary.overtime_pay if monthly_summary else 0,
+            monthly_summary.charges if monthly_summary else 0,
+            attendance_rate,
+        ]
+        for column, value in enumerate(values, 1):
+            worksheet.cell(row_index, column, value)
+
+    worksheet.freeze_panes = 'A5'
+    worksheet.auto_filter.ref = f'A4:N{max(4, worksheet.max_row)}'
+    worksheet.row_dimensions[1].height = 28
+    worksheet.row_dimensions[4].height = 34
+    widths = [24, 20, 14, 14, 14, 12, 14, 16, 12, 12, 15, 15, 14, 16]
+    for column, width in enumerate(widths, 1):
+        worksheet.column_dimensions[get_column_letter(column)].width = width
+    for row in worksheet.iter_rows(min_row=5, max_row=worksheet.max_row, min_col=3, max_col=14):
+        for cell in row:
+            cell.alignment = Alignment(vertical='center')
+            if cell.column in (11, 12, 13, 14):
+                cell.number_format = '#,##0.00'
+            elif cell.column in (8, 9, 10):
+                cell.number_format = '0.00'
+            elif cell.column == 16:
+                cell.number_format = '0.0%'
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="attendance-summary-{year}-{month:02d}.xlsx"'
+    workbook.save(response)
+    return response

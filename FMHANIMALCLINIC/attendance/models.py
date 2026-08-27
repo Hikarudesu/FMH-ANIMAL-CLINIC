@@ -349,3 +349,46 @@ class MonthlyAttendanceSummary(models.Model):
 
     def __str__(self):
         return f'{self.staff.full_name} — {self.period_start:%B %Y}'
+
+class AttendanceUpload(models.Model):
+    """Original monthly attendance export and its import metadata."""
+
+    period_start = models.DateField()
+    period_end = models.DateField()
+    source_file = models.FileField(upload_to='attendance/uploads/%Y/%m/')
+    source_filename = models.CharField(max_length=255)
+    unmatched_biometric_ids = models.JSONField(default=list, blank=True)
+    uploaded_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_uploads',
+    )
+    imported_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-period_start', '-imported_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['period_start', 'period_end'],
+                name='unique_attendance_upload_month',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.period_start:%B %Y} — {self.source_filename}'
+
+    @property
+    def review_status(self):
+        statuses = set(
+            MonthlyAttendanceSummary.objects.filter(
+                period_start=self.period_start,
+                period_end=self.period_end,
+            ).values_list('review_status', flat=True)
+        )
+        if MonthlyAttendanceSummary.ReviewStatus.LOCKED in statuses:
+            return MonthlyAttendanceSummary.ReviewStatus.LOCKED
+        if statuses and statuses == {MonthlyAttendanceSummary.ReviewStatus.APPROVED}:
+            return MonthlyAttendanceSummary.ReviewStatus.APPROVED
+        return MonthlyAttendanceSummary.ReviewStatus.IMPORTED

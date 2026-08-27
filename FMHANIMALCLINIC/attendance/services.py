@@ -8,13 +8,39 @@ from dateutil import parser as date_parser
 from django.db.models import Sum
 
 from employees.models import StaffMember
-from .models import DailyAttendance, MonthlyAttendanceSummary
+from .models import AttendanceUpload, DailyAttendance, MonthlyAttendanceSummary
 
 logger = logging.getLogger(__name__)
 
 
 class AttendanceImportService:
     """Import monthly summary records matched by staff biometric ID."""
+
+    @staticmethod
+    def _extract_biometric_id(record):
+        value = AttendanceImportService._get_first_matching_value(
+            record,
+            {'biometric id', 'biometrics id', 'staff biometric id', 'employee id', 'employee code', 'staff id', 'staff code'}
+        )
+        if value in (None, ''):
+            return None
+        return str(value).strip()
+
+    @staticmethod
+    def get_unmatched_biometric_ids(records):
+        """Return biometric IDs that do not map to an active staff member."""
+        unmatched = []
+        seen = set()
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            biometric_id = AttendanceImportService._extract_biometric_id(record)
+            if not biometric_id or biometric_id in seen:
+                continue
+            if not StaffMember.objects.filter(biometric_id=biometric_id, is_active=True).exists():
+                unmatched.append(biometric_id)
+                seen.add(biometric_id)
+        return unmatched
 
     @staticmethod
     def _normalize_key(value):
@@ -75,20 +101,34 @@ class AttendanceImportService:
     def import_summary_records(self, records, source_filename='', uploaded_by=None, skip_duplicates=True):
         """Import one monthly summary per staff member."""
         months = set()
+        month_keys = set()
         for record in records:
             if not isinstance(record, dict):
                 continue
             report_date = self.parse_date_value(record.get('Report Start'))
             if report_date:
                 months.add((report_date.year, report_date.month))
+                month_keys.add((report_date.year, report_date.month))
             else:
                 report_date = self.parse_date_value(self._get_first_matching_value(
                     record, {'date', 'attendance date', 'work date'}
                 ))
                 if report_date:
                     months.add((report_date.year, report_date.month))
+                    month_keys.add((report_date.year, report_date.month))
         if len(months) > 1:
             raise ValueError('Upload one month per attendance update.')
+
+        if skip_duplicates and month_keys:
+            for year, month in month_keys:
+                if MonthlyAttendanceSummary.objects.filter(
+                    period_start__year=year,
+                    period_start__month=month,
+                ).exists() or AttendanceUpload.objects.filter(
+                    period_start__year=year,
+                    period_start__month=month,
+                ).exists():
+                    raise ValueError("This month's attendance has already been uploaded.")
 
         imported = matched = errors = 0
         self.import_results = []
@@ -98,7 +138,8 @@ class AttendanceImportService:
             try:
                 staff, _ = self._resolve_staff_from_record(record)
                 if not staff:
-                    self.import_results.append({'status': 'unmatched', 'biometric_id': self._get_first_matching_value(record, {'biometric id', 'biometrics id', 'employee id', 'staff id'})})
+                    biometric_id = self._extract_biometric_id(record)
+                    self.import_results.append({'status': 'unmatched', 'biometric_id': biometric_id})
                     errors += 1
                     continue
 
@@ -122,9 +163,7 @@ class AttendanceImportService:
                             'leave_hours': self._coerce_decimal(self._get_first_matching_value(record, {'leave hours'})),
                             'daily_salary': self._coerce_decimal(self._get_first_matching_value(record, {'daily salary'})),
                             'overtime_pay': self._coerce_decimal(self._get_first_matching_value(record, {'overtime pay'})),
-                            'allowances': self._coerce_decimal(self._get_first_matching_value(record, {'allowances', 'allowance'})),
                             'charges': self._coerce_decimal(self._get_first_matching_value(record, {'charges', 'charge'})),
-                            'real_pay': self._coerce_decimal(self._get_first_matching_value(record, {'real pay'})),
                             'source_filename': source_filename,
                             'uploaded_by': uploaded_by,
                             'review_status': MonthlyAttendanceSummary.ReviewStatus.IMPORTED,

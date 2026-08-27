@@ -36,6 +36,15 @@
           <i class='bx bx-calendar' style="position: absolute; right: 12px; top: 12px; color: var(--text-3); font-size: 1.2rem; pointer-events: none;"></i>
         </div>
       </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 210px;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-2); margin-bottom: 8px; display: block;">Branch</label>
+        <select name="branch" class="form-control" style="width: 100%; border-radius: var(--radius-sm); padding: 10px 14px; background-color: var(--bg-1); border: 1px solid var(--border); font-weight: 500;">
+          <option value="">All Branches</option>
+          {% for branch in branches %}
+          <option value="{{ branch.id }}" {% if selected_branch.id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="form-group" style="margin-bottom: 0;">
         <button type="submit" class="btn-action primary" style="padding: 10px 24px; border-radius: var(--radius-sm); box-shadow: 0 4px 12px rgba(37,99,235,0.2);">
           <i class='bx bx-filter-alt'></i> Apply Filter
@@ -91,7 +100,7 @@
               <span style="font-size: 0.75rem; color: var(--text-3);">/ mo</span>
             </td>
             <td style="text-align: right; padding-right: 24px;">
-              <a href="{% url 'employees:payslip_detail' member.pk %}?month={{ selected_month }}&year={{ selected_year }}&return_to={{ request.get_full_path|urlencode }}" class="btn-action small outline hover-primary" style="transition: all 0.2s; border-radius: var(--radius-sm);">
+              <a href="{% url 'employees:payslip_detail' member.pk %}?month={{ selected_month }}&year={{ selected_year }}&branch={{ selected_branch.id }}&return_to={{ request.get_full_path|urlencode }}" class="btn-action small outline hover-primary" style="transition: all 0.2s; border-radius: var(--radius-sm);">
                 <i class='bx bx-file-blank'></i> View Payslip
               </a>
             </td>
@@ -103,8 +112,8 @@
                 <div class="icon-wrapper" style="width: 80px; height: 80px; background: var(--bg-1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
                   <i class='bx bx-group' style="font-size: 2.5rem; color: var(--text-3);"></i>
                 </div>
-                <h4 style="font-size: 1.1rem; color: var(--text-1); margin-bottom: 8px;">No Staff Found</h4>
-                <p style="color: var(--text-3); font-size: 0.9rem; max-width: 300px; margin: 0 auto;">There are no active staff members matching the selected criteria.</p>
+                <h4 style="font-size: 1.1rem; color: var(--text-1); margin-bottom: 8px;">{% if not selected_branch %}Select a Branch{% else %}No Staff Found{% endif %}</h4>
+                <p style="color: var(--text-3); font-size: 0.9rem; max-width: 300px; margin: 0 auto;">{% if not selected_branch %}Choose a branch above to load its payslips.{% else %}There are no active staff members in this branch.{% endif %}</p>
               </div>
             </td>
           </tr>

@@ -16,7 +16,6 @@
                     <th>Branch</th>
                     <th>Connection</th>
                     <th>Status</th>
-                    <th>Last Sync</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -34,13 +33,6 @@
                             <span class="admin-badge warning">Maintenance</span>
                         {% else %}
                             <span class="admin-badge inactive">{{ device.get_status_display }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if device.last_sync_at %}
-                            {{ device.last_sync_at|date:"M d, Y H:i" }}
-                        {% else %}
-                            <span class="admin-badge inactive">Never</span>
                         {% endif %}
                     </td>
                     <td>

@@ -86,10 +86,6 @@ class StaffMember(SoftDeleteModel):
         max_digits=10, decimal_places=2, default=2000,
         help_text='Default monthly staff allowance'
     )
-    default_other_allowance = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
-        help_text='Default other allowances (transportation, meal, etc.)'
-    )
     default_custom_deductions = models.JSONField(
         default=list,
         blank=True,

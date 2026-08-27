@@ -21,6 +21,7 @@ urlpatterns = [
     # Generate Payslips
     path('generate/', views.generate_payslips, name='generate'),
     path('generate/action/', views.generate_payslips_action, name='generate_action'),
+    path('period/<int:period_id>/cancel/', views.cancel_draft_period, name='cancel_draft'),
     
     # Payslips List & Edit
     path('period/<int:period_id>/', views.payslips_list, name='payslips'),

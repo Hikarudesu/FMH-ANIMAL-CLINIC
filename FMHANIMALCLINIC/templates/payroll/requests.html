@@ -440,15 +440,6 @@
         <p>Generated</p>
       </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-icon draft">
-        <i class='bx bx-edit'></i>
-      </div>
-      <div class="stat-info">
-        <h4>{{ draft_count }}</h4>
-        <p>Draft</p>
-      </div>
-    </div>
   </div>
   
   {% if periods_by_year %}
@@ -464,6 +455,7 @@
         <div class="period-card">
           <div class="period-header">
             <span class="period-title">{{ period.month_name }} {{ period.year|stringformat:"s" }}</span>
+            <small style="display: block; color: var(--text-3); margin-top: 3px;"><i class='bx bx-building'></i> {{ period.scope_display }}</small>
             <span class="period-status 
               {% if period.status == 'RELEASED' %}status-released
               {% elif period.status == 'GENERATED' %}status-generated
@@ -498,16 +490,12 @@
             
             <div class="period-actions">
               <a href="{% url 'payroll:payslips' period.id %}" class="btn-action btn-secondary">
-                <i class='bx bx-list-ul'></i> View
+                <i class='bx bx-folder-open'></i> Open
               </a>
               {% if period.status == 'GENERATED' %}
                 <button type="button" class="btn-action btn-success open-release-btn" data-release-url="{% url 'payroll:release' period.id %}" data-release-name="{{ period.period_display|escapejs }}">
                   <i class='bx bx-send'></i> Release
                 </button>
-              {% elif period.status == 'DRAFT' %}
-                <a href="{% url 'payroll:generate' %}?period={{ period.id }}" class="btn-action btn-primary">
-                  <i class='bx bx-cog'></i> Generate
-                </a>
               {% endif %}
               {% if period.status != 'RELEASED' or can_delete_released %}
               <button type="button" class="btn-action btn-danger btn-icon" 
@@ -573,7 +561,7 @@
       <h3 style="color: #059669;"><i class='bx bx-info-circle'></i> Release Payroll</h3>
       <button type="button" class="modal-close" onclick="closeReleaseModal()">&times;</button>
     </div>
-    <form id="releasePayrollForm" method="get" action="">
+    <form id="releasePayrollForm" method="post" action="">
       {% csrf_token %}
       <div class="modal-body" style="text-align:center; padding-top:28px;">
         <i class='bx bx-check-circle' style="font-size:4rem; color:#059669; margin-bottom:12px;"></i>

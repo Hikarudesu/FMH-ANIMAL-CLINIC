@@ -1,0 +1,68 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Attendance Upload History{% endblock %}
+
+{% block content %}
+{% include "components/page_hero.html" with title="Attendance Upload History" icon="bx-history" subtitle="Review original attendance exports and manage monthly re-uploads" action_url="/attendance/" action_label="Back to Attendance" action_icon="bx-arrow-back" %}
+
+<div class="container-fluid" style="margin-top: 24px;">
+    <div class="dashboard-card full-width">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+            <div>
+                <h3><i class='bx bx-history'></i> Imported Files</h3>
+                <p style="margin: 5px 0 0; color: var(--text-3); font-size: 0.82rem;">Original files remain available for review until the monthly upload is deleted.</p>
+            </div>
+            <span class="admin-badge neutral">{{ upload_history|length }} upload{{ upload_history|length|pluralize }}</span>
+        </div>
+        <div class="table-responsive" style="overflow-x: auto;">
+            <table class="admin-table" style="min-width: 820px;">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Source File</th>
+                        <th>Uploaded By</th>
+                        <th>Imported</th>
+                        <th>Matching</th>
+                        <th>Review</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for upload in upload_history %}
+                    <tr>
+                        <td><strong>{{ upload.period_start|date:"F Y" }}</strong><small style="display: block; color: var(--text-3);">{{ upload.period_start|date:"M d" }} - {{ upload.period_end|date:"M d, Y" }}</small></td>
+                        <td>{% if upload.source_file %}<a href="{% url 'attendance:import_file' upload.id %}" target="_blank" rel="noopener" title="Open original file"><i class='bx bx-file'></i> {{ upload.source_filename|default:"Unknown file" }}</a>{% else %}<span style="color: var(--text-3);"><i class='bx bx-file-blank'></i> {{ upload.source_filename }}</span>{% endif %}</td>
+                        <td>{% if upload.uploaded_by %}{{ upload.uploaded_by.get_full_name|default:upload.uploaded_by.username }}{% else %}<span style="color: var(--text-3);">System</span>{% endif %}</td>
+                        <td>{{ upload.imported_at|date:"M d, Y H:i" }}</td>
+                        <td>
+                            {% if upload.unmatched_biometric_ids %}
+                            <span class="admin-badge warning">{{ upload.unmatched_biometric_ids|length }} unmatched ID{{ upload.unmatched_biometric_ids|length|pluralize }}</span>
+                            {% else %}
+                            <span class="admin-badge active">All matched</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if upload.review_status == 'LOCKED' %}<span class="admin-badge neutral">Locked</span>
+                            {% elif upload.review_status == 'APPROVED' %}<span class="admin-badge active">Approved</span>
+                            {% else %}<span class="admin-badge warning">Imported</span>{% endif %}
+                        </td>
+                        <td>
+                            <div class="rec-action-grid" style="margin: 0; width: max-content;">
+                                <a href="{% url 'attendance:review' %}?year={{ upload.period_start.year }}&month={{ upload.period_start.month }}" class="action-btn" title="Review attendance"><i class='bx bx-show'></i></a>
+                                {% if upload.review_status != 'LOCKED' %}
+                                <form method="post" action="{% url 'attendance:import_delete' upload.period_start.year upload.period_start.month %}" style="display: inline;" onsubmit="return confirm('Delete this monthly upload so a corrected file can be re-uploaded?');">
+                                    {% csrf_token %}<button type="submit" class="action-btn action-btn-danger" title="Delete upload"><i class='bx bx-trash'></i></button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" style="text-align: center; padding: 44px 28px; color: var(--text-3);"><i class='bx bx-file-blank' style="display: block; font-size: 2.5rem; margin-bottom: 10px;"></i>No attendance uploads yet. Import a monthly attendance file to start the history.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -34,6 +34,14 @@ class PayrollPeriod(models.Model):
     year = models.PositiveIntegerField(
         validators=[MinValueValidator(2020), MaxValueValidator(2100)]
     )
+    branch = models.ForeignKey(
+        'branches.Branch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payroll_periods',
+        help_text='Branch covered by this payroll period; blank means all branches.',
+    )
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -61,10 +69,15 @@ class PayrollPeriod(models.Model):
     
     class Meta:
         ordering = ['-year', '-month']
-        unique_together = ['month', 'year']
         indexes = [
             models.Index(fields=['year', 'month']),
             models.Index(fields=['status']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['month', 'year', 'branch'],
+                name='unique_payroll_period_month_year_branch',
+            ),
         ]
     
     def __str__(self):
@@ -77,6 +90,10 @@ class PayrollPeriod(models.Model):
     @property
     def period_display(self):
         return f"{self.month_name} {self.year}"
+
+    @property
+    def scope_display(self):
+        return self.branch.name if self.branch else 'All Branches'
     
     @property
     def days_in_month(self):
@@ -142,10 +159,6 @@ class Payslip(models.Model):
     overtime_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     holiday_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    allowance = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
-        help_text='Other allowances (transportation, meal, etc.)'
-    )
     staff_allowance = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal('2000'),
         help_text='Monthly staff allowance (split ₱1,000 on 15th + ₱1,000 on 30th)'
@@ -243,8 +256,7 @@ class Payslip(models.Model):
         self.total_allowances = (
             self.overtime_pay + 
             self.holiday_pay + 
-            self.bonus + 
-            self.allowance +
+            self.bonus +
             self.staff_allowance +
             self.thirteenth_month_pay
         )
@@ -315,10 +327,6 @@ class Payslip(models.Model):
         emp_staff_allowance = getattr(self.employee, 'default_staff_allowance', None)
         self.staff_allowance = Decimal(str(emp_staff_allowance or default_staff_allowance))
         
-        # Other allowances from employee defaults
-        default_other_allowance = getattr(self.employee, 'default_other_allowance', None)
-        self.allowance = Decimal(str(default_other_allowance or 0))
-
         default_custom_deductions = getattr(self.employee, 'default_custom_deductions', None) or []
         
         # Zero out legacy deduction fields and clinic-paid contributions first
