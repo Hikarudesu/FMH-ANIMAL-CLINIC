@@ -36,10 +36,38 @@ from settings.utils import get_setting
 
 
 def _system_daily_salary(staff):
-    """Calculate daily salary from the staff base salary and payroll workdays."""
-    payroll_work_days = get_setting('payroll_default_work_days', 22)
-    if staff.salary and payroll_work_days:
-        return staff.salary / Decimal(str(payroll_work_days))
+    """
+    Calculate daily salary from the staff base salary and actual working days.
+    Uses working days from the current month's attendance data if available,
+    otherwise falls back to calculating working days (Mon-Fri) for the current month.
+    """
+    if not staff.salary:
+        return Decimal('0')
+    
+    today = date.today()
+    
+    # Try to get actual working days from attendance summary for current month
+    current_month_summary = MonthlyAttendanceSummary.objects.filter(
+        staff=staff,
+        period_start__year=today.year,
+        period_start__month=today.month,
+    ).first()
+    
+    if current_month_summary and current_month_summary.working_days > 0:
+        return staff.salary / Decimal(str(current_month_summary.working_days))
+    
+    # Fallback: Calculate working days (Mon-Fri) for the current month
+    from calendar import monthrange
+    _, days_in_month = monthrange(today.year, today.month)
+    working_days = 0
+    for day in range(1, days_in_month + 1):
+        check_date = date(today.year, today.month, day)
+        if check_date.weekday() < 5:  # Monday=0, Friday=4
+            working_days += 1
+    
+    if working_days > 0:
+        return staff.salary / Decimal(str(working_days))
+    
     return Decimal('0')
 
 logger = logging.getLogger(__name__)
@@ -55,7 +83,7 @@ def _attendance_role_label(staff):
 @login_required
 @admin_only
 def attendance_dashboard(request):
-    """Monthly attendance import dashboard for payroll."""
+    """Attendance import dashboard for payroll."""
     # Get recent imports
     recent_logs = AttendanceLog.objects.filter(
         sync_status='PENDING'

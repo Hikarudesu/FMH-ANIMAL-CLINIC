@@ -289,7 +289,7 @@ class DailyAttendance(models.Model):
 
 
 class MonthlyAttendanceSummary(models.Model):
-    """Monthly attendance totals exported by a biometric device for payroll."""
+    """Attendance totals exported by a biometric device for payroll."""
 
     class ReviewStatus(models.TextChoices):
         IMPORTED = 'IMPORTED', 'Imported'

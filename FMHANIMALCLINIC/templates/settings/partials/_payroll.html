@@ -7,22 +7,127 @@
     <div class="admin-grid">
 
       <style>
-        /* Payroll contribution rows: consistent two-column layout */
+        .payroll-settings-note {
+          width: 100%;
+          max-width: 860px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 13px 16px;
+          margin: 0 auto 18px auto;
+          border-radius: 9px;
+          border: 1px solid rgba(0, 150, 136, 0.18);
+          background: rgba(0, 150, 136, 0.04);
+          color: var(--text-2);
+          font-size: 0.95rem;
+          line-height: 1.55;
+          grid-column: 1 / -1;
+          box-sizing: border-box;
+          font-weight: 600;
+        }
+        .payroll-settings-note--blue {
+          border-color: rgba(37, 99, 235, 0.18);
+          background: rgba(37, 99, 235, 0.04);
+        }
+        .payroll-default-grid,
+        .payroll-contribution-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 18px 20px;
+          width: 100%;
+          max-width: 920px;
+          align-items: start;
+          grid-column: 1 / -1;
+          margin: 0 auto;
+        }
+        .payroll-default-grid > .admin-field,
+        .payroll-contribution-grid > .admin-field,
+        .payroll-default-grid > .payroll-field-full,
+        .payroll-contribution-grid > .payroll-field-full {
+          grid-column: span 1;
+        }
+        .payroll-field-full {
+          grid-column: 1 / -1;
+        }
+        .payroll-default-grid .admin-field,
+        .payroll-contribution-grid .admin-field {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-width: 0;
+          width: 100%;
+        }
+        .payroll-default-grid .admin-field label,
+        .payroll-contribution-grid .admin-field label {
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .payroll-default-grid .admin-field input,
+        .payroll-default-grid .admin-field select,
+        .payroll-contribution input[type="number"],
+        .payroll-contribution input[type="text"] {
+          height: 38px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: rgba(255,255,255,0.015);
+          padding: 8px 10px;
+        }
         .payroll-contribution {
           display: flex;
-          gap: 16px;
+          gap: 12px;
           align-items: center;
-          padding: 12px 16px;
-          background: var(--bg);
-          border-radius: 8px;
-          margin-bottom: 8px;
+          justify-content: space-between;
+          padding: 12px 14px;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          min-height: 106px;
+          max-width: 100%;
+          width: 100%;
+          box-sizing: border-box;
+          max-width: 920px;
+          margin: 0 auto;
         }
-        .payroll-contribution .payroll-left { flex: 1; }
-        .payroll-contribution .payroll-right { width: 160px; display:flex; flex-direction:column; gap:6px; }
-        .payroll-contribution label.rate-label { font-size: 0.8rem; font-weight: 600; color: var(--text-2); }
-        .payroll-contribution .checkbox-field { margin-bottom: 0; }
-        .payroll-contribution input[type="number"],
-        .payroll-contribution input[type="text"] { width: 100%; box-sizing: border-box; }
+        .payroll-contribution .payroll-left {
+          flex: 1 1 auto;
+          min-width: 0;
+          max-width: 100%;
+        }
+        .payroll-contribution .payroll-right {
+          width: 118px;
+          min-width: 118px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          justify-content: center;
+        }
+        .payroll-contribution .checkbox-field {
+          padding: 0;
+          background: transparent;
+          border: 0;
+          margin: 0;
+        }
+        .payroll-contribution .checkbox-content {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .payroll-contribution .checkbox-content label {
+          margin: 0;
+          font-size: 14px;
+          line-height: 1.25;
+        }
+        .payroll-contribution label.rate-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text-2);
+        }
+        @media (max-width: 900px) {
+          .payroll-default-grid,
+          .payroll-contribution-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       </style>
 
       <!-- ═══════════ Section: Payroll Defaults ═══════════ -->
@@ -30,36 +135,59 @@
         <i class='bx bx-cog'></i> Payroll Defaults
       </div>
 
-      <div style="background: rgba(0,150,136,0.06); border: 1px solid rgba(0,150,136,0.15); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem; color: var(--text-2); line-height: 1.5;">
-        <i class='bx bx-info-circle' style="color: var(--primary); margin-right: 4px;"></i>
-        These values are used as <strong>defaults</strong> when generating new payslips. Individual payslips can still be edited after generation.
+      <div class="payroll-settings-note">
+        <i class='bx bx-info-circle' style="color: var(--primary); margin-right: 6px; flex-shrink: 0;"></i>
+        <div>
+          These values are used as <strong>defaults</strong> when generating new payslips. Individual payslips can still be edited after generation.
+        </div>
       </div>
 
-      <div class="admin-field">
-        <label for="id_default_work_days">Default Working Days Per Month</label>
-        {{ forms.payroll.default_work_days }}
-        <p class="form-hint">{{ forms.payroll.default_work_days.help_text }}</p>
-        {% if forms.payroll.default_work_days.errors %}
-          <div class="error-text">{{ forms.payroll.default_work_days.errors.0 }}</div>
-        {% endif %}
-      </div>
+      <div class="payroll-default-grid">
+          <div class="admin-field">
+            <label for="id_default_staff_allowance">Default Staff Allowance (₱)</label>
+            {{ forms.payroll.default_staff_allowance }}
+            <p class="form-hint">{{ forms.payroll.default_staff_allowance.help_text }}</p>
+            {% if forms.payroll.default_staff_allowance.errors %}
+              <div class="error-text">{{ forms.payroll.default_staff_allowance.errors.0 }}</div>
+            {% endif %}
+          </div>
 
-      <div class="admin-field">
-        <label for="id_default_staff_allowance">Default Staff Allowance (₱)</label>
-        {{ forms.payroll.default_staff_allowance }}
-        <p class="form-hint">{{ forms.payroll.default_staff_allowance.help_text }}</p>
-        {% if forms.payroll.default_staff_allowance.errors %}
-          <div class="error-text">{{ forms.payroll.default_staff_allowance.errors.0 }}</div>
-        {% endif %}
-      </div>
+          <div class="admin-field">
+            <label for="id_default_overtime_pay_per_hour">Default Overtime Pay (Per Hour) (₱)</label>
+            {{ forms.payroll.default_overtime_pay_per_hour }}
+            <p class="form-hint">{{ forms.payroll.default_overtime_pay_per_hour.help_text }}</p>
+            {% if forms.payroll.default_overtime_pay_per_hour.errors %}
+              <div class="error-text">{{ forms.payroll.default_overtime_pay_per_hour.errors.0 }}</div>
+            {% endif %}
+          </div>
 
-      <div class="admin-field">
-        <label for="id_signatory_name_title">Authorized Signatory Name/Title</label>
-        {{ forms.payroll.signatory_name_title }}
-        <p class="form-hint">{{ forms.payroll.signatory_name_title.help_text }}</p>
-        {% if forms.payroll.signatory_name_title.errors %}
-          <div class="error-text">{{ forms.payroll.signatory_name_title.errors.0 }}</div>
-        {% endif %}
+          <div class="admin-field">
+            <label for="id_default_rest_days">Default Rest Days</label>
+            {{ forms.payroll.default_rest_days }}
+            <p class="form-hint">{{ forms.payroll.default_rest_days.help_text }}</p>
+            {% if forms.payroll.default_rest_days.errors %}
+              <div class="error-text">{{ forms.payroll.default_rest_days.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="admin-field">
+            <label for="id_default_absent_deduction">Default Absent Deduction per Day (₱)</label>
+            {{ forms.payroll.default_absent_deduction }}
+            <p class="form-hint">{{ forms.payroll.default_absent_deduction.help_text }}</p>
+            {% if forms.payroll.default_absent_deduction.errors %}
+              <div class="error-text">{{ forms.payroll.default_absent_deduction.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="admin-field payroll-field-full">
+            <label for="id_paid_leave_type_options">Paid Leave Type Options</label>
+            {{ forms.payroll.paid_leave_type_options }}
+            <p class="form-hint">{{ forms.payroll.paid_leave_type_options.help_text }}</p>
+            {% if forms.payroll.paid_leave_type_options.errors %}
+              <div class="error-text">{{ forms.payroll.paid_leave_type_options.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
       </div>
 
       <!-- ═══════════ Section: Employer Statutory Contributions ═══════════ -->
@@ -67,79 +195,83 @@
         <i class='bx bx-shield-quarter'></i> Employer Statutory Contributions
       </div>
 
-      <div style="background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.15); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem; color: var(--text-2); line-height: 1.5;">
-        <i class='bx bx-info-circle' style="color: #2563eb; margin-right: 4px;"></i>
-        These are <strong>clinic-paid</strong> statutory contributions. They are shown on payslips but do <strong>not</strong> reduce employee take-home pay.
-      </div>
-
-      <!-- Master Toggle -->
-      <div class="admin-field">
-        <div class="checkbox-field">
-          {{ forms.payroll.auto_statutory }}
-          <div class="checkbox-content">
-            <label for="id_auto_statutory">Enable Employer Statutory Contributions</label>
-            <p class="form-hint">{{ forms.payroll.auto_statutory.help_text }}</p>
-          </div>
+      <div class="payroll-settings-note payroll-settings-note--blue">
+        <i class='bx bx-info-circle' style="color: #2563eb; margin-right: 6px; flex-shrink: 0; font-size: 0.95rem;"></i>
+        <div>
+          These are <strong>clinic-paid</strong> statutory contributions. They are shown on payslips but do <strong>not</strong> reduce employee take-home pay.
         </div>
       </div>
 
-      <!-- SSS -->
-      <div class="payroll-contribution">
-        <div class="payroll-left">
+      <div class="admin-field" style="margin-bottom: 12px; max-width: 920px; margin-left: auto; margin-right: auto; width: 100%;">
           <div class="checkbox-field">
-            {{ forms.payroll.enable_sss }}
+            {{ forms.payroll.auto_statutory }}
             <div class="checkbox-content">
-              <label for="id_enable_sss" style="font-weight: 600;">SSS Contribution</label>
-              <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_sss.help_text }}</p>
+              <label for="id_auto_statutory">Enable Employer Statutory Contributions</label>
+              <p class="form-hint">{{ forms.payroll.auto_statutory.help_text }}</p>
             </div>
           </div>
         </div>
-        <div class="payroll-right">
-          <label for="id_sss_rate" class="rate-label">Rate (%)</label>
-          {{ forms.payroll.sss_rate }}
-          {% if forms.payroll.sss_rate.errors %}
-            <div class="error-text">{{ forms.payroll.sss_rate.errors.0 }}</div>
-          {% endif %}
-        </div>
-      </div>
 
-      <!-- PhilHealth -->
-      <div class="payroll-contribution">
-        <div class="payroll-left">
-          <div class="checkbox-field">
-            {{ forms.payroll.enable_philhealth }}
-            <div class="checkbox-content">
-              <label for="id_enable_philhealth" style="font-weight: 600;">PhilHealth Contribution</label>
-              <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_philhealth.help_text }}</p>
+        <div class="payroll-contribution-grid">
+          <!-- SSS -->
+          <div class="payroll-contribution">
+            <div class="payroll-left">
+              <div class="checkbox-field">
+                {{ forms.payroll.enable_sss }}
+                <div class="checkbox-content">
+                  <label for="id_enable_sss" style="font-weight: 600;">SSS Contribution</label>
+                  <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_sss.help_text }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="payroll-right">
+              <label for="id_sss_rate" class="rate-label">Rate (%)</label>
+              {{ forms.payroll.sss_rate }}
+              {% if forms.payroll.sss_rate.errors %}
+                <div class="error-text">{{ forms.payroll.sss_rate.errors.0 }}</div>
+              {% endif %}
             </div>
           </div>
-        </div>
-        <div class="payroll-right">
-          <label for="id_philhealth_rate" class="rate-label">Rate (%)</label>
-          {{ forms.payroll.philhealth_rate }}
-          {% if forms.payroll.philhealth_rate.errors %}
-            <div class="error-text">{{ forms.payroll.philhealth_rate.errors.0 }}</div>
-          {% endif %}
-        </div>
-      </div>
 
-      <!-- Pag-IBIG -->
-      <div class="payroll-contribution">
-        <div class="payroll-left">
-          <div class="checkbox-field">
-            {{ forms.payroll.enable_pagibig }}
-            <div class="checkbox-content">
-              <label for="id_enable_pagibig" style="font-weight: 600;">Pag-IBIG Contribution</label>
-              <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_pagibig.help_text }}</p>
+          <!-- PhilHealth -->
+          <div class="payroll-contribution">
+            <div class="payroll-left">
+              <div class="checkbox-field">
+                {{ forms.payroll.enable_philhealth }}
+                <div class="checkbox-content">
+                  <label for="id_enable_philhealth" style="font-weight: 600;">PhilHealth Contribution</label>
+                  <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_philhealth.help_text }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="payroll-right">
+              <label for="id_philhealth_rate" class="rate-label">Rate (%)</label>
+              {{ forms.payroll.philhealth_rate }}
+              {% if forms.payroll.philhealth_rate.errors %}
+                <div class="error-text">{{ forms.payroll.philhealth_rate.errors.0 }}</div>
+              {% endif %}
             </div>
           </div>
-        </div>
-        <div class="payroll-right">
-          <label for="id_pagibig_fixed" class="rate-label">Fixed ₱</label>
-          {{ forms.payroll.pagibig_fixed }}
-          {% if forms.payroll.pagibig_fixed.errors %}
-            <div class="error-text">{{ forms.payroll.pagibig_fixed.errors.0 }}</div>
-          {% endif %}
+
+          <!-- Pag-IBIG -->
+          <div class="payroll-contribution payroll-field-full">
+            <div class="payroll-left">
+              <div class="checkbox-field">
+                {{ forms.payroll.enable_pagibig }}
+                <div class="checkbox-content">
+                  <label for="id_enable_pagibig" style="font-weight: 600;">Pag-IBIG Contribution</label>
+                  <p class="form-hint" style="margin: 0;">{{ forms.payroll.enable_pagibig.help_text }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="payroll-right">
+              <label for="id_pagibig_fixed" class="rate-label">Fixed ₱</label>
+              {{ forms.payroll.pagibig_fixed }}
+              {% if forms.payroll.pagibig_fixed.errors %}
+                <div class="error-text">{{ forms.payroll.pagibig_fixed.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
         </div>
       </div>
 

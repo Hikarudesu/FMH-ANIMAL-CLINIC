@@ -215,9 +215,18 @@ def _handle_payroll_form(request):
     if form.is_valid():
         data = form.cleaned_data
         # Payroll defaults
-        set_setting('payroll_default_work_days', data['default_work_days'], request.user, 'PAYROLL')
+        # NOTE: payroll_default_work_days setting removed (2026-08-29)
+        # Working days are now calculated from actual biometric attendance data
         set_setting('payroll_default_staff_allowance', data['default_staff_allowance'], request.user, 'PAYROLL')
-        set_setting('payroll_signatory_name_title', data['signatory_name_title'], request.user, 'PAYROLL')
+        set_setting('payroll_default_overtime_pay_per_hour', data['default_overtime_pay_per_hour'], request.user, 'PAYROLL')
+        set_setting('payroll_default_rest_days', data['default_rest_days'], request.user, 'PAYROLL')
+        set_setting('payroll_default_absent_deduction', data['default_absent_deduction'], request.user, 'PAYROLL')
+        paid_leave_types = [
+            line.strip() for line in str(data.get('paid_leave_type_options', '')).splitlines() if line.strip()
+        ]
+        if not paid_leave_types:
+            paid_leave_types = ['Sick Leave', 'Emergency Leave']
+        set_setting('payroll_paid_leave_types', paid_leave_types, request.user, 'PAYROLL')
         # Statutory contributions
         set_setting('payroll_auto_statutory', data['auto_statutory'], request.user, 'PAYROLL')
         set_setting('payroll_enable_sss', data['enable_sss'], request.user, 'PAYROLL')

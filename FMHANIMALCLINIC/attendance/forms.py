@@ -67,7 +67,7 @@ class BiometricDeviceForm(forms.ModelForm):
 
 
 class AttendanceImportForm(forms.Form):
-    """Import one monthly attendance summary for payroll."""
+    """Import one attendance summary for payroll."""
 
     import_file = forms.FileField(
         widget=forms.FileInput(attrs={
@@ -75,7 +75,7 @@ class AttendanceImportForm(forms.Form):
             'accept': '.csv,.xls,.xlsx,.ods,.xml,.xlsm',
         }),
         label='Import File',
-        help_text='Upload one monthly summary export in CSV, XLS, XLSX, ODS, XLSM, or XML format.',
+        help_text='Upload one attendance summary export in CSV, XLS, XLSX, ODS, XLSM, or XML format.',
     )
 
     def clean(self):
@@ -310,27 +310,47 @@ class AttendanceImportForm(forms.Form):
                 records.append(record)
         return records
 
-    def get_records(self):
-        """Parse the uploaded file based on its extension."""
-        import_file = self.cleaned_data.get('import_file')
-        filename = import_file.name.lower()
+    @staticmethod
+    def detect_file_format(file):
+        """Identify spreadsheet type by actual content, with extension as a fallback."""
+        filename = (file.name or '').lower()
+        file.seek(0)
+        signature = file.read(4096)
+        file.seek(0)
 
-        if filename.endswith('.csv'):
+        if filename.endswith('.ods') or b'office:document-content' in signature or b'content.xml' in signature:
+            return 'ods'
+        if filename.endswith(('.xlsx', '.xlsm')) or (signature.startswith(b'PK') and b'xl/' in signature):
+            return 'xlsx'
+        if filename.endswith('.xml') or b'<Workbook' in signature or b'<?xml' in signature:
+            return 'xml'
+        if filename.endswith('.xls') or (signature.startswith(b'\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1') and b'Workbook' in signature):
+            return 'xls'
+        if filename.endswith('.csv') or b',' in signature or b'\n' in signature:
+            return 'csv'
+        return 'unknown'
+
+    def get_records(self):
+        """Parse the uploaded file based on its actual structure and extension."""
+        import_file = self.cleaned_data.get('import_file')
+        file_type = self.detect_file_format(import_file)
+
+        if file_type == 'csv':
             return self.parse_csv(import_file)
-        if filename.endswith(('.xlsx', '.xlsm')):
+        if file_type in {'xlsx'}:
             return self.parse_excel(import_file)
-        if filename.endswith('.ods'):
+        if file_type == 'ods':
             return self.parse_ods(import_file)
-        if filename.endswith('.xls'):
+        if file_type == 'xls':
             import_file.seek(0)
             signature = import_file.read(256).lstrip()
             import_file.seek(0)
             if signature.startswith(b'<?xml') or b'<Workbook' in signature:
                 return self.parse_xml(import_file)
             return self.parse_xls(import_file)
-        if filename.endswith('.xml'):
+        if file_type == 'xml':
             return self.parse_xml(import_file)
-        raise ValidationError('Unsupported attendance file format.')
+        raise ValidationError('Unsupported attendance file format. Supported formats: CSV, XLS, XLSX, ODS, and XML spreadsheet files.') 
 
 class DailyAttendanceForm(forms.ModelForm):
     """Form for manually editing daily attendance records."""

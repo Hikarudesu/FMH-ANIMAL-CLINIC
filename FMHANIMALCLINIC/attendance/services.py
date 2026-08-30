@@ -20,7 +20,11 @@ class AttendanceImportService:
     def _extract_biometric_id(record):
         value = AttendanceImportService._get_first_matching_value(
             record,
-            {'biometric id', 'biometrics id', 'staff biometric id', 'employee id', 'employee code', 'staff id', 'staff code'}
+            {
+                'biometric id', 'biometrics id', 'biometric number', 'biometric no',
+                'staff biometric id', 'employee id', 'employee number', 'employee no',
+                'employee code', 'staff id', 'staff number', 'staff no', 'staff code',
+            }
         )
         if value in (None, ''):
             return None
@@ -56,18 +60,15 @@ class AttendanceImportService:
             return Decimal('0')
 
     @staticmethod
-    def _get_first_matching_value(record, aliases):
-        for key, value in record.items():
-            if AttendanceImportService._normalize_key(key) in aliases:
-                return value
-        return None
 
     @staticmethod
     def _resolve_staff_from_record(record):
         for key, value in record.items():
             if AttendanceImportService._normalize_key(key) in {
                 'biometric id', 'biometrics id', 'staff biometric id',
-                'employee id', 'employee code', 'staff id', 'staff code',
+                'biometric number', 'biometric no', 'employee id', 'employee number',
+                'employee no', 'employee code', 'staff id', 'staff number', 'staff no',
+                'staff code',
             } and value not in (None, ''):
                 staff = StaffMember.objects.filter(
                     biometric_id=str(value).strip(), is_active=True
@@ -82,10 +83,29 @@ class AttendanceImportService:
             return None
         if isinstance(value, datetime):
             return value.time()
+        text = str(value).strip()
+        if not text:
+            return None
+        if re.fullmatch(r'\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?', text):
+            try:
+                return date_parser.parse(text).time()
+            except (TypeError, ValueError, OverflowError):
+                pass
         try:
-            return date_parser.parse(str(value).strip()).time()
+            return date_parser.parse(text).time()
         except (TypeError, ValueError, OverflowError):
             return None
+
+    @staticmethod
+    def _get_first_matching_value(record, aliases, *, fallback_aliases=None):
+        aliases = {AttendanceImportService._normalize_key(alias) for alias in aliases}
+        if fallback_aliases:
+            aliases.update({AttendanceImportService._normalize_key(alias) for alias in fallback_aliases})
+        for key, value in record.items():
+            normalized = AttendanceImportService._normalize_key(key)
+            if normalized in aliases:
+                return value
+        return None
 
     @staticmethod
     def parse_date_value(value):
@@ -154,16 +174,27 @@ class AttendanceImportService:
                         period_start=period_start,
                         period_end=period_end,
                         defaults={
-                            'working_days': int(self._coerce_decimal(self._get_first_matching_value(record, {'working days'}))),
-                            'attendance_days': int(self._coerce_decimal(self._get_first_matching_value(record, {'attendance days'}))),
-                            'absence_days': int(self._coerce_decimal(self._get_first_matching_value(record, {'absences days'}))),
+                            'working_days': int(self._coerce_decimal(self._get_first_matching_value(record, {
+                                'working days', 'work days', 'scheduled days',
+                            }))),
+                            'attendance_days': int(self._coerce_decimal(self._get_first_matching_value(record, {
+                                'attendance days', 'attended days', 'days present', 'present days',
+                            }))),
+                            'absence_days': int(self._coerce_decimal(self._get_first_matching_value(record, {
+                                'absences days', 'absence days', 'absent days', 'days absent',
+                            }))),
                             'late_days': int(self._coerce_decimal(self._get_first_matching_value(record, {'late num', 'late number'}))),
-                            'overtime_hours': self._coerce_decimal(self._get_first_matching_value(record, {'overtime hours'})),
+                            'overtime_hours': self._coerce_decimal(self._get_first_matching_value(record, {
+                                'overtime hours', 'overtime hour', 'ot hours', 'ot hour',
+                            })),
                             'sick_hours': self._coerce_decimal(self._get_first_matching_value(record, {'sick hours'})),
                             'leave_hours': self._coerce_decimal(self._get_first_matching_value(record, {'leave hours'})),
-                            'daily_salary': self._coerce_decimal(self._get_first_matching_value(record, {'daily salary'})),
-                            'overtime_pay': self._coerce_decimal(self._get_first_matching_value(record, {'overtime pay'})),
-                            'charges': self._coerce_decimal(self._get_first_matching_value(record, {'charges', 'charge'})),
+                            # Compensation is calculated by payroll from the
+                            # employee record and payroll settings, never from
+                            # biometric exports.
+                            'daily_salary': Decimal('0'),
+                            'overtime_pay': Decimal('0'),
+                            'charges': Decimal('0'),
                             'source_filename': source_filename,
                             'uploaded_by': uploaded_by,
                             'review_status': MonthlyAttendanceSummary.ReviewStatus.IMPORTED,
@@ -182,16 +213,17 @@ class AttendanceImportService:
                 if not attendance_date:
                     errors += 1
                     continue
-                check_in = self.parse_time_value(self._get_first_matching_value(record, {'check in', 'time in', 'clock in'}))
-                check_out = self.parse_time_value(self._get_first_matching_value(record, {'check out', 'time out', 'clock out'}))
+                check_in = self.parse_time_value(self._get_first_matching_value(record, {'check in', 'time in', 'clock in'}, fallback_aliases={'timein', 'login', 'in time'}))
+                check_out = self.parse_time_value(self._get_first_matching_value(record, {'check out', 'time out', 'clock out'}, fallback_aliases={'timeout', 'logout', 'out time'}))
                 daily, _ = DailyAttendance.objects.get_or_create(staff=staff, attendance_date=attendance_date)
                 daily.check_in = check_in
                 daily.check_out = check_out
-                daily.is_present = bool(check_in or check_out)
-                daily.status = 'PRESENT' if daily.is_present else 'ABSENT'
-                daily.total_work_minutes = int(self._coerce_decimal(self._get_first_matching_value(record, {'total work minutes', 'worked minutes'})))
-                daily.late_minutes = int(self._coerce_decimal(self._get_first_matching_value(record, {'late minutes', 'minutes late'})))
-                daily.overtime_minutes = int(self._coerce_decimal(self._get_first_matching_value(record, {'overtime minutes', 'ot minutes'})))
+                has_complete_pair = bool(check_in and check_out)
+                daily.is_present = has_complete_pair
+                daily.status = 'PRESENT' if has_complete_pair else 'ABSENT'
+                daily.total_work_minutes = int(self._coerce_decimal(self._get_first_matching_value(record, {'total work minutes', 'worked minutes', 'work minutes'}, fallback_aliases={'total work minute', 'worked minutes'})))
+                daily.late_minutes = int(self._coerce_decimal(self._get_first_matching_value(record, {'late minutes', 'minutes late'}, fallback_aliases={'late min'})))
+                daily.overtime_minutes = int(self._coerce_decimal(self._get_first_matching_value(record, {'overtime minutes', 'ot minutes', 'overtime min', 'ot min'}, fallback_aliases={'ot minutes'})))
                 daily.is_approved = True
                 daily.save()
                 imported += 1

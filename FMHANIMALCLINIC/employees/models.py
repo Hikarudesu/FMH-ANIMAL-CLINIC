@@ -84,7 +84,7 @@ class StaffMember(SoftDeleteModel):
     # These defaults are used when generating new payslips
     default_staff_allowance = models.DecimalField(
         max_digits=10, decimal_places=2, default=2000,
-        help_text='Default monthly staff allowance'
+        help_text='Default staff allowance'
     )
     default_custom_deductions = models.JSONField(
         default=list,

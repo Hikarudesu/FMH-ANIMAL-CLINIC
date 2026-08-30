@@ -312,29 +312,47 @@ class PayrollSettingsForm(AdminInputMixin, forms.Form):
     """Form for payroll-related settings."""
 
     # ─── Payroll Defaults ───
-    default_work_days = forms.IntegerField(
-        label='Default Working Days Per Month',
-        min_value=1,
-        max_value=31,
-        widget=forms.NumberInput(),
-        help_text='Default number of working days used when generating payslips (e.g. 22)'
-    )
+    # NOTE: Default working days setting removed (2026-08-29)
+    # Working days are now calculated from actual biometric attendance data.
+    # The system automatically uses working days from MonthlyAttendanceSummary 
+    # when generating payslips, ensuring accuracy based on actual attendance.
+    
     default_staff_allowance = forms.DecimalField(
         label='Default Staff Allowance (₱)',
         min_value=0,
         max_digits=10,
         decimal_places=2,
         widget=forms.NumberInput(attrs={'step': '100'}),
-        help_text='Default monthly staff allowance applied to new payslips (split 50/50 on 15th & 30th)'
+        help_text='Default staff allowance applied to new payslips. The semi-monthly system splits this value evenly between pay periods.'
     )
-    signatory_name_title = forms.CharField(
-        label='Authorized Signatory Name/Title',
-        max_length=255,
+    default_overtime_pay_per_hour = forms.DecimalField(
+        label='Default Overtime Pay (Per Hour) (₱)',
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'step': '10'}),
+        help_text='Default hourly overtime rate used when a payslip is created and no overtime value is provided by the biometric file.'
+    )
+    default_rest_days = forms.IntegerField(
+        label='Default Rest Days',
+        min_value=0,
+        widget=forms.NumberInput(attrs={'step': '1'}),
+        help_text='Default number of rest days used to compute absences and deductions each period.'
+    )
+    default_absent_deduction = forms.DecimalField(
+        label='Default Absent Deduction per Day (₱)',
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={'step': '10'}),
+        help_text='Default daily deduction applied to excess absences after the configured rest-day allowance.'
+    )
+    paid_leave_type_options = forms.CharField(
+        label='Paid Leave Type Options',
         required=False,
-        widget=forms.TextInput(attrs={'placeholder': 'e.g. Maria Santos, HR Manager'}),
-        help_text='Shown on official payslips as the authorized signatory'
+        widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Sick Leave\nEmergency Leave'}),
+        help_text='One paid leave option per line. Default options: Sick Leave and Emergency Leave.'
     )
-
     # ─── Employer Statutory Contributions ───
     auto_statutory = forms.BooleanField(
         label='Enable Employer Statutory Contributions',
@@ -389,10 +407,15 @@ class PayrollSettingsForm(AdminInputMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['default_work_days'].initial = get_setting('payroll_default_work_days', 22)
+        # NOTE: default_work_days field removed - no longer needed
         self.fields['default_staff_allowance'].initial = get_setting('payroll_default_staff_allowance', 2000)
-        self.fields['signatory_name_title'].initial = get_setting(
-            'payroll_signatory_name_title', 'Authorized by Finance / Human Resources')
+        self.fields['default_overtime_pay_per_hour'].initial = get_setting('payroll_default_overtime_pay_per_hour', 120)
+        self.fields['default_rest_days'].initial = get_setting('payroll_default_rest_days', 4)
+        self.fields['default_absent_deduction'].initial = get_setting('payroll_default_absent_deduction', 100)
+        existing_paid_leave_options = get_setting('payroll_paid_leave_types', 'Sick Leave\nEmergency Leave')
+        if isinstance(existing_paid_leave_options, (list, tuple)):
+            existing_paid_leave_options = '\n'.join(str(item) for item in existing_paid_leave_options)
+        self.fields['paid_leave_type_options'].initial = existing_paid_leave_options
         self.fields['auto_statutory'].initial = get_setting('payroll_auto_statutory', True)
         self.fields['enable_sss'].initial = get_setting('payroll_enable_sss', True)
         self.fields['sss_rate'].initial = get_setting('payroll_sss_rate', 4.50)

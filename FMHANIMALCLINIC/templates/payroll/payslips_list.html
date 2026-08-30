@@ -1,5 +1,6 @@
 {% extends 'payroll/base.html' %}
 {% load currency_filters %}
+{% load l10n %}
 
 {% block title %}Payslips - {{ period.period_display }}{% endblock %}
 
@@ -127,7 +128,7 @@
     background: var(--bg);
   }
 
-  .payslips-header { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .payslips-header { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; margin-bottom: 24px; display: grid; grid-template-columns: minmax(280px, 1fr) minmax(520px, 1.35fr); align-items: start; gap: 28px; }
   .payslips-header h2 { margin: 0; color: var(--text-1); font-size: 1.3rem; font-weight: 700; }
   .payslips-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-card); }
   .payslips-table table { width: 100%; border-collapse: collapse; }
@@ -150,18 +151,92 @@
   .action-btn-warning:hover { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
   .action-btn-danger { color: var(--text-2); }
   .action-btn-danger:hover { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+  .period-reload-form { display: grid; grid-template-columns: repeat(4, minmax(105px, 1fr)) auto; gap: 10px; align-items: end; width: 100%; }
+  .period-control { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .period-control label { color: var(--text-3); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .period-reload-form select { width: 100%; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-1); font: inherit; font-size: 0.85rem; }
+  .period-reload-form select:focus { outline: 2px solid rgba(0, 150, 136, 0.2); outline-offset: 1px; border-color: var(--primary); }
+  .period-reload-form .btn { height: 40px; padding: 0 14px; white-space: nowrap; }
+  .payslips-header > div:last-child { display: flex !important; flex-direction: column; align-items: stretch !important; gap: 16px !important; }
+  .payslips-header > div:last-child > .btn { align-self: flex-end; }
+  @media (max-width: 1100px) { .payslips-header { grid-template-columns: 1fr; gap: 18px; } }
+  @media (max-width: 720px) { .period-reload-form { grid-template-columns: repeat(2, minmax(130px, 1fr)); } .period-reload-form .btn { width: 100%; } }
+  @media (max-width: 420px) { .period-reload-form { grid-template-columns: 1fr; } }
 </style>
 
 <div class="payslips-header">
   <div>
     <h2><i class='bx bx-file' style="color: var(--primary);"></i> Payroll Period - {{ period.period_display }}</h2>
-    <p style="margin: 5px 0 0; color: var(--text-3); font-size: 0.9rem;">{{ period.scope_display }} · Review and manage generated payslips</p>
+    <p style="margin: 5px 0 0; color: var(--text-3); font-size: 0.9rem;">
+      <strong>Period Type:</strong> {{ period.get_period_type_display }}
+      {% if period.start_date %} · {{ period.start_date|date:"M d" }} - {{ period.end_date|date:"M d, Y" }}{% endif %}
+      · {{ period.scope_display }}
+    </p>
+    <p style="margin: 5px 0 0; color: var(--text-3); font-size: 0.85rem;">
+      <i class='bx bx-info-circle'></i> Status: 
+      {% if period.status == 'DRAFT' %}
+        <strong style="color: #ef4444;">Draft - Edit payslips below, then generate</strong>
+      {% elif period.status == 'EDITED' %}
+        <strong style="color: #f59e0b;">Edited - All changes complete, ready to generate</strong>
+      {% elif period.status == 'GENERATED' %}
+        <strong style="color: #3b82f6;">Generated - Calculations locked, ready to release</strong>
+      {% elif period.status == 'RELEASED' %}
+        <strong style="color: #10b981;">Released - Payslips sent to employees</strong>
+      {% endif %}
+    </p>
   </div>
-  <div style="display: flex; gap: 12px; align-items: center;">
-    {% if period.status != 'RELEASED' %}
-    <button type="button" class="btn open-release-btn" data-release-url="{% url 'payroll:release' period.id %}" data-release-name="{{ period.period_display|escapejs }}" style="background:#059669; border-color:#059669;"><i class='bx bx-send'></i> Release Payroll</button>
-    {% else %}
-    <span class="status-badge status-released"><i class='bx bx-check-double'></i> Released</span>
+  <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
+    {% if period.status == 'DRAFT' or period.status == 'EDITED' %}
+    <form method="get" action="{% url 'payroll:generate' %}" class="period-reload-form">
+      <input type="hidden" name="load" value="1">
+      <div class="period-control">
+        <label for="reload-month">Month</label>
+        <select id="reload-month" name="month" aria-label="Payroll month">
+        {% for month_info in months %}
+          <option value="{{ month_info.num }}" {% if month_info.num == period.month %}selected{% endif %}>{{ month_info.name }}</option>
+        {% endfor %}
+        </select>
+      </div>
+      <div class="period-control">
+        <label for="reload-year">Year</label>
+        <select id="reload-year" name="year" aria-label="Payroll year">
+        {% for year_value in years %}
+          <option value="{{ year_value }}" {% if year_value == period.year %}selected{% endif %}>{{ year_value|unlocalize }}</option>
+        {% endfor %}
+        </select>
+      </div>
+      <div class="period-control">
+        <label for="reload-period-type">Period Type</label>
+        <select id="reload-period-type" name="period_type" aria-label="Payroll period type">
+        {% for value, label in period_types %}
+          <option value="{{ value }}" {% if value == selected_period_type %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+        </select>
+      </div>
+      <div class="period-control">
+        <label for="reload-branch">Branch</label>
+        <select id="reload-branch" name="branch" aria-label="Payroll branch">
+        <option value="ALL" {% if all_branches %}selected{% endif %}>All Branches</option>
+        {% for branch in branches %}
+          <option value="{{ branch.id }}" {% if selected_branch.id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+        {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn" title="Load a different payroll period"><i class='bx bx-refresh'></i> Reload</button>
+    </form>
+    {% endif %}
+    {% if period.status == 'DRAFT' or period.status == 'EDITED' %}
+      <form method="post" action="{% url 'payroll:period_generate' period.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn" style="background: #3b82f6; border-color: #3b82f6;" title="Lock calculations and validate payroll">
+          <i class='bx bx-lock'></i> Generate Payroll
+        </button>
+      </form>
+    {% endif %}
+    
+    {% if period.status == 'RELEASED' %}
+      <!-- Released Status Badge -->
+      <span class="status-badge status-released"><i class='bx bx-check-double'></i> Released</span>
     {% endif %}
   </div>
 </div>
@@ -202,15 +277,10 @@
         </td>
         <td>
           <div class="actions">
-            {% if payslip.status != 'RELEASED' %}
+            {% if period.status == 'DRAFT' or period.status == 'EDITED' %}
             <a href="{% url 'payroll:payslip_edit' payslip.id %}?branch={{ selected_branch.id }}" class="action-btn" title="Edit Payslip"><i class='bx bx-pencil'></i></a>
-            {% else %}
-            {% if can_edit_released %}
-            <form method="post" action="{% url 'payroll:payslip_delete' payslip.id %}" style="display: inline;" onsubmit="return confirm('Delete this released payslip? This action will be logged.');">
-              {% csrf_token %}
-              <button type="submit" class="action-btn action-btn-danger" title="Delete Released Payslip"><i class='bx bx-trash'></i></button>
-            </form>
             {% endif %}
+            {% if period.status != 'DRAFT' and period.status != 'EDITED' %}
             {% if payslip.employee.email %}
             <form method="post" action="{% url 'payroll:send_email' payslip.id %}" style="display: inline;" onsubmit="return confirm('Resend payslip email to {{ payslip.employee.full_name }}?');">
               {% csrf_token %}
@@ -231,8 +301,18 @@
   <div style="color: var(--text-2); font-weight: 500;">
     <i class='bx bx-file-blank'></i> Total: {{ payslips|length }} documents in this batch
   </div>
-  <div style="display: flex; gap: 12px;">
-    <a href="{% url 'payroll:requests' %}" class="btn" style="background: var(--bg); color: var(--text-1); border: 1px solid var(--border); box-shadow: none;"><i class='bx bx-arrow-back'></i> Back to Processing List</a>
+  <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end;">
+    {% if period.status == 'GENERATED' or period.status == 'RELEASED' %}
+    <a href="{% url 'payroll:period_report' period.id %}" class="btn" style="background: var(--bg); color: var(--text-1); border: 1px solid var(--border); box-shadow: none;" title="View payroll report">
+      <i class='bx bx-file'></i> Payroll Report
+    </a>
+    {% endif %}
+    {% if period.status == 'GENERATED' %}
+    <button type="button" class="btn open-release-btn" data-release-url="{% url 'payroll:release' period.id %}" data-release-name="{{ period.period_display }}" style="background:#059669; border-color:#059669;" title="Send payslips to employees">
+      <i class='bx bx-send'></i> Release Payroll
+    </button>
+    {% endif %}
+    <a href="{% url 'payroll:requests' %}" class="btn" style="background: var(--bg); color: var(--text-1); border: 1px solid var(--border); box-shadow: none;"><i class='bx bx-arrow-back'></i> Back to Send Payslips</a>
   </div>
 </div>
 {% else %}
@@ -241,14 +321,9 @@
   <h3 style="color: var(--text-1); margin-bottom: 8px;">No documents available</h3>
   <p>There are no payslips generated for this cycle yet.</p>
   {% if period %}
-  <form action="{% url 'payroll:generate_action' %}" method="POST" style="display: inline; margin-top: 20px;">
-    {% csrf_token %}
-    <input type="hidden" name="month" value="{{ period.month }}">
-    <input type="hidden" name="year" value="{{ period.year }}">
-    <button type="submit" class="btn"><i class='bx bx-plus-circle'></i> Generate Payslips for {{ period.period_display }}</button>
-  </form>
+  <a href="{% url 'payroll:generate' %}?load=1&month={{ period.month }}&year={{ period.year }}&period_type={{ selected_period_type }}&branch={% if all_branches %}ALL{% else %}{{ selected_branch.id|default:'' }}{% endif %}" class="btn" style="margin-top: 20px;"><i class='bx bx-plus-circle'></i> Generate Payslips for {{ period.period_display }}</a>
   {% else %}
-  <a href="{% url 'payroll:requests' %}" class="btn" style="margin-top: 20px;"><i class='bx bx-arrow-back'></i> Back to Payroll Periods</a>
+  <a href="{% url 'payroll:requests' %}" class="btn" style="margin-top: 20px;"><i class='bx bx-arrow-back'></i> Back to Send Payslips</a>
   {% endif %}
 </div>
 {% endif %}

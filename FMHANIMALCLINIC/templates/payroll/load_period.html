@@ -1,0 +1,160 @@
+{% extends 'payroll/base.html' %}
+{% load static %}
+
+{% block title %}Load Payroll Period - {{ clinic_name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bx bx-dollar"></i> Load Payroll Period</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Select the payroll period, branch, and semi-monthly period split for the current cycle.
+                        You can then edit payslips before generating the final calculations.
+                    </p>
+
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Month Selection -->
+                        <div class="mb-3">
+                            <label for="month" class="form-label">
+                                <i class="bx bx-calendar"></i> Month <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="month" name="month" required>
+                                <option value="">-- Select Month --</option>
+                                {% for month_info in months %}
+                                    <option value="{{ month_info.num }}" 
+                                        {% if month_info.num == current_month %}selected{% endif %}>
+                                        {{ month_info.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Please select a month.</div>
+                        </div>
+
+                        <!-- Year Selection -->
+                        <div class="mb-3">
+                            <label for="year" class="form-label">
+                                <i class="bx bx-calendar-check"></i> Year <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="year" name="year" required>
+                                <option value="">-- Select Year --</option>
+                                {% for year_val in years %}
+                                    <option value="{{ year_val }}" 
+                                        {% if year_val == current_year %}selected{% endif %}>
+                                        {{ year_val }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Please select a year.</div>
+                        </div>
+
+                        <!-- Period Type Selection -->
+                        <div class="mb-3">
+                            <label for="period_type" class="form-label">
+                                <i class="bx bx-time-five"></i> Period Type <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="period_type" name="period_type" required>
+                                {% for value, label in period_types %}
+                                    <option value="{{ value }}" 
+                                        {% if value == default_period_type %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted d-block mt-1">
+                                <i class="bx bx-info-circle"></i>
+                                <strong>First Half:</strong> 1st - 15th<br>
+                                <strong>Second Half:</strong> 16th - end of month
+                            </small>
+                            <div class="invalid-feedback">Please select a period type.</div>
+                        </div>
+
+                        <!-- Branch Selection -->
+                        <div class="mb-4">
+                            <label for="branch" class="form-label">
+                                <i class="bx bx-building"></i> Branch
+                            </label>
+                            <select class="form-select" id="branch" name="branch">
+                                <option value="">-- All Branches --</option>
+                                {% for branch in branches %}
+                                    <option value="{{ branch.id }}">{{ branch.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">
+                                Leave blank to include all branches in this period.
+                            </small>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-sm-flex justify-content-sm-end">
+                            <a href="{% url 'payroll:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="bx bx-arrow-back"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bx bx-check"></i> Load Period & Edit Payslips
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Info Alert -->
+                    <div class="alert alert-info mt-4" role="alert">
+                        <h6 class="alert-heading">
+                            <i class="bx bx-info-circle"></i> New Workflow
+                        </h6>
+                        <p class="mb-0">
+                            <strong>Step 1:</strong> Load Period - Select your payroll period here<br>
+                            <strong>Step 2:</strong> Edit Payslips - Adjust deductions, bonuses, overtime<br>
+                            <strong>Step 3:</strong> Generate Payroll - Lock calculations and validate<br>
+                            <strong>Step 4:</strong> Release Payroll - Send to employees
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 8px;
+    }
+    .card-header {
+        border-radius: 8px 8px 0 0;
+        padding: 1.5rem;
+    }
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    .btn {
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+</style>
+
+<script>
+    // Bootstrap form validation
+    (function() {
+        'use strict';
+        window.addEventListener('load', function() {
+            var forms = document.querySelectorAll('.needs-validation');
+            Array.prototype.slice.call(forms).forEach(function(form) {
+                form.addEventListener('submit', function(event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            });
+        }, false);
+    })();
+</script>
+{% endblock %}

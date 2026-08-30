@@ -68,6 +68,41 @@ class AttendanceSummaryImportTests(TestCase):
         self.assertEqual(daily.total_work_minutes, 540)
         self.assertEqual(daily.overtime_minutes, 60)
 
+  def test_summary_import_accepts_nonstandard_time_aliases(self):
+        records = [{
+            'Employee Number': 'BIO-001',
+            'Date': '2026-08-11',
+            'TimeIn': '08:15',
+            'Timeout': '17:45',
+            'OT Minutes': '45',
+            'Worked Minutes': '570',
+        }]
+
+        imported, matched, errors = AttendanceImportService().import_summary_records(records)
+
+        self.assertEqual((imported, matched, errors), (1, 1, 0))
+        daily = DailyAttendance.objects.get(staff=self.staff, attendance_date=date(2026, 8, 11))
+        self.assertEqual(daily.check_in.hour, 8)
+        self.assertEqual(daily.check_out.hour, 17)
+        self.assertEqual(daily.overtime_minutes, 45)
+        self.assertEqual(daily.total_work_minutes, 570)
+
+  def test_incomplete_punch_pairs_are_counted_as_absent(self):
+        records = [{
+            'Employee Number': 'BIO-001',
+            'Date': '2026-08-12',
+            'TimeIn': '08:00',
+            'Worked Minutes': '480',
+        }]
+
+        imported, matched, errors = AttendanceImportService().import_summary_records(records)
+
+        self.assertEqual((imported, matched, errors), (1, 1, 0))
+        daily = DailyAttendance.objects.get(staff=self.staff, attendance_date=date(2026, 8, 12))
+        self.assertIsNone(daily.check_out)
+        self.assertFalse(daily.is_present)
+        self.assertEqual(daily.status, 'ABSENT')
+
   def test_form_parses_xml_spreadsheet_rows(self):
         xml = b'''<?xml version="1.0"?>
         <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"

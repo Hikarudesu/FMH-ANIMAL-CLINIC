@@ -5,21 +5,31 @@
 
 {% block payroll_content %}
 <style>
-  .edit-header { margin-bottom: 24px; }
-  .edit-header h2 { margin: 0; color: var(--text-1); font-size: 1.3rem; font-weight: 700; }
-  .form-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; }
-  .form-group { margin-bottom: 20px; }
-  .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-2); font-size: 0.9rem; }
-  .form-group input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-family: inherit; }
+  .edit-header { margin-bottom: 20px; }
+  .edit-header h2 { margin: 0; color: var(--text-1); font-size: 1.26rem; font-weight: 700; }
+  .form-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 18px 14px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--text-2); font-size: 0.78rem; letter-spacing: 0.01em; }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-family: inherit; font-size: 0.88rem; box-sizing: border-box;
+  }
   .currency-input { width: 100%; }
-  .form-group input:focus { outline: none; border-color: var(--primary); }
-  .form-section { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
-  .form-section h4 { margin: 0 0 16px; color: var(--text-1); font-weight: 700; }
-  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.08); }
+  .form-section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .form-section h4 { margin: 0 0 12px; color: var(--text-1); font-weight: 700; font-size: 0.95rem; }
+  .form-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 14px; align-items: start; }
+  .form-line { display: flex; flex-wrap: wrap; gap: 12px 18px; margin-bottom: 14px; align-items: flex-start; justify-content: flex-start; }
+  .form-line--three { display: flex; flex-wrap: wrap; gap: 12px 18px; margin-bottom: 14px; align-items: flex-start; justify-content: flex-start; }
+  .form-group { width: 240px; max-width: 240px; min-width: 220px; text-align: left; }
+  .form-group small { display: block; margin-top: 4px; line-height: 1.35; }
   .btn { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; }
   .btn:hover { opacity: 0.9; }
-  .summary { background: var(--bg); padding: 16px; border-radius: var(--radius-sm); margin-top: 20px; }
-  .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .summary { background: var(--bg); padding: 14px 16px; border-radius: var(--radius-sm); margin-top: 16px; }
+  .summary-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
   .summary-row:last-child { border-bottom: none; }
   .summary-row strong { color: var(--text-1); }
   .released-warning { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
@@ -27,11 +37,25 @@
   .released-warning-text { color: #b91c1c; font-weight: 500; }
   .released-warning-text strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
   .released-warning-text small { font-size: 0.8rem; opacity: 0.9; }
-  .deduction-row { display: grid; grid-template-columns: 1fr 180px auto; gap: 12px; align-items: end; margin-bottom: 12px; }
-  .deduction-row .remove-deduction { height: 40px; width: 40px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-2); cursor: pointer; }
+  .deduction-row { display: grid; grid-template-columns: 1fr 180px auto; gap: 10px; align-items: end; margin-bottom: 10px; }
+  .deduction-row .remove-deduction { height: 36px; width: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-2); cursor: pointer; }
   .deduction-row .remove-deduction:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
-  .section-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+  .section-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
   .btn-secondary { padding: 10px 16px; background: var(--bg); color: var(--text-1); border: 1px solid var(--border); border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; }
+  @media (max-width: 1100px) {
+    .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .form-line { grid-template-columns: 1fr 1fr; }
+    .form-line--three { grid-template-columns: 1fr 1fr 1fr; }
+  }
+  @media (max-width: 820px) {
+    .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .form-line, .form-line--three { grid-template-columns: 1fr; }
+    .form-group { max-width: 100%; }
+  }
+  @media (max-width: 560px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-container { padding: 14px; }
+  }
 </style>
 
 <div class="edit-header">
@@ -51,15 +75,81 @@
 <form method="post" class="form-container">
   {% csrf_token %}
   
-  <!-- Allowances Section -->
+  <!-- Top section: working days, attendance, rest days, paid leave -->
   <div class="form-section">
-    <h4>Allowances</h4>
-    <div class="form-grid">
+    <h4>Attendance & Rest Day Details</h4>
+
+    <div class="form-line">
+      <div class="form-group">
+        <label>Working Days</label>
+        <input type="number" name="working_days" value="{{ payslip.working_days|default_if_none:0 }}">
+        <small style="color: var(--text-3); font-size: 0.75rem;">The total tracked working days in the biometric file, adjusted by the system default rest-day setting.</small>
+      </div>
 
       <div class="form-group">
-        <label>Overtime Pay (₱)</label>
-        <input type="text" name="overtime_pay" class="currency-input" value="{{ payslip.overtime_pay|default:0 }}" inputmode="decimal" placeholder="0.00">
+        <label>Days Worked</label>
+        <input type="number" name="days_worked" value="{{ payslip.days_worked|default_if_none:0 }}">
+        <small style="color: var(--text-3); font-size: 0.75rem;">Days are counted only when both a valid time-in and time-out are present in the raw attendance export.</small>
       </div>
+    </div>
+
+    <div class="form-line">
+      <div class="form-group">
+        <label>Overtime Hours</label>
+        <input type="text" name="overtime_hours" value="{{ payslip.overtime_hours|default:0 }}">
+        <small style="color: var(--text-3); font-size: 0.75rem;">Extracted dynamically from the biometric file when OT metadata is available; otherwise this stays blank for manual entry.</small>
+      </div>
+
+      <div class="form-group">
+        <label>Overtime Pay (₱/Hour)</label>
+        <input type="text" name="overtime_pay" class="currency-input" value="{{ payslip.overtime_pay|default:default_overtime_pay_per_hour }}" inputmode="decimal" placeholder="0.00">
+        <small style="color: var(--text-3); font-size: 0.75rem;">Default hourly OT pay comes from payroll settings and is shown with the ₱ symbol.</small>
+      </div>
+    </div>
+
+    <div class="form-line--three">
+      <div class="form-group">
+        <label>Rest Days</label>
+        <input type="number" name="rest_days_mandatory" value="{{ payslip.rest_days_mandatory|default:default_rest_days }}" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. The configured rest-day default is pulled from payroll settings and applied to the current period.</small>
+      </div>
+
+      <div class="form-group">
+        <label>Days Absences</label>
+        <input type="number" id="daysAbsentInput" name="days_absent" value="{{ payslip.days_absent|default:0 }}" min="0" step="1">
+        <small style="color: var(--text-3); font-size: 0.75rem;">A day is treated as absent only when the staff is missing a time-in or time-out in the raw biometric data.</small>
+      </div>
+
+      <div class="form-group">
+        <label>Default Absent Deduction per Day (₱)</label>
+        <input type="text" value="{{ default_absent_deduction }}" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only setting value used to calculate the absence deduction. Deductions are applied only when absences are greater than zero.</small>
+      </div>
+    </div>
+
+    <div class="form-line">
+      <div class="form-group">
+        <label>Paid Leave Type</label>
+        <select name="paid_leave_type" style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-family: inherit;">
+          {% for option in paid_leave_options %}
+            <option value="{{ option }}" {% if payslip.paid_leave_type == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Blank entries are allowed if no leave code applies, but the admin can specify a reason such as Sick Leave or Vacation.</small>
+      </div>
+
+      <div class="form-group">
+        <label>Paid Leave</label>
+        <input type="number" id="paidLeaveInput" name="paid_leave_days" value="{{ payslip.paid_leave_days|default:0 }}" min="0" step="1" placeholder="0">
+        <small style="color: var(--text-3); font-size: 0.75rem;">Whole-day paid leave counts. Entering a value automatically reduces the absences total on the form without deducting salary for those days.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Earnings and deductions section -->
+  <div class="form-section">
+    <h4>Allowances & Earnings</h4>
+    <div class="form-grid">
       <div class="form-group">
         <label>Holiday Pay (₱)</label>
         <input type="text" name="holiday_pay" class="currency-input" value="{{ payslip.holiday_pay|default:0 }}" inputmode="decimal" placeholder="0.00">
@@ -68,53 +158,11 @@
         <label>Bonus (₱)</label>
         <input type="text" name="bonus" class="currency-input" value="{{ payslip.bonus|default:0 }}" inputmode="decimal" placeholder="0.00">
       </div>
-
       <div class="form-group">
         <label>Staff Allowance (₱)</label>
         <input type="text" name="staff_allowance" class="currency-input" value="{{ payslip.staff_allowance|default:default_staff_allowance }}" inputmode="decimal" placeholder="2,000.00">
-        <small style="color: var(--text-3); font-size: 0.75rem;">Split: ₱1,000 on 15th + ₱1,000 on 30th</small>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Semi-monthly payroll splits the monthly allowance evenly across the half-periods, so this value already reflects the current period share.</small>
       </div>
-    </div>
-  </div>
-  
-  <!-- Deductions Section -->
-  <div class="form-section">
-    <h4>Deductions</h4>
-    <div class="form-grid">
-      {% if show_sss %}
-      <div class="form-group">
-        <label>SSS (₱)</label>
-        <input type="text" name="sss" class="currency-input" value="{{ payslip.sss|default:0 }}" inputmode="decimal" placeholder="0.00">
-      </div>
-      {% endif %}
-      {% if show_philhealth %}
-      <div class="form-group">
-        <label>PhilHealth (₱)</label>
-        <input type="text" name="philhealth" class="currency-input" value="{{ payslip.philhealth|default:0 }}" inputmode="decimal" placeholder="0.00">
-      </div>
-      {% endif %}
-      {% if show_pagibig %}
-      <div class="form-group">
-        <label>PAG-IBIG (₱)</label>
-        <input type="text" name="pagibig" class="currency-input" value="{{ payslip.pagibig|default:0 }}" inputmode="decimal" placeholder="0.00">
-      </div>
-      {% endif %}
-      <div class="form-group">
-        <label>Cash Advance (₱)</label>
-        <input type="text" name="cash_advance" class="currency-input" value="{{ payslip.cash_advance|default:0 }}" inputmode="decimal" placeholder="0.00">
-      </div>
-
-      <div class="form-group">
-        <label>Imported Charges (₱)</label>
-        <input type="text" name="other_deductions" class="currency-input" value="{{ payslip.other_deductions|default:0 }}" inputmode="decimal" placeholder="0.00">
-        <small style="color: var(--text-3); font-size: 0.75rem;">Attendance-file charges. Custom deductions are listed separately below.</small>
-      </div>
-
-      <div class="form-group">
-        <label>Absent Deduction (₱)</label>
-        <input type="text" name="absent_deduction" class="currency-input" value="{{ payslip.absent_deduction|default:0 }}" inputmode="decimal" placeholder="0.00">
-      </div>
-
     </div>
   </div>
 
@@ -140,50 +188,13 @@
       <button type="button" class="btn-secondary" onclick="addDeductionRow()"><i class='bx bx-plus'></i> Add Deduction</button>
     </div>
   </div>
-  
 
-  
-  <!-- Attendance Section -->
-  <div class="form-section">
-    <h4>Attendance</h4>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Days Worked</label>
-        <input type="number" name="days_worked" value="{{ payslip.days_worked|default:22 }}">
-      </div>
-      <div class="form-group">
-        <label>Working Days</label>
-        <input type="number" name="working_days" value="{{ payslip.working_days|default:22 }}">
-      </div>
-      <div class="form-group">
-        <label>Days Absent</label>
-        <input type="number" name="days_absent" value="{{ payslip.days_absent|default:0 }}">
-      </div>
-      <div class="form-group">
-        <label>Overtime Hours</label>
-        <input type="text" name="overtime_hours" value="{{ payslip.overtime_hours|default:0 }}">
-      </div>
-      <div class="form-group">
-        <label>Sick Hours</label>
-        <input type="text" name="sick_hours" value="{{ payslip.sick_hours|default:0 }}">
-      </div>
-      <div class="form-group">
-        <label>Leave Hours</label>
-        <input type="text" name="leave_hours" value="{{ payslip.leave_hours|default:0 }}">
-      </div>
-      <div class="form-group">
-        <label>Daily Salary (₱)</label>
-        <input type="text" name="daily_salary" value="{{ daily_salary_display|floatformat:2 }}" readonly>
-      </div>
-    </div>
-  </div>
-  
   <!-- Notes Section -->
   <div class="form-section">
     <h4>Notes</h4>
     <textarea name="notes" style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-family: inherit; min-height: 80px;">{{ payslip.notes }}</textarea>
   </div>
-  
+
   <!-- Summary -->
   <div class="summary">
     <div class="summary-row">
@@ -191,28 +202,55 @@
       <strong>₱{{ payslip.base_salary|peso }}</strong>
     </div>
     <div class="summary-row">
-      <span>Gross Pay (incl. allowances)</span>
+      <span>Daily Salary</span>
+      <strong>₱{{ payslip.daily_salary|peso }}</strong>
+    </div>
+    <div class="summary-row">
+      <span>Allowances</span>
+      <strong>₱{{ payslip.total_allowances|peso }}</strong>
+    </div>
+    <div class="summary-row">
+      <span>Gross Pay</span>
       <strong>₱{{ payslip.gross_pay|peso }}</strong>
     </div>
     <div class="summary-row">
-      <span>Total Deductions</span>
+      <span>Deductions</span>
       <strong>₱{{ payslip.total_deductions|peso }}</strong>
     </div>
     <div class="summary-row" style="border-bottom: none; margin-top: 8px; padding-top: 12px; border-top: 2px solid var(--border);">
       <span style="font-weight: 700;">Net Pay</span>
       <strong style="color: #4CAF50; font-size: 1.1rem;">₱{{ payslip.net_pay|peso }}</strong>
     </div>
-
   </div>
   
   <!-- Action Buttons -->
-  <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+  <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;">
     <a href="{% url 'payroll:payslips' period.id %}" class="btn" style="background: var(--text-3);">Cancel</a>
     <button type="submit" class="btn"><i class='bx bx-save'></i> Save Changes</button>
   </div>
 </form>
 
 <script>
+  const paidLeaveInput = document.getElementById('paidLeaveInput');
+  const daysAbsentInput = document.getElementById('daysAbsentInput');
+
+  if (paidLeaveInput && daysAbsentInput) {
+    const syncAbsences = () => {
+      const absences = Number(daysAbsentInput.value || 0);
+      const paidLeave = Number(paidLeaveInput.value || 0);
+      const remaining = Math.max(0, absences - paidLeave);
+      daysAbsentInput.value = remaining;
+    };
+
+    paidLeaveInput.addEventListener('input', syncAbsences);
+    daysAbsentInput.addEventListener('input', () => {
+      const absences = Number(daysAbsentInput.value || 0);
+      if (Number.isNaN(absences) || absences < 0) {
+        daysAbsentInput.value = 0;
+      }
+    });
+  }
+
   function addDeductionRow() {
     const container = document.getElementById('customDeductions');
     if (!container) return;

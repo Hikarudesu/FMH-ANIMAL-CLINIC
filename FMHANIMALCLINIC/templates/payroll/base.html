@@ -17,7 +17,11 @@
 </style>
 
 <!-- Page Header - Matching System Standard -->
-{% include "components/page_hero.html" with title="Payroll Management" subtitle="Manage salaries, pay slips, and financial logs" icon="bx-money" %}
+{% if request.resolver_match.url_name == 'requests' %}
+  {% include "components/page_hero.html" with title="Send Payslips" subtitle="Manage payroll periods and send payslips to staff" icon="bx-send" %}
+{% else %}
+  {% include "components/page_hero.html" with title="Payroll Management" subtitle="Manage salaries, pay slips, and financial logs" icon="bx-money" %}
+{% endif %}
 
 <!-- Tab Navigation -->
 <div class="c-tab-bar">
