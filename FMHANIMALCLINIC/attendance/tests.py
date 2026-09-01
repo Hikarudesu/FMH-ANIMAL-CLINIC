@@ -5,6 +5,7 @@ import zipfile
 from django.apps import apps
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from openpyxl import Workbook
 
 from attendance.forms import AttendanceImportForm
 from attendance.models import AttendanceUpload, DailyAttendance, MonthlyAttendanceSummary
@@ -259,6 +260,77 @@ class AttendanceSummaryImportTests(TestCase):
         self.assertEqual(records[0]['Biometric ID'], 'BIO-001')
         self.assertEqual(records[0]['Date'], '2026-08-10')
         self.assertEqual(records[0]['Status'], 'Present')
+
+  def test_form_parses_utf16_semicolon_csv_rows(self):
+    csv_data = 'Biometric ID;Date;Morning In;Morning Out;Afternoon In;Afternoon Out\nBIO-001;2026-08-10;08:00;12:00;13:00;17:00\n'.encode('utf-16')
+    file = SimpleUploadedFile('attendance.csv', csv_data, content_type='text/csv')
+    form = AttendanceImportForm(data={}, files={'import_file': file})
+
+    self.assertTrue(form.is_valid())
+    records = form.get_records()
+    self.assertEqual(records[0]['Biometric ID'], 'BIO-001')
+    self.assertEqual(records[0]['Afternoon Out'], '17:00')
+
+  def test_csv_import_resolves_user_id_and_employee_name_headers(self):
+    records = [{
+      'User ID': 'BIO-001',
+      'Employee Name': 'Ana Santos',
+      'Date': '2026-08-14',
+      'Morning In': '08:00',
+      'Morning Out': '12:00',
+      'Afternoon In': '13:00',
+      'Afternoon Out': '17:00',
+    }]
+
+    imported, matched, errors = AttendanceImportService().import_summary_records(records)
+
+    self.assertEqual((imported, matched, errors), (1, 1, 0))
+    daily = DailyAttendance.objects.get(staff=self.staff, attendance_date=date(2026, 8, 14))
+    self.assertTrue(daily.is_present)
+    self.assertTrue(daily.four_punch_complete)
+
+  def test_csv_scanner_summary_with_question_mark_date_separator(self):
+    csv_data = '''Attendance Summary,,,,,,,,,,,,,,,
+,,,Company Name:,,,Name:Ana,,,ID:BIO-001,,,Date:26.08.01?26.08.31,,,
+,,,Working days:31,,,Attendance days:1,,,Absences days:30,,,Overtime Hours:,,
+,,,Device ID:,,Morning,,Afternoon,,Overtime,,,,Morning,,Afternoon,,Overtime,
+Date,Week,(IN),(OUT),(IN),(OUT),(IN),(OUT),Date,Week,(IN),(OUT),(IN),(OUT),(IN),(OUT)
+08.01,Sat,8:00,12:00,13:00,16:00,17:00,19:00,08.17,Mon,8:00,12:00,13:00,16:00,17:00,19:00
+'''.encode('utf-8')
+    file = SimpleUploadedFile('scanner.csv', csv_data, content_type='text/csv')
+    form = AttendanceImportForm(data={}, files={'import_file': file})
+
+    self.assertTrue(form.is_valid())
+    records = form.get_records()
+    self.assertTrue(any(record.get('Date') == '2026-08-17' for record in records))
+    daily = next(record for record in records if record.get('Date') == '2026-08-17')
+    self.assertEqual(daily['Morning In'], '8:00')
+    self.assertEqual(daily['Afternoon Out'], '16:00')
+    self.assertEqual(daily['Overtime In'], '17:00')
+    self.assertEqual(daily['Overtime Out'], '19:00')
+
+  def test_xlsx_scanner_summary_is_parsed_as_attendance_blocks(self):
+    workbook = Workbook()
+    sheet = workbook.active
+    rows = [
+      ['Attendance Summary'],
+      ['', '', 'Company Name:', '', 'Name:Ana', '', 'ID:BIO-001', '', 'Date:26.08.01?26.08.31'],
+      ['Working days:31', '', 'Attendance days:1', '', 'Absences days:30'],
+      ['Device ID:', '', 'Morning', '', 'Afternoon', '', 'Overtime'],
+      ['Date', 'Week', '(IN)', '(OUT)', '(IN)', '(OUT)', '(IN)', '(OUT)', 'Date', 'Week', '(IN)', '(OUT)', '(IN)', '(OUT)', '(IN)', '(OUT)'],
+      ['08.01', 'Sat', '8:00', '12:00', '13:00', '16:00', '17:00', '19:00', '08.17', 'Mon', '8:00', '12:00', '13:00', '16:00', '', ''],
+    ]
+    for row in rows:
+      sheet.append(row)
+    stream = io.BytesIO()
+    workbook.save(stream)
+    file = SimpleUploadedFile('scanner.xlsx', stream.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    records = AttendanceImportForm().parse_excel(file)
+
+    daily = next(record for record in records if record.get('Date') == '2026-08-17')
+    self.assertEqual(daily['Afternoon Out'], '16:00')
+    self.assertEqual(daily['Overtime In'], None)
 
   def test_form_parses_ods_spreadsheet_rows(self):
     content = b'''<?xml version="1.0" encoding="UTF-8"?>

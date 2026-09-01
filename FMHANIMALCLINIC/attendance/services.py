@@ -32,6 +32,7 @@ class AttendanceImportService:
                 'biometric id', 'biometrics id', 'biometric number', 'biometric no',
                 'staff biometric id', 'employee id', 'employee number', 'employee no',
                 'employee code', 'staff id', 'staff number', 'staff no', 'staff code',
+                'user id', 'user number', 'user no', 'user code', 'id',
             }
         )
         if value in (None, ''):
@@ -71,18 +72,29 @@ class AttendanceImportService:
 
     @staticmethod
     def _resolve_staff_from_record(record):
+        identifier_aliases = {
+            'biometric id', 'biometrics id', 'staff biometric id',
+            'biometric number', 'biometric no', 'employee id', 'employee number',
+            'employee no', 'employee code', 'staff id', 'staff number', 'staff no',
+            'staff code', 'user id', 'user number', 'user no', 'user code', 'id',
+        }
         for key, value in record.items():
-            if AttendanceImportService._normalize_key(key) in {
-                'biometric id', 'biometrics id', 'staff biometric id',
-                'biometric number', 'biometric no', 'employee id', 'employee number',
-                'employee no', 'employee code', 'staff id', 'staff number', 'staff no',
-                'staff code',
-            } and value not in (None, ''):
+            if AttendanceImportService._normalize_key(key) in identifier_aliases and value not in (None, ''):
+                identifier = str(value).strip()
                 staff = StaffMember.objects.filter(
-                    biometric_id=str(value).strip(), is_active=True
+                    biometric_id=identifier, is_active=True
                 ).first()
                 if staff:
                     return staff, 'biometric_id'
+
+        name_aliases = {'name', 'employee name', 'staff name', 'user name', 'full name'}
+        for key, value in record.items():
+            if AttendanceImportService._normalize_key(key) not in name_aliases or value in (None, ''):
+                continue
+            normalized_name = AttendanceImportService._normalize_key(value)
+            for staff in StaffMember.objects.filter(is_active=True):
+                if AttendanceImportService._normalize_key(staff.full_name) == normalized_name:
+                    return staff, 'name'
         return None, None
 
     @staticmethod

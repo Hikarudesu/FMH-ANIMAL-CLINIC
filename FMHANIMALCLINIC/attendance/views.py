@@ -2,6 +2,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import FileResponse, Http404
 from django.http import HttpResponse
+from django.core.files.storage import default_storage
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -72,6 +73,28 @@ def _system_daily_salary(staff):
     return Decimal('0')
 
 logger = logging.getLogger(__name__)
+
+
+def _delete_attendance_upload_files(year, month, upload=None):
+    """Delete stored attendance files in the period and actual upload folders."""
+    directories = {f'attendance/uploads/{year:04d}/{month:02d}'}
+    if upload and upload.source_file:
+        source_name = upload.source_file.name.replace('\\', '/')
+        if '/' in source_name:
+            directories.add(source_name.rsplit('/', 1)[0])
+
+    for directory in directories:
+        try:
+            subdirectories, files = default_storage.listdir(directory)
+            for filename in files:
+                default_storage.delete(f'{directory}/{filename}')
+            for subdirectory in subdirectories:
+                nested_directory = f'{directory}/{subdirectory}'
+                _, nested_files = default_storage.listdir(nested_directory)
+                for filename in nested_files:
+                    default_storage.delete(f'{nested_directory}/{filename}')
+        except (FileNotFoundError, OSError):
+            continue
 
 
 def _attendance_role_label(staff):
@@ -247,6 +270,7 @@ def attendance_import(request):
                             f'{old_summary_deleted} old MonthlyAttendanceSummary records '
                             f'for {report_start.strftime("%B %Y")}'
                         )
+                    _delete_attendance_upload_files(report_start.year, report_start.month, existing_upload)
 
                 imported, matched, errors = service.import_summary_records(
                     records,
@@ -395,8 +419,13 @@ def attendance_import_delete(request, year, month):
     daily_count, _ = daily_records.delete()
     summary_count, _ = summaries.delete()
 
+    upload_storage_name = upload.source_file.name if upload and upload.source_file else None
     if upload:
         upload.delete()
+
+    if upload_storage_name:
+        upload.source_file.name = upload_storage_name
+    _delete_attendance_upload_files(year, month, upload)
     
     logger.info(
         f'Deleted attendance for {month:02d}/{year}: '

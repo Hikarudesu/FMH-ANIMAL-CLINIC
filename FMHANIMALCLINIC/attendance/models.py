@@ -1,8 +1,10 @@
 """Models for attendance and biometric management."""
 from datetime import timedelta
+import calendar
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
+from django.core.files.storage import default_storage
 from employees.models import StaffMember
 from branches.models import Branch
 
@@ -483,19 +485,39 @@ class AttendanceUpload(models.Model):
 
     def delete(self, *args, **kwargs):
         """Delete the uploaded file and all attendance data for this period."""
+        source_name = self.source_file.name if self.source_file else ''
         if self.source_file:
             try:
                 self.source_file.delete(save=False)
             except Exception:
                 pass
 
+        month_start = self.period_start.replace(day=1)
+        month_end = self.period_start.replace(
+            day=calendar.monthrange(self.period_start.year, self.period_start.month)[1]
+        )
         DailyAttendance.objects.filter(
-            attendance_date__range=[self.period_start, self.period_end],
+            attendance_date__range=[month_start, month_end],
         ).delete()
         MonthlyAttendanceSummary.objects.filter(
-            period_start=self.period_start,
-            period_end=self.period_end,
+            period_start__year=self.period_start.year,
+            period_start__month=self.period_start.month,
         ).delete()
+
+        source_name = source_name.replace('\\', '/')
+        if '/' in source_name:
+            directory = source_name.rsplit('/', 1)[0]
+            try:
+                subdirectories, files = default_storage.listdir(directory)
+                for filename in files:
+                    default_storage.delete(f'{directory}/{filename}')
+                for subdirectory in subdirectories:
+                    nested_directory = f'{directory}/{subdirectory}'
+                    _, nested_files = default_storage.listdir(nested_directory)
+                    for filename in nested_files:
+                        default_storage.delete(f'{nested_directory}/{filename}')
+            except (FileNotFoundError, OSError):
+                pass
 
         return super().delete(*args, **kwargs)
 

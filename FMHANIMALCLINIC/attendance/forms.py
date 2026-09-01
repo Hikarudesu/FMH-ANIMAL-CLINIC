@@ -114,25 +114,94 @@ class AttendanceImportForm(forms.Form):
         return cell
 
     def parse_csv(self, file):
-        """Parse CSV file and return list of records."""
+        """Parse CSV exports with common encodings, delimiters, and scanner layouts."""
         file.seek(0)
-        decoded_file = file.read().decode('utf-8-sig')
-        reader = csv.DictReader(io.StringIO(decoded_file))
-        return list(reader)
+        raw_data = file.read()
+        decoded_file = None
+        for encoding in ('utf-8-sig', 'utf-16', 'utf-16-le', 'utf-16-be', 'cp1252'):
+            try:
+                decoded_file = raw_data.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        if decoded_file is None:
+            raise ValidationError('The CSV file encoding is not supported.')
+
+        sample = decoded_file[:4096]
+        try:
+            dialect = csv.Sniffer().sniff(sample, delimiters=',;\t|')
+        except csv.Error:
+            dialect = csv.excel
+
+        rows = [list(row) for row in csv.reader(io.StringIO(decoded_file), dialect)]
+        rows = [row for row in rows if any(str(value or '').strip() for value in row)]
+        if not rows:
+            return []
+
+        has_scanner_blocks = any(
+            'Name:' in ' '.join(str(value or '') for value in row)
+            and 'ID:' in ' '.join(str(value or '') for value in row)
+            for row in rows
+        )
+        if has_scanner_blocks:
+            records = []
+            for index in range(len(rows)):
+                summary = self._extract_summary_block(rows, index)
+                if summary:
+                    records.append(summary)
+            records.extend(self._extract_daily_rows_from_rows(rows))
+            if records:
+                return records
+
+        headers = [str(value).strip() for value in rows[0]]
+        return [
+            {
+                header: values[index].strip() if index < len(values) and isinstance(values[index], str) else (values[index] if index < len(values) else None)
+                for index, header in enumerate(headers) if header
+            }
+            for values in rows[1:]
+            if any(str(value or '').strip() for value in values)
+        ]
 
     def parse_excel(self, file):
-        """Parse Excel file and return list of records."""
+        """Parse ordinary XLSX tables and scanner-style repeated employee blocks."""
         file.seek(0)
         wb = load_workbook(file, read_only=True, data_only=True)
         ws = wb.active
-        headers = [cell.value for cell in ws[1]]
+        rows = [list(row) for row in ws.iter_rows(values_only=True)]
+        rows = [
+            [value if value is not None else '' for value in row]
+            for row in rows
+            if any(value is not None and str(value).strip() for value in row)
+        ]
+        has_scanner_blocks = any(
+            'Name:' in ' '.join(str(value or '') for value in row)
+            and 'ID:' in ' '.join(str(value or '') for value in row)
+            and 'Date:' in ' '.join(str(value or '') for value in row)
+            for row in rows
+        )
+        if has_scanner_blocks:
+            records = []
+            for index in range(len(rows)):
+                summary = self._extract_summary_block(rows, index)
+                if summary:
+                    records.append(summary)
+            records.extend(self._extract_daily_rows_from_rows(rows))
+            if records:
+                return records
+
+        if not rows:
+            return []
+
+        headers = rows[0]
         records = []
 
-        for row in ws.iter_rows(min_row=2, values_only=True):
+        for row in rows[1:]:
             record = {}
             for i, header in enumerate(headers):
                 if header:
-                    record[str(header)] = row[i] if i < len(row) else None
+                    value = row[i] if i < len(row) else None
+                    record[str(header)] = value.strip() if isinstance(value, str) else value
             if any(value is not None for value in record.values()):
                 records.append(record)
 
@@ -148,7 +217,7 @@ class AttendanceImportForm(forms.Form):
 
         identifier = re.search(r'ID\s*:\s*([^\s]+)', joined)
         period = re.search(
-            r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2})\s*(?:[\-–—~～]+\s*|\s*)(\d{2})\.(\d{2})(?:\.(\d{2}))?',
+            r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2})\s*(?:[\-–—~～?]+\s*|\s*)(\d{2})\.(\d{2})(?:\.(\d{2}))?',
             joined,
         )
         if not identifier or not period:
@@ -209,7 +278,7 @@ class AttendanceImportForm(forms.Form):
 
             # Extract report period - handle both complete (26.08.01～26.08.31) and incomplete (26.08.01～26.08.) formats
             report_period = re.search(
-                r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2})\s*(?:[\-–—~～]+\s*|\s*)(\d{2})\.(\d{2})(?:\.(\d{2}))?',
+                r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2})\s*(?:[\-–—~～?]+\s*|\s*)(\d{2})\.(\d{2})(?:\.(\d{2}))?',
                 joined,
             )
             if report_period:
