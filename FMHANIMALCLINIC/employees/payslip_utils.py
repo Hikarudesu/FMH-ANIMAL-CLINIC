@@ -96,25 +96,46 @@ def compute_payslip(staff_member, month, year):
     # Net pay
     payslip.net_pay = round(payslip.gross_pay - payslip.total_deductions, 2)
 
-    from attendance.models import MonthlyAttendanceSummary
-    monthly_summary = MonthlyAttendanceSummary.objects.filter(
+    from attendance.models import DailyAttendance, MonthlyAttendanceSummary
+
+    raw_rows = DailyAttendance.objects.filter(
         staff=staff_member,
-        period_start__year=year,
-        period_start__month=month,
-    ).order_by('-period_end').first()
-    if monthly_summary:
-        payslip.working_days = monthly_summary.working_days
-        payslip.attendance_days = monthly_summary.attendance_days
-        payslip.days_worked = monthly_summary.attendance_days
-        payslip.absence_days = monthly_summary.absence_days
-        payslip.days_absent = monthly_summary.absence_days
-        payslip.overtime_hours = monthly_summary.overtime_hours
-        payslip.sick_hours = monthly_summary.sick_hours
-        payslip.leave_hours = monthly_summary.leave_hours
-        payslip.daily_salary = daily_rate
-        payslip.overtime_pay = monthly_summary.overtime_pay
-        payslip.charges = monthly_summary.charges
-        if monthly_summary.real_pay:
-            payslip.net_pay = monthly_summary.real_pay
+        attendance_date__year=year,
+        attendance_date__month=month,
+    )
+    has_raw_time_metadata = raw_rows.filter(
+        check_in__isnull=False,
+    ).exists() or raw_rows.filter(
+        check_out__isnull=False,
+    ).exists() or raw_rows.filter(
+        morning_in__isnull=False,
+    ).exists() or raw_rows.filter(
+        morning_out__isnull=False,
+    ).exists() or raw_rows.filter(
+        afternoon_in__isnull=False,
+    ).exists() or raw_rows.filter(
+        afternoon_out__isnull=False,
+    ).exists()
+
+    if not has_raw_time_metadata:
+        monthly_summary = MonthlyAttendanceSummary.objects.filter(
+            staff=staff_member,
+            period_start__year=year,
+            period_start__month=month,
+        ).order_by('-period_end').first()
+        if monthly_summary:
+            payslip.working_days = monthly_summary.working_days
+            payslip.attendance_days = monthly_summary.attendance_days
+            payslip.days_worked = monthly_summary.attendance_days
+            payslip.absence_days = monthly_summary.absence_days
+            payslip.days_absent = monthly_summary.absence_days
+            payslip.overtime_hours = monthly_summary.overtime_hours
+            payslip.sick_hours = monthly_summary.sick_hours
+            payslip.leave_hours = monthly_summary.leave_hours
+            payslip.daily_salary = daily_rate
+            payslip.overtime_pay = monthly_summary.overtime_pay
+            payslip.charges = monthly_summary.charges
+            if monthly_summary.real_pay:
+                payslip.net_pay = monthly_summary.real_pay
 
     return payslip

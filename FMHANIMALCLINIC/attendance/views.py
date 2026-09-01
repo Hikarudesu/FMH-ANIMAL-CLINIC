@@ -33,6 +33,7 @@ from .forms import (
 )
 from .services import AttendanceImportService, AttendanceProcessor
 from settings.utils import get_setting
+from payroll.models import PayrollPeriod, Payslip
 
 
 def _system_daily_salary(staff):
@@ -195,17 +196,6 @@ def attendance_import(request):
                 service = AttendanceImportService()
                 records = form.get_records()
                 unmatched_ids = AttendanceImportService.get_unmatched_biometric_ids(records)
-                imported, matched, errors = service.import_summary_records(
-                    records,
-                    source_filename=form.cleaned_data['import_file'].name,
-                    uploaded_by=request.user,
-                )
-
-                if unmatched_ids:
-                    messages.warning(
-                        request,
-                        'The following biometric IDs were not matched to active staff: ' + ', '.join(unmatched_ids)
-                    )
 
                 report_start = next(
                     (service.parse_date_value(record.get('Report Start')) for record in records
@@ -230,17 +220,77 @@ def attendance_import(request):
                         report_end = report_start.replace(
                             day=monthrange(report_start.year, report_start.month)[1]
                         )
+
+                if report_start and PayrollPeriod.objects.filter(
+                    year=report_start.year,
+                    month=report_start.month,
+                    status__in=[PayrollPeriod.Status.GENERATED, PayrollPeriod.Status.RELEASED],
+                ).exists():
+                    messages.error(
+                        request,
+                        f'Attendance for {report_start:%B %Y} cannot be imported because payroll has already been generated or released.'
+                    )
+                    return redirect('attendance:import')
+
+                existing_upload = None
+                if report_start and report_end:
+                    existing_upload = AttendanceUpload.objects.filter(
+                        period_start__year=report_start.year,
+                        period_start__month=report_start.month,
+                    ).order_by('-period_end').first()
+                    if existing_upload:
+                        old_daily_deleted, old_summary_deleted = AttendanceImportService.clear_monthly_import_data(
+                            report_start, report_end
+                        )
+                        logger.info(
+                            f'Deleted {old_daily_deleted} old DailyAttendance and '
+                            f'{old_summary_deleted} old MonthlyAttendanceSummary records '
+                            f'for {report_start.strftime("%B %Y")}'
+                        )
+
+                imported, matched, errors = service.import_summary_records(
+                    records,
+                    source_filename=form.cleaned_data['import_file'].name,
+                    uploaded_by=request.user,
+                )
+
+                if unmatched_ids:
+                    messages.warning(
+                        request,
+                        'The following biometric IDs were not matched to active staff: ' + ', '.join(unmatched_ids)
+                    )
+
                 if report_start and report_end:
                     import_file = form.cleaned_data['import_file']
                     import_file.seek(0)
-                    AttendanceUpload.objects.create(
-                        period_start=report_start,
-                        period_end=report_end,
-                        source_file=import_file,
-                        source_filename=import_file.name,
-                        unmatched_biometric_ids=unmatched_ids,
-                        uploaded_by=request.user,
+
+                    if existing_upload:
+                        existing_upload.period_start = report_start
+                        existing_upload.period_end = report_end
+                        existing_upload.source_file = import_file
+                        existing_upload.source_filename = import_file.name
+                        existing_upload.unmatched_biometric_ids = unmatched_ids
+                        existing_upload.uploaded_by = request.user
+                        existing_upload.save()
+                    else:
+                        AttendanceUpload.objects.create(
+                            period_start=report_start,
+                            period_end=report_end,
+                            source_file=import_file,
+                            source_filename=import_file.name,
+                            unmatched_biometric_ids=unmatched_ids,
+                            uploaded_by=request.user,
+                        )
+
+                    editable_periods = PayrollPeriod.objects.filter(
+                        year=report_start.year,
+                        month=report_start.month,
+                        status__in=[PayrollPeriod.Status.DRAFT, PayrollPeriod.Status.EDITED],
                     )
+                    for payroll_period in editable_periods:
+                        for payslip in Payslip.objects.filter(payroll_period=payroll_period):
+                            payslip.generate_from_employee()
+                            payslip.save()
                 
                 message = (
                     f'Monthly import completed: {imported} records imported, '
@@ -286,25 +336,79 @@ def attendance_upload_history(request):
 @admin_only
 @require_http_methods(['POST'])
 def attendance_import_delete(request, year, month):
-    """Delete an imported month so a corrected file can be uploaded."""
+    """
+    Delete an imported month so a corrected file can be uploaded.
+    
+    Deletes:
+    - All DailyAttendance records for the month
+    - MonthlyAttendanceSummary records
+    - AttendanceUpload record and source file
+    
+    Safety:
+    - Prevents deletion if attendance is LOCKED (approved and finalized)
+    - Prevents deletion if payroll is RELEASED (for audit trail)
+    - Payslips remain unaffected (stored separately)
+    """
+    from payroll.models import PayrollPeriod, Payslip
+    
     upload = AttendanceUpload.objects.filter(
         period_start__year=year,
         period_start__month=month,
     ).first()
+    
     summaries = MonthlyAttendanceSummary.objects.filter(
         period_start__year=year,
         period_start__month=month,
     )
-    if not upload and not summaries.exists():
-        messages.error(request, 'No attendance upload exists for this month.')
-    elif summaries.filter(review_status=MonthlyAttendanceSummary.ReviewStatus.LOCKED).exists():
-        messages.error(request, 'Locked attendance cannot be deleted.')
-    else:
-        deleted_count, _ = summaries.delete()
-        if upload:
-            upload.source_file.delete(save=False)
-            upload.delete()
-        messages.success(request, f'Deleted the {month:02d}/{year} attendance upload ({deleted_count} records).')
+    
+    daily_records = DailyAttendance.objects.filter(
+        attendance_date__year=year,
+        attendance_date__month=month,
+    )
+    
+    # Check if attendance is locked
+    if summaries.filter(review_status=MonthlyAttendanceSummary.ReviewStatus.LOCKED).exists():
+        messages.error(request, 'Locked attendance cannot be deleted. It must be unlocked first.')
+        return redirect('attendance:history')
+    
+    # Check if payroll was released for this month
+    released_payroll = PayrollPeriod.objects.filter(
+        year=year,
+        month=month,
+        status=PayrollPeriod.Status.RELEASED,
+    ).exists()
+    
+    if released_payroll:
+        messages.error(
+            request,
+            f'Cannot delete attendance for {month:02d}/{year} - payroll has been released. '
+            'If you need to correct attendance, contact administration to reverse the payroll release first.'
+        )
+        return redirect('attendance:history')
+    
+    # If no data, inform user
+    if not upload and not summaries.exists() and not daily_records.exists():
+        messages.error(request, 'No attendance data exists for this month.')
+        return redirect('attendance:history')
+    
+    # Delete all traces of the import
+    daily_count, _ = daily_records.delete()
+    summary_count, _ = summaries.delete()
+
+    if upload:
+        upload.delete()
+    
+    logger.info(
+        f'Deleted attendance for {month:02d}/{year}: '
+        f'{daily_count} daily records, {summary_count} monthly summaries'
+    )
+    
+    messages.success(
+        request,
+        f'Deleted all attendance data for {month:02d}/{year} '
+        f'({daily_count} daily records, {summary_count} summary). '
+        'Payroll records remain unaffected.'
+    )
     return redirect('attendance:history')
 
 

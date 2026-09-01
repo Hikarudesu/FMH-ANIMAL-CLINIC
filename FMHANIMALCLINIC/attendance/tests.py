@@ -87,6 +87,51 @@ class AttendanceSummaryImportTests(TestCase):
         self.assertEqual(daily.overtime_minutes, 45)
         self.assertEqual(daily.total_work_minutes, 570)
 
+  def test_parse_xml_keeps_daily_morning_afternoon_rows_in_second_half_imports(self):
+        xml = b'''<?xml version="1.0"?>
+        <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+            xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:x="urn:schemas-microsoft-com:office:excel"
+            xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+          <Worksheet>
+            <Table>
+              <Row>
+                <Cell><Data ss:Type="String">Name:Carl Vincent Sanchez</Data></Cell>
+                <Cell><Data ss:Type="String">ID:00001</Data></Cell>
+                <Cell><Data ss:Type="String">Date:26.08.0126.08.31</Data></Cell>
+              </Row>
+              <Row>
+                <Cell><Data ss:Type="String">Working days:31</Data></Cell>
+                <Cell><Data ss:Type="String">Attendance days:1</Data></Cell>
+                <Cell><Data ss:Type="String">Absences days:30</Data></Cell>
+              </Row>
+              <Row>
+                <Cell><Data ss:Type="String">Date</Data></Cell>
+                <Cell><Data ss:Type="String">Week</Data></Cell>
+                <Cell><Data ss:Type="String">Morning (IN)</Data></Cell>
+                <Cell><Data ss:Type="String">Morning (OUT)</Data></Cell>
+                <Cell><Data ss:Type="String">Afternoon (IN)</Data></Cell>
+                <Cell><Data ss:Type="String">Afternoon (OUT)</Data></Cell>
+              </Row>
+              <Row>
+                <Cell><Data ss:Type="String">17.08</Data></Cell>
+                <Cell><Data ss:Type="String">Mon</Data></Cell>
+                <Cell><Data ss:Type="String">07:30</Data></Cell>
+                <Cell><Data ss:Type="String">12:00</Data></Cell>
+                <Cell><Data ss:Type="String">13:00</Data></Cell>
+                <Cell><Data ss:Type="String">17:30</Data></Cell>
+              </Row>
+            </Table>
+          </Worksheet>
+        </Workbook>'''
+
+        file = SimpleUploadedFile('attendance.xml', xml, content_type='application/xml')
+        records = AttendanceImportForm().parse_xml(file)
+
+        self.assertTrue(any(record.get('Date') == '2026-08-17' for record in records))
+        self.assertTrue(any(record.get('Morning In') == '07:30' for record in records))
+        self.assertTrue(any(record.get('Afternoon Out') == '17:30' for record in records))
+
   def test_incomplete_punch_pairs_are_counted_as_absent(self):
         records = [{
             'Employee Number': 'BIO-001',
@@ -102,6 +147,88 @@ class AttendanceSummaryImportTests(TestCase):
         self.assertIsNone(daily.check_out)
         self.assertFalse(daily.is_present)
         self.assertEqual(daily.status, 'ABSENT')
+
+  def test_complete_punches_and_overtime_are_persisted(self):
+    records = [{
+      'Biometric ID': 'BIO-001',
+      'Date': '2026-08-13',
+      'Morning In': '08:00',
+      'Morning Out': '12:00',
+      'Afternoon In': '13:00',
+      'Afternoon Out': '17:00',
+      'Overtime In': '18:00',
+      'Overtime Out': '20:00',
+    }]
+
+    imported, matched, errors = AttendanceImportService().import_summary_records(records)
+
+    self.assertEqual((imported, matched, errors), (1, 1, 0))
+    daily = DailyAttendance.objects.get(staff=self.staff, attendance_date=date(2026, 8, 13))
+    self.assertTrue(daily.four_punch_complete)
+    self.assertTrue(daily.is_present)
+    self.assertEqual(daily.ot_in.hour, 18)
+    self.assertEqual(daily.ot_out.hour, 20)
+    self.assertEqual(daily.ot_hours_calculated, 2)
+
+  def test_summary_import_is_ignored_when_detailed_time_data_exists_in_same_payroll_half(self):
+        records = [
+            {
+                'Summary': 'MONTHLY',
+                'Biometric ID': 'BIO-001',
+                'Report Start': '2026-08-16',
+                'Report End': '2026-08-31',
+                'Working days': '16',
+                'Attendance days': '1',
+                'Absences days': '15',
+            },
+            {
+                'Biometric ID': 'BIO-001',
+                'Date': '2026-08-17',
+                'Morning In': '08:26',
+                'Morning Out': '',
+                'Afternoon In': '',
+                'Afternoon Out': '',
+            },
+        ]
+
+        imported, matched, errors = AttendanceImportService().import_summary_records(records)
+
+        self.assertEqual((imported, matched, errors), (1, 1, 0))
+        self.assertFalse(MonthlyAttendanceSummary.objects.filter(staff=self.staff).exists())
+
+        daily = DailyAttendance.objects.get(staff=self.staff, attendance_date=date(2026, 8, 17))
+        self.assertFalse(daily.is_present)
+        self.assertEqual(daily.status, 'ABSENT')
+
+  def test_first_half_summary_is_preserved_when_only_second_half_has_detailed_time_data(self):
+        records = [
+            {
+                'Summary': 'MONTHLY',
+                'Biometric ID': 'BIO-001',
+                'Report Start': '2026-08-01',
+                'Report End': '2026-08-15',
+                'Working days': '15',
+                'Attendance days': '1',
+                'Absences days': '14',
+            },
+            {
+                'Biometric ID': 'BIO-001',
+                'Date': '2026-08-17',
+                'Morning In': '08:26',
+                'Morning Out': '12:00',
+                'Afternoon In': '13:00',
+                'Afternoon Out': '17:00',
+            },
+        ]
+
+        imported, matched, errors = AttendanceImportService().import_summary_records(records)
+
+        self.assertEqual((imported, matched, errors), (2, 2, 0))
+        self.assertTrue(MonthlyAttendanceSummary.objects.filter(staff=self.staff, period_start=date(2026, 8, 1), period_end=date(2026, 8, 15)).exists())
+
+        daily = DailyAttendance.objects.get(staff=self.staff, attendance_date=date(2026, 8, 17))
+        self.assertTrue(daily.is_present)
+        self.assertEqual(daily.status, 'PRESENT')
 
   def test_form_parses_xml_spreadsheet_rows(self):
         xml = b'''<?xml version="1.0"?>
@@ -206,16 +333,25 @@ class AttendanceSummaryImportTests(TestCase):
     summary = MonthlyAttendanceSummary.objects.get(staff=self.staff)
     self.assertEqual(summary.review_status, MonthlyAttendanceSummary.ReviewStatus.IMPORTED)
 
-  def test_duplicate_monthly_upload_is_rejected(self):
-    records = [{
+  def test_duplicate_monthly_upload_updates_existing_record(self):
+    original = [{
       'Summary': 'MONTHLY', 'Biometric ID': 'BIO-001',
       'Report Start': '2026-08-01', 'Report End': '2026-08-31',
       'Working days': '31', 'Attendance days': '1', 'Absences days': '30',
     }]
-    AttendanceImportService().import_summary_records(records)
+    updated = [{
+      'Summary': 'MONTHLY', 'Biometric ID': 'BIO-001',
+      'Report Start': '2026-08-01', 'Report End': '2026-08-31',
+      'Working days': '20', 'Attendance days': '10', 'Absences days': '11',
+    }]
 
-    with self.assertRaisesMessage(ValueError, "This month's attendance has already been uploaded."):
-      AttendanceImportService().import_summary_records(records)
+    AttendanceImportService().import_summary_records(original)
+    AttendanceImportService().import_summary_records(updated)
+
+    summary = MonthlyAttendanceSummary.objects.get(staff=self.staff)
+    self.assertEqual(summary.working_days, 20)
+    self.assertEqual(summary.attendance_days, 10)
+    self.assertEqual(summary.absence_days, 11)
 
   def test_unmatched_biometric_ids_are_reported(self):
     records = [{
@@ -227,6 +363,134 @@ class AttendanceSummaryImportTests(TestCase):
     unmatched = AttendanceImportService.get_unmatched_biometric_ids(records)
 
     self.assertEqual(unmatched, ['BIO-999'])
+
+  def test_upload_delete_removes_monthly_attendance_data(self):
+    daily = DailyAttendance.objects.create(
+      staff=self.staff,
+      attendance_date=date(2026, 8, 10),
+      morning_in='08:00:00',
+      morning_out='12:00:00',
+      afternoon_in='13:00:00',
+      afternoon_out='17:00:00',
+      check_in='08:00:00',
+      check_out='17:00:00',
+      is_present=True,
+      status='PRESENT',
+      total_work_minutes=540,
+    )
+    monthly = MonthlyAttendanceSummary.objects.create(
+      staff=self.staff,
+      period_start=date(2026, 8, 1),
+      period_end=date(2026, 8, 31),
+      working_days=31,
+      attendance_days=1,
+      absence_days=30,
+    )
+    upload = AttendanceUpload.objects.create(
+      period_start=date(2026, 8, 1),
+      period_end=date(2026, 8, 31),
+      source_file=SimpleUploadedFile('august.csv', b'Biometric ID,Date\nBIO-001,2026-08-10\n'),
+      source_filename='august.csv',
+      unmatched_biometric_ids=[],
+    )
+
+    upload.delete()
+
+    self.assertFalse(DailyAttendance.objects.filter(id=daily.id).exists())
+    self.assertFalse(MonthlyAttendanceSummary.objects.filter(id=monthly.id).exists())
+    self.assertFalse(AttendanceUpload.objects.filter(id=upload.id).exists())
+
+  def test_same_month_upload_replaces_old_imported_data(self):
+    original = AttendanceUpload.objects.create(
+      period_start=date(2026, 9, 1),
+      period_end=date(2026, 9, 30),
+      source_file=SimpleUploadedFile('september-old.csv', b'Biometric ID,Date\nBIO-001,2026-09-01\n'),
+      source_filename='september-old.csv',
+      unmatched_biometric_ids=[],
+    )
+    DailyAttendance.objects.create(
+      staff=self.staff,
+      attendance_date=date(2026, 9, 1),
+      morning_in='08:00:00',
+      morning_out='12:00:00',
+      afternoon_in='13:00:00',
+      afternoon_out='17:00:00',
+      check_in='08:00:00',
+      check_out='17:00:00',
+      is_present=True,
+      status='PRESENT',
+      total_work_minutes=540,
+    )
+    MonthlyAttendanceSummary.objects.create(
+      staff=self.staff,
+      period_start=date(2026, 9, 1),
+      period_end=date(2026, 9, 30),
+      working_days=30,
+      attendance_days=1,
+      absence_days=29,
+    )
+
+    replacement_file = SimpleUploadedFile(
+      'september-new.csv',
+      b'Biometric ID,Date\nBIO-001,2026-09-05\n',
+      content_type='text/csv',
+    )
+
+    existing_upload = AttendanceUpload.objects.filter(
+      period_start__year=2026,
+      period_start__month=9,
+    ).first()
+    if existing_upload:
+      DailyAttendance.objects.filter(attendance_date__year=2026, attendance_date__month=9).delete()
+      MonthlyAttendanceSummary.objects.filter(period_start__year=2026, period_start__month=9).delete()
+      existing_upload.source_file.delete(save=False)
+      existing_upload.source_filename = replacement_file.name
+      existing_upload.source_file = replacement_file
+      existing_upload.save()
+
+    self.assertEqual(AttendanceUpload.objects.filter(period_start__year=2026, period_start__month=9).count(), 1)
+    self.assertEqual(DailyAttendance.objects.filter(attendance_date__year=2026, attendance_date__month=9).count(), 0)
+    self.assertEqual(MonthlyAttendanceSummary.objects.filter(period_start__year=2026, period_start__month=9).count(), 0)
+
+  def test_clear_monthly_import_data_removes_all_ranges_in_same_month(self):
+    DailyAttendance.objects.create(
+      staff=self.staff,
+      attendance_date=date(2026, 9, 5),
+      is_present=True,
+      status='PRESENT',
+    )
+    DailyAttendance.objects.create(
+      staff=self.staff,
+      attendance_date=date(2026, 9, 25),
+      is_present=True,
+      status='PRESENT',
+    )
+    MonthlyAttendanceSummary.objects.create(
+      staff=self.staff,
+      period_start=date(2026, 9, 1),
+      period_end=date(2026, 9, 15),
+      attendance_days=4,
+    )
+    MonthlyAttendanceSummary.objects.create(
+      staff=self.staff,
+      period_start=date(2026, 9, 1),
+      period_end=date(2026, 9, 30),
+      attendance_days=8,
+    )
+
+    AttendanceImportService.clear_monthly_import_data(
+      date(2026, 9, 1),
+      date(2026, 9, 15),
+    )
+
+    self.assertFalse(DailyAttendance.objects.filter(
+      attendance_date__year=2026,
+      attendance_date__month=9,
+    ).exists())
+    self.assertFalse(MonthlyAttendanceSummary.objects.filter(
+      period_start__year=2026,
+      period_start__month=9,
+    ).exists())
 
   def test_upload_history_preserves_original_file(self):
     upload = AttendanceUpload.objects.create(

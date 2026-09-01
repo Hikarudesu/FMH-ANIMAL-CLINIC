@@ -3,6 +3,46 @@
 {% block title %}Attendance Upload History{% endblock %}
 
 {% block content %}
+<style>
+  /* Modal Button Styles */
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+  }
+
+  .btn-cancel:hover {
+    border-color: var(--border-hover);
+    background: var(--bg);
+  }
+
+  .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    color: white;
+  }
+
+  .btn-submit:hover {
+    opacity: 0.9;
+  }
+</style>
 {% include "components/page_hero.html" with title="Attendance Upload History" icon="bx-history" subtitle="Review original attendance exports and manage monthly re-uploads" action_url="/attendance/" action_label="Back to Attendance" action_icon="bx-arrow-back" %}
 
 <div class="container-fluid" style="margin-top: 24px;">
@@ -50,9 +90,7 @@
                             <div class="rec-action-grid" style="margin: 0; width: max-content;">
                                 <a href="{% url 'attendance:review' %}?year={{ upload.period_start.year }}&month={{ upload.period_start.month }}" class="action-btn" title="Review attendance"><i class='bx bx-show'></i></a>
                                 {% if upload.review_status != 'LOCKED' %}
-                                <form method="post" action="{% url 'attendance:import_delete' upload.period_start.year upload.period_start.month %}" style="display: inline;" onsubmit="return confirm('Delete this monthly upload so a corrected file can be re-uploaded?');">
-                                    {% csrf_token %}<button type="submit" class="action-btn action-btn-danger" title="Delete upload"><i class='bx bx-trash'></i></button>
-                                </form>
+                                <button type="button" class="action-btn action-btn-danger" title="Delete upload" onclick="openDeleteAttendanceModal('{% url 'attendance:import_delete' upload.period_start.year upload.period_start.month %}', '{{ upload.period_start|date:'F Y'|escapejs }}')"><i class='bx bx-trash'></i></button>
                                 {% endif %}
                             </div>
                         </td>
@@ -65,4 +103,41 @@
         </div>
     </div>
 </div>
+
+<script>
+window.openDeleteAttendanceModal = function(url, monthName) {
+  document.getElementById('deleteAttendanceMonth').textContent = monthName;
+  document.getElementById('deleteAttendanceForm').action = url;
+  document.getElementById('deleteAttendanceModal').classList.add('active');
+}
+
+window.closeDeleteAttendanceModal = function() {
+  document.getElementById('deleteAttendanceModal').classList.remove('active');
+}
+</script>
+
+<!-- Delete Attendance Modal -->
+<div class="modal-overlay" id="deleteAttendanceModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: #e63946;"><i class='bx bx-error-circle'></i> Delete Attendance Upload</h3>
+      <button type="button" class="modal-close" onclick="closeDeleteAttendanceModal()">&times;</button>
+    </div>
+    <form id="deleteAttendanceForm" method="post" action="">
+      {% csrf_token %}
+      <div class="modal-body" style="text-align: center; padding-top: 30px;">
+        <i class='bx bx-info-circle' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="deleteAttendanceMonth"></span>?</h4>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+          Delete this monthly upload so a corrected file can be re-uploaded. This action cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+        <button type="button" class="btn-cancel" onclick="closeDeleteAttendanceModal()">Cancel</button>
+        <button type="submit" class="btn-submit" style="background-color: #e63946; border-color: #e63946; color: white;">Yes, Delete Upload</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock %}

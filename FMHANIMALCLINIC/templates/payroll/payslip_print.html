@@ -260,7 +260,7 @@
           <span class="val">{% if payslip.employee.user and payslip.employee.user.assigned_role %}{{ payslip.employee.user.assigned_role.name }}{% else %}{{ payslip.employee.get_position_display|default:"Staff" }}{% endif %}</span>
         </td>
         <td width="25%">
-          <span class="label">Days Worked</span>
+          <span class="label">Attendance</span>
           <span class="val">{{ payslip.days_worked }}</span>
         </td>
       </tr>
@@ -283,8 +283,7 @@
     <table class="info-grid" style="margin-top: 12px;">
       <tr>
         <td><span class="label">Overtime Hours</span><span class="val">{{ payslip.overtime_hours }}</span></td>
-        <td><span class="label">Sick Hours</span><span class="val">{{ payslip.sick_hours }}</span></td>
-        <td><span class="label">Leave Hours</span><span class="val">{{ payslip.leave_hours }}</span></td>
+        <td><span class="label">Leave Days</span><span class="val">{{ payslip.regular_leave_days|default:0 }}</span></td>
       </tr>
     </table>
     

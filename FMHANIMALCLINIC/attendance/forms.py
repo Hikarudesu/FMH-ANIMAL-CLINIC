@@ -138,6 +138,191 @@ class AttendanceImportForm(forms.Form):
 
         return records
 
+    @staticmethod
+    def _extract_summary_block(rows, index):
+        """Build one summary record from a header row and the immediately following key/value rows."""
+        row = rows[index]
+        joined = ' '.join(str(value).strip() for value in row if value)
+        if 'Name:' not in joined or 'ID:' not in joined or 'Date:' not in joined:
+            return None
+
+        identifier = re.search(r'ID\s*:\s*([^\s]+)', joined)
+        period = re.search(
+            r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2})\s*(?:[\-–—~～]+\s*|\s*)(\d{2})\.(\d{2})(?:\.(\d{2}))?',
+            joined,
+        )
+        if not identifier or not period:
+            return None
+
+        start_year, start_month, start_day, end_year, end_month, end_day = period.groups()
+        if not end_day:
+            for lookahead in rows[index + 1:min(index + 6, len(rows))]:
+                lookahead_joined = ' '.join(str(value or '').strip() for value in lookahead if value)
+                working_match = re.search(r'Working\s+days\s*[:：]\s*(\d+)', lookahead_joined)
+                if working_match:
+                    end_day = working_match.group(1)
+                    break
+            end_day = end_day or '31'
+
+        summary = {
+            'Summary': 'MONTHLY',
+            'Biometric ID': identifier.group(1),
+            'Report Start': f'20{start_year}-{start_month}-{start_day}',
+            'Report End': f'20{end_year}-{end_month}-{end_day}',
+        }
+
+        for lookahead in rows[index + 1:min(index + 6, len(rows))]:
+            for value in lookahead:
+                text = str(value or '').strip()
+                if not text or 'Name:' in text or 'ID:' in text or 'Date:' in text:
+                    continue
+                match = re.match(r'^([^:：]+?)\s*[:：]\s*(.*?)\s*$', text)
+                if not match:
+                    continue
+                label, amount = match.groups()
+                normalized = AttendanceImportForm._normalise_header(label)
+                if not label or normalized in {'real pay', 'name', 'id', 'date'}:
+                    continue
+                summary[label.strip()] = amount.strip()
+
+        return summary
+
+    @staticmethod
+    def _extract_daily_rows_from_rows(rows):
+        """Convert scanner export rows like 17.08 / 07:30 / 12:00 / 13:00 / 17:30 into individual daily attendance records."""
+        records = []
+        current_biometric = None
+        current_year = None
+        current_month = None
+
+        for index, values in enumerate(rows):
+            joined = ' '.join(str(value).strip() for value in values if value)
+            if not joined:
+                continue
+
+            # Extract biometric ID - look for employee header pattern first.
+            # Some exports omit Company Name and only provide: "Name:... ID:00001 Date:...".
+            if ('Name:' in joined and 'ID:' in joined) or ('Company Name:' in joined and 'Name:' in joined and 'ID:' in joined):
+                id_match = re.search(r'ID\s*:\s*([^\s]+)', joined)
+                if id_match:
+                    current_biometric = id_match.group(1).strip()
+
+            # Extract report period - handle both complete (26.08.01～26.08.31) and incomplete (26.08.01～26.08.) formats
+            report_period = re.search(
+                r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2})\s*(?:[\-–—~～]+\s*|\s*)(\d{2})\.(\d{2})(?:\.(\d{2}))?',
+                joined,
+            )
+            if report_period:
+                start_year, start_month, start_day, end_year, end_month, end_day = report_period.groups()
+                current_year = int(f'20{start_year}')
+                current_month = int(start_month)
+                
+                # If end day is missing, infer from the calendar-day value exported below the header.
+                if not end_day:
+                    for lookahead in rows[index + 1:min(index + 6, len(rows))]:
+                        lookahead_joined = ' '.join(str(v).strip() for v in lookahead if v)
+                        working_match = re.search(r'Working\s+days\s*[:：]\s*(\d+)', lookahead_joined)
+                        if working_match:
+                            end_day = str(working_match.group(1))
+                            break
+                    if not end_day:
+                        end_day = '31'
+
+            if not current_biometric or current_year is None or current_month is None:
+                continue
+
+            if len(values) < 6:
+                continue
+
+            # Skip header rows - check if first column is "Date"
+            if str(values[0]).strip().lower() == 'date':
+                continue
+            
+            # Skip rows with header keywords
+            if 'Device ID' in joined:
+                continue
+
+            # Helper function to clean time values
+            def clean_time(value):
+                value = str(value).strip()
+                if not value or value in {'-', '--', 'NA', 'N/A'}:
+                    return None
+                return value
+
+            def parse_day_month(raw_day):
+                if not re.fullmatch(r'\d{1,2}[./-]\d{1,2}', str(raw_day).strip()):
+                    return None, None
+
+                first_text, second_text = re.split(r'[./-]', str(raw_day).strip())
+                try:
+                    first_num = int(first_text)
+                    second_num = int(second_text)
+                except ValueError:
+                    return None, None
+
+                if first_num <= 12 and second_num <= 31:
+                    return first_num, second_num
+                if second_num <= 12 and first_num <= 31:
+                    return second_num, first_num
+                return None, None
+
+            # EXTRACT LEFT HALF (First 15 days) - columns 0-7
+            raw_day = str(values[0]).strip()
+            month_value, day_value = parse_day_month(raw_day)
+            if month_value is not None and day_value is not None:
+                day = day_value
+                month = month_value
+                if month == 0:
+                    month = current_month
+
+                morning_in = clean_time(values[2] if len(values) > 2 else '')
+                morning_out = clean_time(values[3] if len(values) > 3 else '')
+                afternoon_in = clean_time(values[4] if len(values) > 4 else '')
+                afternoon_out = clean_time(values[5] if len(values) > 5 else '')
+
+                if any((morning_in, morning_out, afternoon_in, afternoon_out)):
+                    record = {
+                        'Biometric ID': current_biometric,
+                        'Date': f'{current_year}-{month:02d}-{day:02d}',
+                        'Morning In': morning_in,
+                        'Morning Out': morning_out,
+                        'Afternoon In': afternoon_in,
+                        'Afternoon Out': afternoon_out,
+                        'Overtime In': clean_time(values[6] if len(values) > 6 else ''),
+                        'Overtime Out': clean_time(values[7] if len(values) > 7 else ''),
+                    }
+                    records.append(record)
+
+            # EXTRACT RIGHT HALF (16-31 days) - from columns 8-15
+            if len(values) > 13:
+                raw_day_right = str(values[8]).strip()
+                month_value, day_value = parse_day_month(raw_day_right)
+                if month_value is not None and day_value is not None:
+                    day = day_value
+                    month = month_value
+                    if month == 0:
+                        month = current_month
+
+                    morning_in = clean_time(values[10] if len(values) > 10 else '')
+                    morning_out = clean_time(values[11] if len(values) > 11 else '')
+                    afternoon_in = clean_time(values[12] if len(values) > 12 else '')
+                    afternoon_out = clean_time(values[13] if len(values) > 13 else '')
+
+                    if any((morning_in, morning_out, afternoon_in, afternoon_out)):
+                        record = {
+                            'Biometric ID': current_biometric,
+                            'Date': f'{current_year}-{month:02d}-{day:02d}',
+                            'Morning In': morning_in,
+                            'Morning Out': morning_out,
+                            'Afternoon In': afternoon_in,
+                            'Afternoon Out': afternoon_out,
+                            'Overtime In': clean_time(values[14] if len(values) > 14 else ''),
+                            'Overtime Out': clean_time(values[15] if len(values) > 15 else ''),
+                        }
+                        records.append(record)
+
+        return records
+
     def parse_ods(self, file):
         """Parse an OpenDocument Spreadsheet (.ods) into row dictionaries."""
         file.seek(0)
@@ -162,38 +347,15 @@ class AttendanceImportForm(forms.Form):
         if not rows:
             return []
 
-        # Scanner summary exports contain one employee block rather than a
-        # conventional header row. Convert each block to a monthly record.
         records = []
         for index, values in enumerate(rows):
-            joined = ' '.join(str(value).strip() for value in values if value)
-            if 'Name:' not in joined or 'ID:' not in joined or 'Date:' not in joined:
+            summary = AttendanceImportForm._extract_summary_block(rows, index)
+            if summary:
+                records.append(summary)
                 continue
 
-            identifier = re.search(r'ID\s*:\s*([^\s]+)', joined)
-            period = re.search(
-                r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2})\s*[\-–—~～]+\s*(\d{2})\.(\d{2})\.(\d{2})',
-                joined,
-            )
-            if not identifier or not period:
-                continue
-
-            start_year, start_month, start_day, end_year, end_month, end_day = period.groups()
-            summary = {
-                'Summary': 'MONTHLY',
-                'Biometric ID': identifier.group(1),
-                'Report Start': f'20{start_year}-{start_month}-{start_day}',
-                'Report End': f'20{end_year}-{end_month}-{end_day}',
-            }
-            for detail_row in rows[index + 1:index + 3]:
-                for value in detail_row:
-                    match = re.match(r'\s*([^:：]+)[:：]\s*(.*?)\s*$', str(value or ''))
-                    if match:
-                        label, amount = match.groups()
-                        if AttendanceImportForm._normalise_header(label) == 'real pay':
-                            continue
-                        summary[label.strip()] = amount.strip()
-            records.append(summary)
+        daily_records = AttendanceImportForm._extract_daily_rows_from_rows(rows)
+        records.extend(daily_records)
 
         if records:
             return records
@@ -259,38 +421,20 @@ class AttendanceImportForm(forms.Form):
                 rows.append(values)
         records = []
         for index, values in enumerate(rows):
-            joined = ' '.join(str(value).strip() for value in values if value)
-            if 'Name:' not in joined or 'ID:' not in joined or 'Date:' not in joined:
+            summary = AttendanceImportForm._extract_summary_block(rows, index)
+            if summary:
+                records.append(summary)
                 continue
 
-            identifier = re.search(r'ID\s*:\s*([^\s]+)', joined)
-            period = re.search(
-                r'Date\s*:\s*(\d{2})\.(\d{2})\.(\d{2}).*?(\d{2})\.(\d{2})\.(\d{2})',
-                joined,
-            )
-            if not identifier or not period:
-                continue
-
-            start_year, start_month, start_day, end_year, end_month, end_day = period.groups()
-            summary = {
-                'Summary': 'MONTHLY',
-                'Biometric ID': identifier.group(1),
-                'Report Start': f'20{start_year}-{start_month}-{start_day}',
-                'Report End': f'20{end_year}-{end_month}-{end_day}',
-            }
-            for detail_row in rows[index + 1:index + 3]:
-                for value in detail_row:
-                    match = re.match(r'\s*([^:：]+)[:：]\s*(.*?)\s*$', str(value or ''))
-                    if match:
-                        label, amount = match.groups()
-                        if AttendanceImportForm._normalise_header(label) == 'real pay':
-                            continue
-                        summary[label.strip()] = amount.strip()
-            records.append(summary)
+        daily_records = AttendanceImportForm._extract_daily_rows_from_rows(rows)
+        records.extend(daily_records)
 
         unique_records = {}
         for record in records:
-            key = (record['Biometric ID'], record['Report Start'])
+            if 'Date' in record:
+                key = (record['Biometric ID'], record['Date'])
+            else:
+                key = (record['Biometric ID'], record['Report Start'])
             unique_records[key] = record
         records = list(unique_records.values())
         if records:

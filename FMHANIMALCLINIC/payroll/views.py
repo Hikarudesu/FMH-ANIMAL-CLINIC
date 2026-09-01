@@ -34,6 +34,7 @@ from branches.models import Branch
 from payroll.models import PayrollPeriod, Payslip
 from notifications.utils import notify_payroll_generated, notify_payroll_released
 from attendance.services import AttendanceProcessor
+from attendance.models import AttendanceUpload, DailyAttendance
 from settings.utils import get_setting
 
 logger = logging.getLogger('fmh')
@@ -138,13 +139,34 @@ def get_period_generation_restriction(periods, period_type, branch_id=None):
 @login_required
 @module_permission_required('payroll', 'MANAGE')
 def payroll_dashboard(request):
-    """Main payroll dashboard - simple overview with optimized queries."""
+    """Payroll operations dashboard focused on attendance and payroll workflow state."""
     today = date.today()
 
     # Current month period
     current_period = PayrollPeriod.objects.filter(
         month=today.month, year=today.year
+    ).order_by('-created_at').first()
+
+    current_upload = AttendanceUpload.objects.filter(
+        period_start__year=today.year,
+        period_start__month=today.month,
     ).first()
+    attendance_stats = {'records': 0, 'present': 0, 'incomplete': 0}
+    if current_upload:
+        attendance_rows = DailyAttendance.objects.filter(
+            attendance_date__range=[current_upload.period_start, current_upload.period_end],
+        )
+        attendance_stats = {
+            'records': attendance_rows.count(),
+            'present': attendance_rows.filter(four_punch_complete=True).count(),
+            'incomplete': attendance_rows.filter(four_punch_complete=False).count(),
+        }
+
+    locked_current_month = PayrollPeriod.objects.filter(
+        month=today.month,
+        year=today.year,
+        status__in=[PayrollPeriod.Status.GENERATED, PayrollPeriod.Status.RELEASED],
+    ).exists()
 
     # Recent periods
     recent_periods = PayrollPeriod.objects.all()[:12]
@@ -271,6 +293,9 @@ def payroll_dashboard(request):
         'ytd_stats': ytd_stats,
         'active_employees': active_employees,
         'pending_count': pending_count,
+        'current_upload': current_upload,
+        'attendance_stats': attendance_stats,
+        'locked_current_month': locked_current_month,
         'last_released': last_released,
         'upcoming_period': upcoming_period,
         'monthly_trends': json.dumps(monthly_trends),
@@ -687,8 +712,8 @@ def payslip_edit(request, payslip_id):
     if period.status in [PayrollPeriod.Status.DRAFT, PayrollPeriod.Status.EDITED]:
         payslip.generate_from_employee()
         payslip.save()
-
-    if not attendance_summary:
+    elif not attendance_summary:
+        # Only reset if we didn't call generate_from_employee() AND there's no attendance summary
         payslip.working_days = 0
         payslip.days_worked = 0
         payslip.days_absent = 0
@@ -1973,7 +1998,7 @@ Other Deductions:     ₱{other_deductions:>12,.2f}
 Net Pay (Take-home):  ₱{net_pay:>12,.2f}
 ═══════════════════════════════════════════════════════════════
 
-Days Worked: {days_worked} days
+Attendance: {days_worked} days
 Days Absent: {days_absent} days
 
 This is an automated payroll notification. Please contact the Human Resources

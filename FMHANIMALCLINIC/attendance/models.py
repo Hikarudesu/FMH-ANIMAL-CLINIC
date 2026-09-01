@@ -216,6 +216,46 @@ class DailyAttendance(models.Model):
         help_text='Actual check-out time',
     )
     
+    # Granular 4-Punch Data (Priority 1 Validation)
+    morning_in = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Morning shift check-in time',
+    )
+    morning_out = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Morning shift check-out time',
+    )
+    afternoon_in = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Afternoon shift check-in time',
+    )
+    afternoon_out = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Afternoon shift check-out time',
+    )
+    
+    # Overtime Punch Data
+    ot_in = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Overtime shift check-in time',
+    )
+    ot_out = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Overtime shift check-out time',
+    )
+    ot_hours_calculated = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text='Overtime hours calculated from OT_IN/OT_OUT timestamps',
+    )
+    
     # Calculated metrics
     total_work_minutes = models.PositiveIntegerField(
         default=0,
@@ -228,6 +268,27 @@ class DailyAttendance(models.Model):
     overtime_minutes = models.PositiveIntegerField(
         default=0,
         help_text='Minutes worked beyond expected end',
+    )
+    
+    # 4-Punch Validation Status
+    four_punch_complete = models.BooleanField(
+        default=False,
+        help_text='Are all 4 punches (morning in/out, afternoon in/out) present?',
+    )
+    punch_validation_status = models.CharField(
+        max_length=50,
+        default='PENDING',
+        choices=[
+            ('PENDING', 'Pending Validation'),
+            ('PASS', 'Passed 4-Punch Validation'),
+            ('FAIL', 'Failed 4-Punch Validation'),
+            ('FALLBACK', 'Using Fallback (No Granular Punches)'),
+        ],
+        help_text='Result of 4-punch validation',
+    )
+    punch_validation_error = models.TextField(
+        blank=True,
+        help_text='Error details if 4-punch validation failed',
     )
     
     # Status
@@ -303,10 +364,51 @@ class MonthlyAttendanceSummary(models.Model):
     )
     period_start = models.DateField()
     period_end = models.DateField()
+    
+    # Actual Attendance Data (from biometric import)
     working_days = models.PositiveIntegerField(default=0)
     attendance_days = models.PositiveIntegerField(default=0)
     absence_days = models.PositiveIntegerField(default=0)
     late_days = models.PositiveIntegerField(default=0)
+    
+    # Required Working Days (calculated per period)
+    required_working_days = models.PositiveIntegerField(
+        default=0,
+        help_text='Required working days for this period (cap for attendance)',
+    )
+    required_working_days_first_half = models.PositiveIntegerField(
+        default=0,
+        help_text='Required working days for first half (1-15)',
+    )
+    required_working_days_second_half = models.PositiveIntegerField(
+        default=0,
+        help_text='Required working days for second half (16-end)',
+    )
+    
+    # 4-Punch Validation Summary
+    four_punch_validation_status = models.CharField(
+        max_length=50,
+        default='PENDING',
+        choices=[
+            ('PENDING', 'Validation Pending'),
+            ('PASS', '100% Pass - All Records Valid'),
+            ('PARTIAL', 'Partial Pass - Some Records Invalid'),
+            ('FAIL', 'Failed - All Records Invalid'),
+            ('NOT_APPLICABLE', 'Not Applicable - Using Fallback Data'),
+        ],
+        help_text='Overall 4-punch validation status for this month',
+    )
+    four_punch_violations_count = models.PositiveIntegerField(
+        default=0,
+        help_text='Number of days with incomplete punch records',
+    )
+    four_punch_violations = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of dates/details with missing punches',
+    )
+    
+    # Overtime Data
     overtime_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     sick_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     leave_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
@@ -378,6 +480,24 @@ class AttendanceUpload(models.Model):
 
     def __str__(self):
         return f'{self.period_start:%B %Y} — {self.source_filename}'
+
+    def delete(self, *args, **kwargs):
+        """Delete the uploaded file and all attendance data for this period."""
+        if self.source_file:
+            try:
+                self.source_file.delete(save=False)
+            except Exception:
+                pass
+
+        DailyAttendance.objects.filter(
+            attendance_date__range=[self.period_start, self.period_end],
+        ).delete()
+        MonthlyAttendanceSummary.objects.filter(
+            period_start=self.period_start,
+            period_end=self.period_end,
+        ).delete()
+
+        return super().delete(*args, **kwargs)
 
     @property
     def review_status(self):
