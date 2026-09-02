@@ -4,17 +4,19 @@ Views for handling specific actions within Medical Records.
 # pylint: disable=no-member
 import io
 import json
+import os
 
 from xhtml2pdf import pisa
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.staticfiles import finders
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import FileResponse, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -25,7 +27,7 @@ from branches.models import Branch
 from employees.models import StaffMember
 from FMHANIMALCLINIC.form_mixins import validate_philippines_phone
 from settings.models import ClinicalStatus, ClinicProfile
-from .models import MedicalRecord, RecordEntry
+from .models import MedicalRecord, RecordEntry, MedicalFile, MedicalFileAccessLog
 from .forms import MedicalRecordForm, RecordEntryForm
 
 User = get_user_model()
@@ -612,6 +614,7 @@ def admin_record_detail(request, pk):
 
     record = get_object_or_404(MedicalRecord, pk=pk)
     entries = record.entries.order_by('date_recorded', 'created_at')
+    medical_files = record.medical_files.all()
 
     # Check for missing details (excluding follow-up)
     missing_fields = get_record_missing_fields(record, entries)
@@ -633,7 +636,87 @@ def admin_record_detail(request, pk):
         'clinic_profile': clinic_profile,
         'from_patients': from_patients,
         'active_tab': active_tab,
+        'medical_files': medical_files,
     })
+
+
+@login_required
+@module_permission_required('medical_records', 'VIEW')
+def medical_file_download(request, file_id):
+    medical_file = get_object_or_404(
+        MedicalFile.objects.select_related('record__pet', 'record__branch'), pk=file_id
+    )
+    restricted = request.user.is_module_branch_restricted('medical_records')
+    allowed = not restricted or medical_file.record.branch_id == request.user.branch_id
+    if not allowed:
+        MedicalFileAccessLog.objects.create(
+            medical_file=medical_file, user=request.user,
+            action=MedicalFileAccessLog.Action.DENIED, detail='Branch restriction',
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+        return HttpResponseForbidden('You do not have access to this file.')
+    MedicalFileAccessLog.objects.create(
+        medical_file=medical_file, user=request.user,
+        action=MedicalFileAccessLog.Action.DOWNLOAD, success=True,
+        ip_address=request.META.get('REMOTE_ADDR'),
+    )
+    response = FileResponse(medical_file.file.open('rb'), content_type='application/octet-stream')
+    response['Content-Disposition'] = f'attachment; filename="{medical_file.original_name}"'
+    return response
+
+
+@login_required
+@module_permission_required('medical_records', 'CREATE')
+def medical_file_upload(request, pk):
+    record = get_object_or_404(MedicalRecord.objects.select_related('branch'), pk=pk)
+    if request.method != 'POST' or 'file' not in request.FILES:
+        return redirect('records:admin_detail', pk=pk)
+    if request.user.is_module_branch_restricted('medical_records') and record.branch_id != request.user.branch_id:
+        return HttpResponseForbidden('You do not have access to this record.')
+    upload = request.FILES['file']
+    medical_file = MedicalFile(
+        record=record, file=upload, original_name=os.path.basename(upload.name),
+        file_type=request.POST.get('file_type', MedicalFile.FileType.OTHER),
+        uploaded_by=request.user,
+    )
+    try:
+        medical_file.full_clean()
+        medical_file.save()
+    except ValidationError as exc:
+        messages.error(request, '; '.join(exc.messages))
+    else:
+        MedicalFileAccessLog.objects.create(
+            medical_file=medical_file, user=request.user,
+            action=MedicalFileAccessLog.Action.UPLOAD, success=True,
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+        messages.success(request, 'Medical file uploaded securely.')
+    return redirect('records:admin_detail', pk=pk)
+
+
+@login_required
+@module_permission_required('medical_records', 'DELETE')
+def medical_file_delete(request, file_id):
+    medical_file = get_object_or_404(MedicalFile, pk=file_id)
+    if request.method != 'POST':
+        return redirect('records:admin_detail', pk=medical_file.record_id)
+    if request.user.is_module_branch_restricted('medical_records') and medical_file.record.branch_id != request.user.branch_id:
+        MedicalFileAccessLog.objects.create(
+            medical_file=medical_file, user=request.user,
+            action=MedicalFileAccessLog.Action.DENIED, detail='Branch restriction',
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+        return HttpResponseForbidden('You do not have access to this file.')
+    record_id = medical_file.record_id
+    MedicalFileAccessLog.objects.create(
+        medical_file=medical_file, user=request.user,
+        action=MedicalFileAccessLog.Action.DELETE, success=True,
+        ip_address=request.META.get('REMOTE_ADDR'),
+    )
+    medical_file.file.delete(save=False)
+    medical_file.delete()
+    messages.success(request, 'Medical file deleted.')
+    return redirect('records:admin_detail', pk=record_id)
 
 
 @login_required

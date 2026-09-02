@@ -19,19 +19,19 @@ def cleanup_user_role_and_deprecated_perms(apps, schema_editor):
         # Set assigned_role to NULL for all users with this role
         updated = User.objects.filter(assigned_role=user_role).update(assigned_role=None)
         if updated:
-            print(f"  → Unassigned 'user' role from {updated} user(s)")
+            print(f"  [+] Unassigned 'user' role from {updated} user(s)")
         # Delete the role
         user_role.delete()
-        print("  → Deleted 'user' Role record")
+        print("  [+] Deleted 'user' Role record")
     except Role.DoesNotExist:
-        print("  → 'user' Role not found (already removed)")
+        print("  [+] 'user' Role not found (already removed)")
 
     # 2. Delete deprecated APPROVE/EXPORT permission records
     deprecated_count = ModulePermission.objects.filter(
         permission_type__in=['APPROVE', 'EXPORT']
     ).delete()[0]
     if deprecated_count:
-        print(f"  → Deleted {deprecated_count} deprecated APPROVE/EXPORT permission(s)")
+        print(f"  [+] Deleted {deprecated_count} deprecated APPROVE/EXPORT permission(s)")
 
 
 def reverse_noop(apps, schema_editor):

@@ -82,6 +82,8 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
     if origin.strip()
 ]
+if not DEBUG and not CSRF_TRUSTED_ORIGINS:
+    raise RuntimeError('CSRF_TRUSTED_ORIGINS must be set when DEBUG=False.')
 
 
 # Application definition
@@ -162,6 +164,15 @@ DB_ENGINE = os.environ.get('DB_ENGINE', 'postgresql').strip().lower()
 
 if DB_ENGINE != 'postgresql':
     raise ValueError('This project is configured for PostgreSQL only. Set DB_ENGINE=postgresql.')
+
+if not DEBUG:
+    required_database_values = ('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT')
+    missing_database_values = [key for key in required_database_values if not os.environ.get(key)]
+    if missing_database_values:
+        raise RuntimeError(
+            'Missing production database environment variables: '
+            + ', '.join(missing_database_values)
+        )
 
 DATABASES = {
     'default': {
@@ -299,6 +310,11 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 
 # GROQ API settings for AI Diagnostics
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+if not DEBUG and not GROQ_API_KEY:
+    raise RuntimeError('GROQ_API_KEY must be set when DEBUG=False.')
+
+CLAMAV_ENABLED = os.environ.get('CLAMAV_ENABLED', 'false').lower() in ('true', '1', 'yes')
+CLAMAV_REQUIRED = os.environ.get('CLAMAV_REQUIRED', str(not DEBUG)).lower() in ('true', '1', 'yes')
 
 # Ensure logs directory exists
 log_dir = BASE_DIR / 'logs'
@@ -359,5 +375,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+if not DEBUG and (not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD):
+    raise RuntimeError('EMAIL_HOST_USER and EMAIL_HOST_PASSWORD must be set when DEBUG=False.')
 DEFAULT_FROM_EMAIL = os.environ.get(
     'EMAIL_HOST_USER', 'noreply@fmhanimalclinic.com')

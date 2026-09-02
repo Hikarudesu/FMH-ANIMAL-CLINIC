@@ -1,5 +1,6 @@
 {% extends 'base/portal_admin.html' %}
 {% load permission_tags %}
+{% load file_urls %}
 
 {% block title %}{{ role.name }}{% endblock %}
 
@@ -77,7 +78,7 @@
         <div class="user-row">
           <div class="user-avatar-sm">
             {% if u.profile_picture %}
-            <img src="{{ u.profile_picture.url }}" alt="">
+            <img src="{{ u.profile_picture|stored_or_static_url }}" alt="">
             {% else %}
             {{ u.first_name|slice:":1"|upper|default:u.username|slice:":1"|upper }}
             {% endif %}

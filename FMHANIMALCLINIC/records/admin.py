@@ -2,7 +2,7 @@
 Django Administration config for the Records application.
 """
 from django.contrib import admin
-from .models import MedicalRecord, RecordEntry
+from .models import MedicalFile, MedicalFileAccessLog, MedicalRecord, RecordEntry
 
 
 class RecordEntryInline(admin.TabularInline):
@@ -29,3 +29,19 @@ class RecordEntryAdmin(admin.ModelAdmin):
     list_display = ('record', 'date_recorded', 'vet', 'weight', 'temperature', 'action_required')
     list_filter = ('date_recorded', 'vet', 'action_required')
     search_fields = ('record__pet__name', 'history_clinical_signs', 'treatment')
+
+
+@admin.register(MedicalFile)
+class MedicalFileAdmin(admin.ModelAdmin):
+    list_display = ('original_name', 'record', 'file_type', 'uploaded_by', 'uploaded_at')
+    list_filter = ('file_type', 'uploaded_at')
+    search_fields = ('original_name', 'record__pet__name', 'sha256')
+    readonly_fields = ('sha256', 'uploaded_at')
+
+
+@admin.register(MedicalFileAccessLog)
+class MedicalFileAccessLogAdmin(admin.ModelAdmin):
+    list_display = ('medical_file', 'user', 'action', 'success', 'ip_address', 'created_at')
+    list_filter = ('action', 'success', 'created_at')
+    search_fields = ('medical_file__original_name', 'user__username', 'ip_address')
+    readonly_fields = ('medical_file', 'user', 'action', 'success', 'ip_address', 'created_at', 'detail')

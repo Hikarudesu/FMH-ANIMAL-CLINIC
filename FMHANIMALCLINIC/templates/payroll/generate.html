@@ -2,6 +2,7 @@
 {% load currency_filters %}
 {% load l10n %}
 {% load static %}
+{% load file_urls %}
 
 {% block title %}Generate Payslips{% endblock %}
 
@@ -131,7 +132,7 @@
           <div style="display: flex; align-items: center; gap: 12px;">
             <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #0097a7); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
               {% if emp.user and emp.user.profile_picture %}
-                <img src="{{ emp.user.profile_picture.url }}" alt="{{ emp.full_name }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                <img src="{{ emp.user.profile_picture|stored_or_static_url }}" alt="{{ emp.full_name }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
               {% else %}
                 {{ emp.first_name.0 }}{{ emp.last_name.0 }}
               {% endif %}

@@ -1,6 +1,7 @@
 {% extends 'base/portal_admin.html' %}
 {% load currency_filters %}
 {% load permission_tags %}
+{% load file_urls %}
 
 {% block title %}Staff Management{% endblock %}
 
@@ -117,7 +118,7 @@
             <div class="staff-name-cell" style="justify-content: flex-start;">
               <div class="staff-avatar">
                 {% if user.profile_picture %}
-                  <img src="{{ user.profile_picture.url }}" alt="{{ user.get_full_name|default:user.username }}" class="staff-avatar-image">
+                  <img src="{{ user.profile_picture|stored_or_static_url }}" alt="{{ user.get_full_name|default:user.username }}" class="staff-avatar-image">
                 {% else %}
                   <span>{{ user.first_name|default:user.username|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}</span>
                 {% endif %}

@@ -1,6 +1,13 @@
 """
 Models for managing Patient Medical Records.
 """
+import hashlib
+import os
+import subprocess
+import uuid
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -113,6 +120,97 @@ class RecordEntry(models.Model):
 
     def __str__(self):
         return f"Entry for {self.record.pet.name} on {self.date_recorded}"
+
+
+def medical_file_upload_path(instance, filename):
+    extension = os.path.splitext(filename)[1].lower()
+    return f'medical/{instance.record.pet_id}/{uuid.uuid4().hex}{extension}'
+
+
+def validate_medical_file(upload):
+    if upload.size > 20 * 1024 * 1024:
+        raise ValidationError('Medical files must not exceed 20 MB.')
+    extension = os.path.splitext(upload.name)[1].lower()
+    allowed = {'.pdf', '.png', '.jpg', '.jpeg', '.doc', '.docx', '.xls', '.xlsx'}
+    if extension not in allowed:
+        raise ValidationError('Unsupported medical file type.')
+    header = upload.read(16)
+    upload.seek(0)
+    signatures = {
+        '.pdf': header.startswith(b'%PDF-'),
+        '.png': header.startswith(b'\x89PNG\r\n\x1a\n'),
+        '.jpg': header.startswith(b'\xff\xd8\xff'),
+        '.jpeg': header.startswith(b'\xff\xd8\xff'),
+        '.doc': header.startswith(b'\xd0\xcf\x11\xe0'),
+        '.xls': header.startswith(b'\xd0\xcf\x11\xe0'),
+        '.docx': header.startswith(b'PK\x03\x04'),
+        '.xlsx': header.startswith(b'PK\x03\x04'),
+    }
+    if not signatures[extension]:
+        raise ValidationError('The file content does not match its extension.')
+    if getattr(settings, 'CLAMAV_ENABLED', False):
+        try:
+            result = subprocess.run(
+                ['clamdscan', '--no-summary', '-'], input=upload.read(),
+                capture_output=True, check=False, timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            if getattr(settings, 'CLAMAV_REQUIRED', not settings.DEBUG):
+                raise ValidationError('Malware scanning is unavailable.') from exc
+        else:
+            if result.returncode != 0:
+                raise ValidationError('The uploaded file failed malware scanning.')
+    upload.seek(0)
+
+
+class MedicalFile(models.Model):
+    """Private laboratory, imaging, and external medical document."""
+    class FileType(models.TextChoices):
+        LAB = 'LAB', 'Laboratory Result'
+        IMAGING = 'IMAGING', 'Medical Imaging'
+        OTHER = 'OTHER', 'Other Medical Document'
+
+    record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='medical_files')
+    file = models.FileField(upload_to=medical_file_upload_path, validators=[validate_medical_file])
+    original_name = models.CharField(max_length=255)
+    file_type = models.CharField(max_length=20, choices=FileType.choices, default=FileType.OTHER)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    sha256 = models.CharField(max_length=64, editable=False)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def save(self, *args, **kwargs):
+        if self.file and not self.sha256:
+            digest = hashlib.sha256()
+            for chunk in self.file.chunks():
+                digest.update(chunk)
+            self.sha256 = digest.hexdigest()
+            self.file.seek(0)
+        self.original_name = self.original_name or os.path.basename(self.file.name)
+        super().save(*args, **kwargs)
+
+
+class MedicalFileAccessLog(models.Model):
+    """Immutable audit trail for medical-file access attempts."""
+    class Action(models.TextChoices):
+        UPLOAD = 'UPLOAD', 'Upload'
+        DOWNLOAD = 'DOWNLOAD', 'Download'
+        DELETE = 'DELETE', 'Delete'
+        DENIED = 'DENIED', 'Denied'
+
+    medical_file = models.ForeignKey(MedicalFile, on_delete=models.SET_NULL, null=True, related_name='access_logs')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=20, choices=Action.choices)
+    success = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    detail = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['medical_file', 'created_at'])]
 
 
 # ── Signal: auto-sync RecordEntry.action_required → Pet.clinical_status ──

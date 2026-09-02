@@ -1456,6 +1456,170 @@
 
 </div>
 
+{% if user|has_module_permission:'medical_records:VIEW' %}
+<div class="record-view" style="margin-top:24px; padding:20px 24px;">
+    <style>
+        .mf-section-header {
+            background: #333;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            padding: 6px 12px;
+            margin: -20px -24px 18px;
+        }
+        .mf-upload-form {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: end;
+            margin-bottom: 18px;
+            padding: 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .mf-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .mf-form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .mf-form-group select,
+        .mf-form-group input[type="file"] {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+        .mf-form-group input[type="file"]::file-selector-button {
+            background: var(--primary-light);
+            color: var(--text-primary);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+        }
+        .mf-file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-top: 1px solid var(--border);
+        }
+        .mf-file-item:first-of-type {
+            border-top: none;
+            padding-top: 0;
+        }
+        .mf-file-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+        .mf-file-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+        .mf-file-type {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .mf-file-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .mf-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .mf-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        .mf-btn.delete {
+            background: #e53e3e;
+        }
+        .mf-btn.delete:hover {
+            background: #c53030;
+        }
+        .mf-empty-state {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+    </style>
+    <div class="mf-section-header">Medical Files</div>
+    {% if user|has_module_permission:'medical_records:CREATE' %}
+    <form method="post" enctype="multipart/form-data" action="{% url 'records:medical_file_upload' record.pk %}" class="mf-upload-form">
+        {% csrf_token %}
+        <div class="mf-form-group">
+            <label for="file_type">File Type</label>
+            <select name="file_type" id="file_type" required>
+                <option value="LAB">Laboratory Result</option>
+                <option value="IMAGING">Medical Imaging</option>
+                <option value="OTHER">Other Medical Document</option>
+            </select>
+        </div>
+        <div class="mf-form-group">
+            <label for="file_upload">Select File</label>
+            <input type="file" id="file_upload" name="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx" required>
+        </div>
+        <button type="submit" class="mf-btn" style="margin-top: 20px;"><i class="bx bx-upload"></i> Upload File</button>
+    </form>
+    {% endif %}
+    {% if medical_files %}
+    {% for medical_file in medical_files %}
+    <div class="mf-file-item">
+        <div class="mf-file-info">
+            <span class="mf-file-name">{{ medical_file.original_name }}</span>
+            <span class="mf-file-type">{{ medical_file.get_file_type_display }} • Uploaded {{ medical_file.uploaded_at|date:"M j, Y" }}</span>
+        </div>
+        <div class="mf-file-actions">
+            <a href="{% url 'records:medical_file_download' medical_file.pk %}" class="mf-btn"><i class="bx bx-download"></i> Download</a>
+            {% if user|has_module_permission:'medical_records:DELETE' %}
+            <form method="post" action="{% url 'records:medical_file_delete' medical_file.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="mf-btn delete" onclick="return confirm('Delete this medical file?')"><i class="bx bx-trash"></i> Delete</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="mf-empty-state">
+        <i class="bx bx-file" style="font-size:24px; margin-bottom:8px; display:block;"></i>
+        No medical files uploaded yet. {% if user|has_module_permission:'medical_records:CREATE' %}Use the upload form above to add laboratory results, medical imaging, or other documents.{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- ══ AI DIAGNOSES SECTION ══ -->
 {% if user|has_module_permission:'ai_diagnostics:VIEW' %}
 <div class="ai-diagnoses-section" style="margin-top: 24px;">

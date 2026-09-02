@@ -1,5 +1,6 @@
 {% load static %}
 {% load permission_tags %}
+{% load file_urls %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -203,7 +204,7 @@
               <div class="topbar-avatar">
                 {% if user.profile_picture %}
                 <img
-                  src="{{ user.profile_picture.url }}"
+                  src="{{ user.profile_picture|stored_or_static_url }}"
                   alt="Profile"
                   style="
                     width: 100%;
@@ -228,7 +229,7 @@
                 <div class="topbar-avatar large">
                   {% if user.profile_picture %}
                   <img
-                    src="{{ user.profile_picture.url }}"
+                    src="{{ user.profile_picture|stored_or_static_url }}"
                     alt="Profile"
                     style="
                       width: 100%;

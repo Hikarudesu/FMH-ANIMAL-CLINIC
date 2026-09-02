@@ -1,5 +1,6 @@
 {% extends 'base/portal_admin.html' %}
 {% load currency_filters %}
+{% load file_urls %}
 
 {% block title %}Edit Staff Profile{% endblock %}
 
@@ -18,7 +19,7 @@
         <div class="avatar-display">
           <div class="avatar-large">
             {% if edited_user.profile_picture %}
-            <img src="{{ edited_user.profile_picture.url }}" alt="{{ edited_user.get_full_name }}">
+            <img src="{{ edited_user.profile_picture|stored_or_static_url }}" alt="{{ edited_user.get_full_name }}">
             {% else %}
             <span class="avatar-initials">{{ edited_user.first_name|slice:":1"|upper|default:edited_user.username|slice:":1"|upper }}{{ edited_user.last_name|slice:":1"|upper|default:"" }}</span>
             {% endif %}

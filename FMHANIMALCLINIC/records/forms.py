@@ -4,7 +4,7 @@ Forms for the records application.
 from django import forms
 from django.db.models import Q
 from FMHANIMALCLINIC.form_mixins import FormControlMixin
-from .models import MedicalRecord, RecordEntry
+from .models import MedicalRecord, RecordEntry, MedicalFile
 from branches.models import Branch
 
 

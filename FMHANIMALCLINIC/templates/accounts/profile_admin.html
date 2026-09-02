@@ -1,5 +1,6 @@
 {% extends 'base/portal_admin.html' %}
 {% load static %}
+{% load file_urls %}
 
 {% block title %}My Profile{% endblock %}
 
@@ -19,7 +20,7 @@
         <div class="profile-avatar-ring">
           <div class="profile-avatar-inner">
             {% if user.profile_picture %}
-            <img src="{{ user.profile_picture.url }}" alt="{{ user.first_name }}">
+            <img src="{{ user.profile_picture|stored_or_static_url }}" alt="{{ user.first_name }}">
             {% else %}
             <i class='bx bx-user'></i>
             {% endif %}
@@ -261,7 +262,7 @@
         <div class="modal-avatar-upload">
           <div class="modal-avatar-preview" id="avatarPreview">
             {% if user.profile_picture %}
-            <img src="{{ user.profile_picture.url }}" alt="Profile">
+            <img src="{{ user.profile_picture|stored_or_static_url }}" alt="Profile">
             {% else %}
             <i class='bx bx-user'></i>
             {% endif %}

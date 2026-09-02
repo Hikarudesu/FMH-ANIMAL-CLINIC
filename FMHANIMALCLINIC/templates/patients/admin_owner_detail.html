@@ -1,5 +1,6 @@
 {% extends 'base/portal_admin.html' %}
 {% load static %}
+{% load file_urls %}
 
 {% block title %}{{ owner.get_full_name|default:owner.username }} — Owner Profile{% endblock %}
 
@@ -342,7 +343,7 @@
 <div class="od-header">
   <div class="od-avatar">
     {% if owner.profile_picture %}
-      <img src="{{ owner.profile_picture.url }}" alt="{{ owner.get_full_name }}">
+      <img src="{{ owner.profile_picture|stored_or_static_url }}" alt="{{ owner.get_full_name }}">
     {% else %}
       {{ owner.first_name|make_list|first|upper|default:owner.username|make_list|first|upper }}
     {% endif %}

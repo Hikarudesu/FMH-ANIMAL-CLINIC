@@ -1,5 +1,6 @@
 {% extends 'base/portal_admin.html' %}
 {% load permission_tags %}
+{% load file_urls %}
 
 {% block title %}Staff Role Management{% endblock %}
 
@@ -47,7 +48,7 @@
           <div style="display: flex; align-items: center; gap: 12px;">
             <div class="user-avatar {% if u.is_superuser %}superuser{% endif %}">
               {% if u.profile_picture %}
-              <img src="{{ u.profile_picture.url }}" alt="">
+              <img src="{{ u.profile_picture|stored_or_static_url }}" alt="">
               {% else %}
               {{ u.first_name|slice:":1"|upper|default:u.username|slice:":1"|upper }}
               {% endif %}

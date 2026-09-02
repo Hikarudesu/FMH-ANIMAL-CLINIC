@@ -2,6 +2,7 @@
      NAVBAR
      ============================================ -->
 {% load static %}
+{% load file_urls %}
 <nav class="navbar">
   <div class="container">
 
@@ -32,7 +33,7 @@
           <button class="nav-profile-btn" id="landingProfileBtn">
             <div class="nav-avatar">
               {% if request.user.profile_picture %}
-                <img src="{{ request.user.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                <img src="{{ request.user.profile_picture|stored_or_static_url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
               {% elif request.user.first_name %}
                 {{ request.user.first_name|make_list|first|upper }}
               {% elif request.user.username %}
@@ -49,7 +50,7 @@
             <div class="nav-dropdown-header">
               <div class="nav-avatar">
                 {% if request.user.profile_picture %}
-                  <img src="{{ request.user.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                  <img src="{{ request.user.profile_picture|stored_or_static_url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
                 {% elif request.user.first_name %}
                   {{ request.user.first_name|make_list|first|upper }}
                 {% elif request.user.username %}

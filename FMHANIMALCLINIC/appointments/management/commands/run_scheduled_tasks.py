@@ -16,7 +16,12 @@ class Command(BaseCommand):
             return
 
         try:
-            for command_name in ('send_reminders', 'check_inventory_expiry_alerts'):
+            for command_name in (
+                'send_reminders',
+                'send_followup_emails',
+                'check_inventory_expiry_alerts',
+                'send_scheduled_reports',
+            ):
                 output = StringIO()
                 try:
                     call_command(command_name, stdout=output, stderr=output)

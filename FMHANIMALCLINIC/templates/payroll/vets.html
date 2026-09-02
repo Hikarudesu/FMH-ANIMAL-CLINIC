@@ -1,6 +1,7 @@
 {% extends 'payroll/base.html' %}
 {% load currency_filters %}
 {% load static %}
+{% load file_urls %}
 
 {% block title %}Employees - Payroll{% endblock %}
 
@@ -259,7 +260,7 @@ function filterByBranch() {
         <div class="employee-name" style="justify-content: flex-start;">
           <div class="employee-avatar">
             {% if item.employee.user and item.employee.user.profile_picture %}
-              <img src="{{ item.employee.user.profile_picture.url }}" alt="{{ item.employee.full_name }}">
+              <img src="{{ item.employee.user.profile_picture|stored_or_static_url }}" alt="{{ item.employee.full_name }}">
             {% else %}
               {{ item.employee.first_name.0 }}{{ item.employee.last_name.0 }}
             {% endif %}

@@ -26,6 +26,9 @@ class FollowUp(models.Model):
         related_name='created_follow_ups',
     )
     is_completed = models.BooleanField(default=False)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    email_attempts = models.PositiveIntegerField(default=0)
+    email_last_error = models.TextField(blank=True)
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

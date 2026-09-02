@@ -1,4 +1,5 @@
 {% load static %}
+{% load file_urls %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -107,7 +108,7 @@
         <div class="topbar-profile" id="profileDropdownBtn" title="{{ user.get_full_name|default:user.username }}">
           <div class="topbar-avatar">
             {% if user.profile_picture %}
-              <img src="{{ user.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              <img src="{{ user.profile_picture|stored_or_static_url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
             {% elif user.first_name %}
               {{ user.first_name|make_list|first|upper }}
             {% elif user.username %}
@@ -127,7 +128,7 @@
           <div class="dropdown-header">
             <div class="topbar-avatar large">
               {% if user.profile_picture %}
-                <img src="{{ user.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                <img src="{{ user.profile_picture|stored_or_static_url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
               {% elif user.first_name %}
                 {{ user.first_name|make_list|first|upper }}
               {% elif user.username %}

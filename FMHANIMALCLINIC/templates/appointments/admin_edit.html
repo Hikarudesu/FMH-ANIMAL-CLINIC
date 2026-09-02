@@ -1,5 +1,6 @@
 {% extends 'base/portal_admin.html' %}
 {% load static %}
+{% load file_urls %}
 
 {% block title %}Edit Appointment — {{ appointment.pet_name }}{% endblock %}
 
@@ -22,7 +23,7 @@
       <div class="ae-header" style="border-bottom: none;">
         <div class="ae-avatar">
           {% if appointment.user and appointment.user.profile_picture %}
-            <img src="{{ appointment.user.profile_picture.url }}" alt="{{ appointment.owner_name }}">
+          <img src="{{ appointment.user.profile_picture|stored_or_static_url }}" alt="{{ appointment.owner_name }}">
           {% else %}
             {{ appointment.owner_name|make_list|first|upper }}
           {% endif %}
