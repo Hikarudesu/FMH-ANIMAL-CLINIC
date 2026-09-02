@@ -94,11 +94,22 @@
     </div>
 
     <div class="form-line">
+      {% if payslip.overtime_hours and payslip.overtime_hours >= 1 %}
       <div class="form-group">
         <label>Overtime Hours</label>
         <input type="text" name="overtime_hours" value="{{ payslip.overtime_hours|default:0 }}">
-        <small style="color: var(--text-3); font-size: 0.75rem;">Extracted dynamically from the biometric file when OT metadata is available; otherwise this stays blank for manual entry.</small>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Display: {{ payslip.overtime_hours|overtime_duration }}. This field accepts values in hours only.</small>
       </div>
+      {% else %}
+      <div class="form-group">
+        <label>Overtime Hours</label>
+        <input type="hidden" name="overtime_hours" value="{{ payslip.overtime_hours|default:0 }}">
+        <div style="padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-weight: 600; color: var(--text-2);">
+          Not shown — imported OT is below 1 hour and this screen only accepts hourly values.
+        </div>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Minute-based overtime is kept in the attendance log and is not editable here.</small>
+      </div>
+      {% endif %}
 
       <div class="form-group">
         <label>Overtime Pay (₱/Hour)</label>

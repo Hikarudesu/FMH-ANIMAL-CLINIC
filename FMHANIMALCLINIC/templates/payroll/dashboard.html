@@ -5,7 +5,7 @@
 {% block payroll_content %}
 <style>
   .payroll-dashboard { display: grid; gap: 20px; }
-  .workflow-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .workflow-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
   .dashboard-panel, .workflow-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); }
   .workflow-card { padding: 20px; }
   .workflow-card__top, .panel-title, .period-row, .status-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -34,15 +34,45 @@
   .period-meta { margin-top: 3px; }
   .empty-state { color: var(--text-2); padding: 26px 0 10px; text-align: center; }
   .empty-state i { display: block; font-size: 2rem; margin-bottom: 8px; }
-  @media (max-width: 900px) { .workflow-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { .workflow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) { .workflow-grid { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .dashboard-panel { padding: 17px; } .period-row { align-items: flex-start; flex-direction: column; } }
 </style>
 
 <div class="payroll-dashboard">
   <section class="workflow-grid" aria-label="Payroll workflow status">
-    <div class="workflow-card"><div class="workflow-card__top"><span class="workflow-card__label">Attendance records</span><i class="bx bx-fingerprint workflow-card__icon"></i></div><div class="workflow-card__value">{{ attendance_stats.records|default:"0" }}</div><span class="muted">Current month import</span></div>
-    <div class="workflow-card"><div class="workflow-card__top"><span class="workflow-card__label">Complete attendance</span><i class="bx bx-check-circle workflow-card__icon"></i></div><div class="workflow-card__value">{{ attendance_stats.present|default:"0" }}</div><span class="muted">All required punches present</span></div>
-    <div class="workflow-card"><div class="workflow-card__top"><span class="workflow-card__label">Needs review</span><i class="bx bx-error-circle workflow-card__icon"></i></div><div class="workflow-card__value warning">{{ attendance_stats.incomplete|default:"0" }}</div><span class="muted">Incomplete punches or draft payslips</span></div>
+    <div class="workflow-card">
+      <div class="workflow-card__top">
+        <span class="workflow-card__label">Current period</span>
+        <i class="bx bx-calendar-event workflow-card__icon"></i>
+      </div>
+      <div class="workflow-card__value">{% if current_period %}{{ current_period.get_period_type_display }}{% else %}No period{% endif %}</div>
+      <span class="muted">{% if current_period %}{{ current_period.month }}/{{ current_period.year|stringformat:"d" }} · {{ current_period.get_status_display }}{% else %}No active payroll created yet{% endif %}</span>
+    </div>
+    <div class="workflow-card">
+      <div class="workflow-card__top">
+        <span class="workflow-card__label">Active employees</span>
+        <i class="bx bx-user-check workflow-card__icon"></i>
+      </div>
+      <div class="workflow-card__value">{{ active_employees|default:"0" }}</div>
+      <span class="muted">Eligible for payroll processing</span>
+    </div>
+    <div class="workflow-card">
+      <div class="workflow-card__top">
+        <span class="workflow-card__label">Pending payslips</span>
+        <i class="bx bx-file-blank workflow-card__icon"></i>
+      </div>
+      <div class="workflow-card__value {% if pending_count %}warning{% endif %}">{{ pending_count|default:"0" }}</div>
+      <span class="muted">Draft or awaiting approval</span>
+    </div>
+    <div class="workflow-card">
+      <div class="workflow-card__top">
+        <span class="workflow-card__label">YTD net payroll</span>
+        <i class="bx bx-wallet workflow-card__icon"></i>
+      </div>
+      <div class="workflow-card__value">₱ {{ total_payroll_this_year|floatformat:2 }}</div>
+      <span class="muted">Released payroll for this year</span>
+    </div>
   </section>
 
   <section class="dashboard-panel">
@@ -52,7 +82,7 @@
         <strong>Attendance imported for {{ current_upload.period_start|date:"F Y" }}</strong>
         <div class="status-line"><span class="muted">{{ current_upload.source_filename }}</span><span class="status-pill {% if locked_current_month %}locked{% else %}ready{% endif %}">{% if locked_current_month %}Payroll locked{% else %}Ready for payroll{% endif %}</span></div>
       {% else %}
-        <strong>No attendance file imported for {{ current_month }}/{{ current_year }}</strong>
+        <strong>No attendance file imported for {{ current_month }}/{{ current_year|stringformat:"d" }}</strong>
         <div class="status-line"><span class="muted">Import attendance before reviewing payslips.</span><span class="status-pill pending">Awaiting import</span></div>
       {% endif %}
     </div>
@@ -63,7 +93,7 @@
   <section class="dashboard-panel">
     <div class="panel-title"><i class="bx bx-history"></i><h2>Recent payroll periods</h2></div>
     {% if recent_periods %}
-      <div class="period-list">{% for period in recent_periods|slice:":8" %}<div class="period-row"><div><div class="period-name">{{ period.period_display }}</div><div class="period-meta">{{ period.employee_count|default:"0" }} staff records{% if period.generated_at %} · {{ period.generated_at|date:"M d, Y" }}{% endif %}</div></div><span class="status-pill {% if period.status == 'RELEASED' %}ready{% elif period.status == 'GENERATED' %}locked{% else %}pending{% endif %}">{{ period.get_status_display }}</span></div>{% endfor %}</div>
+      <div class="period-list">{% for period in recent_periods %}<div class="period-row"><div><div class="period-name">{{ period.period_display }}</div><div class="period-meta">{{ period.employee_count|default:"0" }} staff records{% if period.generated_at %} · {{ period.generated_at|date:"M d, Y" }}{% endif %}</div></div><span class="status-pill {% if period.status == 'RELEASED' %}ready{% elif period.status == 'GENERATED' %}locked{% else %}pending{% endif %}">{{ period.get_status_display }}</span></div>{% endfor %}</div>
     {% else %}<div class="empty-state"><i class="bx bx-folder-open"></i>No payroll periods have been created yet.</div>{% endif %}
   </section>
 </div>

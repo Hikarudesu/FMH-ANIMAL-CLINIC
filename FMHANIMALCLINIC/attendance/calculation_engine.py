@@ -17,7 +17,7 @@ This engine enforces the core requirements:
 import calendar
 import logging
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP, ROUND_FLOOR
 from enum import Enum
 from typing import Dict, List, Tuple, Optional, Any
 
@@ -536,6 +536,17 @@ class OvertimeCalculator:
         return None
     
     @staticmethod
+    @staticmethod
+    def floor_to_full_hours(value: Decimal) -> Decimal:
+        """Discard any partial hour so only complete OT hours are counted."""
+        if value <= 0:
+            return Decimal('0')
+
+        total_minutes = value * Decimal('60')
+        whole_hours = int(total_minutes // Decimal('60'))
+        return Decimal(whole_hours)
+
+    @staticmethod
     def calculate_hours_between(
         time_in: Optional[datetime],
         time_out: Optional[datetime],
@@ -543,12 +554,8 @@ class OvertimeCalculator:
         """
         Calculate hours between two time values.
         
-        Args:
-            time_in: Check-in time
-            time_out: Check-out time
-        
-        Returns:
-            Hours as Decimal (e.g., 3.5 for 3 hours 30 minutes)
+        Only complete overtime hours are counted. Any partial remainder below a full
+        hour is discarded. For example: 1h30 = 1 hour, 30 minutes = 0 hours.
         """
         if not time_in or not time_out:
             return Decimal('0')
@@ -563,8 +570,7 @@ class OvertimeCalculator:
             delta = time_out - time_in
             total_seconds = delta.total_seconds()
             hours = Decimal(str(total_seconds)) / Decimal('3600')
-            
-            return hours
+            return OvertimeCalculator.floor_to_full_hours(hours)
         except (TypeError, AttributeError):
             return Decimal('0')
     
@@ -602,14 +608,23 @@ class OvertimeCalculator:
             if ot_in_time and ot_out_time:
                 hours = OvertimeCalculator.calculate_hours_between(ot_in_time, ot_out_time)
                 
-                # Apply rounding if specified
+                # Apply rounding if specified, but never count a partial hour as a full
+                # overtime hour. 1 hour 30 minutes counts as 1 hour, not 2.
                 if rounding_minutes > 0 and hours > 0:
                     total_minutes = hours * Decimal('60')
-                    rounded_minutes = (
-                        (total_minutes + Decimal(rounding_minutes) // 2) // Decimal(rounding_minutes)
-                    ) * Decimal(rounding_minutes)
-                    hours = rounded_minutes / Decimal('60')
-                
+                    rounding_step = Decimal(rounding_minutes)
+
+                    if total_minutes < rounding_step:
+                        hours = Decimal('0')
+                    else:
+                        rounded_minutes = (
+                            (total_minutes / rounding_step)
+                            .quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+                            * rounding_step
+                        )
+                        hours = rounded_minutes / Decimal('60')
+
+                hours = OvertimeCalculator.floor_to_full_hours(hours)
                 return hours, 'TIMESTAMP'
         
         # Priority 2: Fallback to Overtime Hours Column

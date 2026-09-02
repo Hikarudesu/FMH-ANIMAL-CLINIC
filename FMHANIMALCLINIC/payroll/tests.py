@@ -7,6 +7,7 @@ from attendance.models import DailyAttendance, MonthlyAttendanceSummary
 from employees.models import StaffMember
 from payroll.models import Payslip, PayrollPeriod
 from payroll.views import get_payroll_report_rows
+from attendance.views import can_import_attendance_for_month
 from settings.utils import set_setting
 
 
@@ -22,6 +23,51 @@ class PayrollRulesTests(TestCase):
 
         self.assertEqual(Decimal('120.00'), Decimal(str(__import__('settings.utils', fromlist=['get_setting']).get_setting('payroll_default_overtime_pay_per_hour', 0))))
         self.assertEqual(5, int(__import__('settings.utils', fromlist=['get_setting']).get_setting('payroll_default_rest_days', 4)))
+
+    def test_payslip_counts_13_eligible_days_for_first_half_overtime(self):
+        set_setting('payroll_default_rest_days', 4)
+        staff = StaffMember.objects.create(
+            first_name='Ariel',
+            last_name='Dela Cruz',
+            biometric_id='BIO-ARIEL',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+        )
+        period = PayrollPeriod.objects.create(
+            month=8,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+
+        payroll_dates = [date(2026, 8, day) for day in range(1, 16)]
+        for attendance_date in payroll_dates:
+            DailyAttendance.objects.create(
+                staff=staff,
+                attendance_date=attendance_date,
+                morning_in=datetime.strptime('08:00', '%H:%M').time(),
+                morning_out=datetime.strptime('12:00', '%H:%M').time(),
+                afternoon_in=datetime.strptime('13:00', '%H:%M').time(),
+                afternoon_out=datetime.strptime('17:00', '%H:%M').time(),
+                check_in=datetime.strptime('08:00', '%H:%M').time(),
+                check_out=datetime.strptime('17:00', '%H:%M').time(),
+                ot_in=datetime.strptime('17:30', '%H:%M').time(),
+                ot_out=datetime.strptime('19:30', '%H:%M').time(),
+                ot_hours_calculated=Decimal('2'),
+                is_present=True,
+                status='PRESENT',
+                four_punch_complete=True,
+            )
+
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+        )
+
+        payslip.generate_from_employee()
+
+        self.assertEqual(payslip.overtime_hours, Decimal('26'))
 
     def test_payslip_uses_summary_when_daily_rows_lack_time_metadata(self):
         set_setting('payroll_default_rest_days', 4)
@@ -244,6 +290,25 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(payslip.days_worked, 0)
         self.assertEqual(payslip.days_absent, 13)
         self.assertEqual(payslip.rest_days_actual, 4)
+
+    def test_attendance_import_is_allowed_until_both_half_months_are_generated(self):
+        PayrollPeriod.objects.create(
+            month=8,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+            status=PayrollPeriod.Status.GENERATED,
+        )
+
+        self.assertTrue(can_import_attendance_for_month(2026, 8))
+
+        PayrollPeriod.objects.create(
+            month=8,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_SECOND,
+            status=PayrollPeriod.Status.RELEASED,
+        )
+
+        self.assertFalse(can_import_attendance_for_month(2026, 8))
 
     def test_payslip_counts_full_second_half_days_when_raw_time_metadata_exists(self):
         set_setting('payroll_default_rest_days', 4)

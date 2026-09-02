@@ -75,6 +75,26 @@ def _system_daily_salary(staff):
 logger = logging.getLogger(__name__)
 
 
+def can_import_attendance_for_month(year, month):
+    """Allow re-imports until both payroll halves for the month are generated/released."""
+    completed_statuses = [PayrollPeriod.Status.GENERATED, PayrollPeriod.Status.RELEASED]
+    completed_half_types = set(
+        PayrollPeriod.objects.filter(
+            year=year,
+            month=month,
+            status__in=completed_statuses,
+            period_type__in=[
+                PayrollPeriod.PeriodType.SEMI_FIRST,
+                PayrollPeriod.PeriodType.SEMI_SECOND,
+            ],
+        ).values_list('period_type', flat=True)
+    )
+    return not {
+        PayrollPeriod.PeriodType.SEMI_FIRST,
+        PayrollPeriod.PeriodType.SEMI_SECOND,
+    }.issubset(completed_half_types)
+
+
 def _delete_attendance_upload_files(year, month, upload=None):
     """Delete stored attendance files in the period and actual upload folders."""
     directories = {f'attendance/uploads/{year:04d}/{month:02d}'}
@@ -244,14 +264,10 @@ def attendance_import(request):
                             day=monthrange(report_start.year, report_start.month)[1]
                         )
 
-                if report_start and PayrollPeriod.objects.filter(
-                    year=report_start.year,
-                    month=report_start.month,
-                    status__in=[PayrollPeriod.Status.GENERATED, PayrollPeriod.Status.RELEASED],
-                ).exists():
+                if report_start and not can_import_attendance_for_month(report_start.year, report_start.month):
                     messages.error(
                         request,
-                        f'Attendance for {report_start:%B %Y} cannot be imported because payroll has already been generated or released.'
+                        f'Attendance for {report_start:%B %Y} cannot be imported because both the first-half and second-half payrolls for this month have already been generated or released.'
                     )
                     return redirect('attendance:import')
 

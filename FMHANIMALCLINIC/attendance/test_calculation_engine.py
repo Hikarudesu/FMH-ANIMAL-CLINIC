@@ -19,6 +19,7 @@ from attendance.calculation_engine import (
     AttendanceCalculationEngine,
     ValidationResult,
 )
+from utils.templatetags.currency_filters import format_overtime_duration
 
 
 class TestWorkingDaysCalculator(unittest.TestCase):
@@ -194,6 +195,37 @@ class TestOvertimeCalculator(unittest.TestCase):
         
         self.assertEqual(hours, Decimal('4.5'))
         self.assertEqual(method, 'FALLBACK_VALUE')
+
+    def test_calculate_overtime_from_record_keeps_under_5_minutes_unrounded(self):
+        """Sub-hour overtime does not count as a full hour."""
+        record = {
+            'OT In': '22:06',
+            'OT Out': '22:10',
+        }
+
+        hours, method = OvertimeCalculator.calculate_overtime_from_record(
+            record, rounding_minutes=5
+        )
+
+        self.assertEqual(method, 'TIMESTAMP')
+        self.assertEqual(hours, Decimal('0'))
+
+    def test_format_overtime_duration_shows_minutes_under_one_hour(self):
+        """Small overtime should render as minutes, not decimal hours."""
+        self.assertEqual(format_overtime_duration(Decimal('0.066666')), '4 mins')
+        self.assertEqual(format_overtime_duration(Decimal('1.5')), '1.5 hrs')
+
+    def test_calculate_overtime_ignores_partial_hour(self):
+        """Only complete hours count. 18:00 to 19:30 counts as 1 hour."""
+        record = {
+            'OT In': '18:00',
+            'OT Out': '19:30',
+        }
+
+        hours, method = OvertimeCalculator.calculate_overtime_from_record(record)
+
+        self.assertEqual(method, 'TIMESTAMP')
+        self.assertEqual(hours, Decimal('1'))
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 {% extends 'base/portal_admin.html' %}
-{% load static %}
+{% load static currency_filters %}
 
 {% block title %}Attendance Summary Report{% endblock %}
 
@@ -64,7 +64,7 @@
             </div>
             <div class="dashboard-card">
                 <div class="card-header"><h3><i class='bx bx-time-five'></i> OT Hours</h3></div>
-                <div class="card-body"><div style="font-size: 2rem; font-weight: 700; color: var(--text-1);">{{ total_overtime_hours|floatformat:1 }}</div></div>
+                <div class="card-body"><div style="font-size: 2rem; font-weight: 700; color: var(--text-1);">{{ total_overtime_hours|overtime_duration }}</div></div>
             </div>
         </div>
 
@@ -82,7 +82,7 @@
                         <th>Days Absent</th>
                         <th>Days Late</th>
                         <th>Late Minutes</th>
-                        <th>Overtime Hours</th>
+                        <th>Overtime</th>
                         <th>Sick Hours</th>
                         <th>Leave Hours</th>
                         <th>Daily Salary</th>
@@ -101,7 +101,7 @@
                             <td><span class="admin-badge inactive">{{ data.days_absent }}</span></td>
                             <td><span class="admin-badge warning">{{ data.days_late }}</span></td>
                             <td>{{ data.total_late_minutes }} mins</td>
-                            <td>{{ data.total_overtime_hours|floatformat:1 }} hrs</td>
+                            <td>{{ data.total_overtime_hours|overtime_duration }}</td>
                             <td>{{ data.sick_hours|floatformat:2 }}</td>
                             <td>{{ data.leave_hours|floatformat:2 }}</td>
                             <td>{{ data.daily_salary|floatformat:2 }}</td>

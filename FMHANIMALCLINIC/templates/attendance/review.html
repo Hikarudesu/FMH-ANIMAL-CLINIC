@@ -1,4 +1,5 @@
 {% extends 'base/portal_admin.html' %}
+{% load currency_filters %}
 
 {% block title %}Review Monthly Attendance{% endblock %}
 
@@ -22,7 +23,7 @@
                     <td><strong>{{ summary.staff.full_name }}</strong></td>
                     <td><code>{{ summary.staff.biometric_id }}</code></td>
                     <td>{{ summary.working_days }}</td><td>{{ summary.attendance_days }}</td><td>{{ summary.absence_days }}</td>
-                    <td>{{ summary.overtime_hours }}</td><td>{{ summary.system_daily_salary|floatformat:2 }}</td>
+                    <td>{{ summary.overtime_hours|overtime_duration }}</td><td>{{ summary.system_daily_salary|floatformat:2 }}</td>
                 </tr>
                 {% empty %}<tr><td colspan="7" style="text-align:center; padding: 32px;">No monthly attendance was imported for this period.</td></tr>{% endfor %}
                 </tbody>

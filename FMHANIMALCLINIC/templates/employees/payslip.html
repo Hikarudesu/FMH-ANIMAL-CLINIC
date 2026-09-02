@@ -86,7 +86,7 @@
             <tr><td>Working Days</td><td style="text-align:right">{{ payslip.working_days }}</td></tr>
             <tr><td>Attendance Days</td><td style="text-align:right">{{ payslip.attendance_days }}</td></tr>
             <tr><td>Absences Days</td><td style="text-align:right">{{ payslip.absence_days }}</td></tr>
-            <tr><td>Overtime Hours</td><td style="text-align:right">{{ payslip.overtime_hours }}</td></tr>
+            <tr><td>Overtime</td><td style="text-align:right">{{ payslip.overtime_hours|overtime_duration }}</td></tr>
             <tr><td>Sick Hours</td><td style="text-align:right">{{ payslip.sick_hours }}</td></tr>
             <tr><td>Leave Hours</td><td style="text-align:right">{{ payslip.leave_hours }}</td></tr>
           </tbody>

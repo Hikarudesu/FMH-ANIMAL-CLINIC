@@ -249,6 +249,9 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 
@@ -263,10 +266,6 @@ AUTH_USER_MODEL = 'accounts.User'
 SESSION_COOKIE_AGE = 24 * 60 * 60
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
-
-# Media files (uploads saved into static/ so images stay in one place)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'static'
 
 # Email settings
 EMAIL_BACKEND = os.environ.get(

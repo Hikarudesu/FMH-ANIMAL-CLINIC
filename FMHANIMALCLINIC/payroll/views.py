@@ -169,7 +169,7 @@ def payroll_dashboard(request):
     ).exists()
 
     # Recent periods
-    recent_periods = PayrollPeriod.objects.all()[:12]
+    recent_periods = PayrollPeriod.objects.all()[:5]
 
     # Year-to-date stats - single optimized query
     ytd_stats = {'total_gross': 0, 'total_net': 0, 'count': 0}

@@ -670,7 +670,14 @@ class Payslip(models.Model):
         base_staff_allowance = Decimal(str(emp_staff_allowance or default_staff_allowance))
         self.staff_allowance = base_staff_allowance / Decimal('2') if is_semi_monthly else base_staff_allowance
 
-        raw_overtime_hours = raw_rows.aggregate(total=Sum('ot_hours_calculated'))['total'] or Decimal('0')
+        required_working_days = WorkingDaysCalculator.calculate_required_working_days(
+            self.payroll_period.year,
+            self.payroll_period.month,
+            self.payroll_period.period_type,
+            default_rest_days,
+        )
+        eligible_overtime_rows = raw_rows.order_by('attendance_date')[:required_working_days]
+        raw_overtime_hours = eligible_overtime_rows.aggregate(total=Sum('ot_hours_calculated'))['total'] or Decimal('0')
         self.overtime_hours = raw_overtime_hours if raw_overtime_hours > 0 else (
             Decimal(str(attendance_summary.overtime_hours)) if attendance_summary else Decimal('0')
         )

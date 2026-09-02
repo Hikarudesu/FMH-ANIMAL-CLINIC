@@ -41,5 +41,4 @@ if settings.DEBUG:
         settings.STATIC_URL,
         document_root=settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else None
     )
-    # MEDIA_ROOT points to static/ so uploads land in static/image/
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

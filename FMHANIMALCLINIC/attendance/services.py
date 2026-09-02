@@ -447,7 +447,8 @@ class AttendanceImportService:
                 if overtime_in and overtime_out:
                     overtime_minutes = int((datetime.combine(date.today(), overtime_out) - datetime.combine(date.today(), overtime_in)).total_seconds() // 60)
                     if overtime_minutes > 0:
-                        daily.ot_hours_calculated = Decimal(overtime_minutes) / Decimal('60')
+                        full_hours = overtime_minutes // 60
+                        daily.ot_hours_calculated = Decimal(full_hours)
                 daily.check_in = check_in
                 daily.check_out = check_out
                 daily.is_present = is_present

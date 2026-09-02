@@ -282,7 +282,7 @@
 
     <table class="info-grid" style="margin-top: 12px;">
       <tr>
-        <td><span class="label">Overtime Hours</span><span class="val">{{ payslip.overtime_hours }}</span></td>
+        <td><span class="label">Overtime</span><span class="val">{{ payslip.overtime_hours|overtime_duration }}</span></td>
         <td><span class="label">Leave Days</span><span class="val">{{ payslip.regular_leave_days|default:0 }}</span></td>
       </tr>
     </table>
@@ -304,7 +304,7 @@
           </tr>
           {% if payslip.overtime_pay > 0 %}
           <tr>
-            <td>Overtime Pay ({{ payslip.overtime_hours }}h)</td>
+            <td>Overtime Pay ({{ payslip.overtime_hours|overtime_duration }})</td>
             <td class="amt">{{ payslip.overtime_pay|peso }}</td>
           </tr>
           {% endif %}
