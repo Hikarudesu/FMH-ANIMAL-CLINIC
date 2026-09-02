@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.core.cache import cache
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -21,13 +21,29 @@ from notifications.utils import (
 )
 
 
-@csrf_exempt
 def submit_inquiry(request):
     """
     AJAX endpoint for contact form submission.
     Accepts POST requests and creates a new inquiry.
     """
     if request.method == 'POST':
+        client_ip = request.META.get('REMOTE_ADDR', 'unknown')
+        rate_key = f'inquiry-submit:{client_ip}'
+        if not cache.add(rate_key, True, timeout=60):
+            return JsonResponse({
+                'success': False,
+                'error': 'Please wait before submitting another inquiry.'
+            }, status=429)
+
+        honeypot = request.POST.get('website', '')
+        if request.content_type == 'application/json':
+            try:
+                honeypot = json.loads(request.body).get('website', '')
+            except json.JSONDecodeError:
+                pass
+        if honeypot:
+            return JsonResponse({'success': True, 'message': 'Inquiry submitted.'})
+
         # Handle both form data and JSON
         if request.content_type == 'application/json':
             try:

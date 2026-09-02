@@ -9,8 +9,8 @@
   <title>{{ CLINIC_NAME|default:'FMH Animal Clinic' }} - Veterinary Clinic Management System</title>
 
   <!-- Favicon -->
-  {% if CLINIC_LOGO %}
-    <link rel="icon" type="image/png" href="{{ CLINIC_LOGO.url }}">
+  {% if CLINIC_LOGO_URL %}
+    <link rel="icon" type="image/png" href="{{ CLINIC_LOGO_URL }}">
   {% else %}
     <link rel="icon" type="image/png" href="{% static 'image/fmh-logo.png' %}">
   {% endif %}

@@ -2,6 +2,9 @@
 
 import json
 
+from django.core.files.storage import default_storage
+from django.templatetags.static import static
+
 from .utils import get_clinic_profile, get_setting
 
 
@@ -16,10 +19,17 @@ def clinic_settings(request):
         {{ PAYROLL_AUTO_STATUTORY }}
     """
     profile = get_clinic_profile()
+    logo_url = ''
+    if profile.logo:
+        if default_storage.exists(profile.logo.name):
+            logo_url = profile.logo.url
+        else:
+            logo_url = static(profile.logo.name)
 
     return {
         'CLINIC_NAME': profile.name,
         'CLINIC_LOGO': profile.logo,
+        'CLINIC_LOGO_URL': logo_url,
         'CLINIC_EMAIL': profile.email,
         'CLINIC_PHONE': profile.phone,
         'CLINIC_ADDRESS': profile.address,

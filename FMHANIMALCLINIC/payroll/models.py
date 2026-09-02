@@ -942,6 +942,13 @@ class PayslipEmailLog(models.Model):
     
     class Meta:
         ordering = ['-sent_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['payslip', 'recipient_email'],
+                condition=models.Q(status='SENT'),
+                name='unique_successful_payslip_email',
+            ),
+        ]
     
     def __str__(self):
         return f"{self.payslip} → {self.recipient_email} ({self.status})"

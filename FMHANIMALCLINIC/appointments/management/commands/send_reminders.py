@@ -5,6 +5,7 @@ Usage: python manage.py send_reminders
 """
 from datetime import datetime
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.utils import timezone
 from appointments.models import Appointment
 from notifications.models import Notification
@@ -27,7 +28,7 @@ class Command(BaseCommand):
         # Get confirmed appointments
         confirmed_appts = Appointment.objects.filter(
             status=Appointment.Status.CONFIRMED
-        ).exclude(owner_email='').select_related('user', 'branch')
+        ).select_related('user', 'branch')
 
         for appt in confirmed_appts:
             # Combine date and time into datetime
@@ -40,14 +41,14 @@ class Command(BaseCommand):
             hours_until = time_until.total_seconds() / 3600
 
             # Check if we should send first reminder (closest to reminder_1_hours)
-            if reminder_1_hours - 0.5 <= hours_until <= reminder_1_hours + 0.5:
-                # Check if first reminder hasn't been sent
-                if not Notification.objects.filter(
-                    user=appt.user,
-                    related_object_id=appt.id,
-                    notification_type=Notification.NotificationType.APPOINTMENT_REMINDER_1,
-                ).exists():
-                    if send_appointment_reminder(appt, reminder_num=1):
+            if (0 < hours_until <= reminder_1_hours
+                    and appt.reminder_1_sent_at is None):
+                if send_appointment_reminder(appt, reminder_num=1):
+                    with transaction.atomic():
+                        claimed = Appointment.objects.filter(
+                            pk=appt.pk, reminder_1_sent_at__isnull=True
+                        ).update(reminder_1_sent_at=timezone.now())
+                    if claimed:
                         # Customer reminder
                         if appt.user:
                             create_notification(
@@ -82,14 +83,14 @@ class Command(BaseCommand):
                         ))
 
             # Check if we should send second reminder (closest to reminder_2_hours)
-            if reminder_2_hours - 0.5 <= hours_until <= reminder_2_hours + 0.5:
-                # Check if second reminder hasn't been sent
-                if not Notification.objects.filter(
-                    user=appt.user,
-                    related_object_id=appt.id,
-                    notification_type=Notification.NotificationType.APPOINTMENT_REMINDER_2,
-                ).exists():
-                    if send_appointment_reminder(appt, reminder_num=2):
+            if (0 < hours_until <= reminder_2_hours
+                    and appt.reminder_2_sent_at is None):
+                if send_appointment_reminder(appt, reminder_num=2):
+                    with transaction.atomic():
+                        claimed = Appointment.objects.filter(
+                            pk=appt.pk, reminder_2_sent_at__isnull=True
+                        ).update(reminder_2_sent_at=timezone.now())
+                    if claimed:
                         # Customer reminder
                         if appt.user:
                             create_notification(

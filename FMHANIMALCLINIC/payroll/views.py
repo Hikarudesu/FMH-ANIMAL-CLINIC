@@ -32,6 +32,7 @@ from accounts.decorators import module_permission_required, special_permission_r
 from employees.models import StaffMember
 from branches.models import Branch
 from payroll.models import PayrollPeriod, Payslip
+from payroll.email_service import send_payslip_email as deliver_payslip_email
 from notifications.utils import notify_payroll_generated, notify_payroll_released
 from attendance.services import AttendanceProcessor
 from attendance.models import AttendanceUpload, DailyAttendance
@@ -999,8 +1000,6 @@ def release_payroll(request, period_id):
     CRITICAL: Period must be in GENERATED state (payslips calculated and locked).
     This prevents releasing payroll that hasn't been finalized.
     """
-    from django.core.mail import send_mail
-
     period = get_object_or_404(PayrollPeriod, id=period_id)
 
     # Validate period state - must be GENERATED
@@ -1094,49 +1093,16 @@ def release_payroll(request, period_id):
                 try:
                     payslip = Payslip.objects.select_related(
                         'employee').get(id=ps_id)
-                    gross_pay = payslip.gross_pay or Decimal('0')
-                    net_pay = payslip.net_pay or Decimal('0')
-
-                    subject = f'Payslip for {period.period_display} - FMH Animal Clinic'
-                    message = f"""
-Dear {payslip.employee.full_name},
-
-Your payslip for {period.period_display} has been released.
-
-Gross Pay: ₱{gross_pay:,.2f}
-Net Pay: ₱{net_pay:,.2f}
-
-Please contact the Finance department if you have any questions.
-
-Best regards,
-FMH Animal Clinic
-                    """
-
                     try:
-                        send_mail(
-                            subject,
-                            message.strip(),
-                            'noreply@fmhanimalclinic.com',
-                            [payslip.employee.email],
-                            fail_silently=False,
-                        )
-                        PayslipEmailLog.objects.create(
-                            payslip=payslip,
-                            recipient_email=payslip.employee.email,
-                            status='SENT'
-                        )
-                        sent_count += 1
+                        sent, reason = deliver_payslip_email(payslip)
+                        if sent:
+                            if reason == 'Already sent.':
+                                continue
+                            sent_count += 1
+                            continue
+                        raise RuntimeError(reason)
                     except Exception as e:
                         failed_count += 1
-                        try:
-                            PayslipEmailLog.objects.create(
-                                payslip=payslip,
-                                recipient_email=payslip.employee.email,
-                                status='FAILED',
-                                error_message=str(e)
-                            )
-                        except Exception:
-                            pass
                         logger.warning(f"Failed to send email for payslip {payslip}: {e}")
                         continue
                 except Exception as e:
@@ -1932,7 +1898,6 @@ def export_payslips_excel(request, period_id):
 @module_permission_required('payroll', 'MANAGE')
 def send_payslip_email(request, payslip_id):
     """Send payslip via email to employee."""
-    from django.core.mail import send_mail
     from payroll.models import PayslipEmailLog
 
     if request.method != 'POST':
@@ -2008,21 +1973,9 @@ Best regards,
 FMH Animal Clinic - Finance Department
         """
 
-        # Send email
-        send_mail(
-            subject,
-            message,
-            'noreply@fmhanimalclinic.com',  # From email
-            [payslip.employee.email],  # To email
-            fail_silently=False,
-        )
-
-        # Log the email
-        email_log = PayslipEmailLog.objects.create(
-            payslip=payslip,
-            recipient_email=payslip.employee.email,
-            status='SENT'
-        )
+        sent, reason = deliver_payslip_email(payslip, force=True)
+        if not sent:
+            raise RuntimeError(reason)
 
         # Log the action
         from payroll.models import PayrollAuditLog
@@ -2059,7 +2012,6 @@ FMH Animal Clinic - Finance Department
 @module_permission_required('payroll', 'MANAGE')
 def send_payslips_bulk(request, period_id):
     """Send payslips to all employees in a period via email."""
-    from django.core.mail import send_mail
     from payroll.models import PayslipEmailLog
 
     period = get_object_or_404(PayrollPeriod, id=period_id)
@@ -2105,25 +2057,11 @@ Best regards,
 FMH Animal Clinic
             """
 
-            send_mail(
-                subject,
-                message,
-                'noreply@fmhanimalclinic.com',
-                [payslip.employee.email],
-                fail_silently=False,
-            )
-
-            # Log successful send
-            try:
-                PayslipEmailLog.objects.create(
-                    payslip=payslip,
-                    recipient_email=payslip.employee.email,
-                    status='SENT'
-                )
-            except Exception:
-                pass
-
-            sent_count += 1
+            sent, reason = deliver_payslip_email(payslip)
+            if sent:
+                sent_count += 1
+            else:
+                raise RuntimeError(reason)
 
         except Exception as e:
             # Log failed send

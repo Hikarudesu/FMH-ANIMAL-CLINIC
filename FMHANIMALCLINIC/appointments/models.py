@@ -103,6 +103,9 @@ class Appointment(models.Model):
 
     notes = models.TextField(blank=True, help_text='Additional notes')
 
+    reminder_1_sent_at = models.DateTimeField(null=True, blank=True)
+    reminder_2_sent_at = models.DateTimeField(null=True, blank=True)
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

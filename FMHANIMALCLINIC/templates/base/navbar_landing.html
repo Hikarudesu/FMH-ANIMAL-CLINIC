@@ -7,8 +7,8 @@
 
     <!-- Logo -->
     <a href="{% url 'landing_page' %}" class="nav-logo">
-      {% if CLINIC_LOGO %}
-      <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} logo" class="logo-icon">
+      {% if CLINIC_LOGO_URL %}
+      <img src="{{ CLINIC_LOGO_URL }}" alt="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} logo" class="logo-icon">
       {% else %}
       <img src="{% static 'image/fmh-logo.png' %}" alt="Logo" class="logo-icon">
       {% endif %}
@@ -105,8 +105,8 @@
 
   <div class="mobile-logo">
     <a href="{% url 'landing_page' %}" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: inherit;">
-      {% if CLINIC_LOGO %}
-      <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} logo" class="logo-icon">
+      {% if CLINIC_LOGO_URL %}
+      <img src="{{ CLINIC_LOGO_URL }}" alt="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} logo" class="logo-icon">
       {% else %}
       <img src="{% static 'image/fmh-logo.png' %}" alt="Logo" class="logo-icon">
       {% endif %}

@@ -60,15 +60,28 @@ _load_environment_file(env_path)
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY', 'django-insecure-change-me-in-production')
+DEPLOYMENT_ENV = os.environ.get('DJANGO_ENV', 'development').strip().lower()
+DEBUG = os.environ.get(
+    'DEBUG', 'true' if DEPLOYMENT_ENV != 'production' else 'false'
+).lower() in ('true', '1', 'yes')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+SECRET_KEY = os.environ.get('SECRET_KEY', '')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise RuntimeError('SECRET_KEY must be set when DEBUG=False.')
+    SECRET_KEY = 'django-insecure-development-only-change-me'
 
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get(
-    'ALLOWED_HOSTS', '').split(',') if h.strip()]
+configured_hosts = os.environ.get('ALLOWED_HOSTS', '')
+if not configured_hosts and not DEBUG:
+    raise RuntimeError('ALLOWED_HOSTS must be set when DEBUG=False.')
+ALLOWED_HOSTS = [h.strip() for h in configured_hosts.split(',') if h.strip()]
+if DEBUG and not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'testserver']
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
 
 
 # Application definition
@@ -248,9 +261,20 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', str(not DEBUG)).lower() in (
+    'true', '1', 'yes'
+)
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '0' if DEBUG else '31536000'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field

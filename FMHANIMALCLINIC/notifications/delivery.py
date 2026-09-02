@@ -78,13 +78,21 @@ def send_notification_email(subject, message, recipient_list, fail_silently=True
         return False
 
     try:
-        send_mail(
+        sent_count = send_mail(
             subject=subject,
             message=message,
             from_email=_from_header(),
             recipient_list=recipients,
             fail_silently=fail_silently,
         )
+        if sent_count != len(recipients):
+            logger.warning(
+                "Email backend accepted %s of %s recipients for subject '%s'.",
+                sent_count,
+                len(recipients),
+                subject,
+            )
+            return False
         return True
     except Exception as exc:
         logger.warning("Failed to send notification email to %s: %s", recipients, exc)

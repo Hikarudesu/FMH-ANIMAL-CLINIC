@@ -287,8 +287,8 @@
           {% else %}
           <a href="{% url 'admin_dashboard' %}" class="sidebar-logo">
           {% endif %}
-            {% if CLINIC_LOGO %}
-            <img src="{{ CLINIC_LOGO.url }}" alt="{{ CLINIC_NAME }} Logo" />
+            {% if CLINIC_LOGO_URL %}
+            <img src="{{ CLINIC_LOGO_URL }}" alt="{{ CLINIC_NAME }} Logo" />
             {% else %}
             <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo" />
             {% endif %}
