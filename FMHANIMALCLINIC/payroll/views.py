@@ -473,6 +473,7 @@ def generate_payslips_action(request, period_id=None):
             for payslip in payslips:
                 try:
                     # Recalculate totals based on current payslip state
+                    payslip.persist_default_custom_deductions()
                     payslip.calculate()
                     payslip.save(
                         update_fields=[
@@ -615,6 +616,8 @@ def payslips_list(request, period_id):
             if was_created or period.status in [PayrollPeriod.Status.DRAFT, PayrollPeriod.Status.EDITED]:
                 payslip.generate_from_employee()
                 payslip.save()
+                if was_created:
+                    payslip.persist_default_custom_deductions()
             existing_payslip_records.append(payslip)
 
         from attendance.models import MonthlyAttendanceSummary
@@ -770,8 +773,6 @@ def payslip_edit(request, payslip_id):
                     request.POST.get('overtime_pay', 0))
                 payslip.holiday_pay = safe_decimal(request.POST.get('holiday_pay', 0))
                 payslip.bonus = safe_decimal(request.POST.get('bonus', 0))
-                payslip.staff_allowance = safe_decimal(
-                    request.POST.get('staff_allowance', 2000))
 
                 # Update deductions
                 payslip.sss = safe_decimal(request.POST.get('sss', 0))
@@ -788,11 +789,8 @@ def payslip_edit(request, payslip_id):
                     request.POST.get('other_deductions', 0))
 
                 # Update attendance and payroll master values
-                payslip.days_worked = safe_int(request.POST.get('days_worked', payslip.working_days), payslip.working_days)
-                payslip.days_absent = safe_int(request.POST.get('days_absent', 0))
-                payslip.working_days = safe_int(request.POST.get('working_days', payslip.working_days), payslip.working_days)
                 default_rest_days = int(get_setting('payroll_default_rest_days', 4))
-                payslip.rest_days_mandatory = safe_int(request.POST.get('rest_days_mandatory', payslip.rest_days_mandatory or default_rest_days), payslip.rest_days_mandatory or default_rest_days)
+                payslip.rest_days_mandatory = default_rest_days
                 if payslip.rest_days_mandatory <= 0:
                     payslip.rest_days_mandatory = default_rest_days
                 payslip.paid_leave_type = request.POST.get('paid_leave_type', payslip.paid_leave_type or 'Sick Leave')
@@ -901,6 +899,13 @@ def payslip_edit(request, payslip_id):
     if not configured_paid_leave_types:
         configured_paid_leave_types = ['Sick Leave', 'Emergency Leave']
 
+    default_rest_days = int(get_setting('payroll_default_rest_days', 4))
+    display_rest_days = (
+        default_rest_days // 2
+        if period.period_type in [PayrollPeriod.PeriodType.SEMI_FIRST, PayrollPeriod.PeriodType.SEMI_SECOND]
+        else default_rest_days
+    )
+
     context = {
         'payslip': payslip,
         'period': payslip.payroll_period,
@@ -912,7 +917,8 @@ def payslip_edit(request, payslip_id):
         'show_pagibig': get_setting('payroll_auto_statutory', True) and get_setting('payroll_enable_pagibig', True),
         'default_staff_allowance': get_setting('payroll_default_staff_allowance', 2000) / 2,
         'default_overtime_pay_per_hour': get_setting('payroll_default_overtime_pay_per_hour', 120),
-        'default_rest_days': get_setting('payroll_default_rest_days', 4),
+        'default_rest_days': default_rest_days,
+        'display_rest_days': display_rest_days,
         'default_absent_deduction': get_setting('payroll_default_absent_deduction', 100),
         'paid_leave_options': configured_paid_leave_types,
         'daily_salary_display': payslip.daily_salary,

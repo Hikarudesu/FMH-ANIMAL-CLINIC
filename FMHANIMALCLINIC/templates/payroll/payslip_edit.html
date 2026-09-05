@@ -37,10 +37,10 @@
   .released-warning-text { color: #b91c1c; font-weight: 500; }
   .released-warning-text strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
   .released-warning-text small { font-size: 0.8rem; opacity: 0.9; }
-  .deduction-row { display: grid; grid-template-columns: 1fr 180px auto; gap: 10px; align-items: end; margin-bottom: 10px; }
+  .deduction-row { display: grid; grid-template-columns: 260px 180px auto; gap: 10px; align-items: end; width: fit-content; margin-bottom: 10px; }
   .deduction-row .remove-deduction { height: 36px; width: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-2); cursor: pointer; }
   .deduction-row .remove-deduction:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
-  .section-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+  .section-actions { display: flex; justify-content: flex-start; margin-top: 10px; }
   .btn-secondary { padding: 10px 16px; background: var(--bg); color: var(--text-1); border: 1px solid var(--border); border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; }
   @media (max-width: 1100px) {
     .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -82,14 +82,14 @@
     <div class="form-line">
       <div class="form-group">
         <label>Working Days</label>
-        <input type="number" name="working_days" value="{{ payslip.working_days|default_if_none:0 }}">
-        <small style="color: var(--text-3); font-size: 0.75rem;">The total tracked working days in the biometric file, adjusted by the system default rest-day setting.</small>
+        <input type="number" name="working_days" value="{{ payslip.working_days|default_if_none:0 }}" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. Working days are calculated from the payroll period and attendance data.</small>
       </div>
 
       <div class="form-group">
         <label>Attendance</label>
-        <input type="number" name="days_worked" value="{{ payslip.days_worked|default_if_none:0 }}">
-        <small style="color: var(--text-3); font-size: 0.75rem;">Attendance is counted only when both a valid time-in and time-out are present in the raw attendance export.</small>
+        <input type="number" name="days_worked" value="{{ payslip.days_worked|default_if_none:0 }}" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. Attendance is calculated from valid time-in and time-out pairs in the raw attendance export.</small>
       </div>
     </div>
 
@@ -121,14 +121,14 @@
     <div class="form-line--three">
       <div class="form-group">
         <label>Rest Days</label>
-        <input type="number" name="rest_days_mandatory" value="{{ payslip.rest_days_mandatory|default:default_rest_days }}" readonly>
-        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. The configured rest-day default is pulled from payroll settings and applied to the current period.</small>
+        <input type="number" name="rest_days_mandatory" value="{{ display_rest_days }}" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. Semi-monthly payslips show half of the configured monthly rest-day default.</small>
       </div>
 
       <div class="form-group">
         <label>Days Absences</label>
-        <input type="number" id="daysAbsentInput" name="days_absent" value="{{ payslip.days_absent|default:0 }}" min="0" step="1">
-        <small style="color: var(--text-3); font-size: 0.75rem;">A day is treated as absent only when the staff is missing a time-in or time-out in the raw biometric data.</small>
+        <input type="number" id="daysAbsentInput" name="days_absent" value="{{ payslip.days_absent|default:0 }}" min="0" step="1" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. Absences are calculated from missing time-in or time-out data in the raw biometric export.</small>
       </div>
 
       <div class="form-group">
@@ -171,8 +171,8 @@
       </div>
       <div class="form-group">
         <label>Staff Allowance (₱)</label>
-        <input type="text" name="staff_allowance" class="currency-input" value="{{ payslip.staff_allowance|default:default_staff_allowance }}" inputmode="decimal" placeholder="2,000.00">
-        <small style="color: var(--text-3); font-size: 0.75rem;">Semi-monthly payroll splits the monthly allowance evenly across the half-periods, so this value already reflects the current period share.</small>
+        <input type="text" name="staff_allowance" class="currency-input" value="{{ payslip.staff_allowance|default:default_staff_allowance }}" inputmode="decimal" placeholder="2,000.00" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. This value is calculated from the configured staff allowance and current payroll period.</small>
       </div>
     </div>
   </div>
@@ -226,7 +226,7 @@
     </div>
     <div class="summary-row">
       <span>Deductions</span>
-      <strong>₱{{ payslip.total_deductions|peso }}</strong>
+      <strong style="color: #dc2626;">-₱{{ payslip.total_deductions|peso }}</strong>
     </div>
     <div class="summary-row" style="border-bottom: none; margin-top: 8px; padding-top: 12px; border-top: 2px solid var(--border);">
       <span style="font-weight: 700;">Net Pay</span>
@@ -242,26 +242,6 @@
 </form>
 
 <script>
-  const paidLeaveInput = document.getElementById('paidLeaveInput');
-  const daysAbsentInput = document.getElementById('daysAbsentInput');
-
-  if (paidLeaveInput && daysAbsentInput) {
-    const syncAbsences = () => {
-      const absences = Number(daysAbsentInput.value || 0);
-      const paidLeave = Number(paidLeaveInput.value || 0);
-      const remaining = Math.max(0, absences - paidLeave);
-      daysAbsentInput.value = remaining;
-    };
-
-    paidLeaveInput.addEventListener('input', syncAbsences);
-    daysAbsentInput.addEventListener('input', () => {
-      const absences = Number(daysAbsentInput.value || 0);
-      if (Number.isNaN(absences) || absences < 0) {
-        daysAbsentInput.value = 0;
-      }
-    });
-  }
-
   function addDeductionRow() {
     const container = document.getElementById('customDeductions');
     if (!container) return;

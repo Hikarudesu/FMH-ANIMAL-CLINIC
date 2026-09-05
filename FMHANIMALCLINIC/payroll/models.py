@@ -471,6 +471,24 @@ class Payslip(models.Model):
         self.net_pay = self.gross_pay - self.total_deductions
         
         return self
+
+    def persist_default_custom_deductions(self):
+        """Copy this employee's configured deductions into this payslip once."""
+        if self.custom_deductions.exists():
+            return
+
+        default_custom_deductions = getattr(self.employee, 'default_custom_deductions', None) or []
+        for deduction in default_custom_deductions:
+            reason = str(deduction.get('reason', '')).strip()
+            if not reason:
+                continue
+            self.custom_deductions.create(
+                reason=reason,
+                amount=Decimal(str(deduction.get('amount', 0) or 0)),
+            )
+
+        self.calculate()
+        self.save(update_fields=['custom_deductions_total', 'total_allowances', 'total_deductions', 'gross_pay', 'net_pay'])
     
     @property
     def staff_allowance_15th(self):
