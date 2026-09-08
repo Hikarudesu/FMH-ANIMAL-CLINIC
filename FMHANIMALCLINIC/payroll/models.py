@@ -11,23 +11,16 @@ SEMI-MONTHLY SUPPORT:
 - Option A: 1st to 15th of the month
 - Option B: 16th to End of the month (28th/29th/30th/31st)
 """
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from datetime import date, timedelta
 import calendar
-import logging
 
 from django.db import models
-from django.db.models import Q, Sum
+from django.db.models import Sum
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from employees.models import StaffMember
 from accounts.models import User
-from attendance.calculation_engine import (
-    WorkingDaysCalculator,
-    AttendanceCappingEngine,
-)
-
-logger = logging.getLogger(__name__)
 
 
 class PayrollPeriod(models.Model):
@@ -40,6 +33,7 @@ class PayrollPeriod(models.Model):
         RELEASED = 'RELEASED', 'Released'
     
     class PeriodType(models.TextChoices):
+        MONTHLY = 'MONTHLY', 'Full Month'
         SEMI_FIRST = 'SEMI_FIRST', 'First Half'
         SEMI_SECOND = 'SEMI_SECOND', 'Second Half'
     
@@ -52,8 +46,8 @@ class PayrollPeriod(models.Model):
     period_type = models.CharField(
         max_length=20,
         choices=PeriodType.choices,
-        default=PeriodType.SEMI_FIRST,
-        help_text='Select the first half (1-15) or second half (16-EOMonth)'
+        default=PeriodType.MONTHLY,
+        help_text='Select full month, first half (1-15), or second half (16-EOMonth)'
     )
     branch = models.ForeignKey(
         'branches.Branch',
@@ -122,7 +116,8 @@ class PayrollPeriod(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.month_name} {self.year} - {self.get_period_type_display()}"
+        period_display = f" - {self.get_period_type_display()}" if self.period_type != self.PeriodType.MONTHLY else ""
+        return f"{self.month_name} {self.year}{period_display}"
     
     @property
     def month_name(self):
@@ -130,7 +125,8 @@ class PayrollPeriod(models.Model):
     
     @property
     def period_display(self):
-        return f"{self.month_name} {self.year} - {self.get_period_type_display()}"
+        period_display = f" - {self.get_period_type_display()}" if self.period_type != self.PeriodType.MONTHLY else ""
+        return f"{self.month_name} {self.year}{period_display}"
 
     @property
     def scope_display(self):
@@ -163,15 +159,18 @@ class PayrollPeriod(models.Model):
         first_day = date(self.year, self.month, 1)
         last_day = date(self.year, self.month, self.days_in_month)
         
-        # The clinic operates on semi-monthly payroll only.
-        # The first half keeps the odd count when there is one; the second half starts on the even boundary.
-        # This makes 31-day months split as 1-15 / 16-31, 30-day as 1-15 / 16-30, and 28-day as 1-14 / 15-28.
-        split_day = self.days_in_month // 2
-
+        if self.period_type == self.PeriodType.MONTHLY:
+            return (first_day, last_day)
+        
+        # Calculate mid-point based on days in month
+        # For equal division: mid_point = (days_in_month // 2) + 1
+        # This ensures first half is always <= second half
+        mid_point = self.days_in_month // 2
+        
         if self.period_type == self.PeriodType.SEMI_FIRST:
-            return (first_day, date(self.year, self.month, split_day))
+            return (first_day, date(self.year, self.month, mid_point))
         elif self.period_type == self.PeriodType.SEMI_SECOND:
-            return (date(self.year, self.month, split_day + 1), last_day)
+            return (date(self.year, self.month, mid_point + 1), last_day)
         
         return (first_day, last_day)  # Fallback
     
@@ -374,52 +373,6 @@ class Payslip(models.Model):
     def __str__(self):
         return f"{self.employee.full_name} - {self.payroll_period.period_display}"
     
-    @staticmethod
-    def _split_half_period_total(value):
-        """Fairly split an integer total across the first and second half of a month.
-
-        The second half gets the remainder when the total is odd, so values like
-        27 become 13 and 14, 25 become 12 and 13, and 24 stays 12 and 12.
-        """
-        value = max(0, int(value))
-        first_half = value // 2
-        second_half = value - first_half
-        return first_half, second_half
-
-    def calculate_raw_absence_days(self):
-        """Count only complete 4-punch attendance as worked days; any missing morning/afternoon punch is absent."""
-        from attendance.models import DailyAttendance
-
-        period_start, period_end = self.payroll_period.get_period_start_end_dates()
-
-        unique_dates = DailyAttendance.objects.filter(
-            staff=self.employee,
-            attendance_date__range=[period_start, period_end],
-        ).values_list('attendance_date', flat=True).distinct()
-
-        days_worked = 0
-        days_absent = 0
-
-        for attendance_date in unique_dates:
-            records_for_date = DailyAttendance.objects.filter(
-                staff=self.employee,
-                attendance_date=attendance_date,
-            )
-
-            has_complete_four_punch_day = records_for_date.filter(
-                morning_in__isnull=False,
-                morning_out__isnull=False,
-                afternoon_in__isnull=False,
-                afternoon_out__isnull=False,
-            ).exists() or records_for_date.filter(four_punch_complete=True).exists()
-
-            if has_complete_four_punch_day:
-                days_worked += 1
-            else:
-                days_absent += 1
-
-        return days_worked, days_absent
-
     def calculate(self):
         """Calculate all totals based on current values."""
         custom_total = self.custom_deductions_total or Decimal('0')
@@ -471,24 +424,6 @@ class Payslip(models.Model):
         self.net_pay = self.gross_pay - self.total_deductions
         
         return self
-
-    def persist_default_custom_deductions(self):
-        """Copy this employee's configured deductions into this payslip once."""
-        if self.custom_deductions.exists():
-            return
-
-        default_custom_deductions = getattr(self.employee, 'default_custom_deductions', None) or []
-        for deduction in default_custom_deductions:
-            reason = str(deduction.get('reason', '')).strip()
-            if not reason:
-                continue
-            self.custom_deductions.create(
-                reason=reason,
-                amount=Decimal(str(deduction.get('amount', 0) or 0)),
-            )
-
-        self.calculate()
-        self.save(update_fields=['custom_deductions_total', 'total_allowances', 'total_deductions', 'gross_pay', 'net_pay'])
     
     @property
     def staff_allowance_15th(self):
@@ -513,8 +448,9 @@ class Payslip(models.Model):
         6. Deductions apply to the specific period half where the absence occurred
         """
         from settings.utils import get_setting
-        from attendance.models import DailyAttendance, MonthlyAttendanceSummary
+        from attendance.models import MonthlyAttendanceSummary
         
+        # Base salary is monthly for full-month payroll and half-monthly for semi-monthly periods
         monthly_salary = Decimal(str(self.employee.salary or 0))
         is_semi_monthly = self.payroll_period.period_type in [
             self.payroll_period.PeriodType.SEMI_FIRST,
@@ -522,184 +458,72 @@ class Payslip(models.Model):
         ]
         salary_fraction = Decimal('0.5') if is_semi_monthly else Decimal('1')
         self.base_salary = monthly_salary * salary_fraction
-
-        default_rest_days = int(get_setting('payroll_default_rest_days', 4))
-        default_overtime_pay = Decimal(str(get_setting('payroll_default_overtime_pay_per_hour', 0)))
-
+        
+        # Fetch attendance data from biometric import for this period
         period_start, period_end = self.payroll_period.get_period_start_end_dates()
         attendance_summary = MonthlyAttendanceSummary.objects.filter(
             staff=self.employee,
             period_start__year=self.payroll_period.year,
             period_start__month=self.payroll_period.month,
         ).first()
-
-        raw_rows = DailyAttendance.objects.filter(
-            staff=self.employee,
-            attendance_date__range=[period_start, period_end],
-        )
-        days_worked_from_raw, days_absent_from_raw = self.calculate_raw_absence_days()
-        has_any_raw_rows = raw_rows.exists()
-        has_any_raw_time_metadata = raw_rows.filter(
-            Q(check_in__isnull=False)
-            | Q(check_out__isnull=False)
-            | Q(morning_in__isnull=False)
-            | Q(morning_out__isnull=False)
-            | Q(afternoon_in__isnull=False)
-            | Q(afternoon_out__isnull=False)
-            | Q(four_punch_complete=True)
-        ).exists()
-        has_complete_raw_pair = raw_rows.filter(
-            morning_in__isnull=False,
-            morning_out__isnull=False,
-            afternoon_in__isnull=False,
-            afternoon_out__isnull=False,
-        ).exists() or raw_rows.filter(four_punch_complete=True).exists()
-
-        if has_any_raw_rows and has_any_raw_time_metadata:
-            # Priority: Use raw DailyAttendance time metadata
-            if has_complete_raw_pair:
-                # Calculate required days for this period
-                required_working_days = WorkingDaysCalculator.calculate_required_working_days(
-                    self.payroll_period.year,
-                    self.payroll_period.month,
-                    self.payroll_period.period_type,
-                    default_rest_days,
-                )
-                
-                # Apply capping: MIN(calculated_attendance, required_working_days)
-                capping_engine = AttendanceCappingEngine()
-                capped_working_days, capping_note = capping_engine.cap_attendance_days(
-                    days_worked_from_raw, required_working_days
-                )
-                
-                if capping_note:
-                    logger.warning(f"Attendance capping for {self.employee.full_name}: {capping_note}")
-                
-                # working_days = required days available in period (after rest day deduction)
-                # days_worked = actual attendance (capped)
-                # days_absent = required - actual
-                self.working_days = required_working_days
-                self.days_worked = max(0, capped_working_days)
-                self.days_absent = max(0, required_working_days - capped_working_days)
-                self.rest_days_actual = default_rest_days
-                working_days_for_half = self.working_days
+        
+        # Use actual working days from biometrics only.
+        # If the attendance data has been removed or not uploaded yet,
+        # these values must remain at zero instead of being estimated from a calendar.
+        if attendance_summary and attendance_summary.working_days > 0:
+            actual_working_days = attendance_summary.working_days
+            if is_semi_monthly:
+                working_days_for_half = max(1, actual_working_days // 2)
             else:
-                # No complete pairs found - calculate required days and absences correctly
-                required_working_days = WorkingDaysCalculator.calculate_required_working_days(
-                    self.payroll_period.year,
-                    self.payroll_period.month,
-                    self.payroll_period.period_type,
-                    default_rest_days,
-                )
-                
-                # working_days = required days available in period (after rest day deduction)
-                # days_worked = 0 (no attendance)
-                # days_absent = required days (all absent)
-                self.working_days = required_working_days
-                self.days_worked = 0
-                self.days_absent = max(0, required_working_days)
-                self.rest_days_actual = default_rest_days
-                working_days_for_half = self.working_days
+                working_days_for_half = actual_working_days
         else:
-            # Fallback: Use MonthlyAttendanceSummary data
-            # Note: working_days = calendar working days in month (not actual worked)
-            #       attendance_days = actual days with attendance (from biometric file)
-            summary_working_days = attendance_summary.working_days if attendance_summary else 0
-            summary_attendance_days = getattr(attendance_summary, 'attendance_days', 0) or 0
-            summary_absence_days = getattr(attendance_summary, 'absence_days', 0) or 0
+            working_days_for_half = 0
 
-            if attendance_summary:
-                # Calculate required working days for this period
-                required_working_days = WorkingDaysCalculator.calculate_required_working_days(
-                    self.payroll_period.year,
-                    self.payroll_period.month,
-                    self.payroll_period.period_type,
-                    default_rest_days,
-                )
-                
-                # For semi-monthly payroll, split the full-month values
-                if is_semi_monthly:
-                    # Split calendar days for reference
-                    if summary_working_days > 0:
-                        first_half, second_half = self._split_half_period_total(summary_working_days)
-                        summary_working_days = first_half if self.payroll_period.period_type == self.payroll_period.PeriodType.SEMI_FIRST else second_half
-                    
-                    # Split actual attendance days for capping calculation
-                    if summary_attendance_days > 0:
-                        first_half, second_half = self._split_half_period_total(summary_attendance_days)
-                        summary_attendance_days = first_half if self.payroll_period.period_type == self.payroll_period.PeriodType.SEMI_FIRST else second_half
-                
-                # Apply attendance capping: MIN(actual_attendance, required_working_days)
-                # Use attendance_days (actual worked) not working_days (calendar days)
-                capping_engine = AttendanceCappingEngine()
-                capped_working_days, capping_note = capping_engine.cap_attendance_days(
-                    summary_attendance_days, required_working_days
-                )
-                
-                if capping_note:
-                    logger.warning(f"Attendance capping for {self.employee.full_name}: {capping_note}")
-                
-                # working_days = required days available in period (after rest day deduction)
-                # days_worked = actual attendance (capped)
-                # days_absent = required - actual
-                self.working_days = required_working_days
-                self.days_worked = max(0, capped_working_days)
-                self.days_absent = max(0, required_working_days - capped_working_days)
-                self.rest_days_actual = default_rest_days
-                working_days_for_half = self.working_days
-            else:
-                # No summary data exists; calculate required working days from formula
-                required_working_days = WorkingDaysCalculator.calculate_required_working_days(
-                    self.payroll_period.year,
-                    self.payroll_period.month,
-                    self.payroll_period.period_type,
-                    default_rest_days,
-                )
-                
-                # working_days = required days available in period (after rest day deduction)
-                # days_worked = 0 (no attendance data)
-                # days_absent = required days (all absent)
-                self.working_days = required_working_days
-                self.days_worked = 0
-                self.days_absent = max(0, required_working_days)
-                self.rest_days_actual = default_rest_days
-                working_days_for_half = self.working_days
+        self.working_days = working_days_for_half
+        self.days_worked = working_days_for_half
+        self.days_absent = 0
 
+        # Calculate daily salary based on base salary and the actual working days in-range.
+        # When no attendance summary exists, working_days_for_half stays at zero.
         self.daily_salary = (
             self.base_salary / Decimal(str(working_days_for_half))
             if self.base_salary and working_days_for_half > 0 else Decimal('0')
         )
 
+        # ─────────── POPULATE ABSENCE DATA FROM BIOMETRICS ───────────
+        # NOTE: Biometric data cannot differentiate between sick leave and regular leave
+        # User will manually categorize these in the payslip edit form.
+        # When no attendance import exists, leave everything at zero.
+        if attendance_summary:
+            self.rest_days_actual = int(attendance_summary.absence_days or 0)
+        else:
+            self.rest_days_actual = 0
+        
+        # Initialize leave fields as ZERO - user will manually enter in edit form
         self.sick_hours = Decimal('0')
         self.sick_leave_days = Decimal('0')
         self.leave_hours = Decimal('0')
         self.regular_leave_days = Decimal('0')
-
-        self.rest_days_mandatory = default_rest_days
-        self.excess_leave_days = Decimal('0')
-        self.rest_days_exceeded_deduction = Decimal('0')
-
-        default_absent_deduction = Decimal(str(get_setting('payroll_default_absent_deduction', 100)))
-        effective_absent_days = max(0, int(self.days_absent) - int(self.paid_leave_days)) if self.paid_leave_days else int(self.days_absent)
-        self.absent_deduction = Decimal(str(effective_absent_days)) * default_absent_deduction
-
+        
+        # ─────────── CALCULATE REST DAYS EXCEEDED DEDUCTION ───────────
+        # Logic: If actual rest days exceed the configured default, excess days are deducted
+        # BUT user must specify which absences are regular leave vs sick leave in edit form.
+        # The default is configurable in payroll settings and must stay at 4 unless changed.
+        self.rest_days_mandatory = int(get_setting('payroll_default_rest_days', 4))
+        
+        if self.rest_days_actual > self.rest_days_mandatory:
+            # Excess days exist, but user will specify the breakdown in edit form
+            self.excess_leave_days = Decimal('0')  # Will be calculated when user edits
+            self.rest_days_exceeded_deduction = Decimal('0')  # Will be calculated when user edits
+        else:
+            # No excess
+            self.excess_leave_days = Decimal('0')
+            self.rest_days_exceeded_deduction = Decimal('0')
+        
+        # Staff allowance from employee defaults, falling back to settings default
         default_staff_allowance = get_setting('payroll_default_staff_allowance', 2000)
         emp_staff_allowance = getattr(self.employee, 'default_staff_allowance', None)
-        base_staff_allowance = Decimal(str(emp_staff_allowance or default_staff_allowance))
-        self.staff_allowance = base_staff_allowance / Decimal('2') if is_semi_monthly else base_staff_allowance
-
-        required_working_days = WorkingDaysCalculator.calculate_required_working_days(
-            self.payroll_period.year,
-            self.payroll_period.month,
-            self.payroll_period.period_type,
-            default_rest_days,
-        )
-        eligible_overtime_rows = raw_rows.order_by('attendance_date')[:required_working_days]
-        raw_overtime_hours = eligible_overtime_rows.aggregate(total=Sum('ot_hours_calculated'))['total'] or Decimal('0')
-        self.overtime_hours = raw_overtime_hours if raw_overtime_hours > 0 else (
-            Decimal(str(attendance_summary.overtime_hours)) if attendance_summary else Decimal('0')
-        )
-        self.overtime_pay = default_overtime_pay
+        self.staff_allowance = Decimal(str(emp_staff_allowance or default_staff_allowance))
         
         default_custom_deductions = getattr(self.employee, 'default_custom_deductions', None) or []
         
@@ -714,21 +538,26 @@ class Payslip(models.Model):
 
         # Calculate statutory contributions based on settings (clinic-paid, not deducted from salary)
         auto_statutory = get_setting('payroll_auto_statutory', True)
+        is_semi_monthly = self.payroll_period.period_type in [
+            PayrollPeriod.PeriodType.SEMI_FIRST,
+            PayrollPeriod.PeriodType.SEMI_SECOND,
+        ]
+        statutory_fraction = Decimal('0.5') if is_semi_monthly else Decimal('1')
 
         if auto_statutory and self.base_salary > 0:
             # SSS
             if get_setting('payroll_enable_sss', True):
-                sss_rate = Decimal(str(get_setting('payroll_sss_rate', 4.50)))
+                sss_rate = Decimal(str(get_setting('payroll_sss_rate', 4.50))) * statutory_fraction
                 self.clinic_sss = self.base_salary * (sss_rate / Decimal('100'))
 
             # PhilHealth
             if get_setting('payroll_enable_philhealth', True):
-                ph_rate = Decimal(str(get_setting('payroll_philhealth_rate', 2.00)))
+                ph_rate = Decimal(str(get_setting('payroll_philhealth_rate', 2.00))) * statutory_fraction
                 self.clinic_philhealth = self.base_salary * (ph_rate / Decimal('100'))
 
             # Pag-IBIG
             if get_setting('payroll_enable_pagibig', True):
-                self.clinic_pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100)))
+                self.clinic_pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100))) * statutory_fraction
 
         # Keep default custom deductions available for the caller to persist
         # after the payslip is saved.
@@ -766,9 +595,7 @@ class Payslip(models.Model):
             self.payroll_period.PeriodType.SEMI_FIRST,
             self.payroll_period.PeriodType.SEMI_SECOND,
         ] and working_days > 0:
-            first_half, second_half = self._split_half_period_total(working_days)
-            working_days = first_half if self.payroll_period.period_type == self.payroll_period.PeriodType.SEMI_FIRST else second_half
-            working_days = max(1, working_days)
+            working_days = max(1, working_days // 2)
 
         if self.base_salary > 0 and working_days > 0:
             return self.base_salary / Decimal(str(working_days))
@@ -960,13 +787,6 @@ class PayslipEmailLog(models.Model):
     
     class Meta:
         ordering = ['-sent_at']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['payslip', 'recipient_email'],
-                condition=models.Q(status='SENT'),
-                name='unique_successful_payslip_email',
-            ),
-        ]
     
     def __str__(self):
         return f"{self.payslip} → {self.recipient_email} ({self.status})"

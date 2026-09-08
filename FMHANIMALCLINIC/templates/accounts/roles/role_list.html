@@ -178,11 +178,10 @@
         <td>
           <div style="display: flex; align-items: center; gap: 12px;">
             <div class="role-icon">
-              <i class='bx {% if role.code == 'superadmin' or role.code == 'admin' %}bx-crown{% elif role.code == 'branch_admin' %}bx-building{% elif role.code == 'veterinarian' %}bx-plus-medical{% elif role.code == 'receptionist' %}bx-phone{% elif role.code == 'vet_assistant' %}bx-user{% elif role.code == 'user' %}bx-heart{% else %}bx-shield-quarter{% endif %}'></i>
+              <i class='bx {% if role.code == 'superadmin' or role.code == 'admin' %}bx-crown{% elif role.code == 'executive_officer' %}bx-building{% elif role.code == 'veterinarian' %}bx-plus-medical{% elif role.code == 'cashier' %}bx-phone{% elif role.code == 'assistant_veterinarian' %}bx-user{% elif role.code == 'user' %}bx-heart{% else %}bx-shield-quarter{% endif %}'></i>
             </div>
             <div>
               <strong style="display: block;">{{ role.name }}</strong>
-              <code style="font-size: 11px; color: var(--text-3);">{{ role.code }}</code>
             </div>
             {% if role.is_system_role %}
             <span class="system-lock" title="System role">

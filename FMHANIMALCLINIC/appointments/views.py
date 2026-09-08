@@ -144,7 +144,7 @@ def api_available_vets(request):
         return JsonResponse({'vets': []})
 
     # Schedulable roles: veterinarians and vet assistants
-    schedulable_roles = ['veterinarian', 'vet_assistant']
+    schedulable_roles = ['veterinarian', 'assistant_veterinarian']
 
     # If a date is provided, only return staff who have a schedule that day
     if appt_date:
@@ -204,7 +204,7 @@ def api_vet_times(request):
         except (ValueError, TypeError):
             pass
 
-    schedulable_roles = ['veterinarian', 'vet_assistant']
+    schedulable_roles = ['veterinarian', 'assistant_veterinarian']
     filters = {
         'date': target_date,
         'is_available': True,
@@ -265,7 +265,7 @@ def api_available_dates(request):
     if branch_id:
         filters['branch_id'] = branch_id
 
-    filters['staff__user__assigned_role__code__in'] = ['veterinarian', 'vet_assistant']
+    filters['staff__user__assigned_role__code__in'] = ['veterinarian', 'assistant_veterinarian']
     available_dates = VetSchedule.objects.filter(
         **filters
     ).values_list('date', flat=True).distinct()
@@ -337,7 +337,7 @@ def admin_list(request):
     # Include both veterinarians and vet assistants in the filter dropdown
     # If user is branch-restricted, only show vets from their branch
     vets_query = StaffMember.objects.filter(
-        user__assigned_role__code__in=['veterinarian', 'vet_assistant'],
+        user__assigned_role__code__in=['veterinarian', 'assistant_veterinarian'],
         is_active=True,
     )
     

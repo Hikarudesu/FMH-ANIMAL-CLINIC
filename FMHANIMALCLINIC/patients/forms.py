@@ -163,7 +163,7 @@ class AdminPetForm(forms.ModelForm):
             role = getattr(self.current_user, 'assigned_role', None)
             self._can_transfer = (
                 self.current_user.is_superuser
-                or (role and role.code == 'receptionist')
+                or (role and role.code == 'cashier')
             )
 
         # Set up branch field

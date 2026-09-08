@@ -217,10 +217,10 @@ class Role(models.Model):
     """
     # Default role codes for seeding
     SUPERADMIN = 'superadmin'
-    BRANCH_ADMIN = 'branch_admin'
+    BRANCH_ADMIN = 'executive_officer'
     VET = 'veterinarian'
-    RECEPTIONIST = 'receptionist'
-    VET_ASSISTANT = 'vet_assistant'
+    RECEPTIONIST = 'cashier'
+    VET_ASSISTANT = 'assistant_veterinarian'
 
     name = models.CharField(max_length=100, unique=True)
     code = models.SlugField(max_length=50, unique=True)

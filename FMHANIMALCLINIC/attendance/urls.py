@@ -8,12 +8,6 @@ urlpatterns = [
     # Dashboard
     path('', views.attendance_dashboard, name='dashboard'),
     
-    # Device Management
-    path('devices/', views.device_list, name='device_list'),
-    path('devices/create/', views.device_create, name='device_create'),
-    path('devices/<int:device_id>/edit/', views.device_edit, name='device_edit'),
-    path('devices/<int:device_id>/', views.device_detail, name='device_detail'),
-    
     # Import
     path('import/', views.attendance_import, name='import'),
     path('history/', views.attendance_upload_history, name='history'),

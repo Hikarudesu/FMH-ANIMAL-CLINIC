@@ -226,6 +226,7 @@
     </form>
     {% endif %}
     {% if period.status == 'DRAFT' or period.status == 'EDITED' %}
+      <!-- Generate Payroll Button (visible in DRAFT/EDITED state) -->
       <form method="post" action="{% url 'payroll:period_generate' period.id %}" style="display: inline;">
         {% csrf_token %}
         <button type="submit" class="btn" style="background: #3b82f6; border-color: #3b82f6;" title="Lock calculations and validate payroll">
@@ -301,18 +302,13 @@
   <div style="color: var(--text-2); font-weight: 500;">
     <i class='bx bx-file-blank'></i> Total: {{ payslips|length }} documents in this batch
   </div>
-  <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end;">
-    {% if period.status == 'GENERATED' or period.status == 'RELEASED' %}
-    <a href="{% url 'payroll:period_report' period.id %}" class="btn" style="background: var(--bg); color: var(--text-1); border: 1px solid var(--border); box-shadow: none;" title="View payroll report">
-      <i class='bx bx-file'></i> Payroll Report
-    </a>
-    {% endif %}
+  <div style="display: flex; gap: 12px;">
     {% if period.status == 'GENERATED' %}
     <button type="button" class="btn open-release-btn" data-release-url="{% url 'payroll:release' period.id %}" data-release-name="{{ period.period_display }}" style="background:#059669; border-color:#059669;" title="Send payslips to employees">
       <i class='bx bx-send'></i> Release Payroll
     </button>
     {% endif %}
-    <a href="{% url 'payroll:requests' %}" class="btn" style="background: var(--bg); color: var(--text-1); border: 1px solid var(--border); box-shadow: none;"><i class='bx bx-arrow-back'></i> Back to Send Payslips</a>
+    <a href="{% url 'payroll:requests' %}" class="btn" style="background: var(--bg); color: var(--text-1); border: 1px solid var(--border); box-shadow: none;"><i class='bx bx-arrow-back'></i> Back to Processing List</a>
   </div>
 </div>
 {% else %}
@@ -321,9 +317,14 @@
   <h3 style="color: var(--text-1); margin-bottom: 8px;">No documents available</h3>
   <p>There are no payslips generated for this cycle yet.</p>
   {% if period %}
-  <a href="{% url 'payroll:generate' %}?load=1&month={{ period.month }}&year={{ period.year }}&period_type={{ selected_period_type }}&branch={% if all_branches %}ALL{% else %}{{ selected_branch.id|default:'' }}{% endif %}" class="btn" style="margin-top: 20px;"><i class='bx bx-plus-circle'></i> Generate Payslips for {{ period.period_display }}</a>
+  <form action="{% url 'payroll:generate_action' %}" method="POST" style="display: inline; margin-top: 20px;">
+    {% csrf_token %}
+    <input type="hidden" name="month" value="{{ period.month }}">
+    <input type="hidden" name="year" value="{{ period.year }}">
+    <button type="submit" class="btn"><i class='bx bx-plus-circle'></i> Generate Payslips for {{ period.period_display }}</button>
+  </form>
   {% else %}
-  <a href="{% url 'payroll:requests' %}" class="btn" style="margin-top: 20px;"><i class='bx bx-arrow-back'></i> Back to Send Payslips</a>
+  <a href="{% url 'payroll:requests' %}" class="btn" style="margin-top: 20px;"><i class='bx bx-arrow-back'></i> Back to Payroll Periods</a>
   {% endif %}
 </div>
 {% endif %}

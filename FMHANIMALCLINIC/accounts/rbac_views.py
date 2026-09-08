@@ -31,10 +31,17 @@ def _get_special_permissions_ordered():
     )
 
 
+def _role_code_from_name(name):
+    """Build the stable programmatic role identifier from its display name."""
+    import re
+
+    return re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_')
+
+
 def _assign_staff_default_modules(role):
     """Ensure baseline staff modules are always present for new staff roles."""
     default_codes = ['notifications']
-    if role.code in {'superadmin', 'branch_admin', 'veterinarian', 'receptionist', 'vet_assistant'}:
+    if role.code in {'superadmin', 'executive_officer', 'veterinarian', 'cashier', 'assistant_veterinarian'}:
         default_codes.append('soa')
     modules = Module.objects.filter(code__in=default_codes, is_active=True)
     for module in modules:
@@ -58,10 +65,10 @@ def _module_permission_selected(post_data, module_code, permission_types):
 def _get_role_hierarchy_presets():
     """Return hierarchy presets derived from the seeded system roles."""
     preset_codes = {
-        2: 'vet_assistant',
-        4: 'receptionist',
+        2: 'assistant_veterinarian',
+        4: 'cashier',
         6: 'veterinarian',
-        8: 'branch_admin',
+        8: 'executive_officer',
     }
     roles = Role.objects.filter(code__in=preset_codes.values()).prefetch_related(
         'module_permissions__module',
@@ -347,6 +354,7 @@ def role_edit(request, role_id):
 
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
+        code = _role_code_from_name(name)
         description = request.POST.get('description', '').strip()
         hierarchy_level = role.hierarchy_level
         # Roles edited in Roles & Permissions remain staff roles
@@ -358,6 +366,12 @@ def role_edit(request, role_id):
         errors = []
         if not name:
             errors.append('Role name is required.')
+        if not code:
+            errors.append('Role name must contain at least one letter or number.')
+        if code in {'superadmin', 'user'}:
+            errors.append(f'Cannot use the reserved role code "{code}".')
+        if Role.objects.filter(code=code).exclude(pk=role_id).exists():
+            errors.append('A role with a similar name already exists.')
         if Role.objects.filter(name=name).exclude(pk=role_id).exists():
             errors.append(f'Role name "{name}" already exists.')
 
@@ -393,6 +407,7 @@ def role_edit(request, role_id):
 
         with transaction.atomic():
             role.name = name
+            role.code = code
             role.description = description
             role.hierarchy_level = hierarchy_level
             role.is_staff_role = is_staff_role
@@ -655,13 +670,18 @@ def assign_user_role(request, user_id):
             # Map role codes to StaffMember positions
             role_to_position = {
                 'veterinarian': StaffMember.Position.VETERINARIAN,
-                'vet_assistant': StaffMember.Position.VET_ASSISTANT,
-                'receptionist': StaffMember.Position.RECEPTIONIST,
-                'branch_admin': StaffMember.Position.ADMIN,
+                'assistant_veterinarian': StaffMember.Position.VET_ASSISTANT,
+                'cashier': StaffMember.Position.RECEPTIONIST,
+                'executive_officer': StaffMember.Position.ADMIN,
                 'superadmin': StaffMember.Position.ADMIN,
                 'admin': StaffMember.Position.ADMIN,
             }
-            position = role_to_position.get(role.code, StaffMember.Position.RECEPTIONIST)
+            existing_profile = StaffMember.objects.filter(user=user).first()
+            position = (
+                existing_profile.position
+                if existing_profile
+                else role_to_position.get(role.code, StaffMember.Position.RECEPTIONIST)
+            )
 
             # Create or update StaffMember record
             StaffMember.objects.update_or_create(

@@ -7,8 +7,8 @@ Centralizes role code strings to prevent typos and ensure consistency.
 class StaffRoles:
     """Role codes for staff members who can be scheduled."""
     VETERINARIAN = 'veterinarian'
-    VET_ASSISTANT = 'vet_assistant'
-    RECEPTIONIST = 'receptionist'
+    VET_ASSISTANT = 'assistant_veterinarian'
+    RECEPTIONIST = 'cashier'
 
     # Groupings for common queries
     SCHEDULABLE_ROLES = [VETERINARIAN, VET_ASSISTANT]
@@ -18,6 +18,6 @@ class StaffRoles:
 class AdminRoles:
     """Role codes for administrative users."""
     SUPERADMIN = 'superadmin'
-    BRANCH_ADMIN = 'branch_admin'
+    BRANCH_ADMIN = 'executive_officer'
 
     ALL_ADMIN_ROLES = [SUPERADMIN, BRANCH_ADMIN]

@@ -63,7 +63,7 @@ class Command(BaseCommand):
 
                         # Staff reminders (receptionists, vet assistants, and veterinarians)
                         if appt.branch:
-                            for role_code in ['receptionist', 'vet_assistant', 'veterinarian']:
+                            for role_code in ['cashier', 'assistant_veterinarian', 'veterinarian']:
                                 notify_role_users(
                                     role_code=role_code,
                                     branch=appt.branch,
@@ -105,7 +105,7 @@ class Command(BaseCommand):
 
                         # Staff reminders (receptionists, vet assistants, and veterinarians)
                         if appt.branch:
-                            for role_code in ['receptionist', 'vet_assistant', 'veterinarian']:
+                            for role_code in ['cashier', 'assistant_veterinarian', 'veterinarian']:
                                 notify_role_users(
                                     role_code=role_code,
                                     branch=appt.branch,

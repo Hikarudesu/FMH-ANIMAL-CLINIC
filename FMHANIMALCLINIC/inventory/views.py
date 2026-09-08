@@ -94,7 +94,7 @@ def auto_cancel_expired_reservations():
 
         # Notify receptionists in the product's branch
         admin_users = User.objects.filter(
-            assigned_role__code='receptionist',
+            assigned_role__code='cashier',
             branch=res.product.branch
         )
         for admin in admin_users:
@@ -535,7 +535,7 @@ def reserve_product_view(request, pk):
 
     try:
         admin_users = User.objects.filter(  # pylint: disable=no-member
-            assigned_role__code='receptionist',
+            assigned_role__code='cashier',
             branch=product.branch
         )
         for admin in admin_users:

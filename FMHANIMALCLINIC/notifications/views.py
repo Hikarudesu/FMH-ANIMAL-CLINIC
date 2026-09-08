@@ -147,7 +147,7 @@ def get_allowed_notification_types_for_user(user):
         allowed_types = _get_allowed_notification_types_from_modules(accessible_module_codes)
 
         # SOA notifications should only be visible to receptionists and branch admins.
-        if getattr(user.assigned_role, 'code', None) not in ('receptionist', 'branch_admin'):
+        if getattr(user.assigned_role, 'code', None) not in ('cashier', 'executive_officer'):
             allowed_types = [
                 choice for choice in allowed_types
                 if choice[0] != Notification.NotificationType.STATEMENT_RELEASED

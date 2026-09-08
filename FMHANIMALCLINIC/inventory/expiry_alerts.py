@@ -96,7 +96,7 @@ def run_inventory_expiry_alert_job(product_ids=None):
         if product.branch:
             receptionists = User.objects.filter(
                 is_active=True,
-                assigned_role__code='receptionist',
+                assigned_role__code='cashier',
                 branch=product.branch,
             )
             
@@ -125,7 +125,7 @@ def run_inventory_expiry_alert_job(product_ids=None):
         if product.branch:
             vet_assistants = User.objects.filter(
                 is_active=True,
-                assigned_role__code='vet_assistant',
+                assigned_role__code='assistant_veterinarian',
                 branch=product.branch,
             )
             

@@ -53,7 +53,7 @@ class AppointmentService:
             return []
 
         # Get schedule entries for this date
-        schedulable_roles = ['veterinarian', 'vet_assistant']
+        schedulable_roles = ['veterinarian', 'assistant_veterinarian']
         filters = {
             'date': target_date,
             'is_available': True,
@@ -160,7 +160,7 @@ class AppointmentService:
         today = timezone.localdate()
         end_date = today + timedelta(days=days_ahead)
         
-        schedulable_roles = ['veterinarian', 'vet_assistant']
+        schedulable_roles = ['veterinarian', 'assistant_veterinarian']
         filters = {
             'branch_id': branch_id,
             'is_available': True,
@@ -228,7 +228,7 @@ class AppointmentService:
             return None
             
         # Get vets scheduled at this branch on this date
-        schedulable_roles = ['veterinarian', 'vet_assistant']
+        schedulable_roles = ['veterinarian', 'assistant_veterinarian']
         scheduled_vets = VetSchedule.objects.filter(
             branch=appointment.branch,
             date=appointment.appointment_date,
@@ -298,7 +298,7 @@ class AppointmentService:
             'branch_id': branch_id,
             'date': appointment_date,
             'is_available': True,
-            'staff__user__assigned_role__code__in': ['veterinarian', 'vet_assistant'],
+            'staff__user__assigned_role__code__in': ['veterinarian', 'assistant_veterinarian'],
         }
         if vet_id:
             schedule_filter['staff_id'] = vet_id

@@ -9,61 +9,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from openpyxl import load_workbook
 import xlrd
-from .models import (
-    BiometricDevice,
-    DailyAttendance,
-)
-
-
-class BiometricDeviceForm(forms.ModelForm):
-    """Form for creating/editing biometric devices."""
-    
-    class Meta:
-        model = BiometricDevice
-        fields = [
-            'branch',
-            'device_name',
-            'device_model',
-            'device_serial',
-            'connection_type',
-            'status',
-            'is_active',
-            'notes',
-        ]
-        widgets = {
-            'branch': forms.Select(attrs={'class': 'form-control'}),
-            'device_name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'e.g., Main Entrance Scanner',
-            }),
-            'device_model': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'e.g., ZKTeco K20',
-            }),
-            'device_serial': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Serial number or unique ID',
-            }),
-            'connection_type': forms.Select(attrs={'class': 'form-control'}),
-            'status': forms.Select(attrs={'class': 'form-control'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'notes': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'Location notes, setup details, etc.',
-            }),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['connection_type'].choices = [
-            ('USB', 'USB / SD card file export'),
-            ('MANUAL', 'CSV / Excel import'),
-        ]
-        self.fields['connection_type'].initial = 'MANUAL'
-        self.fields['connection_type'].help_text = (
-            'The scanner remains independent. Attendance is imported from its exported file.'
-        )
+from .models import DailyAttendance
 
 
 class AttendanceImportForm(forms.Form):
@@ -602,13 +548,6 @@ class AttendanceFilterForm(forms.Form):
         required=False,
         widget=forms.Select(attrs={'class': 'form-control'}),
         label='Staff Member',
-    )
-    
-    device = forms.ModelChoiceField(
-        queryset=BiometricDevice.objects.filter(is_active=True),
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        label='Device',
     )
     
     date_from = forms.DateField(

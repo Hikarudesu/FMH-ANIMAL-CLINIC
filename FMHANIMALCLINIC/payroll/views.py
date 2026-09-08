@@ -32,10 +32,8 @@ from accounts.decorators import module_permission_required, special_permission_r
 from employees.models import StaffMember
 from branches.models import Branch
 from payroll.models import PayrollPeriod, Payslip
-from payroll.email_service import send_payslip_email as deliver_payslip_email
 from notifications.utils import notify_payroll_generated, notify_payroll_released
 from attendance.services import AttendanceProcessor
-from attendance.models import AttendanceUpload, DailyAttendance
 from settings.utils import get_setting
 
 logger = logging.getLogger('fmh')
@@ -112,6 +110,14 @@ def get_period_generation_restriction(periods, period_type, branch_id=None):
         if period.branch_id is None or period.branch_id == branch_id
     ] if branch_id is not None else list(periods)
 
+    if any(
+        period.branch_id is None
+        and period.period_type == PayrollPeriod.PeriodType.MONTHLY
+        and period.status in completed_statuses
+        for period in relevant_periods
+    ):
+        return 'A Full Month payroll for All Branches has already been generated for this month. No other payroll period can be loaded or generated.'
+
     if branch_id is None and any(
         period.branch_id is not None and period.status in completed_statuses
         for period in relevant_periods
@@ -127,6 +133,12 @@ def get_period_generation_restriction(periods, period_type, branch_id=None):
     if period_type in completed_periods:
         return 'This payroll period type has already been generated for the selected month and branch.'
 
+    if PayrollPeriod.PeriodType.MONTHLY in completed_periods:
+        return 'No other payroll period type can be generated because Full Month payroll is already generated for this month and branch.'
+
+    if period_type == PayrollPeriod.PeriodType.MONTHLY and PayrollPeriod.PeriodType.SEMI_FIRST in completed_periods:
+        return 'Full Month payroll cannot be generated because the first half is already generated for this month and branch.'
+
     if period_type == PayrollPeriod.PeriodType.SEMI_SECOND and PayrollPeriod.PeriodType.SEMI_FIRST not in completed_periods:
         return 'Second-half payroll cannot be generated until the first-half payroll is generated for this month and branch.'
 
@@ -140,37 +152,16 @@ def get_period_generation_restriction(periods, period_type, branch_id=None):
 @login_required
 @module_permission_required('payroll', 'MANAGE')
 def payroll_dashboard(request):
-    """Payroll operations dashboard focused on attendance and payroll workflow state."""
+    """Main payroll dashboard - simple overview with optimized queries."""
     today = date.today()
 
     # Current month period
     current_period = PayrollPeriod.objects.filter(
         month=today.month, year=today.year
-    ).order_by('-created_at').first()
-
-    current_upload = AttendanceUpload.objects.filter(
-        period_start__year=today.year,
-        period_start__month=today.month,
     ).first()
-    attendance_stats = {'records': 0, 'present': 0, 'incomplete': 0}
-    if current_upload:
-        attendance_rows = DailyAttendance.objects.filter(
-            attendance_date__range=[current_upload.period_start, current_upload.period_end],
-        )
-        attendance_stats = {
-            'records': attendance_rows.count(),
-            'present': attendance_rows.filter(four_punch_complete=True).count(),
-            'incomplete': attendance_rows.filter(four_punch_complete=False).count(),
-        }
-
-    locked_current_month = PayrollPeriod.objects.filter(
-        month=today.month,
-        year=today.year,
-        status__in=[PayrollPeriod.Status.GENERATED, PayrollPeriod.Status.RELEASED],
-    ).exists()
 
     # Recent periods
-    recent_periods = PayrollPeriod.objects.all()[:5]
+    recent_periods = PayrollPeriod.objects.all()[:12]
 
     # Year-to-date stats - single optimized query
     ytd_stats = {'total_gross': 0, 'total_net': 0, 'count': 0}
@@ -294,9 +285,6 @@ def payroll_dashboard(request):
         'ytd_stats': ytd_stats,
         'active_employees': active_employees,
         'pending_count': pending_count,
-        'current_upload': current_upload,
-        'attendance_stats': attendance_stats,
-        'locked_current_month': locked_current_month,
         'last_released': last_released,
         'upcoming_period': upcoming_period,
         'monthly_trends': json.dumps(monthly_trends),
@@ -337,7 +325,7 @@ def generate_payslips(request):
     today = date.today()
     selected_month = safe_int(request.GET.get('month'), today.month)
     selected_year = safe_int(request.GET.get('year'), today.year)
-    period_type = request.GET.get('period_type', PayrollPeriod.PeriodType.SEMI_FIRST)
+    period_type = request.GET.get('period_type', PayrollPeriod.PeriodType.MONTHLY)
     branch_value = request.GET.get('branch', '')
     selected_branch = None
     all_branches = branch_value.upper() == 'ALL'
@@ -424,6 +412,7 @@ def generate_payslips_action(request, period_id=None):
                     Q(branch=period.branch)
                     | Q(
                         branch__isnull=True,
+                        period_type=PayrollPeriod.PeriodType.MONTHLY,
                         status__in=[PayrollPeriod.Status.GENERATED, PayrollPeriod.Status.RELEASED],
                     )
                 )
@@ -473,7 +462,6 @@ def generate_payslips_action(request, period_id=None):
             for payslip in payslips:
                 try:
                     # Recalculate totals based on current payslip state
-                    payslip.persist_default_custom_deductions()
                     payslip.calculate()
                     payslip.save(
                         update_fields=[
@@ -558,26 +546,6 @@ def cancel_draft_period(request, period_id):
     return redirect('payroll:requests')
 
 
-@login_required
-@module_permission_required('payroll', 'MANAGE')
-def set_period_draft(request, period_id):
-    """Explicitly put a payroll period back into draft state."""
-    if request.method != 'POST':
-        return redirect('payroll:payslips', period_id=period_id)
-
-    period = get_object_or_404(PayrollPeriod, id=period_id)
-    if period.status in [PayrollPeriod.Status.GENERATED, PayrollPeriod.Status.RELEASED]:
-        messages.error(request, 'Generated or released payroll periods cannot be set back to draft.')
-        return redirect('payroll:payslips', period_id=period.id)
-
-    period.status = PayrollPeriod.Status.DRAFT
-    period.edited_at = None
-    period.generated_at = None
-    period.save(update_fields=['status', 'edited_at', 'generated_at'])
-    messages.success(request, f'{period.period_display} has been set back to Draft.')
-    return redirect('payroll:payslips', period_id=period.id)
-
-
 # ═══════════════════════════════════════════════════════════════════
 #                      VIEW/LIST PAYSLIPS
 # ═══════════════════════════════════════════════════════════════════
@@ -600,7 +568,12 @@ def payslips_list(request, period_id):
             is_active=True,
             user__isnull=False,
             user__assigned_role__is_staff_role=True,
-        ).exclude(user__assigned_role__code='superadmin')
+        ).exclude(user__assigned_role__code='superadmin').order_by(
+            '-user__assigned_role__hierarchy_level',
+            'user__assigned_role__name',
+            'last_name',
+            'first_name',
+        )
         if selected_branch:
             employee_queryset = employee_queryset.filter(branch=selected_branch)
         elif not all_branches:
@@ -613,11 +586,9 @@ def payslips_list(request, period_id):
                 employee=employee,
                 defaults={'status': Payslip.Status.DRAFT},
             )
-            if was_created or period.status in [PayrollPeriod.Status.DRAFT, PayrollPeriod.Status.EDITED]:
+            if was_created:
                 payslip.generate_from_employee()
                 payslip.save()
-                if was_created:
-                    payslip.persist_default_custom_deductions()
             existing_payslip_records.append(payslip)
 
         from attendance.models import MonthlyAttendanceSummary
@@ -713,17 +684,13 @@ def payslip_edit(request, payslip_id):
         period_start__month=period.month,
     ).first()
 
-    if period.status in [PayrollPeriod.Status.DRAFT, PayrollPeriod.Status.EDITED]:
-        payslip.generate_from_employee()
-        payslip.save()
-    elif not attendance_summary:
-        # Only reset if we didn't call generate_from_employee() AND there's no attendance summary
+    if not attendance_summary:
         payslip.working_days = 0
         payslip.days_worked = 0
         payslip.days_absent = 0
         payslip.rest_days_actual = 0
-        payslip.rest_days_mandatory = 4
-        payslip.absent_deduction = Decimal('0')
+        payslip.rest_days_mandatory = int(get_setting('payroll_default_rest_days', 4))
+        payslip.absent_deduction = Decimal(str(get_setting('payroll_default_absent_deduction', 100)))
         payslip.paid_leave_days = Decimal('0')
         if payslip.base_salary > 0 and payslip.working_days > 0:
             payslip.daily_salary = payslip.base_salary / Decimal(str(payslip.working_days))
@@ -773,6 +740,8 @@ def payslip_edit(request, payslip_id):
                     request.POST.get('overtime_pay', 0))
                 payslip.holiday_pay = safe_decimal(request.POST.get('holiday_pay', 0))
                 payslip.bonus = safe_decimal(request.POST.get('bonus', 0))
+                payslip.staff_allowance = safe_decimal(
+                    request.POST.get('staff_allowance', 2000))
 
                 # Update deductions
                 payslip.sss = safe_decimal(request.POST.get('sss', 0))
@@ -789,10 +758,12 @@ def payslip_edit(request, payslip_id):
                     request.POST.get('other_deductions', 0))
 
                 # Update attendance and payroll master values
-                default_rest_days = int(get_setting('payroll_default_rest_days', 4))
-                payslip.rest_days_mandatory = default_rest_days
+                payslip.days_worked = safe_int(request.POST.get('days_worked', payslip.working_days), payslip.working_days)
+                payslip.days_absent = safe_int(request.POST.get('days_absent', 0))
+                payslip.working_days = safe_int(request.POST.get('working_days', payslip.working_days), payslip.working_days)
+                payslip.rest_days_mandatory = safe_int(request.POST.get('rest_days_mandatory', payslip.rest_days_mandatory or 4), payslip.rest_days_mandatory or 4)
                 if payslip.rest_days_mandatory <= 0:
-                    payslip.rest_days_mandatory = default_rest_days
+                    payslip.rest_days_mandatory = 4
                 payslip.paid_leave_type = request.POST.get('paid_leave_type', payslip.paid_leave_type or 'Sick Leave')
                 payslip.paid_leave_days = safe_decimal(request.POST.get('paid_leave_days', 0))
                 if payslip.paid_leave_days > Decimal(str(payslip.days_absent or 0)):
@@ -847,10 +818,13 @@ def payslip_edit(request, payslip_id):
 
                 # Update period totals
                 payslip.payroll_period.update_totals()
-
-                # Do not auto-switch states on save. The user must explicitly choose Draft
-                # or Generate Payroll from the period actions. Saving only refreshes the same
-                # payslip with the current data.
+                
+                # Mark period as EDITED (user has made modifications before generation)
+                if payslip.payroll_period.status == PayrollPeriod.Status.DRAFT:
+                    payslip.payroll_period.status = PayrollPeriod.Status.EDITED
+                    payslip.payroll_period.edited_at = timezone.now()
+                    payslip.payroll_period.save(update_fields=['status', 'edited_at'])
+                    logger.info(f"Period {payslip.payroll_period} marked as EDITED")
 
                 # Log the edit with enhanced metadata for released payslips
                 from payroll.models import PayrollAuditLog
@@ -889,7 +863,7 @@ def payslip_edit(request, payslip_id):
 
                 messages.success(
                     request, f'Payslip for {payslip.employee.full_name} updated.')
-                return redirect('payroll:payslip_edit', payslip_id=payslip.id)
+                return redirect('payroll:payslips', period_id=payslip.payroll_period.id)
 
     configured_paid_leave_types = get_setting('payroll_paid_leave_types', ['Sick Leave', 'Emergency Leave'])
     if isinstance(configured_paid_leave_types, str):
@@ -898,13 +872,6 @@ def payslip_edit(request, payslip_id):
         ]
     if not configured_paid_leave_types:
         configured_paid_leave_types = ['Sick Leave', 'Emergency Leave']
-
-    default_rest_days = int(get_setting('payroll_default_rest_days', 4))
-    display_rest_days = (
-        default_rest_days // 2
-        if period.period_type in [PayrollPeriod.PeriodType.SEMI_FIRST, PayrollPeriod.PeriodType.SEMI_SECOND]
-        else default_rest_days
-    )
 
     context = {
         'payslip': payslip,
@@ -915,10 +882,7 @@ def payslip_edit(request, payslip_id):
         'show_sss': get_setting('payroll_auto_statutory', True) and get_setting('payroll_enable_sss', True),
         'show_philhealth': get_setting('payroll_auto_statutory', True) and get_setting('payroll_enable_philhealth', True),
         'show_pagibig': get_setting('payroll_auto_statutory', True) and get_setting('payroll_enable_pagibig', True),
-        'default_staff_allowance': get_setting('payroll_default_staff_allowance', 2000) / 2,
-        'default_overtime_pay_per_hour': get_setting('payroll_default_overtime_pay_per_hour', 120),
-        'default_rest_days': default_rest_days,
-        'display_rest_days': display_rest_days,
+        'default_staff_allowance': get_setting('payroll_default_staff_allowance', 2000),
         'default_absent_deduction': get_setting('payroll_default_absent_deduction', 100),
         'paid_leave_options': configured_paid_leave_types,
         'daily_salary_display': payslip.daily_salary,
@@ -1006,6 +970,8 @@ def release_payroll(request, period_id):
     CRITICAL: Period must be in GENERATED state (payslips calculated and locked).
     This prevents releasing payroll that hasn't been finalized.
     """
+    from django.core.mail import send_mail
+
     period = get_object_or_404(PayrollPeriod, id=period_id)
 
     # Validate period state - must be GENERATED
@@ -1038,12 +1004,13 @@ def release_payroll(request, period_id):
             if any(
                 locked_period.id != period.id
                 and locked_period.branch_id is None
+                and locked_period.period_type == PayrollPeriod.PeriodType.MONTHLY
                 and locked_period.status in [PayrollPeriod.Status.GENERATED, PayrollPeriod.Status.RELEASED]
                 for locked_period in locked_periods
             ):
                 messages.error(
                     request,
-                    'A released payroll for All Branches has already completed this month. '
+                    'A released Full Month payroll for All Branches has completed this month. '
                     'No other payroll period can be released.'
                 )
                 return redirect('payroll:payslips', period_id=period.id)
@@ -1099,16 +1066,49 @@ def release_payroll(request, period_id):
                 try:
                     payslip = Payslip.objects.select_related(
                         'employee').get(id=ps_id)
+                    gross_pay = payslip.gross_pay or Decimal('0')
+                    net_pay = payslip.net_pay or Decimal('0')
+
+                    subject = f'Payslip for {period.period_display} - FMH Animal Clinic'
+                    message = f"""
+Dear {payslip.employee.full_name},
+
+Your payslip for {period.period_display} has been released.
+
+Gross Pay: ₱{gross_pay:,.2f}
+Net Pay: ₱{net_pay:,.2f}
+
+Please contact the Finance department if you have any questions.
+
+Best regards,
+FMH Animal Clinic
+                    """
+
                     try:
-                        sent, reason = deliver_payslip_email(payslip)
-                        if sent:
-                            if reason == 'Already sent.':
-                                continue
-                            sent_count += 1
-                            continue
-                        raise RuntimeError(reason)
+                        send_mail(
+                            subject,
+                            message.strip(),
+                            'noreply@fmhanimalclinic.com',
+                            [payslip.employee.email],
+                            fail_silently=False,
+                        )
+                        PayslipEmailLog.objects.create(
+                            payslip=payslip,
+                            recipient_email=payslip.employee.email,
+                            status='SENT'
+                        )
+                        sent_count += 1
                     except Exception as e:
                         failed_count += 1
+                        try:
+                            PayslipEmailLog.objects.create(
+                                payslip=payslip,
+                                recipient_email=payslip.employee.email,
+                                status='FAILED',
+                                error_message=str(e)
+                            )
+                        except Exception:
+                            pass
                         logger.warning(f"Failed to send email for payslip {payslip}: {e}")
                         continue
                 except Exception as e:
@@ -1315,13 +1315,23 @@ def payroll_vets(request):
                 user__isnull=False,
                 user__assigned_role__is_staff_role=True,
                 branch_id=branch_filter
-            ).exclude(user__assigned_role__code='superadmin').values_list('id', flat=True))
+            ).exclude(user__assigned_role__code='superadmin').order_by(
+                '-user__assigned_role__hierarchy_level',
+                'user__assigned_role__name',
+                'last_name',
+                'first_name',
+            ).values_list('id', flat=True))
         else:
             emp_ids = list(StaffMember.objects.filter(
                 is_active=True,
                 user__isnull=False,
                 user__assigned_role__is_staff_role=True
-            ).exclude(user__assigned_role__code='superadmin').values_list('id', flat=True))
+            ).exclude(user__assigned_role__code='superadmin').order_by(
+                '-user__assigned_role__hierarchy_level',
+                'user__assigned_role__name',
+                'last_name',
+                'first_name',
+            ).values_list('id', flat=True))
 
         # Try to get active count - might fail if corrupted data exists
         try:
@@ -1329,7 +1339,12 @@ def payroll_vets(request):
                 is_active=True,
                 user__isnull=False,
                 user__assigned_role__is_staff_role=True
-            ).exclude(user__assigned_role__code='superadmin').values_list('id')
+            ).exclude(user__assigned_role__code='superadmin').order_by(
+                '-user__assigned_role__hierarchy_level',
+                'user__assigned_role__name',
+                'last_name',
+                'first_name',
+            ).values_list('id')
             active_count = len(list(all_active))
         except Exception:
             active_count = 0
@@ -1748,100 +1763,172 @@ def get_client_ip(request):
     return ip
 
 
-def get_payroll_report_rows(period):
-    """Return summary rows for a payroll period report and export files."""
+# ═══════════════════════════════════════════════════════════════════
+#               EXPORT FEATURES - CSV & EXCEL
+# ═══════════════════════════════════════════════════════════════════
+
+@login_required
+@module_permission_required('payroll', 'MANAGE')
+def export_payslips_csv(request, period_id):
+    """Export payslips to CSV format."""
+    import csv
+    from django.http import HttpResponse
+
+    period = get_object_or_404(PayrollPeriod, id=period_id)
+
+    # Create CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="payslips_{period.period_display}.csv"'
+
+    writer = csv.writer(response)
+
+    # Write header
+    writer.writerow([
+        'Employee Name', 'Position', 'Branch', 'Base Salary',
+        'Overtime Pay', 'Holiday Pay', 'Bonus', 'Staff Allowance',
+        'Gross Pay', 'SSS', 'PhilHealth', 'PAG-IBIG', 'Tax',
+        'Cash Advance', 'Other Deductions', 'Net Pay', 'Status'
+    ])
+
+    # Get payslips safely - ID first approach
     payslips = []
     try:
         payslip_ids = list(period.payslips.values_list('id', flat=True))
         for ps_id in payslip_ids:
             try:
-                ps = Payslip.objects.select_related('employee', 'employee__branch').get(id=ps_id)
+                ps = Payslip.objects.select_related(
+                    'employee', 'employee__branch').get(id=ps_id)
                 payslips.append(ps)
             except Exception:
                 continue
     except Exception:
         payslips = []
 
-    report_rows = []
-    total_net_pay = Decimal('0')
+    # Write data rows with error handling for decimal fields
+    totals_gross = Decimal('0')
+    totals_net = Decimal('0')
+
     for payslip in payslips:
         try:
-            attendance = payslip.days_worked or 0
-            absences = payslip.days_absent or 0
+            # Get decimal values with defaults
             base_salary = payslip.base_salary or Decimal('0')
-            allowances = (
-                (payslip.overtime_pay or Decimal('0'))
-                + (payslip.holiday_pay or Decimal('0'))
-                + (payslip.bonus or Decimal('0'))
-                + (payslip.staff_allowance or Decimal('0'))
-                + (payslip.thirteenth_month_pay or Decimal('0'))
-            )
-            deductions = payslip.total_deductions or Decimal('0')
+            overtime_pay = payslip.overtime_pay or Decimal('0')
+            holiday_pay = payslip.holiday_pay or Decimal('0')
+            bonus = payslip.bonus or Decimal('0')
+            staff_allowance = payslip.staff_allowance or Decimal('0')
             gross_pay = payslip.gross_pay or Decimal('0')
+            sss = payslip.sss or Decimal('0')
+            philhealth = payslip.philhealth or Decimal('0')
+            pagibig = payslip.pagibig or Decimal('0')
+            tax = payslip.tax or Decimal('0')
+            cash_advance = payslip.cash_advance or Decimal('0')
+            other_deductions = payslip.other_deductions or Decimal('0')
             net_pay = payslip.net_pay or Decimal('0')
-            total_net_pay += net_pay
 
-            report_rows.append({
-                'employee': payslip.employee.full_name,
-                'branch': payslip.employee.branch.name if payslip.employee.branch else '',
-                'attendance': attendance,
-                'absences': absences,
-                'base_salary': base_salary,
-                'allowances': allowances,
-                'deductions': deductions,
-                'gross_pay': gross_pay,
-                'net_pay': net_pay,
-            })
+            totals_gross += gross_pay
+            totals_net += net_pay
+
+            writer.writerow([
+                payslip.employee.full_name,
+                payslip.employee.role_display_name,
+                payslip.employee.branch.name if payslip.employee.branch else '',
+                f"{base_salary:.2f}",
+                f"{overtime_pay:.2f}",
+                f"{holiday_pay:.2f}",
+                f"{bonus:.2f}",
+                f"{staff_allowance:.2f}",
+                f"{gross_pay:.2f}",
+                f"{sss:.2f}",
+                f"{philhealth:.2f}",
+                f"{pagibig:.2f}",
+                f"{tax:.2f}",
+                f"{cash_advance:.2f}",
+                f"{other_deductions:.2f}",
+                f"{net_pay:.2f}",
+                payslip.get_status_display()
+            ])
         except Exception:
+            # Skip payslips with errors
             continue
 
-    return report_rows, total_net_pay
+    # Add summary row
+    writer.writerow([])  # Blank row
+    writer.writerow(['TOTALS', '', '', '', '', '', '', '',
+                     f"{totals_gross:.2f}", '', '', '', '',
+                     '', '', f"{totals_net:.2f}", ''])
 
+    # Log the export
+    try:
+        from payroll.models import PayrollAuditLog
+        PayrollAuditLog.log(
+            user=request.user,
+            action_type=PayrollAuditLog.ActionType.SYSTEM_EXPORT,
+            description=f"Exported {len(payslips)} payslips to CSV for {period.period_display}",
+            payroll_period=period,
+            metadata={'format': 'CSV', 'employee_count': len(payslips)}
+        )
+    except Exception:
+        pass
 
-@login_required
-@module_permission_required('payroll', 'MANAGE')
-def period_report_view(request, period_id):
-    """Render a print-friendly payroll summary report for a payroll period."""
-    period = get_object_or_404(PayrollPeriod, id=period_id)
-    report_rows, total_net_pay = get_payroll_report_rows(period)
+    messages.success(request, f'Exported {len(payslips)} payslips to CSV.')
 
-    context = {
-        'period': period,
-        'rows': report_rows,
-        'total_net_pay': total_net_pay,
-        'employee_count': len(report_rows),
-        'print_mode': True,
-    }
-
-    return render(request, 'payroll/period_report.html', context)
+    return response
 
 
 @login_required
 @module_permission_required('payroll', 'MANAGE')
 def export_payslips_excel(request, period_id):
-    """Export payroll summary to Excel format (.xlsx)."""
+    """Export payslips to Excel format (.xlsx)."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from django.http import HttpResponse
 
     period = get_object_or_404(PayrollPeriod, id=period_id)
-    pay_rows, total_net_pay = get_payroll_report_rows(period)
 
+    # Get payslips safely - ID first approach
+    payslips = []
+    try:
+        payslip_ids = list(period.payslips.values_list('id', flat=True))
+        for ps_id in payslip_ids:
+            try:
+                ps = Payslip.objects.select_related(
+                    'employee', 'employee__branch').get(id=ps_id)
+                payslips.append(ps)
+            except Exception:
+                continue
+    except Exception:
+        payslips = []
+
+    # Create workbook
     wb = Workbook()
     ws = wb.active
-    ws.title = 'Payroll Summary'
+    ws.title = 'Payslips'
 
-    header_fill = PatternFill(start_color='009688', end_color='009688', fill_type='solid')
+    # Define styles
+    header_fill = PatternFill(start_color='009688',
+                              end_color='009688', fill_type='solid')
     header_font = Font(bold=True, color='FFFFFF', size=11)
-    total_fill = PatternFill(start_color='E0F2F1', end_color='E0F2F1', fill_type='solid')
+    total_fill = PatternFill(start_color='E0F2F1',
+                             end_color='E0F2F1', fill_type='solid')
     total_font = Font(bold=True, size=11)
-    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
 
+    # Add title
     ws['A1'] = f"Payroll Report - {period.period_display}"
     ws['A1'].font = Font(bold=True, size=14)
-    ws.merge_cells('A1:H1')
+    ws.merge_cells('A1:Q1')
 
-    headers = ['Employee', 'Attendance', 'Absences', 'Base Salary', 'Allowances', 'Deductions', 'Gross Pay', 'Net Pay']
+    # Add headers
+    headers = ['Employee Name', 'Position', 'Branch', 'Base Salary',
+               'Overtime Pay', 'Holiday Pay', 'Bonus', 'Staff Allowance',
+               'Gross Pay', 'SSS', 'PhilHealth', 'PAG-IBIG', 'Tax',
+               'Cash Advance', 'Other Ded.', 'Net Pay', 'Status']
+
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=3, column=col, value=header)
         cell.fill = header_fill
@@ -1849,50 +1936,109 @@ def export_payslips_excel(request, period_id):
         cell.alignment = Alignment(horizontal='center', vertical='center')
         cell.border = border
 
-    column_widths = [22, 12, 12, 14, 14, 14, 14, 14]
+    # Set column widths
+    column_widths = [20, 15, 15, 12, 12, 12, 10,
+                     12, 12, 10, 12, 10, 10, 12, 12, 12, 10]
     for col, width in enumerate(column_widths, 1):
         ws.column_dimensions[chr(64 + col)].width = width
 
+    # Add data rows with error handling
     row = 4
-    for pay_row in pay_rows:
-        ws.cell(row=row, column=1, value=pay_row['employee']).border = border
-        ws.cell(row=row, column=2, value=pay_row['attendance']).border = border
-        ws.cell(row=row, column=3, value=pay_row['absences']).border = border
-        ws.cell(row=row, column=4, value=float(pay_row['base_salary'])).border = border
-        ws.cell(row=row, column=5, value=float(pay_row['allowances'])).border = border
-        ws.cell(row=row, column=6, value=float(pay_row['deductions'])).border = border
-        ws.cell(row=row, column=7, value=float(pay_row['gross_pay'])).border = border
-        ws.cell(row=row, column=8, value=float(pay_row['net_pay'])).border = border
-        row += 1
+    totals_gross = Decimal('0')
+    totals_net = Decimal('0')
 
+    for payslip in payslips:
+        try:
+            # Get decimal values with defaults
+            base_salary = payslip.base_salary or Decimal('0')
+            overtime_pay = payslip.overtime_pay or Decimal('0')
+            holiday_pay = payslip.holiday_pay or Decimal('0')
+            bonus = payslip.bonus or Decimal('0')
+            staff_allowance = payslip.staff_allowance or Decimal('0')
+            gross_pay = payslip.gross_pay or Decimal('0')
+            sss = payslip.sss or Decimal('0')
+            philhealth = payslip.philhealth or Decimal('0')
+            pagibig = payslip.pagibig or Decimal('0')
+            tax = payslip.tax or Decimal('0')
+            cash_advance = payslip.cash_advance or Decimal('0')
+            other_deductions = payslip.other_deductions or Decimal('0')
+            net_pay = payslip.net_pay or Decimal('0')
+
+            totals_gross += gross_pay
+            totals_net += net_pay
+
+            ws.cell(row=row, column=1,
+                    value=payslip.employee.full_name).border = border
+            ws.cell(row=row, column=2,
+                    value=payslip.employee.role_display_name).border = border
+            ws.cell(row=row, column=3,
+                    value=payslip.employee.branch.name if payslip.employee.branch else '').border = border
+            ws.cell(row=row, column=4, value=float(
+                base_salary)).border = border
+            ws.cell(row=row, column=5, value=float(
+                overtime_pay)).border = border
+            ws.cell(row=row, column=6, value=float(
+                holiday_pay)).border = border
+            ws.cell(row=row, column=7, value=float(bonus)).border = border
+            ws.cell(row=row, column=8, value=float(staff_allowance)).border = border
+            ws.cell(row=row, column=9, value=float(gross_pay)).border = border
+            ws.cell(row=row, column=10, value=float(sss)).border = border
+            ws.cell(row=row, column=11, value=float(
+                philhealth)).border = border
+            ws.cell(row=row, column=12, value=float(pagibig)).border = border
+            ws.cell(row=row, column=13, value=float(tax)).border = border
+            ws.cell(row=row, column=14, value=float(
+                cash_advance)).border = border
+            ws.cell(row=row, column=15, value=float(
+                other_deductions)).border = border
+            ws.cell(row=row, column=16, value=float(net_pay)).border = border
+            ws.cell(row=row, column=17,
+                    value=payslip.get_status_display()).border = border
+            row += 1
+        except Exception:
+            # Skip payslips with errors
+            continue
+
+    # Add totals row
     total_row = row + 1
-    ws.cell(row=total_row, column=1, value='TOTAL NET PAY').font = total_font
+    ws.cell(row=total_row, column=1, value='TOTALS').font = total_font
     ws.cell(row=total_row, column=1).fill = total_fill
-    ws.cell(row=total_row, column=8, value=float(total_net_pay)).font = total_font
-    ws.cell(row=total_row, column=8).fill = total_fill
+    ws.cell(row=total_row, column=9, value=float(
+        totals_gross)).font = total_font
+    ws.cell(row=total_row, column=9).fill = total_fill
+    ws.cell(row=total_row, column=16, value=float(
+        totals_net)).font = total_font
+    ws.cell(row=total_row, column=16).fill = total_fill
 
-    for current_row in ws.iter_rows(min_row=4, max_row=total_row, min_col=4, max_col=8):
-        for cell in current_row:
-            if cell.value is not None and isinstance(cell.value, (int, float)):
+    # Format as currency
+    for row_cells in ws.iter_rows(min_row=4, max_row=total_row, min_col=4, max_col=16):
+        for cell in row_cells:
+            if cell.value and isinstance(cell.value, (int, float)):
                 cell.number_format = '#,##0.00'
 
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="payroll_report_{period.period_display}.xlsx"'
+    # Create response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="payslips_{period.period_display}.xlsx"'
+
     wb.save(response)
 
+    # Log the export
     try:
         from payroll.models import PayrollAuditLog
         PayrollAuditLog.log(
             user=request.user,
             action_type=PayrollAuditLog.ActionType.SYSTEM_EXPORT,
-            description=f"Exported payroll report to Excel for {period.period_display}",
+            description=f"Exported {len(payslips)} payslips to Excel for {period.period_display}",
             payroll_period=period,
-            metadata={'format': 'XLSX', 'employee_count': len(pay_rows), 'total_net': str(total_net_pay)}
+            metadata={'format': 'XLSX', 'employee_count': len(payslips)}
         )
     except Exception:
         pass
 
-    messages.success(request, f'Exported payroll summary to Excel for {period.period_display}.')
+    messages.success(request, f'Exported {len(payslips)} payslips to Excel.')
+
     return response
 
 
@@ -1904,6 +2050,7 @@ def export_payslips_excel(request, period_id):
 @module_permission_required('payroll', 'MANAGE')
 def send_payslip_email(request, payslip_id):
     """Send payslip via email to employee."""
+    from django.core.mail import send_mail
     from payroll.models import PayslipEmailLog
 
     if request.method != 'POST':
@@ -1969,7 +2116,7 @@ Other Deductions:     ₱{other_deductions:>12,.2f}
 Net Pay (Take-home):  ₱{net_pay:>12,.2f}
 ═══════════════════════════════════════════════════════════════
 
-Attendance: {days_worked} days
+Days Worked: {days_worked} days
 Days Absent: {days_absent} days
 
 This is an automated payroll notification. Please contact the Human Resources
@@ -1979,9 +2126,21 @@ Best regards,
 FMH Animal Clinic - Finance Department
         """
 
-        sent, reason = deliver_payslip_email(payslip, force=True)
-        if not sent:
-            raise RuntimeError(reason)
+        # Send email
+        send_mail(
+            subject,
+            message,
+            'noreply@fmhanimalclinic.com',  # From email
+            [payslip.employee.email],  # To email
+            fail_silently=False,
+        )
+
+        # Log the email
+        email_log = PayslipEmailLog.objects.create(
+            payslip=payslip,
+            recipient_email=payslip.employee.email,
+            status='SENT'
+        )
 
         # Log the action
         from payroll.models import PayrollAuditLog
@@ -2018,6 +2177,7 @@ FMH Animal Clinic - Finance Department
 @module_permission_required('payroll', 'MANAGE')
 def send_payslips_bulk(request, period_id):
     """Send payslips to all employees in a period via email."""
+    from django.core.mail import send_mail
     from payroll.models import PayslipEmailLog
 
     period = get_object_or_404(PayrollPeriod, id=period_id)
@@ -2063,11 +2223,25 @@ Best regards,
 FMH Animal Clinic
             """
 
-            sent, reason = deliver_payslip_email(payslip)
-            if sent:
-                sent_count += 1
-            else:
-                raise RuntimeError(reason)
+            send_mail(
+                subject,
+                message,
+                'noreply@fmhanimalclinic.com',
+                [payslip.employee.email],
+                fail_silently=False,
+            )
+
+            # Log successful send
+            try:
+                PayslipEmailLog.objects.create(
+                    payslip=payslip,
+                    recipient_email=payslip.employee.email,
+                    status='SENT'
+                )
+            except Exception:
+                pass
+
+            sent_count += 1
 
         except Exception as e:
             # Log failed send

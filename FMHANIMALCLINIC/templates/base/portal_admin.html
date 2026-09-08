@@ -283,7 +283,7 @@
         <div class="sidebar-header">
           {% if user.assigned_role.code == 'veterinarian' %}
           <a href="{% url 'vet_dashboard' %}" class="sidebar-logo">
-          {% elif user.assigned_role.code == 'receptionist' %}
+          {% elif user.assigned_role.code == 'cashier' %}
           <a href="{% url 'receptionist_dashboard' %}" class="sidebar-logo">
           {% else %}
           <a href="{% url 'admin_dashboard' %}" class="sidebar-logo">
@@ -303,7 +303,7 @@
             href="{% url 'vet_dashboard' %}"
             class="sidebar-link {% if request.resolver_match.url_name == 'vet_dashboard' %}active{% endif %}"
           >
-          {% elif user.assigned_role.code == 'receptionist' %}
+          {% elif user.assigned_role.code == 'cashier' %}
           <a
             href="{% url 'receptionist_dashboard' %}"
             class="sidebar-link {% if request.resolver_match.url_name == 'receptionist_dashboard' %}active{% endif %}"
@@ -388,9 +388,9 @@
           {% endif %}
 
           {# Inventory dropdown (moved above Oversight Reports) #}
-          {% if user|has_nav_module:'inventory' or user|has_nav_module:'clinic_services' or user|has_nav_module:'stock_monitor' or user|has_nav_module:'stock_transfers' %}
+          {% if user|has_nav_module:'inventory' or user|has_nav_module:'clinic_services' or user|has_nav_module:'stock_monitor' or user|has_inventory_nav_item:'stock_transfers' %}
             {# If user only has the basic Inventory module, render a single link instead of a dropdown #}
-            {% if user|has_nav_module:'inventory' and not user|has_nav_module:'clinic_services' and not user|has_nav_module:'stock_monitor' and not user|has_nav_module:'stock_transfers' %}
+            {% if user|has_nav_module:'inventory' and not user|has_nav_module:'clinic_services' and not user|has_nav_module:'stock_monitor' and not user|has_inventory_nav_item:'stock_transfers' %}
               <a
                 href="{% url 'inventory:management' %}"
                 class="sidebar-link {% if 'inventory' in request.path and 'logs' not in request.path or request.resolver_match.app_name == 'billing' or 'transfers' in request.path or request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
@@ -432,7 +432,7 @@
                   <i class="bx bx-error-alt"></i><span>Stock Level</span>
                 </a>
                 {% endif %}
-                {% if user|has_nav_module:'stock_transfers' %}
+                {% if user|has_inventory_nav_item:'stock_transfers' %}
                 <a
                   href="{% url 'inventory:transfer_list' %}"
                   class="sidebar-submenu-link {% if 'transfers' in request.path %}active{% endif %}"
@@ -446,7 +446,7 @@
           {% endif %}
 
           {# Overseer: Oversight Reports #}
-          {% if user|has_nav_module:'analytics' or user|has_nav_module:'activity_logs' %}
+          {% if user.is_superuser or user|has_nav_module:'analytics' or user|has_nav_module:'activity_logs' %}
           <div class="sidebar-item has-submenu">
             <a
               href="#"

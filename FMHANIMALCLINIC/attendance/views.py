@@ -19,15 +19,8 @@ from openpyxl.utils import get_column_letter
 from accounts.decorators import admin_only
 from employees.models import StaffMember, VetSchedule
 from branches.models import Branch
-from .models import (
-    BiometricDevice,
-    AttendanceLog,
-    DailyAttendance,
-    MonthlyAttendanceSummary,
-    AttendanceUpload,
-)
+from .models import DailyAttendance, MonthlyAttendanceSummary, AttendanceUpload
 from .forms import (
-    BiometricDeviceForm,
     AttendanceImportForm,
     DailyAttendanceForm,
     AttendanceFilterForm,
@@ -128,103 +121,7 @@ def _attendance_role_label(staff):
 @admin_only
 def attendance_dashboard(request):
     """Attendance import dashboard for payroll."""
-    # Get recent imports
-    recent_logs = AttendanceLog.objects.filter(
-        sync_status='PENDING'
-    ).order_by('-imported_at')[:5]
-    
-    context = {
-        'recent_logs': recent_logs,
-    }
-    
-    return render(request, 'attendance/dashboard.html', context)
-
-
-# ─────────────────── DEVICE MANAGEMENT ───────────────────
-@login_required
-@admin_only
-def device_list(request):
-    """List all biometric devices."""
-    devices = BiometricDevice.objects.all()
-    
-    context = {
-        'devices': devices,
-        'page_title': 'Biometric Devices',
-    }
-    
-    return render(request, 'attendance/device_list.html', context)
-
-
-@login_required
-@admin_only
-def device_create(request):
-    """Create a new biometric device."""
-    if request.method == 'POST':
-        form = BiometricDeviceForm(request.POST)
-        if form.is_valid():
-            device = form.save()
-            messages.success(request, f'Device "{device.device_name}" created successfully.')
-            return redirect('attendance:device_list')
-    else:
-        form = BiometricDeviceForm()
-    
-    context = {
-        'form': form,
-        'page_title': 'Add Biometric Device',
-    }
-    
-    return render(request, 'attendance/device_form.html', context)
-
-
-@login_required
-@admin_only
-def device_edit(request, device_id):
-    """Edit a biometric device."""
-    device = get_object_or_404(BiometricDevice, id=device_id)
-    
-    if request.method == 'POST':
-        form = BiometricDeviceForm(request.POST, instance=device)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Device "{device.device_name}" updated successfully.')
-            return redirect('attendance:device_list')
-    else:
-        form = BiometricDeviceForm(instance=device)
-    
-    context = {
-        'form': form,
-        'device': device,
-        'page_title': f'Edit Device: {device.device_name}',
-    }
-    
-    return render(request, 'attendance/device_form.html', context)
-
-
-@login_required
-@admin_only
-def device_detail(request, device_id):
-    """View device metadata and legacy punch history."""
-    device = get_object_or_404(BiometricDevice, id=device_id)
-    
-    # Recent logs
-    recent_logs = device.attendance_logs.order_by('-punch_datetime')[:20]
-    
-    # Statistics
-    total_logs = device.attendance_logs.count()
-    matched_logs = device.attendance_logs.filter(sync_status='MATCHED').count()
-    unmatched_logs = device.attendance_logs.filter(sync_status='UNMATCHED').count()
-    
-    context = {
-        'device': device,
-        'recent_logs': recent_logs,
-        'total_logs': total_logs,
-        'matched_logs': matched_logs,
-        'unmatched_logs': unmatched_logs,
-        'device_edit_url': f'/attendance/devices/{device.id}/edit/',
-        'page_title': f'Device: {device.device_name}',
-    }
-    
-    return render(request, 'attendance/device_detail.html', context)
+    return render(request, 'attendance/dashboard.html')
 
 
 # ─────────────────── ATTENDANCE IMPORT ───────────────────

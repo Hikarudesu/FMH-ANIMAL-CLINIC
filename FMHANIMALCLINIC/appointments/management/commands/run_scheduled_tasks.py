@@ -20,7 +20,6 @@ class Command(BaseCommand):
                 'send_reminders',
                 'send_followup_emails',
                 'check_inventory_expiry_alerts',
-                'send_scheduled_reports',
             ):
                 output = StringIO()
                 try:

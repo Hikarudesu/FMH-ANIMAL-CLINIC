@@ -32,7 +32,12 @@ def staff_list(request):
         assigned_role__is_staff_role=True
     ).exclude(
         assigned_role__code='superadmin'
-    ).select_related('assigned_role', 'branch', 'staff_profile')
+    ).select_related('assigned_role', 'branch', 'staff_profile').order_by(
+        '-assigned_role__hierarchy_level',
+        'assigned_role__name',
+        'last_name',
+        'first_name',
+    )
 
     # Apply search filter
     if q:

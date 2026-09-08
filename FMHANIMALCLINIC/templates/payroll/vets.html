@@ -245,7 +245,7 @@ function filterByBranch() {
   <thead>
     <tr>
       <th style="text-align: left; padding-left: 16px;">Employee & Branch</th>
-      <th style="text-align: center;">Position</th>
+      <th style="text-align: center;">Role</th>
       <th style="text-align: center;">Base Salary</th>
       <th style="text-align: center;">Period Status</th>
       <th style="text-align: center;">Last Payslip</th>
@@ -271,7 +271,13 @@ function filterByBranch() {
           </div>
         </div>
       </td>
-      <td style="text-align: center; color: var(--text-2);">{% if item.employee.user and item.employee.user.assigned_role %}{{ item.employee.user.assigned_role.name }}{% else %}{{ item.employee.get_position_display|default:"-" }}{% endif %}</td>
+      <td style="text-align: center; color: var(--text-2);">
+        {% if item.employee.user and item.employee.user.assigned_role %}
+          {{ item.employee.user.assigned_role.name }}
+        {% else %}
+          {{ item.employee.get_position_display|default:"-" }}
+        {% endif %}
+      </td>
       <td class="money-value" style="text-align: center;">₱{{ item.employee.salary|peso }}</td>
       <td style="text-align: center;">
         {% if item.current_payslip %}

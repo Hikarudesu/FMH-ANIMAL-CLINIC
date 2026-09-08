@@ -17,7 +17,7 @@ User = get_user_model()
 def get_admin_users():
     """Helper function to get all admin users."""
     return User.objects.filter(is_active=True).filter(
-        Q(is_superuser=True) | Q(assigned_role__code='branch_admin')
+        Q(is_superuser=True) | Q(assigned_role__code='executive_officer')
     )
 
 
@@ -35,7 +35,7 @@ def create_appointment_notification(sender, instance, created, **kwargs):
         
         # Notify receptionists
         notify_role_users(
-            role_code='receptionist',
+            role_code='cashier',
             branch=instance.branch,
             title='New Appointment Booking',
             message=appointment_msg,
@@ -46,7 +46,7 @@ def create_appointment_notification(sender, instance, created, **kwargs):
         
         # Notify vet assistants (who have appointments module access)
         notify_role_users(
-            role_code='vet_assistant',
+            role_code='assistant_veterinarian',
             branch=instance.branch,
             title='New Appointment Booking',
             message=appointment_msg,
@@ -120,7 +120,7 @@ def create_low_inventory_notification(sender, instance, **kwargs):
     from accounts.models import User
     receptionists = User.objects.filter(
         is_active=True,
-        assigned_role__code='receptionist',
+        assigned_role__code='cashier',
         branch=instance.branch,
     ).exclude(id__in=notified_user_ids)
     
@@ -146,7 +146,7 @@ def create_low_inventory_notification(sender, instance, **kwargs):
     # Also notify vet assistants in the same branch
     vet_assistants = User.objects.filter(
         is_active=True,
-        assigned_role__code='vet_assistant',
+        assigned_role__code='assistant_veterinarian',
         branch=instance.branch,
     ).exclude(id__in=notified_user_ids)
     
@@ -208,7 +208,7 @@ def create_inventory_restock_notification(sender, instance, created, **kwargs):
         from accounts.models import User
         receptionists = User.objects.filter(
             is_active=True,
-            assigned_role__code='receptionist',
+            assigned_role__code='cashier',
             branch=instance.product.branch,
         ).exclude(id__in=notified_user_ids)
         
@@ -226,7 +226,7 @@ def create_inventory_restock_notification(sender, instance, created, **kwargs):
         # Also notify vet assistants in the same branch
         vet_assistants = User.objects.filter(
             is_active=True,
-            assigned_role__code='vet_assistant',
+            assigned_role__code='assistant_veterinarian',
             branch=instance.product.branch,
         ).exclude(id__in=notified_user_ids)
         

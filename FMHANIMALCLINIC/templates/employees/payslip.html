@@ -60,7 +60,7 @@
       <div class="detail-group">
         <span class="detail-label">Position</span>
         <span class="detail-value"
-          >{{ payslip.staff.get_position_display }}</span
+          >{{ payslip.staff.role_display_name }}</span
         >
       </div>
       <div class="detail-group">
@@ -196,6 +196,23 @@
         </table>
       </div>
     </div>
+
+    {% if payslip.total_clinic_contributions > 0 %}
+    <div class="payslip-section">
+      <div class="section-header earnings-header">
+        <i class="bx bx-building-house"></i>
+        <h4>EMPLOYER STATUTORY CONTRIBUTIONS</h4>
+      </div>
+      <table class="payslip-table">
+        <tbody>
+          {% if payslip.clinic_sss > 0 %}<tr><td>SSS Contribution</td><td style="text-align: right">&#8369;{{ payslip.clinic_sss|peso }}</td></tr>{% endif %}
+          {% if payslip.clinic_philhealth > 0 %}<tr><td>PhilHealth Contribution</td><td style="text-align: right">&#8369;{{ payslip.clinic_philhealth|peso }}</td></tr>{% endif %}
+          {% if payslip.clinic_pagibig > 0 %}<tr><td>PAG-IBIG Contribution</td><td style="text-align: right">&#8369;{{ payslip.clinic_pagibig|peso }}</td></tr>{% endif %}
+          <tr class="total-row"><td><strong>Total Employer Contributions</strong></td><td style="text-align: right"><strong>&#8369;{{ payslip.total_clinic_contributions|peso }}</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
 
     <div class="payslip-summary-bottom">
       <div class="net-pay-wrapper">

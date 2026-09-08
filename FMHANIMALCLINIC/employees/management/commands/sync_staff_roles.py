@@ -12,10 +12,10 @@ class Command(BaseCommand):
     # Mapping from RBAC role code to StaffMember.Position value
     ROLE_MAPPING = {
         'veterinarian': StaffMember.Position.VETERINARIAN,
-        'vet_assistant': StaffMember.Position.VET_ASSISTANT,
-        'receptionist': StaffMember.Position.RECEPTIONIST,
+        'assistant_veterinarian': StaffMember.Position.VET_ASSISTANT,
+        'cashier': StaffMember.Position.RECEPTIONIST,
         'admin': StaffMember.Position.ADMIN,
-        'branch_admin': StaffMember.Position.ADMIN,
+        'executive_officer': StaffMember.Position.ADMIN,
         'superadmin': StaffMember.Position.ADMIN,
     }
 

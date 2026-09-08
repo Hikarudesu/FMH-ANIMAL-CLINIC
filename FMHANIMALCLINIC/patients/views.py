@@ -593,7 +593,7 @@ def admin_edit_pet_view(request, pk):
 
             # Server-side guard: only receptionists/superusers can transfer
             user_role = getattr(request.user, 'assigned_role', None)
-            is_receptionist = request.user.is_superuser or (user_role and user_role.code == 'receptionist')
+            is_receptionist = request.user.is_superuser or (user_role and user_role.code == 'cashier')
 
             if pet.source == Pet.Source.WALKIN and (create_new or link_user) and is_receptionist:
                 if create_new:

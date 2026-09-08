@@ -416,9 +416,11 @@ try:
         if not user:
             return
 
+        staff_name = instance.user.get_full_name() if instance.user else instance.full_name
+
         log_activity(
             user=user,
-            action=f"Staff member removed: {instance.user.get_full_name()}",
+            action=f"Staff member removed: {staff_name}",
             category=ActivityLog.Category.STAFF,
             action_type=ActivityLog.ActionType.DELETE,
             branch=instance.branch,

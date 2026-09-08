@@ -44,9 +44,9 @@ def login_view(request):
             # Redirect based on specific role
             if request.user.assigned_role and request.user.assigned_role.code == 'veterinarian':
                 return redirect('vet_dashboard')
-            elif request.user.assigned_role and request.user.assigned_role.code == 'vet_assistant':
+            elif request.user.assigned_role and request.user.assigned_role.code == 'assistant_veterinarian':
                 return redirect('vet_dashboard')  # Vet assistants share the vet dashboard
-            elif request.user.assigned_role and request.user.assigned_role.code == 'receptionist':
+            elif request.user.assigned_role and request.user.assigned_role.code == 'cashier':
                 return redirect('receptionist_dashboard')
             else:
                 return redirect('admin_dashboard')
@@ -84,9 +84,9 @@ def login_view(request):
                 # Redirect based on specific role
                 if user.assigned_role and user.assigned_role.code == 'veterinarian':
                     return redirect('vet_dashboard')
-                elif user.assigned_role and user.assigned_role.code == 'vet_assistant':
+                elif user.assigned_role and user.assigned_role.code == 'assistant_veterinarian':
                     return redirect('vet_dashboard')  # Vet assistants share the vet dashboard
-                elif user.assigned_role and user.assigned_role.code == 'receptionist':
+                elif user.assigned_role and user.assigned_role.code == 'cashier':
                     return redirect('receptionist_dashboard')
                 else:
                     return redirect('admin_dashboard')
@@ -523,11 +523,11 @@ def admin_dashboard_view(request):
         return redirect('vet_dashboard')
 
     # Check if user is a vet assistant and redirect to vet dashboard
-    if request.user.assigned_role and request.user.assigned_role.code == 'vet_assistant':
+    if request.user.assigned_role and request.user.assigned_role.code == 'assistant_veterinarian':
         return redirect('vet_dashboard')
 
     # Check if user is a receptionist and redirect to receptionist dashboard
-    if request.user.assigned_role and request.user.assigned_role.code == 'receptionist':
+    if request.user.assigned_role and request.user.assigned_role.code == 'cashier':
         return redirect('receptionist_dashboard')
 
     today = date.today()
@@ -1120,7 +1120,7 @@ def vet_dashboard_view(request):
 
     is_vet_assistant = (
         request.user.assigned_role
-        and request.user.assigned_role.code == 'vet_assistant'
+        and request.user.assigned_role.code == 'assistant_veterinarian'
     )
     dashboard_title = (
         "Vet Assistant Dashboard" if is_vet_assistant
@@ -2036,9 +2036,9 @@ def admin_create_account(request):
                     # Map RBAC role to StaffMember position
                     role_to_position = {
                         'veterinarian': StaffMember.Position.VETERINARIAN,
-                        'vet_assistant': StaffMember.Position.VET_ASSISTANT,
-                        'receptionist': StaffMember.Position.RECEPTIONIST,
-                        'branch_admin': StaffMember.Position.ADMIN,
+                        'assistant_veterinarian': StaffMember.Position.VET_ASSISTANT,
+                        'cashier': StaffMember.Position.RECEPTIONIST,
+                        'executive_officer': StaffMember.Position.ADMIN,
                         'superadmin': StaffMember.Position.ADMIN,
                         'admin': StaffMember.Position.ADMIN,
                     }

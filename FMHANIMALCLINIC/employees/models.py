@@ -132,6 +132,13 @@ class StaffMember(SoftDeleteModel):
         return f'{self.first_name} {self.last_name}'
 
     @property
+    def role_display_name(self):
+        """Return the live RBAC role name used by staff and payroll screens."""
+        if self.user_id and self.user and self.user.assigned_role:
+            return self.user.assigned_role.name
+        return self.get_position_display()
+
+    @property
     def is_vet(self):
         """Returns True if the staff member is a veterinarian."""
         return self.position == self.Position.VETERINARIAN

@@ -281,7 +281,7 @@ def sync_pet_clinical_status(sender, instance, **kwargs):
 
         vet_assistants = User.objects.filter(
             is_active=True,
-            assigned_role__code='vet_assistant',
+            assigned_role__code='assistant_veterinarian',
             branch=instance.record.branch,
         )
         

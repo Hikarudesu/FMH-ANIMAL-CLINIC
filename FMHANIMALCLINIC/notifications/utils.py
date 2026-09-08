@@ -148,7 +148,7 @@ def notify_inquiry_received(inquiry):
     # Notify receptionists in the same branch
     if inquiry.branch:
         notify_role_users(
-            role_code='receptionist',
+            role_code='cashier',
             branch=inquiry.branch,
             title='New Inquiry Received',
             message=message,
@@ -175,7 +175,7 @@ def notify_inquiry_responded(inquiry, responder=None):
     # Notify receptionists in the same branch
     if inquiry.branch:
         notify_role_users(
-            role_code='receptionist',
+            role_code='cashier',
             branch=inquiry.branch,
             title='Inquiry Responded',
             message=message,
@@ -202,7 +202,7 @@ def notify_inquiry_archived(inquiry, actor=None):
     # Notify receptionists in the same branch
     if inquiry.branch:
         notify_role_users(
-            role_code='receptionist',
+            role_code='cashier',
             branch=inquiry.branch,
             title='Inquiry Archived',
             message=message,
@@ -326,7 +326,7 @@ def notify_statement_released(statement):
         if branch:
             customer_name = statement.customer.get_full_name() or statement.customer.username
             notify_role_users(
-                role_code='receptionist',
+                role_code='cashier',
                 branch=branch,
                 title='Customer Statement Released',
                 message=f"Statement released for {customer_name}. Amount due: ₱{statement.total_amount}",
@@ -418,7 +418,7 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
     # Notify receptionists in the same branch
     receptionists = User.objects.filter(
         is_active=True,
-        assigned_role__code='receptionist',
+        assigned_role__code='cashier',
         branch=appointment.branch,
     )
     
@@ -436,7 +436,7 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
     # Notify vet assistants in the same branch
     vet_assistants = User.objects.filter(
         is_active=True,
-        assigned_role__code='vet_assistant',
+        assigned_role__code='assistant_veterinarian',
         branch=appointment.branch,
     ).exclude(id__in=notified_user_ids)
     
@@ -501,7 +501,7 @@ def notify_reservation_approved(reservation, actor=None):
     
     # Notify receptionists in the product's branch
     notify_role_users(
-        role_code='receptionist',
+        role_code='cashier',
         branch=reservation.product.branch,
         title='Reservation Approved',
         message=message,
@@ -528,7 +528,7 @@ def notify_reservation_ready(reservation, actor=None):
     
     # Notify receptionists in the product's branch (to handle pickup)
     notify_role_users(
-        role_code='receptionist',
+        role_code='cashier',
         branch=reservation.product.branch,
         title='Reservation Ready for Pickup',
         message=f"Reservation ready for {customer_name}: {reservation.product.name} (x{reservation.quantity})",
@@ -556,7 +556,7 @@ def notify_reservation_rejected(reservation, actor=None):
     
     # Notify receptionists in the product's branch
     notify_role_users(
-        role_code='receptionist',
+        role_code='cashier',
         branch=reservation.product.branch,
         title='Reservation Rejected',
         message=f"Reservation rejected for {customer_name}: {reservation.product.name} (x{reservation.quantity})",

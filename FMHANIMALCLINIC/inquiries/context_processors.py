@@ -11,7 +11,7 @@ def new_inquiry_count(request):
         if hasattr(request.user, 'assigned_role') and request.user.assigned_role:
             role_code = request.user.assigned_role.code
             # Only show inquiry count for admin roles
-            if role_code in ['admin', 'branch_admin', 'super_admin']:
+            if role_code in ['admin', 'executive_officer', 'super_admin']:
                 try:
                     count = Inquiry.objects.filter(status='NEW').count()
                     return {'new_inquiry_count': count}
