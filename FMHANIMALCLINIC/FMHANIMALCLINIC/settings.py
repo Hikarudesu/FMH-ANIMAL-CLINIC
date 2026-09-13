@@ -185,50 +185,6 @@ DATABASES = {
     },
 }
 
-
-def _ensure_postgres_database():
-    """Create the configured PostgreSQL database if it does not already exist."""
-    db_config = DATABASES.get('default', {})
-    if db_config.get('ENGINE') != 'django.db.backends.postgresql':
-        return
-
-    db_name = db_config.get('NAME')
-    if not db_name:
-        return
-
-    try:
-        import psycopg
-    except ImportError:
-        return
-
-    admin_db_name = os.environ.get('DB_ADMIN_NAME', 'postgres')
-    connection_kwargs = {
-        'dbname': admin_db_name,
-        'user': db_config.get('USER', 'postgres'),
-        'password': db_config.get('PASSWORD', 'postgres'),
-        'host': db_config.get('HOST', 'localhost'),
-        'port': db_config.get('PORT', '5432'),
-    }
-
-    try:
-        with psycopg.connect(**connection_kwargs) as connection:
-            connection.autocommit = True
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    'SELECT 1 FROM pg_database WHERE datname = %s',
-                    (db_name,),
-                )
-                if cursor.fetchone() is None:
-                    safe_db_name = db_name.replace('"', '""')
-                    cursor.execute(f'CREATE DATABASE "{safe_db_name}"')
-    except psycopg.OperationalError:
-        # Let Django surface the original connection error if the server is unavailable.
-        return
-
-
-_ensure_postgres_database()
-
-
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 

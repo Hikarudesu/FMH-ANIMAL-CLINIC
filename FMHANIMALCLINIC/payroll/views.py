@@ -528,6 +528,19 @@ def cancel_draft_period(request, period_id):
     return redirect('payroll:requests')
 
 
+@login_required
+@module_permission_required('payroll', 'MANAGE')
+def discard_loaded_period(request, period_id):
+    """Silently discard an ungenerated draft abandoned on the load screen."""
+    if request.method != 'POST':
+        return redirect('payroll:payslips', period_id=period_id)
+
+    period = get_object_or_404(PayrollPeriod, id=period_id)
+    if period.status == PayrollPeriod.Status.DRAFT and not period.generated_at:
+        period.delete()
+    return redirect('payroll:requests')
+
+
 # ═══════════════════════════════════════════════════════════════════
 #                      VIEW/LIST PAYSLIPS
 # ═══════════════════════════════════════════════════════════════════
@@ -1737,6 +1750,52 @@ def audit_log_detail(request, log_id):
     }
 
     return render(request, 'payroll/audit_log_detail.html', context)
+
+
+def get_payroll_report_rows(period):
+    """Return report rows and the period net total from related payslips."""
+    payslips = period.payslips.select_related('employee').order_by(
+        'employee__last_name', 'employee__first_name'
+    )
+    rows = [
+        {
+            'employee': payslip.employee.full_name,
+            'position': payslip.employee.get_position_display(),
+            'days_worked': payslip.days_worked,
+            'days_absent': payslip.days_absent,
+            'allowances': sum(
+                (
+                    payslip.overtime_pay,
+                    payslip.holiday_pay,
+                    payslip.bonus,
+                    payslip.staff_allowance,
+                    payslip.thirteenth_month_pay,
+                ),
+                Decimal('0'),
+            ),
+            'gross_pay': payslip.gross_pay,
+            'total_deductions': payslip.total_deductions,
+            'net_pay': payslip.net_pay,
+        }
+        for payslip in payslips
+    ]
+    return rows, sum((row['net_pay'] for row in rows), Decimal('0'))
+
+
+@login_required
+@module_permission_required('payroll', 'MANAGE')
+def period_report_view(request, period_id):
+    """Render an ORM-backed summary report for one payroll period."""
+    period = get_object_or_404(PayrollPeriod, id=period_id)
+    rows, total_net_pay = get_payroll_report_rows(period)
+    return render(request, 'payroll/period_report.html', {
+        'period': period,
+        'rows': rows,
+        'employee_count': len(rows),
+        'total_gross_pay': period.total_gross,
+        'total_deductions': period.total_deductions,
+        'total_net_pay': total_net_pay,
+    })
 
 
 # ═══════════════════════════════════════════════════════════════════
