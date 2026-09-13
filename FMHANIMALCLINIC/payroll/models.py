@@ -395,6 +395,7 @@ class Payslip(models.Model):
             self.sss +
             self.philhealth +
             self.pagibig +
+            self.cash_advance + 
             self.late_deduction + 
             self.absent_deduction + 
             self.other_deductions +
@@ -426,31 +427,6 @@ class Payslip(models.Model):
     def staff_allowance_30th(self):
         """Allowance portion paid on the 30th."""
         return self.staff_allowance
-
-    def calculate_statutory_deductions(self):
-        """Calculate employee statutory deductions from current payroll settings."""
-        from settings.utils import get_setting
-
-        self.sss = Decimal('0')
-        self.philhealth = Decimal('0')
-        self.pagibig = Decimal('0')
-
-        if get_setting('payroll_auto_statutory', True) and self.base_salary > 0:
-            if get_setting('payroll_enable_sss', True):
-                self.sss = self.base_salary * (
-                    Decimal(str(get_setting('payroll_sss_rate', 4.50))) / Decimal('100')
-                )
-            if get_setting('payroll_enable_philhealth', True):
-                self.philhealth = self.base_salary * (
-                    Decimal(str(get_setting('payroll_philhealth_rate', 2.00))) / Decimal('100')
-                )
-            if get_setting('payroll_enable_pagibig', True):
-                self.pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100))) / Decimal('2')
-
-        self.sss = self.sss.quantize(Decimal('0.01'))
-        self.philhealth = self.philhealth.quantize(Decimal('0.01'))
-        self.pagibig = self.pagibig.quantize(Decimal('0.01'))
-        return self
     
     def generate_from_employee(self):
         """
@@ -523,8 +499,9 @@ class Payslip(models.Model):
         if self.rest_days_actual > self.rest_days_mandatory:
             # Excess days exist, but user will specify the breakdown in edit form
             self.excess_leave_days = Decimal('0')  # Will be calculated when user edits
-            self.rest_days_exceeded_deduction = Decimal('0')
+            self.rest_days_exceeded_deduction = Decimal('0')  # Will be calculated when user edits
         else:
+            # No excess
             self.excess_leave_days = Decimal('0')
             self.rest_days_exceeded_deduction = Decimal('0')
         
@@ -536,18 +513,33 @@ class Payslip(models.Model):
         
         default_custom_deductions = getattr(self.employee, 'default_custom_deductions', None) or []
         
-        # Reset statutory fields and employer-contribution fields before recalculation.
+        # Zero out legacy deduction fields and clinic-paid contributions first
         self.sss = Decimal('0')
         self.philhealth = Decimal('0')
         self.pagibig = Decimal('0')
         self.tax = Decimal('0')
-        self.cash_advance = Decimal('0')
         self.clinic_sss = Decimal('0')
         self.clinic_philhealth = Decimal('0')
         self.clinic_pagibig = Decimal('0')
 
-        # Calculate employee statutory deductions from the current settings.
-        self.calculate_statutory_deductions()
+        # Calculate statutory contributions based on settings (clinic-paid, not deducted from salary)
+        auto_statutory = get_setting('payroll_auto_statutory', True)
+        statutory_fraction = Decimal('0.5')
+
+        if auto_statutory and self.base_salary > 0:
+            # SSS
+            if get_setting('payroll_enable_sss', True):
+                sss_rate = Decimal(str(get_setting('payroll_sss_rate', 4.50))) * statutory_fraction
+                self.clinic_sss = self.base_salary * (sss_rate / Decimal('100'))
+
+            # PhilHealth
+            if get_setting('payroll_enable_philhealth', True):
+                ph_rate = Decimal(str(get_setting('payroll_philhealth_rate', 2.00))) * statutory_fraction
+                self.clinic_philhealth = self.base_salary * (ph_rate / Decimal('100'))
+
+            # Pag-IBIG
+            if get_setting('payroll_enable_pagibig', True):
+                self.clinic_pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100))) * statutory_fraction
 
         # Keep default custom deductions available for the caller to persist
         # after the payslip is saved.

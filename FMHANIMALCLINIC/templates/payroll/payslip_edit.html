@@ -122,7 +122,7 @@
       <div class="form-group">
         <label>Rest Days</label>
         <input type="number" value="{{ display_rest_days|default_if_none:2 }}" readonly>
-        <input type="hidden" name="rest_days_mandatory" value="{{ configured_rest_days|default_if_none:4 }}">
+        <input type="hidden" name="rest_days_mandatory" value="{{ payslip.rest_days_mandatory|default_if_none:4 }}">
         <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. Semi-monthly payslips show half of the configured monthly rest-day default.</small>
       </div>
 
@@ -176,31 +176,6 @@
         <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. This value is calculated from the configured staff allowance and current payroll period.</small>
       </div>
     </div>
-  </div>
-
-  <div class="form-section">
-    <h4>Statutory Deductions</h4>
-    <div class="form-grid">
-      {% if show_sss %}
-      <div class="form-group">
-        <label>SSS Contribution (₱)</label>
-        <input type="text" value="{{ payslip.sss|default:0 }}" readonly>
-      </div>
-      {% endif %}
-      {% if show_philhealth %}
-      <div class="form-group">
-        <label>PhilHealth Contribution (₱)</label>
-        <input type="text" value="{{ payslip.philhealth|default:0 }}" readonly>
-      </div>
-      {% endif %}
-      {% if show_pagibig %}
-      <div class="form-group">
-        <label>Pag-IBIG Contribution (₱)</label>
-        <input type="text" value="{{ payslip.pagibig|default:0 }}" readonly>
-      </div>
-      {% endif %}
-    </div>
-    <small style="color: var(--text-3); font-size: 0.75rem;">These values use the current Payroll Settings rates and are included in total deductions.</small>
   </div>
 
   <!-- Custom Deductions Section -->
