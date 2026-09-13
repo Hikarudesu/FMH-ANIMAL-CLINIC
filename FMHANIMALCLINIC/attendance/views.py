@@ -189,6 +189,7 @@ def attendance_import(request):
                     records,
                     source_filename=form.cleaned_data['import_file'].name,
                     uploaded_by=request.user,
+                    skip_duplicates=not bool(existing_upload),
                 )
 
                 if unmatched_ids:

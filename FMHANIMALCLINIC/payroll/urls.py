@@ -30,9 +30,10 @@ urlpatterns = [
     # Generate Payslips
     path('generate/', views.generate_payslips, name='generate'),
     path('period/<int:period_id>/cancel/', views.cancel_draft_period, name='cancel_draft'),
+    path('period/<int:period_id>/discard-loaded/', views.discard_loaded_period, name='discard_loaded'),
     
-    # Payslips List & Edit
-    path('period/<int:period_id>/', views.payslips_list, name='payslips'),
+    # Legacy period-page links now return to the current Requests workflow.
+    path('period/<int:period_id>/', views.obsolete_period_page, name='payslips'),
     path('period/<int:period_id>/generate/', views.generate_payslips_action, name='period_generate'),  # NEW: generate from period
     path('payslip/<int:payslip_id>/edit/', views.payslip_edit, name='payslip_edit'),
     path('payslip/<int:payslip_id>/delete/', views.payslip_delete, name='payslip_delete'),
@@ -52,6 +53,7 @@ urlpatterns = [
     path('audit/<int:log_id>/', views.audit_log_detail, name='audit_log_detail'),
     
     # Export Features
+    path('period/<int:period_id>/report/', views.period_report_view, name='period_report'),
     path('period/<int:period_id>/export/csv/', views.export_payslips_csv, name='export_csv'),
     path('period/<int:period_id>/export/excel/', views.export_payslips_excel, name='export_excel'),
     

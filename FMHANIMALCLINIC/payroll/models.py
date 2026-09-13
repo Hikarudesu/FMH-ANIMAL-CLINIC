@@ -24,7 +24,7 @@ from accounts.models import User
 
 
 class PayrollPeriod(models.Model):
-    """Payroll period supporting both monthly and semi-monthly options."""
+    """Payroll period supporting first-half and second-half payrolls."""
     
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', 'Draft'
@@ -33,7 +33,6 @@ class PayrollPeriod(models.Model):
         RELEASED = 'RELEASED', 'Released'
     
     class PeriodType(models.TextChoices):
-        MONTHLY = 'MONTHLY', 'Full Month'
         SEMI_FIRST = 'SEMI_FIRST', 'First Half'
         SEMI_SECOND = 'SEMI_SECOND', 'Second Half'
     
@@ -46,8 +45,8 @@ class PayrollPeriod(models.Model):
     period_type = models.CharField(
         max_length=20,
         choices=PeriodType.choices,
-        default=PeriodType.MONTHLY,
-        help_text='Select full month, first half (1-15), or second half (16-EOMonth)'
+        default=PeriodType.SEMI_FIRST,
+        help_text='Select the first half (1-15) or second half (16-EOMonth)'
     )
     branch = models.ForeignKey(
         'branches.Branch',
@@ -116,8 +115,7 @@ class PayrollPeriod(models.Model):
         ]
     
     def __str__(self):
-        period_display = f" - {self.get_period_type_display()}" if self.period_type != self.PeriodType.MONTHLY else ""
-        return f"{self.month_name} {self.year}{period_display}"
+        return f"{self.month_name} {self.year} - {self.get_period_type_display()}"
     
     @property
     def month_name(self):
@@ -125,8 +123,7 @@ class PayrollPeriod(models.Model):
     
     @property
     def period_display(self):
-        period_display = f" - {self.get_period_type_display()}" if self.period_type != self.PeriodType.MONTHLY else ""
-        return f"{self.month_name} {self.year}{period_display}"
+        return f"{self.month_name} {self.year} - {self.get_period_type_display()}"
 
     @property
     def scope_display(self):
@@ -149,7 +146,6 @@ class PayrollPeriod(models.Model):
             tuple: (start_date, end_date) as date objects
             
         Examples:
-            MONTHLY (Feb 28d): (2026-02-01, 2026-02-28)
             SEMI_FIRST (Feb 28d): (2026-02-01, 2026-02-14)
             SEMI_SECOND (Feb 28d): (2026-02-15, 2026-02-28)
             
@@ -158,9 +154,6 @@ class PayrollPeriod(models.Model):
         """
         first_day = date(self.year, self.month, 1)
         last_day = date(self.year, self.month, self.days_in_month)
-        
-        if self.period_type == self.PeriodType.MONTHLY:
-            return (first_day, last_day)
         
         # Calculate mid-point based on days in month
         # For equal division: mid_point = (days_in_month // 2) + 1
@@ -172,7 +165,7 @@ class PayrollPeriod(models.Model):
         elif self.period_type == self.PeriodType.SEMI_SECOND:
             return (date(self.year, self.month, mid_point + 1), last_day)
         
-        return (first_day, last_day)  # Fallback
+        return (first_day, date(self.year, self.month, self.days_in_month))
     
     def get_working_days_in_period(self):
         """
@@ -297,7 +290,7 @@ class Payslip(models.Model):
     bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     staff_allowance = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal('2000'),
-        help_text='Monthly staff allowance (split ₱1,000 on 15th + ₱1,000 on 30th)'
+        help_text='Staff allowance for this half-month payroll period'
     )
     thirteenth_month_pay = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
@@ -402,7 +395,6 @@ class Payslip(models.Model):
             self.sss +
             self.philhealth +
             self.pagibig +
-            self.cash_advance + 
             self.late_deduction + 
             self.absent_deduction + 
             self.other_deductions +
@@ -428,12 +420,37 @@ class Payslip(models.Model):
     @property
     def staff_allowance_15th(self):
         """Allowance portion paid on the 15th."""
-        return self.staff_allowance / Decimal('2')
+        return self.staff_allowance
     
     @property
     def staff_allowance_30th(self):
         """Allowance portion paid on the 30th."""
-        return self.staff_allowance / Decimal('2')
+        return self.staff_allowance
+
+    def calculate_statutory_deductions(self):
+        """Calculate employee statutory deductions from current payroll settings."""
+        from settings.utils import get_setting
+
+        self.sss = Decimal('0')
+        self.philhealth = Decimal('0')
+        self.pagibig = Decimal('0')
+
+        if get_setting('payroll_auto_statutory', True) and self.base_salary > 0:
+            if get_setting('payroll_enable_sss', True):
+                self.sss = self.base_salary * (
+                    Decimal(str(get_setting('payroll_sss_rate', 4.50))) / Decimal('100')
+                )
+            if get_setting('payroll_enable_philhealth', True):
+                self.philhealth = self.base_salary * (
+                    Decimal(str(get_setting('payroll_philhealth_rate', 2.00))) / Decimal('100')
+                )
+            if get_setting('payroll_enable_pagibig', True):
+                self.pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100))) / Decimal('2')
+
+        self.sss = self.sss.quantize(Decimal('0.01'))
+        self.philhealth = self.philhealth.quantize(Decimal('0.01'))
+        self.pagibig = self.pagibig.quantize(Decimal('0.01'))
+        return self
     
     def generate_from_employee(self):
         """
@@ -450,14 +467,9 @@ class Payslip(models.Model):
         from settings.utils import get_setting
         from attendance.models import MonthlyAttendanceSummary
         
-        # Base salary is monthly for full-month payroll and half-monthly for semi-monthly periods
+        # Employee salary is monthly and each payroll period pays one half.
         monthly_salary = Decimal(str(self.employee.salary or 0))
-        is_semi_monthly = self.payroll_period.period_type in [
-            self.payroll_period.PeriodType.SEMI_FIRST,
-            self.payroll_period.PeriodType.SEMI_SECOND,
-        ]
-        salary_fraction = Decimal('0.5') if is_semi_monthly else Decimal('1')
-        self.base_salary = monthly_salary * salary_fraction
+        self.base_salary = monthly_salary * Decimal('0.5')
         
         # Fetch attendance data from biometric import for this period
         period_start, period_end = self.payroll_period.get_period_start_end_dates()
@@ -472,10 +484,7 @@ class Payslip(models.Model):
         # these values must remain at zero instead of being estimated from a calendar.
         if attendance_summary and attendance_summary.working_days > 0:
             actual_working_days = attendance_summary.working_days
-            if is_semi_monthly:
-                working_days_for_half = max(1, actual_working_days // 2)
-            else:
-                working_days_for_half = actual_working_days
+            working_days_for_half = max(1, actual_working_days // 2)
         else:
             working_days_for_half = 0
 
@@ -514,50 +523,31 @@ class Payslip(models.Model):
         if self.rest_days_actual > self.rest_days_mandatory:
             # Excess days exist, but user will specify the breakdown in edit form
             self.excess_leave_days = Decimal('0')  # Will be calculated when user edits
-            self.rest_days_exceeded_deduction = Decimal('0')  # Will be calculated when user edits
+            self.rest_days_exceeded_deduction = Decimal('0')
         else:
-            # No excess
             self.excess_leave_days = Decimal('0')
             self.rest_days_exceeded_deduction = Decimal('0')
         
         # Staff allowance from employee defaults, falling back to settings default
         default_staff_allowance = get_setting('payroll_default_staff_allowance', 2000)
         emp_staff_allowance = getattr(self.employee, 'default_staff_allowance', None)
-        self.staff_allowance = Decimal(str(emp_staff_allowance or default_staff_allowance))
+        monthly_staff_allowance = Decimal(str(emp_staff_allowance or default_staff_allowance))
+        self.staff_allowance = monthly_staff_allowance / Decimal('2')
         
         default_custom_deductions = getattr(self.employee, 'default_custom_deductions', None) or []
         
-        # Zero out legacy deduction fields and clinic-paid contributions first
+        # Reset statutory fields and employer-contribution fields before recalculation.
         self.sss = Decimal('0')
         self.philhealth = Decimal('0')
         self.pagibig = Decimal('0')
         self.tax = Decimal('0')
+        self.cash_advance = Decimal('0')
         self.clinic_sss = Decimal('0')
         self.clinic_philhealth = Decimal('0')
         self.clinic_pagibig = Decimal('0')
 
-        # Calculate statutory contributions based on settings (clinic-paid, not deducted from salary)
-        auto_statutory = get_setting('payroll_auto_statutory', True)
-        is_semi_monthly = self.payroll_period.period_type in [
-            PayrollPeriod.PeriodType.SEMI_FIRST,
-            PayrollPeriod.PeriodType.SEMI_SECOND,
-        ]
-        statutory_fraction = Decimal('0.5') if is_semi_monthly else Decimal('1')
-
-        if auto_statutory and self.base_salary > 0:
-            # SSS
-            if get_setting('payroll_enable_sss', True):
-                sss_rate = Decimal(str(get_setting('payroll_sss_rate', 4.50))) * statutory_fraction
-                self.clinic_sss = self.base_salary * (sss_rate / Decimal('100'))
-
-            # PhilHealth
-            if get_setting('payroll_enable_philhealth', True):
-                ph_rate = Decimal(str(get_setting('payroll_philhealth_rate', 2.00))) * statutory_fraction
-                self.clinic_philhealth = self.base_salary * (ph_rate / Decimal('100'))
-
-            # Pag-IBIG
-            if get_setting('payroll_enable_pagibig', True):
-                self.clinic_pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100))) * statutory_fraction
+        # Calculate employee statutory deductions from the current settings.
+        self.calculate_statutory_deductions()
 
         # Keep default custom deductions available for the caller to persist
         # after the payslip is saved.

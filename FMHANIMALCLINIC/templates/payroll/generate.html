@@ -241,4 +241,28 @@
   <p>{% if not selected_branch %}Select a branch to load its employees{% else %}No active employees found in this branch{% endif %}</p>
 </div>
 {% endif %}
+
+{% if period and period.status == 'DRAFT' and not period.generated_at %}
+<script>
+  (() => {
+    let preserveLoadedPeriod = false;
+    const discardUrl = "{% url 'payroll:discard_loaded' period.id %}";
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+
+    document.querySelectorAll('a[href*="/payslip/"]').forEach((link) => {
+      link.addEventListener('click', () => { preserveLoadedPeriod = true; });
+    });
+    document.querySelectorAll('form').forEach((form) => {
+      form.addEventListener('submit', () => { preserveLoadedPeriod = true; });
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (preserveLoadedPeriod || !csrfToken) return;
+      const body = new FormData();
+      body.append('csrfmiddlewaretoken', csrfToken);
+      navigator.sendBeacon(discardUrl, body);
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}

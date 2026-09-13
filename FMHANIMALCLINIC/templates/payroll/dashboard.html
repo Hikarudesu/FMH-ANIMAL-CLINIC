@@ -59,11 +59,11 @@
     </div>
     <div class="workflow-card">
       <div class="workflow-card__top">
-        <span class="workflow-card__label">Pending payslips</span>
-        <i class="bx bx-file-blank workflow-card__icon"></i>
+        <span class="workflow-card__label">Released periods</span>
+        <i class="bx bx-check-double workflow-card__icon"></i>
       </div>
-      <div class="workflow-card__value {% if pending_count %}warning{% endif %}">{{ pending_count|default:"0" }}</div>
-      <span class="muted">Draft or awaiting approval</span>
+      <div class="workflow-card__value">{{ released_periods_count|default:"0" }}</div>
+      <span class="muted">Completed payroll cycles this year</span>
     </div>
     <div class="workflow-card">
       <div class="workflow-card__top">

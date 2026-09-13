@@ -370,6 +370,41 @@
       font-weight: 700;
     }
   }
+
+  /* Plain payroll document styling */
+  .report-shell,
+  .report-header,
+  .report-summary,
+  .summary-box,
+  .report-btn,
+  table.report-table,
+  table.report-table th,
+  table.report-table td {
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .report-shell { background: #fff; border: 1px solid #000; }
+  .report-header { padding: 18px 20px 14px; background: #fff; border-bottom: 1px solid #000; }
+  .report-header h2 { color: #000; font-size: 1.25rem; letter-spacing: 0; }
+  .report-header h2 i { display: none; }
+  .report-meta { margin-top: 8px; color: #000; font-size: 0.8rem; }
+  .report-scope-badge { padding: 0; border: 0; background: transparent; color: #000; font-weight: 700; }
+  .report-actions { gap: 6px; }
+  .report-btn { padding: 7px 10px; border: 1px solid #000; background: #fff; color: #000; font-size: 0.78rem; }
+  .report-btn.primary { background: #000; color: #fff; border-color: #000; }
+  .report-summary { grid-template-columns: repeat(3, 1fr); gap: 0; padding: 12px 20px; background: #fff; border-bottom: 1px solid #000; }
+  .summary-box { padding: 6px 10px; border: 0; border-left: 1px solid #000; background: #fff; }
+  .summary-box:first-child { border-left: 0; }
+  .summary-box h4 { margin-bottom: 3px; color: #000; font-size: 0.65rem; letter-spacing: 0; }
+  .summary-box strong { color: #000; font-size: 1rem; }
+  .report-table-wrap { padding: 16px 20px 20px; }
+  table.report-table { min-width: 100%; border: 1px solid #000; border-collapse: collapse; }
+  table.report-table th,
+  table.report-table td { border: 1px solid #000; padding: 7px 8px; color: #000; font-size: 0.78rem; }
+  table.report-table th { background: #fff; color: #000; text-transform: none; letter-spacing: 0; }
+  table.report-table tbody tr:hover,
+  table.report-table tbody tr:nth-child(even) { background: #fff; }
+  .total-row td { background: #fff; color: #000; border-top: 2px solid #000; }
 </style>
 
 <div class="report-shell">

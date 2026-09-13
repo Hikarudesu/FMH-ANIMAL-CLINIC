@@ -364,12 +364,6 @@
             <td class="amt">{{ payslip.pagibig|peso }}</td>
           </tr>
           {% endif %}
-          {% if payslip.cash_advance > 0 %}
-          <tr>
-            <td>Cash Advance</td>
-            <td class="amt">{{ payslip.cash_advance|peso }}</td>
-          </tr>
-          {% endif %}
           {% if payslip.late_deduction > 0 %}
           <tr>
             <td>Late / Undertime</td>
@@ -415,7 +409,7 @@
     
     {% if payslip.total_clinic_contributions > 0 %}
     <div class="employer-contributions">
-      <h4>Employer Statutory Contributions</h4>
+      <h4>Statutory Deductions</h4>
       <table class="ledger-table">
         {% if payslip.clinic_sss > 0 %}<tr><td>SSS Contribution</td><td class="amt">{{ payslip.clinic_sss|peso }}</td></tr>{% endif %}
         {% if payslip.clinic_philhealth > 0 %}<tr><td>PhilHealth Contribution</td><td class="amt">{{ payslip.clinic_philhealth|peso }}</td></tr>{% endif %}

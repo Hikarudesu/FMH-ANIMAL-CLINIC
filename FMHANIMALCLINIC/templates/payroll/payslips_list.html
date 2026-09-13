@@ -159,6 +159,7 @@
   .period-reload-form .btn { height: 40px; padding: 0 14px; white-space: nowrap; }
   .payslips-header > div:last-child { display: flex !important; flex-direction: column; align-items: stretch !important; gap: 16px !important; }
   .payslips-header > div:last-child > .btn { align-self: flex-end; }
+  .payslips-header > div:last-child > .status-badge { align-self: flex-start; width: fit-content; white-space: nowrap; }
   @media (max-width: 1100px) { .payslips-header { grid-template-columns: 1fr; gap: 18px; } }
   @media (max-width: 720px) { .period-reload-form { grid-template-columns: repeat(2, minmax(130px, 1fr)); } .period-reload-form .btn { width: 100%; } }
   @media (max-width: 420px) { .period-reload-form { grid-template-columns: 1fr; } }
@@ -303,6 +304,9 @@
     <i class='bx bx-file-blank'></i> Total: {{ payslips|length }} documents in this batch
   </div>
   <div style="display: flex; gap: 12px;">
+    {% if period.status == 'GENERATED' or period.status == 'RELEASED' %}
+    <a href="{% url 'payroll:period_report' period.id %}" class="btn" style="background: var(--bg); color: var(--text-1); border: 1px solid var(--border); box-shadow: none;" title="Print the complete payroll"><i class='bx bx-printer'></i> Print Payroll</a>
+    {% endif %}
     {% if period.status == 'GENERATED' %}
     <button type="button" class="btn open-release-btn" data-release-url="{% url 'payroll:release' period.id %}" data-release-name="{{ period.period_display }}" style="background:#059669; border-color:#059669;" title="Send payslips to employees">
       <i class='bx bx-send'></i> Release Payroll

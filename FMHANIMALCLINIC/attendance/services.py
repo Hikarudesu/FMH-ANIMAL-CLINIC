@@ -17,6 +17,21 @@ class AttendanceImportService:
     """Import monthly summary records matched by staff biometric ID."""
 
     @staticmethod
+    def clear_monthly_import_data(period_start, period_end):
+        """Remove all daily and summary attendance rows for a calendar month."""
+        daily_records = DailyAttendance.objects.filter(
+            attendance_date__year=period_start.year,
+            attendance_date__month=period_start.month,
+        )
+        summaries = MonthlyAttendanceSummary.objects.filter(
+            period_start__year=period_start.year,
+            period_start__month=period_start.month,
+        )
+        daily_deleted, _ = daily_records.delete()
+        summary_deleted, _ = summaries.delete()
+        return daily_deleted, summary_deleted
+
+    @staticmethod
     def _extract_biometric_id(record):
         value = AttendanceImportService._get_first_matching_value(
             record,

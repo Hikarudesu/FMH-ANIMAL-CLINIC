@@ -353,48 +353,48 @@ class PayrollSettingsForm(AdminInputMixin, forms.Form):
         widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Sick Leave\nEmergency Leave'}),
         help_text='One paid leave option per line. Default options: Sick Leave and Emergency Leave.'
     )
-    # ─── Employer Statutory Contributions ───
+    # ─── Statutory Deductions ───
     auto_statutory = forms.BooleanField(
-        label='Enable Employer Statutory Contributions',
+        label='Enable Statutory Deductions',
         required=False,
         widget=forms.CheckboxInput(),
-        help_text='Master toggle. When enabled, clinic-paid statutory contributions (SSS, PhilHealth, Pag-IBIG) are auto-calculated during payslip generation and shown on payslips. These are NOT deducted from employee salary.'
+        help_text='Master toggle. When enabled, SSS, PhilHealth, and Pag-IBIG are auto-calculated and deducted from employee pay.'
     )
     enable_sss = forms.BooleanField(
         label='SSS Contribution',
         required=False,
         widget=forms.CheckboxInput(),
-        help_text='Calculate SSS employer contribution when generating payslips'
+        help_text='Calculate SSS deduction when generating payslips'
     )
     sss_rate = forms.DecimalField(
-        label='SSS Employer Rate (%)',
+        label='SSS Rate (%)',
         min_value=0,
         max_value=100,
         max_digits=5,
         decimal_places=2,
         widget=forms.NumberInput(attrs={'step': '0.01'}),
-        help_text='Percentage of base salary for SSS employer share (e.g. 4.50 = 4.5%)'
+        help_text='Percentage of base salary for the SSS deduction (e.g. 4.50 = 4.5%)'
     )
     enable_philhealth = forms.BooleanField(
         label='PhilHealth Contribution',
         required=False,
         widget=forms.CheckboxInput(),
-        help_text='Calculate PhilHealth employer contribution when generating payslips'
+        help_text='Calculate PhilHealth deduction when generating payslips'
     )
     philhealth_rate = forms.DecimalField(
-        label='PhilHealth Employer Rate (%)',
+        label='PhilHealth Rate (%)',
         min_value=0,
         max_value=100,
         max_digits=5,
         decimal_places=2,
         widget=forms.NumberInput(attrs={'step': '0.01'}),
-        help_text='Percentage of base salary for PhilHealth employer share (e.g. 2.00 = 2%)'
+        help_text='Percentage of base salary for the PhilHealth deduction (e.g. 2.00 = 2%)'
     )
     enable_pagibig = forms.BooleanField(
         label='Pag-IBIG Contribution',
         required=False,
         widget=forms.CheckboxInput(),
-        help_text='Calculate Pag-IBIG employer contribution when generating payslips'
+        help_text='Calculate Pag-IBIG deduction when generating payslips'
     )
     pagibig_fixed = forms.DecimalField(
         label='Pag-IBIG Fixed Amount (₱)',
@@ -402,7 +402,7 @@ class PayrollSettingsForm(AdminInputMixin, forms.Form):
         max_digits=10,
         decimal_places=2,
         widget=forms.NumberInput(attrs={'step': '10'}),
-        help_text='Fixed monthly Pag-IBIG employer contribution (e.g. ₱100)'
+        help_text='Fixed monthly Pag-IBIG deduction (e.g. ₱100)'
     )
 
     def __init__(self, *args, **kwargs):

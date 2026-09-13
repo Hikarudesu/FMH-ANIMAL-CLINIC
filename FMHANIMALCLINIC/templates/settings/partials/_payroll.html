@@ -190,15 +190,15 @@
         </div>
       </div>
 
-      <!-- ═══════════ Section: Employer Statutory Contributions ═══════════ -->
+      <!-- ═══════════ Section: Statutory Deductions ═══════════ -->
       <div class="form-section-title" style="margin-top: 12px;">
-        <i class='bx bx-shield-quarter'></i> Employer Statutory Contributions
+        <i class='bx bx-shield-quarter'></i> Statutory Deductions
       </div>
 
       <div class="payroll-settings-note payroll-settings-note--blue">
         <i class='bx bx-info-circle' style="color: #2563eb; margin-right: 6px; flex-shrink: 0; font-size: 0.95rem;"></i>
         <div>
-          These are <strong>clinic-paid</strong> statutory contributions. They are shown on payslips but do <strong>not</strong> reduce employee take-home pay.
+          These statutory deductions are calculated from the current settings and reduce employee take-home pay.
         </div>
       </div>
 
@@ -206,7 +206,7 @@
           <div class="checkbox-field">
             {{ forms.payroll.auto_statutory }}
             <div class="checkbox-content">
-              <label for="id_auto_statutory">Enable Employer Statutory Contributions</label>
+              <label for="id_auto_statutory">Enable Statutory Deductions</label>
               <p class="form-hint">{{ forms.payroll.auto_statutory.help_text }}</p>
             </div>
           </div>

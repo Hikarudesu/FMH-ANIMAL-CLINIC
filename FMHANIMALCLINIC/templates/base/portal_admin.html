@@ -323,7 +323,7 @@
           <div class="sidebar-item has-submenu">
             <a
               href="#"
-              class="sidebar-link {% if 'roles' in request.path or 'employees' in request.path or 'attendance' in request.path or request.resolver_match.url_name == 'schedule' or 'payroll' in request.path or request.resolver_match.url_name == 'admin_create_account' or request.resolver_match.url_name == 'user_role_list' %}active{% endif %}"
+              class="sidebar-link {% if 'roles' in request.path or 'employees' in request.path or 'attendance' in request.path or request.resolver_match.url_name == 'schedule' or 'payroll' in request.path and 'settings' not in request.path or request.resolver_match.url_name == 'admin_create_account' or request.resolver_match.url_name == 'user_role_list' %}active{% endif %}"
               id="governanceDropdownToggle"
             >
               <i class="bx bx-shield-quarter"></i><span>Staff Management</span>
@@ -365,7 +365,7 @@
               {% if user|has_nav_module:'payroll' %}
               <a
                 href="{% url 'payroll:dashboard' %}"
-                class="sidebar-submenu-link {% if 'payroll' in request.path %}active{% endif %}"
+                class="sidebar-submenu-link {% if 'payroll' in request.path and 'settings' not in request.path %}active{% endif %}"
               >
                 <i class="bx bx-money"></i><span>Payroll</span>
               </a>
