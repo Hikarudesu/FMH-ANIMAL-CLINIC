@@ -24,10 +24,7 @@ def clinic_settings(request):
         if default_storage.exists(profile.logo.name):
             logo_url = profile.logo.url
         else:
-            try:
-                logo_url = static(profile.logo.name)
-            except ValueError:
-                logo_url = static('image/fmh-logo.png')
+            logo_url = static(profile.logo.name)
 
     return {
         'CLINIC_NAME': profile.name,
