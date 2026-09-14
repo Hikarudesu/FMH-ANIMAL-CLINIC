@@ -11,11 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
-import sys
 import warnings
 from pathlib import Path
-
-import dj_database_url
 
 
 def _load_environment_file(env_path):
@@ -74,10 +71,7 @@ if not SECRET_KEY:
         raise RuntimeError('SECRET_KEY must be set when DEBUG=False.')
     SECRET_KEY = 'django-insecure-development-only-change-me'
 
-railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
 configured_hosts = os.environ.get('ALLOWED_HOSTS', '')
-if railway_domain and railway_domain not in configured_hosts.split(','):
-    configured_hosts = ','.join(filter(None, (configured_hosts, railway_domain)))
 if not configured_hosts and not DEBUG:
     raise RuntimeError('ALLOWED_HOSTS must be set when DEBUG=False.')
 ALLOWED_HOSTS = [h.strip() for h in configured_hosts.split(',') if h.strip()]
@@ -88,10 +82,6 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
     if origin.strip()
 ]
-if railway_domain:
-    railway_origin = f'https://{railway_domain}'
-    if railway_origin not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(railway_origin)
 if not DEBUG and not CSRF_TRUSTED_ORIGINS:
     raise RuntimeError('CSRF_TRUSTED_ORIGINS must be set when DEBUG=False.')
 
@@ -130,7 +120,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -171,41 +160,30 @@ WSGI_APPLICATION = 'FMHANIMALCLINIC.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-database_url = os.environ.get('DATABASE_URL', '').strip()
-if database_url:
-    DATABASES = {
-        'default': dj_database_url.parse(
-            database_url,
-            conn_max_age=600,
-            conn_health_checks=True,
-            ssl_require=not DEBUG,
-        ),
-    }
-else:
-    DB_ENGINE = os.environ.get('DB_ENGINE', 'postgresql').strip().lower()
+DB_ENGINE = os.environ.get('DB_ENGINE', 'postgresql').strip().lower()
 
-    if DB_ENGINE != 'postgresql':
-        raise ValueError('This project is configured for PostgreSQL only. Set DB_ENGINE=postgresql.')
+if DB_ENGINE != 'postgresql':
+    raise ValueError('This project is configured for PostgreSQL only. Set DB_ENGINE=postgresql.')
 
-    if not DEBUG and 'collectstatic' not in sys.argv:
-        required_database_values = ('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT')
-        missing_database_values = [key for key in required_database_values if not os.environ.get(key)]
-        if missing_database_values:
-            raise RuntimeError(
-                'Set DATABASE_URL or provide production database environment variables: '
-                + ', '.join(missing_database_values)
-            )
+if not DEBUG:
+    required_database_values = ('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT')
+    missing_database_values = [key for key in required_database_values if not os.environ.get(key)]
+    if missing_database_values:
+        raise RuntimeError(
+            'Missing production database environment variables: '
+            + ', '.join(missing_database_values)
+        )
 
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'fmhclinic'),
-            'USER': os.environ.get('DB_USER', 'postgres'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
-        },
-    }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME', 'fmhclinic'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
+    },
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -245,25 +223,12 @@ USE_THOUSAND_SEPARATOR = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = 'static/'
 
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-STORAGES = {
-    'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
-    },
-    'staticfiles': {
-        'BACKEND': (
-            'whitenoise.storage.CompressedManifestStaticFilesStorage'
-            if not DEBUG else
-            'django.contrib.staticfiles.storage.StaticFilesStorage'
-        ),
-    },
-}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
