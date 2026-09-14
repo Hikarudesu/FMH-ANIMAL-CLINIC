@@ -6,3 +6,5 @@ Pillow==12.1.1
 python-dateutil==2.9.0.post0
 xhtml2pdf==0.2.17
 psycopg[binary]
+gunicorn==23.0.0
+whitenoise==6.9.0
