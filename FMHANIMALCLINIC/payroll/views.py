@@ -131,6 +131,36 @@ def get_period_generation_restriction(periods, period_type, branch_id=None):
     return None
 
 
+def get_payroll_report_rows(period):
+    """Build the printable report rows and total net pay for a payroll period."""
+    rows = []
+    total_net_pay = Decimal('0')
+    payslips = period.payslips.select_related('employee', 'employee__branch').order_by(
+        'employee__last_name', 'employee__first_name'
+    )
+
+    for payslip in payslips:
+        allowances = sum(
+            (payslip.overtime_pay, payslip.holiday_pay, payslip.bonus,
+             payslip.staff_allowance, payslip.thirteenth_month_pay),
+            Decimal('0'),
+        )
+        net_pay = payslip.net_pay or Decimal('0')
+        total_net_pay += net_pay
+        rows.append({
+            'employee': payslip.employee.full_name,
+            'attendance': payslip.days_worked,
+            'absences': payslip.days_absent,
+            'base_salary': payslip.base_salary or Decimal('0'),
+            'allowances': allowances,
+            'deductions': payslip.total_deductions or Decimal('0'),
+            'gross_pay': payslip.gross_pay or Decimal('0'),
+            'net_pay': net_pay,
+        })
+
+    return rows, total_net_pay
+
+
 # ═══════════════════════════════════════════════════════════════════
 #                           DASHBOARD
 # ═══════════════════════════════════════════════════════════════════
@@ -528,6 +558,19 @@ def cancel_draft_period(request, period_id):
     return redirect('payroll:requests')
 
 
+@login_required
+@module_permission_required('payroll', 'MANAGE')
+def discard_loaded_period(request, period_id):
+    """Discard a draft period when the load screen is abandoned without an action."""
+    if request.method != 'POST':
+        return redirect('payroll:payslips', period_id=period_id)
+
+    period = get_object_or_404(PayrollPeriod, id=period_id)
+    if period.status == PayrollPeriod.Status.DRAFT and not period.generated_at:
+        period.delete()
+    return redirect('payroll:requests')
+
+
 # ═══════════════════════════════════════════════════════════════════
 #                      VIEW/LIST PAYSLIPS
 # ═══════════════════════════════════════════════════════════════════
@@ -642,6 +685,20 @@ def can_edit_released_payslip(user):
     if hasattr(user, 'assigned_role') and user.assigned_role:
         return user.assigned_role.hierarchy_level >= 10
     return False
+
+
+@login_required
+@module_permission_required('payroll', 'MANAGE')
+def period_report_view(request, period_id):
+    """Render the printable payroll report for a generated period."""
+    period = get_object_or_404(PayrollPeriod, id=period_id)
+    rows, total_net_pay = get_payroll_report_rows(period)
+    return render(request, 'payroll/period_report.html', {
+        'period': period,
+        'rows': rows,
+        'employee_count': len(rows),
+        'total_net_pay': total_net_pay,
+    })
 
 
 @login_required
@@ -2265,5 +2322,3 @@ FMH Animal Clinic
         messages.warning(request, f'{failed_count} emails failed to send.')
 
     return redirect('payroll:payslips', period_id=period.id)
-
-
