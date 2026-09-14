@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 import warnings
 from pathlib import Path
 
@@ -186,7 +187,7 @@ else:
     if DB_ENGINE != 'postgresql':
         raise ValueError('This project is configured for PostgreSQL only. Set DB_ENGINE=postgresql.')
 
-    if not DEBUG:
+    if not DEBUG and 'collectstatic' not in sys.argv:
         required_database_values = ('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT')
         missing_database_values = [key for key in required_database_values if not os.environ.get(key)]
         if missing_database_values:
