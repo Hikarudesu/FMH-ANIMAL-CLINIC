@@ -32,10 +32,7 @@ urlpatterns = [
     path('period/<int:period_id>/cancel/', views.cancel_draft_period, name='cancel_draft'),
     path('period/<int:period_id>/discard-loaded/', views.discard_loaded_period, name='discard_loaded'),
     
-<<<<<<< HEAD
-=======
     # Legacy period-page links use the current payslips workflow.
->>>>>>> 84fa4bf65295078e6a5ca9178ca9cdc35c934d3b
     path('period/<int:period_id>/', views.payslips_list, name='payslips'),
     path('period/<int:period_id>/generate/', views.generate_payslips_action, name='period_generate'),  # NEW: generate from period
     path('payslip/<int:payslip_id>/edit/', views.payslip_edit, name='payslip_edit'),

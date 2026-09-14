@@ -561,11 +561,7 @@ def cancel_draft_period(request, period_id):
 @login_required
 @module_permission_required('payroll', 'MANAGE')
 def discard_loaded_period(request, period_id):
-<<<<<<< HEAD
     """Silently discard an ungenerated draft abandoned on the load screen."""
-=======
-    """Discard a draft period when the load screen is abandoned without an action."""
->>>>>>> 84fa4bf65295078e6a5ca9178ca9cdc35c934d3b
     if request.method != 'POST':
         return redirect('payroll:payslips', period_id=period_id)
 
