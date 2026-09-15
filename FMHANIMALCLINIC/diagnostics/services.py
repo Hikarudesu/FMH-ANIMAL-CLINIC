@@ -209,7 +209,7 @@ def _attempt_groq_call(groq_client, user_content, retry=False):
 
     try:
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=getattr(settings, 'GROQ_MODEL', 'llama-3.1-8b-instant'),
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": system_prompt},

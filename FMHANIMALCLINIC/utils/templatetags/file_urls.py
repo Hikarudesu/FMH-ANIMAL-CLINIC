@@ -16,7 +16,4 @@ def stored_or_static_url(file_field):
         return ''
     if default_storage.exists(name):
         return file_field.url
-    try:
-        return static(name)
-    except ValueError:
-        return ''
+    return static(name)

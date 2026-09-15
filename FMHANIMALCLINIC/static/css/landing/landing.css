@@ -1789,6 +1789,9 @@ p {
   justify-content: center;
   overflow: hidden;
   background-color: var(--white);
+  background-image: url('../../image/fmh-main.jpg');
+  background-position: center;
+  background-size: cover;
   z-index: 1;
 }
 
@@ -1807,7 +1810,7 @@ p {
   pointer-events: none;
 }
 
-.hero-video-overlay {
+.hero-image-overlay {
   position: absolute;
   top: 0;
   left: 0;
