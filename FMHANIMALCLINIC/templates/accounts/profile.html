@@ -56,6 +56,14 @@
     <div class="profile-fields">
 
       <div class="profile-field">
+        <div class="profile-field-icon"><i class='bx bx-at'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Username</span>
+          <span class="profile-field-value">{{ user.username }}</span>
+        </div>
+      </div>
+
+      <div class="profile-field">
         <div class="profile-field-icon"><i class='bx bx-user'></i></div>
         <div class="profile-field-body">
           <span class="profile-field-label">Full Name</span>
@@ -279,6 +287,12 @@
 
         <!-- Form Fields -->
         <div class="modal-form-grid">
+          <div class="floating-field">
+            <div class="field-icon"><i class='bx bx-at'></i></div>
+            {{ form.username }}
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {% if form.username.errors %}<small class="field-error">{{ form.username.errors.as_text }}</small>{% endif %}
+          </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-user'></i></div>
             {{ form.first_name }}

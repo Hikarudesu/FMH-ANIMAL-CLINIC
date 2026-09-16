@@ -121,9 +121,10 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
     class Meta:
         """Meta options for UserProfileUpdateForm."""
         model = User
-        fields = ('first_name', 'last_name',
+        fields = ('username', 'first_name', 'last_name',
                   'email', 'phone_number', 'address', 'branch', 'profile_picture')
         widgets = {
+            'username': forms.TextInput(attrs={'placeholder': ' '}),
             'first_name': forms.TextInput(attrs={'placeholder': ' '}),
             'last_name': forms.TextInput(attrs={'placeholder': ' '}),
             'email': forms.EmailInput(attrs={'placeholder': ' '}),
@@ -142,6 +143,18 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
 
     def clean_phone_number(self):
         return validate_philippines_phone(self.cleaned_data.get('phone_number', ''))
+
+    def clean_username(self):
+        """Keep usernames unique regardless of letter case."""
+        username = self.cleaned_data.get('username', '').strip()
+        duplicate = User.objects.filter(username__iexact=username).exclude(
+            pk=self.instance.pk
+        )
+        if duplicate.exists():
+            raise forms.ValidationError(
+                'This username is already in use. Please choose another.'
+            )
+        return username
 
 
 class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
