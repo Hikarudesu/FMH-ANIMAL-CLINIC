@@ -568,9 +568,9 @@
     <!-- Header -->
     <div class="rv-header">
         {% if record.branch and record.branch.logo %}
-            <img src="{{ record.branch.logo.url }}" alt="{{ record.branch.name }} Logo" class="rv-header-logo">
+            <img src="{{ record.branch.logo.url }}" alt="{{ record.branch.name }} Logo" class="rv-header-logo" onerror="this.onerror=null;this.src='{% static 'image/fmh-logo.png' %}';">
         {% elif clinic_profile and clinic_profile.logo %}
-            <img src="{{ clinic_profile.logo.url }}" alt="FMH Logo" class="rv-header-logo">
+            <img src="{{ clinic_profile.logo.url }}" alt="FMH Logo" class="rv-header-logo" onerror="this.onerror=null;this.src='{% static 'image/fmh-logo.png' %}';">
         {% else %}
             <img src="{% static 'image/fmh-logo.png' %}" alt="FMH Logo" class="rv-header-logo">
         {% endif %}
