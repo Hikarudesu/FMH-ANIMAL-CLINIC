@@ -970,6 +970,15 @@ def _pdf_link_callback(uri, rel):
         path = finders.find(relative)
         if path:
             return path
+
+    media_url = settings.MEDIA_URL
+    if media_url and uri.startswith(media_url):
+        relative = uri[len(media_url):].lstrip('/')
+        media_root = os.path.realpath(settings.MEDIA_ROOT)
+        media_path = os.path.realpath(os.path.join(media_root, relative))
+        if media_path.startswith(media_root + os.sep) and os.path.isfile(media_path):
+            return media_path
+
     return uri
 
 

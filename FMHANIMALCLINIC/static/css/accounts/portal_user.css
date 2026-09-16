@@ -5015,6 +5015,17 @@ textarea:focus {
   border-radius: 14px;
   transition: all 0.25s var(--ease);
 }
+
+/* Keep native booking select options readable in dark mode. */
+[data-theme="dark"] .book-field select.book-input {
+  color: var(--text-1);
+  background-color: var(--surface);
+  color-scheme: dark;
+}
+[data-theme="dark"] .book-field select.book-input option {
+  color: var(--text-1);
+  background-color: var(--surface);
+}
 .book-input::placeholder {
   color: transparent;
 }
