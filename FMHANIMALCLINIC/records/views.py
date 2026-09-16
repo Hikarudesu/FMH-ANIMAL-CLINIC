@@ -20,6 +20,7 @@ from django.http import FileResponse, HttpResponse, HttpResponseForbidden, JsonR
 from django.shortcuts import render, get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from accounts.decorators import module_permission_required
 from patients.models import Pet  # pylint: disable=no-member
@@ -989,10 +990,26 @@ def download_pdf_view(request, pk):
     # Block PDF download if there are missing details (excluding follow-up)
     missing_fields = get_record_missing_fields(record, entries)
     if missing_fields:
-        return JsonResponse({
-            'error': 'Cannot download PDF. Please complete all required fields first.',
-            'missing_fields': missing_fields,
-        }, status=400)
+        messages.warning(
+            request,
+            'Cannot download PDF. Please complete all required fields first: '
+            + ' '.join(missing_fields),
+        )
+
+        fallback_view = (
+            'records:admin_detail'
+            if request.user.is_clinic_staff()
+            else 'records:user_detail'
+        )
+        fallback_url = redirect(fallback_view, pk=record.pk).url
+        referer = request.META.get('HTTP_REFERER', '')
+        if url_has_allowed_host_and_scheme(
+            referer,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return redirect(referer)
+        return redirect(fallback_url)
 
     clinic_profile = ClinicProfile.get_instance()
 
