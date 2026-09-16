@@ -5,6 +5,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -645,20 +646,21 @@ def cancel_reservation_view(request, pk):
         messages.warning(request, "This reservation cannot be cancelled.")
         return redirect('inventory:management')
 
-    reservation.status = Reservation.Status.CANCELLED
-    reservation.save()
+    with transaction.atomic():
+        reservation.status = Reservation.Status.CANCELLED
+        reservation.save()
 
-    # Restore stock via ADD adjustment
-    StockAdjustment.objects.create(  # pylint: disable=no-member
-        branch=reservation.product.branch,
-        product=reservation.product,
-        adjustment_type='ADD',
-        reference=f"RSV-{reservation.pk}-CANCEL",
-        date=date.today(),
-        quantity=reservation.quantity,  # positive = stock added back
-        cost_per_unit=reservation.product.unit_cost,
-        reason=f"Reservation cancelled by {request.user.get_full_name() or request.user.username}",
-    )
+        # Restore stock via ADD adjustment
+        StockAdjustment.objects.create(  # pylint: disable=no-member
+            branch=reservation.product.branch,
+            product=reservation.product,
+            adjustment_type='ADD',
+            reference=f"RSV-{reservation.pk}-CANCEL",
+            date=date.today(),
+            quantity=reservation.quantity,  # positive = stock added back
+            cost_per_unit=reservation.product.unit_cost,
+            reason=f"Reservation cancelled by {request.user.get_full_name() or request.user.username}",
+        )
 
     # Notify admins (hierarchy level >= 8: Branch Admin or higher)
     admin_users = User.objects.filter(  # pylint: disable=no-member

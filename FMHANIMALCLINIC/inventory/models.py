@@ -225,6 +225,11 @@ class StockAdjustment(models.Model):
 
     quantity = models.IntegerField(
         help_text="Number of items to add or remove.")
+    quantity_unit = models.CharField(
+        max_length=50,
+        default='piece',
+        help_text="Unit of measurement for the adjusted quantity.",
+    )
     cost_per_unit = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00,
         blank=True, help_text="Optional: Cost per unit for restocks")
@@ -256,6 +261,9 @@ class StockAdjustment(models.Model):
         if is_new and self.adjustment_type in self.DEDUCTION_TYPES:
             if self.quantity > 0:
                 self.quantity = -self.quantity
+
+        if is_new and self.product_id:
+            self.quantity_unit = self.product.unit_of_measurement or 'piece'
 
         super().save(*args, **kwargs)
 
