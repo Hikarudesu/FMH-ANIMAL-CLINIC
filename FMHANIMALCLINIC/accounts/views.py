@@ -53,14 +53,18 @@ def login_view(request):
         return redirect('user_dashboard')
 
     if request.method == 'POST':
-        username = request.POST.get('username')
+        username = request.POST.get('username', '').strip()
         password = request.POST.get('password')
-        # Case-insensitive login: resolve the stored username
+        # Allow login with either the case-insensitive username or email.
         try:
             stored_user = User.objects.get(username__iexact=username)
             username = stored_user.username
         except User.DoesNotExist:
-            pass  # Let authenticate() handle the invalid user
+            stored_user = User.objects.filter(email__iexact=username).first()
+            if stored_user:
+                username = stored_user.username
+            else:
+                pass  # Let authenticate() handle the invalid user
         user = authenticate(request, username=username, password=password)
 
         maintenance_mode = get_setting('system_maintenance_mode', False)
@@ -92,7 +96,7 @@ def login_view(request):
                     return redirect('admin_dashboard')
             return redirect('user_dashboard')
         else:
-            messages.error(request, 'Invalid username or password')
+            messages.error(request, 'Invalid username/email or password')
 
     return render(request, 'accounts/login.html', {
         'show_maintenance_popup': show_maintenance_popup,

@@ -84,8 +84,12 @@ class PetOwnerRegistrationForm(FormControlMixin, UserCreationForm):
         })
 
     def clean_username(self):
-        """Ensure the username is unique (case-insensitive check)."""
+        """Ensure the username is unique and is not an email address."""
         username = self.cleaned_data.get('username')
+        email = self.cleaned_data.get('email')
+        if email and username and username.casefold() == email.casefold():
+            raise forms.ValidationError(
+                "Username cannot be the same as your email address.")
         if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError(
                 "This username is already in use. Please choose another.")
@@ -109,6 +113,10 @@ class PetOwnerRegistrationForm(FormControlMixin, UserCreationForm):
     def clean_email(self):
         """Ensure the email is unique."""
         email = self.cleaned_data.get('email')
+        username = self.cleaned_data.get('username')
+        if email and username and email.casefold() == username.casefold():
+            raise forms.ValidationError(
+                "Email address cannot be the same as your username.")
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError(
                 "A user with this email already exists.")
@@ -121,10 +129,9 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
     class Meta:
         """Meta options for UserProfileUpdateForm."""
         model = User
-        fields = ('username', 'first_name', 'last_name',
+        fields = ('first_name', 'last_name',
                   'email', 'phone_number', 'address', 'branch', 'profile_picture')
         widgets = {
-            'username': forms.TextInput(attrs={'placeholder': ' '}),
             'first_name': forms.TextInput(attrs={'placeholder': ' '}),
             'last_name': forms.TextInput(attrs={'placeholder': ' '}),
             'email': forms.EmailInput(attrs={'placeholder': ' '}),
@@ -144,17 +151,14 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
     def clean_phone_number(self):
         return validate_philippines_phone(self.cleaned_data.get('phone_number', ''))
 
-    def clean_username(self):
-        """Keep usernames unique regardless of letter case."""
-        username = self.cleaned_data.get('username', '').strip()
-        duplicate = User.objects.filter(username__iexact=username).exclude(
-            pk=self.instance.pk
-        )
-        if duplicate.exists():
+    def clean_email(self):
+        """Ensure the email address is not the username."""
+        email = self.cleaned_data.get('email')
+        username = self.instance.username
+        if email and username and email.casefold() == username.casefold():
             raise forms.ValidationError(
-                'This username is already in use. Please choose another.'
-            )
-        return username
+                "Email address cannot be the same as your username.")
+        return email
 
 
 class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
@@ -240,10 +244,15 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
             {'placeholder': 'Confirm password'})
 
     def clean_username(self):
-        """Ensure the username is unique (case-insensitive check)."""
+        """Ensure the username is unique and is not an email address."""
         username = self.cleaned_data.get('username')
+        email = self.cleaned_data.get('email')
         if not username:
             raise forms.ValidationError("Username is required.")
+
+        if email and username.casefold() == email.casefold():
+            raise forms.ValidationError(
+                "Username cannot be the same as the email address.")
 
         if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError(
@@ -256,6 +265,10 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
     def clean_email(self):
         """Ensure the email is unique."""
         email = self.cleaned_data.get('email')
+        username = self.cleaned_data.get('username')
+        if email and username and email.casefold() == username.casefold():
+            raise forms.ValidationError(
+                "Email address cannot be the same as the username.")
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError(
                 "A user with this email already exists.")
