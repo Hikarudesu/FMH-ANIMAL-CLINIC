@@ -1,5 +1,5 @@
 {% extends 'base/main.html' %}
-{% load static file_urls %}
+{% load static %}
 
 {% block content %}
 
@@ -49,7 +49,7 @@
       {% for service in services %}
       <div class="service-card fade-in">
         {% if service.image %}
-          <img src="{{ service.image|stored_or_static_url }}" alt="{{ service.title }}" class="service-card-bg">
+          <img src="{{ service.image.url }}" alt="{{ service.title }}" class="service-card-bg">
         {% else %}
           <img src="{% static 'image/health.png' %}" alt="{{ service.title }}" class="service-card-bg">
         {% endif %}
