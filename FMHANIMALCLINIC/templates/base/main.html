@@ -4,10 +4,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="{{ CLINIC_NAME|default:'FMH Animal Clinic' }} - Veterinary Clinic Management System">
+  <meta name="description" content="FMH Animal Clinic provides veterinary consultations, wellness checks, diagnostics, surgery, grooming, vaccination, and pet care services.">
   <meta name="theme-color" content="#009688">
   <meta name="google-site-verification" content="TTTzJNlq5hU7bvXOcEY_8DdGaBsfc3XVJzMB8TCZvNQ">
-  <title>{{ CLINIC_NAME|default:'FMH Animal Clinic' }} - Veterinary Clinic Management System</title>
+  <link rel="canonical" href="{{ request.build_absolute_uri }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="FMH Animal Clinic">
+  <meta property="og:title" content="FMH Animal Clinic | Veterinary Care">
+  <meta property="og:description" content="Compassionate veterinary care, diagnostics, appointments, and pet wellness services from FMH Animal Clinic.">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'image/fmh-logo.png' %}">
+  <title>FMH Animal Clinic | Veterinary Care</title>
 
   <!-- Favicon -->
   {% if CLINIC_LOGO_URL %}
