@@ -1,4 +1,5 @@
 <!-- Content Management Tab -->
+{% load file_urls %}
 <style>
   /* Content Sub-tabs */
   .content-subtabs {
@@ -650,7 +651,7 @@
       {% for service in forms.content.services %}
       <div class="service-item-card">
         {% if service.image %}
-        <img src="{{ service.image.url }}" alt="{{ service.title }}" class="service-thumb">
+        <img src="{{ service.image|stored_or_static_url }}" alt="{{ service.title }}" class="service-thumb">
         {% else %}
         <div class="service-thumb-placeholder"><i class='bx {{ service.icon }}'></i></div>
         {% endif %}
