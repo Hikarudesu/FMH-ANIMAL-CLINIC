@@ -5018,22 +5018,6 @@ textarea:focus {
 .book-input::placeholder {
   color: transparent;
 }
-
-/* Keep native booking select options readable in dark mode. */
-[data-theme="dark"] .book-field select.book-input {
-  color: var(--text-1);
-  background-color: var(--surface);
-  color-scheme: dark;
-}
-[data-theme="dark"] .book-field select.book-input option {
-  background-color: var(--surface);
-  color: var(--text-1);
-}
-[data-theme="dark"] .book-field select.book-input option:checked,
-[data-theme="dark"] .book-field select.book-input option:hover {
-  background-color: var(--primary);
-  color: #ffffff;
-}
 textarea.book-input {
   padding-top: 28px;
   resize: vertical;
