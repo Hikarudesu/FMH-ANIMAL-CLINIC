@@ -400,7 +400,18 @@ def attendance_review(request):
         period_start__month=month,
     ).select_related('staff', 'uploaded_by', 'approved_by').order_by('staff__last_name', 'staff__first_name'))
     for summary in summaries:
-        summary.system_daily_salary = _system_daily_salary(summary.staff, summary=summary)
+        attendance_records = DailyAttendance.objects.filter(
+            staff=summary.staff,
+            attendance_date__year=year,
+            attendance_date__month=month,
+        )
+        summary.system_working_days = _system_working_days(year, month)
+        summary.system_attendance_days = _report_present_days(summary, attendance_records)
+        summary.system_absence_days = max(
+            0,
+            summary.system_working_days - summary.system_attendance_days,
+        )
+        summary.system_daily_salary = _system_daily_salary(summary.staff, year, month)
 
     total_records = len(summaries)
     context = {
