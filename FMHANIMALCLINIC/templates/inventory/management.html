@@ -97,7 +97,9 @@
                 <td style="text-align: center; font-size: 0.85rem; color: var(--text-2);">{{ item.get_sale_type_display }}</td>
                 <td style="text-align: center;" class="cell-secondary">₱{{ item.unit_cost|peso }}</td>
                 <td style="text-align: center;" class="cell-secondary">₱{{ item.price|peso }}</td>
-                <td style="text-align: center; font-weight: 500;">{{ item.profit_margin }}%</td>
+                <td style="text-align: center; font-weight: 500;">
+                  {% if item.profit_margin is not None %}{{ item.profit_margin }}%{% else %}N/A{% endif %}
+                </td>
                 <td style="text-align: center;"><strong>{{ item.stock_quantity }}</strong> / {{ item.min_stock_level }}</td>
                 <td style="text-align: center;">
                     <span class="admin-badge" style="

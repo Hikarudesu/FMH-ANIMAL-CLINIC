@@ -97,12 +97,12 @@ class Product(SoftDeleteModel):
 
     @property
     def profit_margin(self):
-        """Profit margin percentage per unit."""
-        if self.price and self.price > 0:
+        """Gross margin percentage per unit when cost data is available."""
+        if self.price and self.price > 0 and self.unit_cost and self.unit_cost > 0:
             return round(
                 ((self.price - self.unit_cost) / self.price) * 100, 1
             )
-        return 0
+        return None
 
     @property
     def unit_label(self):
