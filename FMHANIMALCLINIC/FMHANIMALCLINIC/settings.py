@@ -278,6 +278,7 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 if not DEBUG and not GROQ_API_KEY:
     raise RuntimeError('GROQ_API_KEY must be set when DEBUG=False.')
+GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.1-8b-instant').strip()
 
 CLAMAV_ENABLED = os.environ.get('CLAMAV_ENABLED', 'false').lower() in ('true', '1', 'yes')
 CLAMAV_REQUIRED = os.environ.get('CLAMAV_REQUIRED', str(not DEBUG)).lower() in ('true', '1', 'yes')
