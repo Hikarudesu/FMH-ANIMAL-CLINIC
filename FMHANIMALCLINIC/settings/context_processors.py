@@ -3,9 +3,9 @@
 import json
 
 from django.core.files.storage import default_storage
-from django.templatetags.static import static
 
 from .utils import get_clinic_profile, get_setting
+from utils.templatetags.file_urls import stored_or_static_url
 
 
 def clinic_settings(request):
@@ -21,10 +21,7 @@ def clinic_settings(request):
     profile = get_clinic_profile()
     logo_url = ''
     if profile.logo:
-        if default_storage.exists(profile.logo.name):
-            logo_url = profile.logo.url
-        else:
-            logo_url = static(profile.logo.name)
+        logo_url = stored_or_static_url(profile.logo)
 
     return {
         'CLINIC_NAME': profile.name,

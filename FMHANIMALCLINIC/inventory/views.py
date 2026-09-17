@@ -506,33 +506,41 @@ def reserve_product_view(request, pk):
         messages.warning(request, 'Quantity must be at least 1.')
         return redirect('inventory:catalog')
 
-    if quantity > product.stock_quantity:
-        messages.warning(
+    try:
+        with transaction.atomic():
+            product = Product.objects.select_for_update().get(pk=pk)
+            if quantity > product.stock_quantity:
+                messages.warning(
+                    request,
+                    f'Not enough stock. Only {product.stock_quantity} available.'
+                )
+                return redirect('inventory:catalog')
+
+            reservation = Reservation.objects.create(  # pylint: disable=no-member
+                user=request.user,
+                product=product,
+                quantity=quantity,
+                pickup_date=pickup_date_str if pickup_date_str else None,
+                notes=request.POST.get('notes', ''),
+            )
+
+            StockAdjustment.objects.create(  # pylint: disable=no-member
+                branch=product.branch,
+                product=product,
+                adjustment_type='REMOVE',
+                reference=f"RSV-{reservation.pk}",
+                date=date.today(),
+                quantity=quantity,
+                cost_per_unit=product.unit_cost,
+                reason=f"Reserved by {request.user.get_full_name() or request.user.username}",
+            )
+    except Exception:  # pragma: no cover - keep user flow graceful
+        logger.exception('Reservation creation failed for product %s', pk)
+        messages.error(
             request,
-            f'Not enough stock. Only {product.stock_quantity} available.'
+            'We could not complete this reservation. Please try again or contact the clinic.'
         )
         return redirect('inventory:catalog')
-
-    # Create reservation
-    reservation = Reservation.objects.create(  # pylint: disable=no-member
-        user=request.user,
-        product=product,
-        quantity=quantity,
-        pickup_date=pickup_date_str if pickup_date_str else None,
-        notes=request.POST.get('notes', ''),
-    )
-
-    # Log stock adjustment (REMOVE for reservation)
-    StockAdjustment.objects.create(  # pylint: disable=no-member
-        branch=product.branch,
-        product=product,
-        adjustment_type='REMOVE',
-        reference=f"RSV-{reservation.pk}",
-        date=date.today(),
-        quantity=quantity,  # save() enforces negative sign
-        cost_per_unit=product.unit_cost,
-        reason=f"Reserved by {request.user.get_full_name() or request.user.username}",
-    )
 
     try:
         admin_users = User.objects.filter(  # pylint: disable=no-member

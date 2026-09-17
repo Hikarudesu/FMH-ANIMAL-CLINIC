@@ -41,4 +41,7 @@ if settings.DEBUG:
         settings.STATIC_URL,
         document_root=settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else None
     )
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Railway mounts uploaded files at MEDIA_ROOT. Keep media URLs available in
+# production so images uploaded through Content Management remain editable.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

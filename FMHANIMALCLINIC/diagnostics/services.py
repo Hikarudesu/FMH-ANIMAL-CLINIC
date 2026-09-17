@@ -211,6 +211,8 @@ def _attempt_groq_call(groq_client, user_content, retry=False):
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             response_format={"type": "json_object"},
+            temperature=0.2,
+            max_completion_tokens=1200,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
@@ -354,30 +356,49 @@ def _calculate_age(dob):
 
 def _parse_groq_response(content):
     """Parse GROQ response JSON safely."""
+    if not isinstance(content, str) or not content.strip():
+        return _error_response("The AI returned an empty response")
+
+    content = content.strip()
+    fenced_match = re.search(r"```(?:json)?\s*(.*?)\s*```", content, re.DOTALL | re.IGNORECASE)
+    if fenced_match:
+        content = fenced_match.group(1).strip()
+
     try:
         data = json.loads(content)
+    except json.JSONDecodeError:
+        # JSON mode should return an object, but some responses include a
+        # short explanation before or after the object.
+        object_start = content.find('{')
+        object_end = content.rfind('}')
+        if object_start >= 0 and object_end > object_start:
+            content = content[object_start:object_end + 1]
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse GROQ response: %s", e)
+            repaired = _repair_and_parse(content)
+            if repaired:
+                return repaired
+            return _error_response("Could not parse AI response")
 
-        # Validate expected structure
-        if 'primary_diagnosis' not in data:
-            return _error_response("Invalid response structure: missing primary_diagnosis")
+    if not isinstance(data, dict) or 'primary_diagnosis' not in data:
+        return _error_response("Invalid response structure: missing primary_diagnosis")
 
-        # Ensure all expected fields exist with defaults
-        return {
-            'primary_diagnosis': data.get(
-                'primary_diagnosis', {'condition': 'Unknown', 'reasoning': ''}
-            ),
-            'differential_diagnoses': data.get('differential_diagnoses', []),
-            'recommended_tests': data.get('recommended_tests', []),
-            'warning_signs': data.get('warning_signs', []),
-            'summary': data.get('summary', ''),
-        }
-    except json.JSONDecodeError as e:
-        logger.error("Failed to parse GROQ response: %s", e)
-        # Attempt repair before giving up
-        repaired = _repair_and_parse(content)
-        if repaired:
-            return repaired
-        return _error_response("Could not parse AI response")
+    primary = data.get('primary_diagnosis')
+    if not isinstance(primary, dict):
+        return _error_response("Invalid response structure: primary_diagnosis is not an object")
+
+    return {
+        'primary_diagnosis': {
+            'condition': str(primary.get('condition') or 'Unknown'),
+            'reasoning': str(primary.get('reasoning') or ''),
+        },
+        'differential_diagnoses': data.get('differential_diagnoses', []),
+        'recommended_tests': data.get('recommended_tests', []),
+        'warning_signs': data.get('warning_signs', []),
+        'summary': str(data.get('summary') or ''),
+    }
 
 
 def _error_response(error_message):
