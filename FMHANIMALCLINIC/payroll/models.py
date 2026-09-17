@@ -489,6 +489,9 @@ class Payslip(models.Model):
         self.working_days = working_days_for_half
         self.days_worked = min(complete_attendance_days, working_days_for_half)
         self.days_absent = max(0, working_days_for_half - self.days_worked)
+        self.absent_deduction = Decimal(str(self.days_absent)) * Decimal(str(
+            get_setting('payroll_default_absent_deduction', 100)
+        ))
 
         # Calculate daily salary based on base salary and the actual working days in-range.
         # When no attendance summary exists, working_days_for_half stays at zero.
@@ -502,7 +505,10 @@ class Payslip(models.Model):
         # User will manually categorize these in the payslip edit form.
         # When no attendance import exists, leave everything at zero.
         if attendance_summary:
-            self.rest_days_actual = self.days_absent
+            self.rest_days_actual = min(
+                int(attendance_summary.absence_days or 0),
+                self.rest_days_mandatory,
+            )
         else:
             self.rest_days_actual = 0
         

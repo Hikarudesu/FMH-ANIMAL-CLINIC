@@ -614,6 +614,37 @@ def payslips_list(request, period_id):
             if was_created:
                 payslip.generate_from_employee()
                 payslip.save()
+                default_deductions = getattr(payslip, '_default_custom_deductions', [])
+                for deduction in default_deductions:
+                    payslip.custom_deductions.create(
+                        reason=deduction['reason'],
+                        amount=safe_decimal(deduction['amount']),
+                    )
+                if default_deductions:
+                    payslip.calculate()
+                    payslip.save(update_fields=[
+                        'custom_deductions_total',
+                        'total_deductions',
+                        'net_pay',
+                        'updated_at',
+                    ])
+            elif not payslip.custom_deductions.exists():
+                default_deductions = getattr(employee, 'default_custom_deductions', None) or []
+                for deduction in default_deductions:
+                    reason = str(deduction.get('reason', '')).strip()
+                    if reason:
+                        payslip.custom_deductions.create(
+                            reason=reason,
+                            amount=safe_decimal(deduction.get('amount', 0)),
+                        )
+                if default_deductions:
+                    payslip.calculate()
+                    payslip.save(update_fields=[
+                        'custom_deductions_total',
+                        'total_deductions',
+                        'net_pay',
+                        'updated_at',
+                    ])
             existing_payslip_records.append(payslip)
 
         from attendance.models import MonthlyAttendanceSummary
@@ -709,6 +740,24 @@ def payslip_edit(request, payslip_id):
         Payslip.objects.select_related('employee', 'payroll_period').prefetch_related('custom_deductions'),
         id=payslip_id
     )
+
+    if not payslip.custom_deductions.exists():
+        default_deductions = getattr(payslip.employee, 'default_custom_deductions', None) or []
+        for deduction in default_deductions:
+            reason = str(deduction.get('reason', '')).strip()
+            if reason:
+                payslip.custom_deductions.create(
+                    reason=reason,
+                    amount=safe_decimal(deduction.get('amount', 0)),
+                )
+        if default_deductions:
+            payslip.calculate()
+            payslip.save(update_fields=[
+                'custom_deductions_total',
+                'total_deductions',
+                'net_pay',
+                'updated_at',
+            ])
 
     period = payslip.payroll_period
     if period.status not in [PayrollPeriod.Status.DRAFT, PayrollPeriod.Status.EDITED]:
