@@ -68,6 +68,26 @@ def _system_overtime_pay(overtime_hours):
     hourly_rate = Decimal(str(get_setting('payroll_default_overtime_pay_per_hour', 120)))
     return Decimal(str(overtime_hours or 0)) * hourly_rate
 
+
+def _report_present_days(monthly_summary, attendance_records):
+    """Count complete four-punch days when detailed punch data is available."""
+    has_detailed_punches = attendance_records.filter(
+        Q(morning_in__isnull=False)
+        | Q(morning_out__isnull=False)
+        | Q(afternoon_in__isnull=False)
+        | Q(afternoon_out__isnull=False)
+    ).exists()
+    if has_detailed_punches:
+        return attendance_records.filter(
+            morning_in__isnull=False,
+            morning_out__isnull=False,
+            afternoon_in__isnull=False,
+            afternoon_out__isnull=False,
+        ).count()
+    if monthly_summary:
+        return monthly_summary.attendance_days
+    return attendance_records.filter(is_present=True).count()
+
 logger = logging.getLogger(__name__)
 
 
@@ -498,7 +518,7 @@ def attendance_summary(request):
             attendance_date__range=[start_date, end_date],
         )
         
-        present_days = monthly_summary.attendance_days if monthly_summary else attendance_records.filter(is_present=True).count()
+        present_days = _report_present_days(monthly_summary, attendance_records)
         late_days = monthly_summary.late_days if monthly_summary else attendance_records.filter(status='LATE').count()
         total_late_minutes = attendance_records.aggregate(
             total=Sum('late_minutes')
@@ -604,7 +624,7 @@ def attendance_summary_excel(request):
         attendance_records = DailyAttendance.objects.filter(
             staff=staff, attendance_date__range=[start_date, end_date],
         )
-        present_days = monthly_summary.attendance_days if monthly_summary else attendance_records.filter(is_present=True).count()
+        present_days = _report_present_days(monthly_summary, attendance_records)
         absent_days = max(0, working_days - present_days)
         overtime_hours = monthly_summary.overtime_hours if monthly_summary else Decimal(attendance_records.aggregate(total=Sum('overtime_minutes'))['total'] or 0) / Decimal('60')
         working_days = _system_working_days(year, month)
