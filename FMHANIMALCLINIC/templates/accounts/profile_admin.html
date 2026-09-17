@@ -5,6 +5,14 @@
 {% block title %}My Profile{% endblock %}
 
 {% block content %}
+<div id="passwordSuccessToast" role="status" aria-live="polite"
+     style="position: fixed; top: 24px; right: 24px; z-index: 2000; display: flex; align-items: center; gap: 10px; max-width: min(360px, calc(100vw - 48px)); padding: 14px 18px; border-radius: 10px; background: #178a5b; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.2); opacity: 0; pointer-events: none; transform: translateY(-12px); transition: opacity .2s ease, transform .2s ease;">
+  <i class='bx bx-check-circle' aria-hidden="true"></i>
+  <span data-toast-message>Password updated successfully.</span>
+</div>
+<style>
+  #passwordSuccessToast.is-visible { opacity: 1; transform: translateY(0); }
+</style>
 <div class="profile-page">
 
   <!-- ── Hero Banner ── -->
@@ -327,6 +335,22 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
+    function showPasswordSuccess(message) {
+      const toast = document.getElementById('passwordSuccessToast');
+      if (!toast) return;
+      toast.querySelector('[data-toast-message]').textContent = message;
+      toast.classList.add('is-visible');
+      window.setTimeout(() => toast.classList.remove('is-visible'), 3500);
+    }
+
+    {% if messages %}
+      {% for message in messages %}
+        {% if message.tags == 'success' and 'password' in message|lower %}
+          showPasswordSuccess('{{ message|escapejs }}');
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
     const fileInput = document.querySelector('input[type="file"][name="profile_picture"]');
     const previewContainer = document.getElementById('avatarPreview');
 
@@ -508,7 +532,12 @@
             .then(res => res.json())
             .then(data => {
                 if(data.success) {
-                    window.location.reload(); // Quickest way to show the standard django success message banner
+                  showPasswordSuccess('Your password was changed successfully.');
+                  state4NewPassword.style.display = 'none';
+                  state1Form.reset();
+                  inlineNewPass1.value = '';
+                  inlineNewPass2.value = '';
+                  btnSubmitNewPassword.disabled = false;
                 } else {
                     resetStatusMsg.style.display = 'block';
                     resetStatusMsg.innerText = data.error || 'Failed to update password.';
