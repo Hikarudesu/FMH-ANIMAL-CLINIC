@@ -499,7 +499,6 @@ def attendance_summary(request):
         )
         
         present_days = monthly_summary.attendance_days if monthly_summary else attendance_records.filter(is_present=True).count()
-        absent_days = monthly_summary.absence_days if monthly_summary else attendance_records.filter(is_present=False).count()
         late_days = monthly_summary.late_days if monthly_summary else attendance_records.filter(status='LATE').count()
         total_late_minutes = attendance_records.aggregate(
             total=Sum('late_minutes')
@@ -512,6 +511,7 @@ def attendance_summary(request):
         )
 
         scheduled_days = _system_working_days(year, month)
+        absent_days = max(0, scheduled_days - present_days)
         denominator = scheduled_days or (present_days + absent_days)
         attendance_rate = (present_days / denominator * 100) if denominator else 0
         total_scheduled_days += scheduled_days
@@ -605,7 +605,7 @@ def attendance_summary_excel(request):
             staff=staff, attendance_date__range=[start_date, end_date],
         )
         present_days = monthly_summary.attendance_days if monthly_summary else attendance_records.filter(is_present=True).count()
-        absent_days = monthly_summary.absence_days if monthly_summary else attendance_records.filter(is_present=False).count()
+        absent_days = max(0, working_days - present_days)
         overtime_hours = monthly_summary.overtime_hours if monthly_summary else Decimal(attendance_records.aggregate(total=Sum('overtime_minutes'))['total'] or 0) / Decimal('60')
         working_days = _system_working_days(year, month)
         attendance_rate = present_days / working_days if working_days else 0
