@@ -718,11 +718,46 @@ def payslip_edit(request, payslip_id):
 
     from attendance.models import MonthlyAttendanceSummary
     from attendance.calculation_engine import WorkingDaysCalculator
+    from attendance.models import DailyAttendance
     attendance_summary = MonthlyAttendanceSummary.objects.filter(
         staff=payslip.employee,
         period_start__year=period.year,
         period_start__month=period.month,
     ).first()
+
+    # Refresh the displayed attendance from complete four-punch rows so an
+    # older saved payslip cannot show the imported monthly total.
+    period_start, period_end = period.get_period_start_end_dates()
+    rest_days = int(get_setting('payroll_default_rest_days', 4))
+    payslip.working_days = WorkingDaysCalculator.calculate_required_working_days(
+        period.year,
+        period.month,
+        period.period_type,
+        rest_days,
+    )
+    daily_records = DailyAttendance.objects.filter(
+        staff=payslip.employee,
+        attendance_date__range=[period_start, period_end],
+    )
+    has_detailed_punches = daily_records.filter(
+        Q(morning_in__isnull=False)
+        | Q(morning_out__isnull=False)
+        | Q(afternoon_in__isnull=False)
+        | Q(afternoon_out__isnull=False)
+    ).exists()
+    if has_detailed_punches:
+        payslip.days_worked = daily_records.filter(
+            morning_in__isnull=False,
+            morning_out__isnull=False,
+            afternoon_in__isnull=False,
+            afternoon_out__isnull=False,
+        ).count()
+    else:
+        payslip.days_worked = attendance_summary.attendance_days if attendance_summary else 0
+    payslip.days_worked = min(payslip.days_worked, payslip.working_days)
+    payslip.days_absent = max(0, payslip.working_days - payslip.days_worked)
+    if payslip.base_salary > 0 and payslip.working_days > 0:
+        payslip.daily_salary = payslip.base_salary / Decimal(str(payslip.working_days))
 
     if not attendance_summary:
         payslip.rest_days_mandatory = int(get_setting('payroll_default_rest_days', 4))

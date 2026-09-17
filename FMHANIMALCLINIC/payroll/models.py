@@ -16,7 +16,7 @@ from datetime import date, timedelta
 import calendar
 
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from employees.models import StaffMember
@@ -441,7 +441,8 @@ class Payslip(models.Model):
         6. Deductions apply to the specific period half where the absence occurred
         """
         from settings.utils import get_setting
-        from attendance.models import MonthlyAttendanceSummary
+        from attendance.models import DailyAttendance, MonthlyAttendanceSummary
+        from attendance.calculation_engine import WorkingDaysCalculator
         
         # Employee salary is monthly and each payroll period pays one half.
         monthly_salary = Decimal(str(self.employee.salary or 0))
@@ -455,18 +456,39 @@ class Payslip(models.Model):
             period_start__month=self.payroll_period.month,
         ).first()
         
-        # Use actual working days from biometrics only.
-        # If the attendance data has been removed or not uploaded yet,
-        # these values must remain at zero instead of being estimated from a calendar.
-        if attendance_summary and attendance_summary.working_days > 0:
-            actual_working_days = attendance_summary.working_days
-            working_days_for_half = max(1, actual_working_days // 2)
+        self.rest_days_mandatory = int(get_setting('payroll_default_rest_days', 4))
+        working_days_for_half = WorkingDaysCalculator.calculate_required_working_days(
+            self.payroll_period.year,
+            self.payroll_period.month,
+            self.payroll_period.period_type,
+            self.rest_days_mandatory,
+        )
+
+        daily_records = DailyAttendance.objects.filter(
+            staff=self.employee,
+            attendance_date__range=[period_start, period_end],
+        )
+        has_detailed_punches = daily_records.filter(
+            Q(morning_in__isnull=False)
+            | Q(morning_out__isnull=False)
+            | Q(afternoon_in__isnull=False)
+            | Q(afternoon_out__isnull=False)
+        ).exists()
+        if has_detailed_punches:
+            complete_attendance_days = daily_records.filter(
+                morning_in__isnull=False,
+                morning_out__isnull=False,
+                afternoon_in__isnull=False,
+                afternoon_out__isnull=False,
+            ).count()
         else:
-            working_days_for_half = 0
+            complete_attendance_days = (
+                attendance_summary.attendance_days if attendance_summary else 0
+            )
 
         self.working_days = working_days_for_half
-        self.days_worked = working_days_for_half
-        self.days_absent = 0
+        self.days_worked = min(complete_attendance_days, working_days_for_half)
+        self.days_absent = max(0, working_days_for_half - self.days_worked)
 
         # Calculate daily salary based on base salary and the actual working days in-range.
         # When no attendance summary exists, working_days_for_half stays at zero.
@@ -480,7 +502,7 @@ class Payslip(models.Model):
         # User will manually categorize these in the payslip edit form.
         # When no attendance import exists, leave everything at zero.
         if attendance_summary:
-            self.rest_days_actual = int(attendance_summary.absence_days or 0)
+            self.rest_days_actual = self.days_absent
         else:
             self.rest_days_actual = 0
         
@@ -494,8 +516,6 @@ class Payslip(models.Model):
         # Logic: If actual rest days exceed the configured default, excess days are deducted
         # BUT user must specify which absences are regular leave vs sick leave in edit form.
         # The default is configurable in payroll settings and must stay at 4 unless changed.
-        self.rest_days_mandatory = int(get_setting('payroll_default_rest_days', 4))
-        
         if self.rest_days_actual > self.rest_days_mandatory:
             # Excess days exist, but user will specify the breakdown in edit form
             self.excess_leave_days = Decimal('0')  # Will be calculated when user edits
