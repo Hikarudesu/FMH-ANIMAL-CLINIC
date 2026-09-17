@@ -30,7 +30,7 @@ from settings.utils import get_setting
 from payroll.models import PayrollPeriod, Payslip
 
 
-def _system_daily_salary(staff):
+def _system_daily_salary(staff, year=None, month=None, summary=None):
     """
     Calculate daily salary from the staff base salary and actual working days.
     Uses working days from the current month's attendance data if available,
@@ -39,13 +39,18 @@ def _system_daily_salary(staff):
     if not staff.salary:
         return Decimal('0')
     
+    if summary and summary.working_days > 0:
+        return staff.salary / Decimal(str(summary.working_days))
+
     today = date.today()
+    year = year or today.year
+    month = month or today.month
     
     # Try to get actual working days from attendance summary for current month
     current_month_summary = MonthlyAttendanceSummary.objects.filter(
         staff=staff,
-        period_start__year=today.year,
-        period_start__month=today.month,
+        period_start__year=year,
+        period_start__month=month,
     ).first()
     
     if current_month_summary and current_month_summary.working_days > 0:
@@ -53,10 +58,10 @@ def _system_daily_salary(staff):
     
     # Fallback: Calculate working days (Mon-Fri) for the current month
     from calendar import monthrange
-    _, days_in_month = monthrange(today.year, today.month)
+    _, days_in_month = monthrange(year, month)
     working_days = 0
     for day in range(1, days_in_month + 1):
-        check_date = date(today.year, today.month, day)
+        check_date = date(year, month, day)
         if check_date.weekday() < 5:  # Monday=0, Friday=4
             working_days += 1
     
@@ -377,7 +382,7 @@ def attendance_review(request):
         period_start__month=month,
     ).select_related('staff', 'uploaded_by', 'approved_by').order_by('staff__last_name', 'staff__first_name'))
     for summary in summaries:
-        summary.system_daily_salary = _system_daily_salary(summary.staff)
+        summary.system_daily_salary = _system_daily_salary(summary.staff, summary=summary)
 
     total_records = len(summaries)
     context = {
@@ -523,14 +528,10 @@ def attendance_summary(request):
             'working_days': scheduled_days,
             'days_present': present_days,
             'days_absent': absent_days,
-            'days_late': late_days,
-            'total_late_minutes': total_late_minutes,
             'total_overtime_hours': Decimal(staff_overtime_minutes) / Decimal('60'),
             'sick_hours': monthly_summary.sick_hours if monthly_summary else Decimal('0'),
-            'leave_hours': monthly_summary.leave_hours if monthly_summary else Decimal('0'),
-            'daily_salary': _system_daily_salary(staff) if monthly_summary else Decimal('0'),
+            'daily_salary': monthly_summary.daily_salary if monthly_summary else Decimal('0'),
             'overtime_pay': monthly_summary.overtime_pay if monthly_summary else Decimal('0'),
-            'charges': monthly_summary.charges if monthly_summary else Decimal('0'),
             'attendance_rate': attendance_rate,
         }))
 
@@ -582,20 +583,19 @@ def attendance_summary_excel(request):
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = 'Attendance Summary'
-    worksheet.merge_cells('A1:N1')
+    worksheet.merge_cells('A1:K1')
     worksheet['A1'] = f'Attendance Summary - {start_date.strftime("%B %Y")}'
     worksheet['A1'].font = Font(bold=True, size=16, color='FFFFFF')
     worksheet['A1'].fill = PatternFill('solid', fgColor='00796B')
     worksheet['A1'].alignment = Alignment(horizontal='center')
-    worksheet.merge_cells('A2:O2')
+    worksheet.merge_cells('A2:K2')
     worksheet['A2'] = f'Period: {start_date:%B %d, %Y} - {end_date:%B %d, %Y}'
     worksheet['A2'].font = Font(italic=True, color='5E6278')
 
     headers = [
         'Staff Member', 'Designation', 'Working Days', 'Days Present',
-        'Days Absent', 'Days Late', 'Late Minutes', 'Overtime Hours',
-        'Sick Hours', 'Leave Hours', 'Daily Salary', 'Overtime Pay',
-        'Charges', 'Attendance Rate',
+        'Days Absent', 'Overtime Hours', 'Sick Hours', 'Daily Salary',
+        'Overtime Pay', 'Attendance Rate',
     ]
     header_row = 4
     for column, header in enumerate(headers, 1):
@@ -613,39 +613,35 @@ def attendance_summary_excel(request):
         )
         present_days = monthly_summary.attendance_days if monthly_summary else attendance_records.filter(is_present=True).count()
         absent_days = monthly_summary.absence_days if monthly_summary else attendance_records.filter(is_present=False).count()
-        late_days = monthly_summary.late_days if monthly_summary else attendance_records.filter(status='LATE').count()
-        late_minutes = attendance_records.aggregate(total=Sum('late_minutes'))['total'] or 0
         overtime_hours = monthly_summary.overtime_hours if monthly_summary else Decimal(attendance_records.aggregate(total=Sum('overtime_minutes'))['total'] or 0) / Decimal('60')
         working_days = monthly_summary.working_days if monthly_summary else VetSchedule.objects.filter(staff=staff, date__range=[start_date, end_date], is_available=True).count()
         attendance_rate = present_days / working_days if working_days else 0
         values = [
             staff.full_name, _attendance_role_label(staff), working_days, present_days,
-            absent_days, late_days, late_minutes, overtime_hours,
+            absent_days, overtime_hours,
             monthly_summary.sick_hours if monthly_summary else 0,
-            monthly_summary.leave_hours if monthly_summary else 0,
-            _system_daily_salary(staff) if monthly_summary else 0,
+            monthly_summary.daily_salary if monthly_summary else 0,
             monthly_summary.overtime_pay if monthly_summary else 0,
-            monthly_summary.charges if monthly_summary else 0,
             attendance_rate,
         ]
         for column, value in enumerate(values, 1):
             worksheet.cell(row_index, column, value)
 
     worksheet.freeze_panes = 'A5'
-    worksheet.auto_filter.ref = f'A4:N{max(4, worksheet.max_row)}'
+    worksheet.auto_filter.ref = f'A4:K{max(4, worksheet.max_row)}'
     worksheet.row_dimensions[1].height = 28
     worksheet.row_dimensions[4].height = 34
-    widths = [24, 20, 14, 14, 14, 12, 14, 16, 12, 12, 15, 15, 14, 16]
+    widths = [24, 20, 14, 14, 14, 16, 12, 15, 15, 16, 16]
     for column, width in enumerate(widths, 1):
         worksheet.column_dimensions[get_column_letter(column)].width = width
-    for row in worksheet.iter_rows(min_row=5, max_row=worksheet.max_row, min_col=3, max_col=14):
+    for row in worksheet.iter_rows(min_row=5, max_row=worksheet.max_row, min_col=3, max_col=11):
         for cell in row:
             cell.alignment = Alignment(vertical='center')
-            if cell.column in (11, 12, 13, 14):
+            if cell.column in (8, 9):
                 cell.number_format = '#,##0.00'
-            elif cell.column in (8, 9, 10):
+            elif cell.column in (6, 7):
                 cell.number_format = '0.00'
-            elif cell.column == 16:
+            elif cell.column == 10:
                 cell.number_format = '0.0%'
 
     response = HttpResponse(

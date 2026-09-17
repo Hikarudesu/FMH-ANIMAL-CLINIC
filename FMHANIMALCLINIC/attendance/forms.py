@@ -447,9 +447,11 @@ class AttendanceImportForm(forms.Form):
         unique_records = {}
         for record in records:
             if 'Date' in record:
-                key = (record['Biometric ID'], record['Date'])
+                # A daily record on the first day of the month has the same
+                # date as the monthly summary start date. Keep both records.
+                key = ('daily', record['Biometric ID'], record['Date'])
             else:
-                key = (record['Biometric ID'], record['Report Start'])
+                key = ('monthly', record['Biometric ID'], record['Report Start'])
             unique_records[key] = record
         records = list(unique_records.values())
         if records:

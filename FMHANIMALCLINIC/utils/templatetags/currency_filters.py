@@ -13,8 +13,7 @@ register = template.Library()
 def format_overtime_duration(value):
     """Return OT in a human-friendly format.
 
-    Values under 1 hour are shown as minutes, e.g. 0.0667 -> 4 mins.
-    Values at or above 1 hour are shown in hours, e.g. 1.5 -> 1.5 hrs.
+    Overtime is always displayed in hours.
     """
     if value in (None, ''):
         return '0 mins'
@@ -23,10 +22,6 @@ def format_overtime_duration(value):
         hours = Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError):
         return '0 mins'
-
-    total_minutes = (hours * Decimal('60')).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-    if hours < Decimal('1'):
-        return f'{int(total_minutes)} mins'
 
     hours_rounded = hours.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
     text = format(hours_rounded, 'f').rstrip('0').rstrip('.')

@@ -23,7 +23,7 @@
                     <td><strong>{{ summary.staff.full_name }}</strong></td>
                     <td><code>{{ summary.staff.biometric_id }}</code></td>
                     <td>{{ summary.working_days }}</td><td>{{ summary.attendance_days }}</td><td>{{ summary.absence_days }}</td>
-                    <td>{{ summary.overtime_hours|overtime_duration }}</td><td>{{ summary.system_daily_salary|floatformat:2 }}</td>
+                    <td>{{ summary.overtime_hours|floatformat:2 }} hrs</td><td>{{ summary.system_daily_salary|floatformat:2 }}</td>
                 </tr>
                 {% empty %}<tr><td colspan="7" style="text-align:center; padding: 32px;">No monthly attendance was imported for this period.</td></tr>{% endfor %}
                 </tbody>

@@ -80,14 +80,10 @@
                         <th>Working Days</th>
                         <th>Days Present</th>
                         <th>Days Absent</th>
-                        <th>Days Late</th>
-                        <th>Late Minutes</th>
                         <th>Overtime</th>
                         <th>Sick Hours</th>
-                        <th>Leave Hours</th>
                         <th>Daily Salary</th>
                         <th>Overtime Pay</th>
-                        <th>Charges</th>
                         <th>Attendance Rate</th>
                     </tr>
                 </thead>
@@ -99,14 +95,10 @@
                             <td>{{ data.working_days }}</td>
                             <td><span class="admin-badge active">{{ data.days_present }}</span></td>
                             <td><span class="admin-badge inactive">{{ data.days_absent }}</span></td>
-                            <td><span class="admin-badge warning">{{ data.days_late }}</span></td>
-                            <td>{{ data.total_late_minutes }} mins</td>
-                            <td>{{ data.total_overtime_hours|overtime_duration }}</td>
+                            <td>{{ data.total_overtime_hours|floatformat:2 }} hrs</td>
                             <td>{{ data.sick_hours|floatformat:2 }}</td>
-                            <td>{{ data.leave_hours|floatformat:2 }}</td>
                             <td>{{ data.daily_salary|floatformat:2 }}</td>
                             <td>{{ data.overtime_pay|floatformat:2 }}</td>
-                            <td>{{ data.charges|floatformat:2 }}</td>
                             <td>
                                 {% with rate=data.attendance_rate %}
                                     {% if rate >= 95 %}

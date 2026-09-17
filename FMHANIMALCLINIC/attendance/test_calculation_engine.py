@@ -210,9 +210,9 @@ class TestOvertimeCalculator(unittest.TestCase):
         self.assertEqual(method, 'TIMESTAMP')
         self.assertEqual(hours, Decimal('0'))
 
-    def test_format_overtime_duration_shows_minutes_under_one_hour(self):
-        """Small overtime should render as minutes, not decimal hours."""
-        self.assertEqual(format_overtime_duration(Decimal('0.066666')), '4 mins')
+    def test_format_overtime_duration_shows_hours_under_one_hour(self):
+        """Small overtime should render as decimal hours."""
+        self.assertEqual(format_overtime_duration(Decimal('0.066666')), '0.1 hrs')
         self.assertEqual(format_overtime_duration(Decimal('1.5')), '1.5 hrs')
 
     def test_calculate_overtime_ignores_partial_hour(self):
