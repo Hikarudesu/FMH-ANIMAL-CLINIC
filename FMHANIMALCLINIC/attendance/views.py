@@ -26,6 +26,7 @@ from .forms import (
     AttendanceFilterForm,
 )
 from .services import AttendanceImportService, AttendanceProcessor
+from .calculation_engine import WorkingDaysCalculator
 from settings.utils import get_setting
 from payroll.models import PayrollPeriod, Payslip
 
@@ -39,36 +40,33 @@ def _system_daily_salary(staff, year=None, month=None, summary=None):
     if not staff.salary:
         return Decimal('0')
     
-    if summary and summary.working_days > 0:
-        return staff.salary / Decimal(str(summary.working_days))
-
     today = date.today()
     year = year or today.year
     month = month or today.month
-    
-    # Try to get actual working days from attendance summary for current month
-    current_month_summary = MonthlyAttendanceSummary.objects.filter(
-        staff=staff,
-        period_start__year=year,
-        period_start__month=month,
-    ).first()
-    
-    if current_month_summary and current_month_summary.working_days > 0:
-        return staff.salary / Decimal(str(current_month_summary.working_days))
-    
-    # Fallback: Calculate working days (Mon-Fri) for the current month
-    from calendar import monthrange
-    _, days_in_month = monthrange(year, month)
-    working_days = 0
-    for day in range(1, days_in_month + 1):
-        check_date = date(year, month, day)
-        if check_date.weekday() < 5:  # Monday=0, Friday=4
-            working_days += 1
-    
-    if working_days > 0:
-        return staff.salary / Decimal(str(working_days))
-    
-    return Decimal('0')
+    rest_days = int(get_setting('payroll_default_rest_days', 4))
+    working_days = WorkingDaysCalculator.calculate_required_working_days(
+        year,
+        month,
+        'FULL_MONTH',
+        rest_days,
+    )
+    return staff.salary / Decimal(str(working_days)) if working_days else Decimal('0')
+
+
+def _system_working_days(year, month):
+    """Return the full-month working-day denominator used by payroll."""
+    return WorkingDaysCalculator.calculate_required_working_days(
+        year,
+        month,
+        'FULL_MONTH',
+        int(get_setting('payroll_default_rest_days', 4)),
+    )
+
+
+def _system_overtime_pay(overtime_hours):
+    """Calculate overtime pay from imported hours and the configured hourly rate."""
+    hourly_rate = Decimal(str(get_setting('payroll_default_overtime_pay_per_hour', 120)))
+    return Decimal(str(overtime_hours or 0)) * hourly_rate
 
 logger = logging.getLogger(__name__)
 
@@ -513,11 +511,7 @@ def attendance_summary(request):
             )['total'] or 0
         )
 
-        scheduled_days = monthly_summary.working_days if monthly_summary else VetSchedule.objects.filter(
-            staff=staff,
-            date__range=[start_date, end_date],
-            is_available=True,
-        ).count()
+        scheduled_days = _system_working_days(year, month)
         denominator = scheduled_days or (present_days + absent_days)
         attendance_rate = (present_days / denominator * 100) if denominator else 0
         total_scheduled_days += scheduled_days
@@ -529,8 +523,8 @@ def attendance_summary(request):
             'days_present': present_days,
             'days_absent': absent_days,
             'total_overtime_hours': Decimal(staff_overtime_minutes) / Decimal('60'),
-            'daily_salary': monthly_summary.daily_salary if monthly_summary else Decimal('0'),
-            'overtime_pay': monthly_summary.overtime_pay if monthly_summary else Decimal('0'),
+            'daily_salary': _system_daily_salary(staff, year, month),
+            'overtime_pay': _system_overtime_pay(staff_overtime_minutes / Decimal('60')),
             'attendance_rate': attendance_rate,
         }))
 
@@ -613,13 +607,13 @@ def attendance_summary_excel(request):
         present_days = monthly_summary.attendance_days if monthly_summary else attendance_records.filter(is_present=True).count()
         absent_days = monthly_summary.absence_days if monthly_summary else attendance_records.filter(is_present=False).count()
         overtime_hours = monthly_summary.overtime_hours if monthly_summary else Decimal(attendance_records.aggregate(total=Sum('overtime_minutes'))['total'] or 0) / Decimal('60')
-        working_days = monthly_summary.working_days if monthly_summary else VetSchedule.objects.filter(staff=staff, date__range=[start_date, end_date], is_available=True).count()
+        working_days = _system_working_days(year, month)
         attendance_rate = present_days / working_days if working_days else 0
         values = [
             staff.full_name, _attendance_role_label(staff), working_days, present_days,
             absent_days, overtime_hours,
-            monthly_summary.daily_salary if monthly_summary else 0,
-            monthly_summary.overtime_pay if monthly_summary else 0,
+            _system_daily_salary(staff, year, month),
+            _system_overtime_pay(overtime_hours),
             attendance_rate,
         ]
         for column, value in enumerate(values, 1):
