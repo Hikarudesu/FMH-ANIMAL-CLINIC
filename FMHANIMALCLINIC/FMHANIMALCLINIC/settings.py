@@ -334,16 +334,21 @@ LOGGING = {
 # Switch to SMTP backend for production
 if DEBUG:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+elif os.environ.get('BREVO_API_KEY'):
+    EMAIL_BACKEND = 'notifications.backends.BrevoAPIEmailBackend'
 else:
     EMAIL_BACKEND = 'notifications.backends.IPv4SMTPEmailBackend'
 
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() in ('true', '1', 'yes')
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '10'))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-if not DEBUG and (not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD):
-    raise RuntimeError('EMAIL_HOST_USER and EMAIL_HOST_PASSWORD must be set when DEBUG=False.')
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
+if not DEBUG and BREVO_API_KEY:
+    pass
+elif not DEBUG and (not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD):
+    raise RuntimeError('SMTP credentials or BREVO_API_KEY must be set when DEBUG=False.')
 DEFAULT_FROM_EMAIL = os.environ.get(
-    'EMAIL_HOST_USER', 'noreply@fmhanimalclinic.com')
+    'DEFAULT_FROM_EMAIL', os.environ.get('EMAIL_HOST_USER', 'noreply@fmhanimalclinic.com'))
