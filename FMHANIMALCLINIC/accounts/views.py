@@ -2096,6 +2096,9 @@ def forgot_password_view(request):
     from .otp_models import OTPToken
     from django.core.mail import send_mail
     from django.conf import settings as django_settings
+    import logging
+
+    logger = logging.getLogger('fmh')
 
     if request.method == 'POST':
         email = request.POST.get('email', '').strip()
@@ -2133,8 +2136,17 @@ def forgot_password_view(request):
                 fail_silently=False,
             )
         except Exception as e:
-            print(f"Email send error: {e}")
-            # Still show success message to not leak info
+            token.delete()
+            logger.exception(
+                'Password reset OTP email failed for user %s (%s).',
+                user.pk,
+                user.email,
+            )
+            messages.error(
+                request,
+                'We could not send the OTP email right now. Please try again later.',
+            )
+            return render(request, 'accounts/forgot_password.html')
 
         messages.success(
             request,
