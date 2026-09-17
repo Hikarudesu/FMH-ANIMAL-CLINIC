@@ -529,7 +529,6 @@ def attendance_summary(request):
             'days_present': present_days,
             'days_absent': absent_days,
             'total_overtime_hours': Decimal(staff_overtime_minutes) / Decimal('60'),
-            'sick_hours': monthly_summary.sick_hours if monthly_summary else Decimal('0'),
             'daily_salary': monthly_summary.daily_salary if monthly_summary else Decimal('0'),
             'overtime_pay': monthly_summary.overtime_pay if monthly_summary else Decimal('0'),
             'attendance_rate': attendance_rate,
@@ -583,18 +582,18 @@ def attendance_summary_excel(request):
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = 'Attendance Summary'
-    worksheet.merge_cells('A1:K1')
+    worksheet.merge_cells('A1:I1')
     worksheet['A1'] = f'Attendance Summary - {start_date.strftime("%B %Y")}'
     worksheet['A1'].font = Font(bold=True, size=16, color='FFFFFF')
     worksheet['A1'].fill = PatternFill('solid', fgColor='00796B')
     worksheet['A1'].alignment = Alignment(horizontal='center')
-    worksheet.merge_cells('A2:K2')
+    worksheet.merge_cells('A2:I2')
     worksheet['A2'] = f'Period: {start_date:%B %d, %Y} - {end_date:%B %d, %Y}'
     worksheet['A2'].font = Font(italic=True, color='5E6278')
 
     headers = [
         'Staff Member', 'Designation', 'Working Days', 'Days Present',
-        'Days Absent', 'Overtime Hours', 'Sick Hours', 'Daily Salary',
+        'Days Absent', 'Overtime Hours', 'Daily Salary',
         'Overtime Pay', 'Attendance Rate',
     ]
     header_row = 4
@@ -619,7 +618,6 @@ def attendance_summary_excel(request):
         values = [
             staff.full_name, _attendance_role_label(staff), working_days, present_days,
             absent_days, overtime_hours,
-            monthly_summary.sick_hours if monthly_summary else 0,
             monthly_summary.daily_salary if monthly_summary else 0,
             monthly_summary.overtime_pay if monthly_summary else 0,
             attendance_rate,
@@ -628,20 +626,20 @@ def attendance_summary_excel(request):
             worksheet.cell(row_index, column, value)
 
     worksheet.freeze_panes = 'A5'
-    worksheet.auto_filter.ref = f'A4:K{max(4, worksheet.max_row)}'
+    worksheet.auto_filter.ref = f'A4:I{max(4, worksheet.max_row)}'
     worksheet.row_dimensions[1].height = 28
     worksheet.row_dimensions[4].height = 34
-    widths = [24, 20, 14, 14, 14, 16, 12, 15, 15, 16, 16]
+    widths = [24, 20, 14, 14, 14, 16, 15, 15, 16]
     for column, width in enumerate(widths, 1):
         worksheet.column_dimensions[get_column_letter(column)].width = width
-    for row in worksheet.iter_rows(min_row=5, max_row=worksheet.max_row, min_col=3, max_col=11):
+    for row in worksheet.iter_rows(min_row=5, max_row=worksheet.max_row, min_col=3, max_col=9):
         for cell in row:
             cell.alignment = Alignment(vertical='center')
-            if cell.column in (8, 9):
+            if cell.column in (7, 8):
                 cell.number_format = '#,##0.00'
-            elif cell.column in (6, 7):
+            elif cell.column == 6:
                 cell.number_format = '0.00'
-            elif cell.column == 10:
+            elif cell.column == 9:
                 cell.number_format = '0.0%'
 
     response = HttpResponse(

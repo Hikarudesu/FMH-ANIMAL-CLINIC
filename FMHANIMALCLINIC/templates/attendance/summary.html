@@ -81,7 +81,6 @@
                         <th>Days Present</th>
                         <th>Days Absent</th>
                         <th>Overtime</th>
-                        <th>Sick Hours</th>
                         <th>Daily Salary</th>
                         <th>Overtime Pay</th>
                         <th>Attendance Rate</th>
@@ -96,7 +95,6 @@
                             <td><span class="admin-badge active">{{ data.days_present }}</span></td>
                             <td><span class="admin-badge inactive">{{ data.days_absent }}</span></td>
                             <td>{{ data.total_overtime_hours|floatformat:2 }} hrs</td>
-                            <td>{{ data.sick_hours|floatformat:2 }}</td>
                             <td>{{ data.daily_salary|floatformat:2 }}</td>
                             <td>{{ data.overtime_pay|floatformat:2 }}</td>
                             <td>
