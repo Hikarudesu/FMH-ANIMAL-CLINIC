@@ -17,7 +17,6 @@ from accounts.models import User, ActivityLog
 from accounts.decorators import module_permission_required
 from branches.models import Branch
 from notifications.models import Notification
-from notifications.email_utils import send_reservation_notification
 from notifications.utils import (
     notify_stock_transfer_approved,
     notify_stock_transfer_completed,
@@ -561,8 +560,6 @@ def reserve_product_view(request, pk):
                 related_object_id=reservation.pk,
             )
 
-        # Email notification to user
-        send_reservation_notification(reservation)
     except Exception as exc:  # pragma: no cover - keep reservation flow resilient
         logger.warning(
             'Reservation post-save notifications failed for RSV-%s',
@@ -629,9 +626,6 @@ def confirm_reservation_view(request, pk):
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=reservation.pk,
     )
-
-    # Email notification
-    send_reservation_notification(reservation)
 
     messages.success(
         request,
@@ -701,9 +695,6 @@ def cancel_reservation_view(request, pk):
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=reservation.pk,
     )
-
-    # Email notification
-    send_reservation_notification(reservation)
 
     messages.success(
         request, "Reservation cancelled. Stock has been restored.")
