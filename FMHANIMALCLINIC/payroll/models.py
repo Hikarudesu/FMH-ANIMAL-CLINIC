@@ -392,6 +392,17 @@ class Payslip(models.Model):
         self.sss = self.sss.quantize(Decimal('0.01'))
         self.philhealth = self.philhealth.quantize(Decimal('0.01'))
         self.pagibig = self.pagibig.quantize(Decimal('0.01'))
+
+        # Absence deductions always follow the current attendance and daily salary.
+        paid_leave_days = self.paid_leave_days or Decimal('0')
+        unpaid_absence_days = max(
+            Decimal('0'),
+            Decimal(str(self.days_absent or 0)) - paid_leave_days,
+        )
+        self.absent_deduction = (
+            unpaid_absence_days * (self.daily_salary or Decimal('0'))
+        ).quantize(Decimal('0.01'))
+
         custom_total = self.custom_deductions_total or Decimal('0')
         if self.pk:
             custom_total = self.custom_deductions.aggregate(
