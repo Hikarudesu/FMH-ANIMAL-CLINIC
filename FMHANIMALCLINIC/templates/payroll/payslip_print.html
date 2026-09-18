@@ -73,17 +73,22 @@
       margin-bottom: 25px;
       border-bottom: 2px solid #000;
       padding-bottom: 15px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
+      display: table;
+      table-layout: fixed;
     }
     
     .letterhead img {
+      display: table-cell;
+      width: 420px;
       max-height: 80px;
       object-fit: contain;
+      vertical-align: bottom;
     }
     
     .document-title {
+      display: table-cell;
+      width: 230px;
+      vertical-align: bottom;
       text-align: right;
     }
     
@@ -133,13 +138,20 @@
     
     /* Financial Tables */
     .financials {
-      display: flex;
-      gap: 20px;
+      display: table;
+      table-layout: fixed;
+      border-spacing: 20px 0;
+      width: 100%;
       margin-bottom: 30px;
+    }
+
+    .financial-column {
+      display: table-cell;
+      width: 50%;
+      vertical-align: top;
     }
     
     .ledger-table {
-      flex: 1;
       border-collapse: collapse;
       width: 100%;
       border: 1px solid #000;
@@ -181,20 +193,26 @@
       width: 100%;
       border: 2px solid #000;
       padding: 15px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      display: table;
+      table-layout: fixed;
       margin-bottom: 40px;
       background: #fafafa;
     }
     
     .net-pay-box .label {
+      display: table-cell;
+      width: 65%;
+      vertical-align: middle;
       font-size: 18px;
       font-weight: bold;
       text-transform: uppercase;
     }
     
     .net-pay-box .amount {
+      display: table-cell;
+      width: 35%;
+      vertical-align: middle;
+      text-align: right;
       font-size: 24px;
       font-weight: bold;
       font-family: 'Courier New', Courier, monospace;
@@ -290,7 +308,7 @@
     <!-- Financials Tables (Earnings & Deductions side by side) -->
     <div class="financials">
       <!-- Earnings -->
-      <table class="ledger-table">
+      <div class="financial-column"><table class="ledger-table">
         <thead>
           <tr>
             <th width="70%">Earnings</th>
@@ -335,10 +353,10 @@
             <td class="amt">{{ payslip.gross_pay|peso }}</td>
           </tr>
         </tbody>
-      </table>
+      </table></div>
       
       <!-- Deductions -->
-      <table class="ledger-table">
+      <div class="financial-column"><table class="ledger-table">
         <thead>
           <tr>
             <th width="70%">Deductions</th>
@@ -404,7 +422,7 @@
             <td class="amt">{{ payslip.total_deductions|peso }}</td>
           </tr>
         </tbody>
-      </table>
+      </table></div>
     </div>
     
     {% if payslip.total_clinic_contributions > 0 %}
