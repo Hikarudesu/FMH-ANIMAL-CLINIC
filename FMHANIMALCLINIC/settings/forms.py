@@ -5,7 +5,6 @@ from django import forms
 from django.db import models
 
 from FMHANIMALCLINIC.form_mixins import AdminInputMixin, validate_philippines_phone
-from notifications.delivery import normalize_ph_sim_number
 from .models import (
     ClinicProfile, SectionContent, HeroStat,
     Service, Veterinarian,
@@ -264,18 +263,6 @@ class NotificationSettingsForm(AdminInputMixin, forms.Form):
         widget=forms.CheckboxInput(),
         help_text='Send notifications via email'
     )
-    sms_enabled = forms.BooleanField(
-        label='Enable SMS Notifications',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Send notifications via SMS'
-    )
-    sms_default_recipient = forms.CharField(
-        label='Default SMS SIM Number (PH)',
-        required=False,
-        widget=forms.TextInput(attrs={'placeholder': '09XXXXXXXXX'}),
-        help_text='Philippines mobile number only. Example: 09171234567'
-    )
     from_email = forms.EmailField(
         label='From Email Address',
         widget=forms.EmailInput(attrs={'placeholder': 'noreply@example.com'}),
@@ -291,22 +278,8 @@ class NotificationSettingsForm(AdminInputMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['email_enabled'].initial = get_setting('notification_email_enabled', True)
-        self.fields['sms_enabled'].initial = get_setting('notification_sms_enabled', False)
-        self.fields['sms_default_recipient'].initial = get_setting('notification_sms_default_recipient', '')
         self.fields['from_email'].initial = get_setting('notification_from_email', 'noreply@fmhclinic.com')
         self.fields['sender_name'].initial = get_setting('notification_sender_name', 'FMH Animal Clinic')
-
-    def clean_sms_default_recipient(self):
-        sim_number = (self.cleaned_data.get('sms_default_recipient') or '').strip()
-        if not sim_number:
-            return ''
-
-        normalized = normalize_ph_sim_number(sim_number)
-        if not normalized:
-            raise forms.ValidationError('Enter a valid PH mobile number (e.g., 09171234567).')
-
-        return normalized
-
 
 class PayrollSettingsForm(AdminInputMixin, forms.Form):
     """Form for payroll-related settings."""

@@ -1,5 +1,6 @@
 {% extends 'payroll/base.html' %}
 {% load currency_filters %}
+{% load static %}
 
 {% block title %}Payroll Report - {{ period.period_display }}{% endblock %}
 
@@ -25,6 +26,15 @@
 
   .report-title-block {
     min-width: 0;
+  }
+
+  .report-logo {
+    display: block;
+    width: 240px;
+    max-height: 64px;
+    object-fit: contain;
+    object-position: left center;
+    margin-bottom: 10px;
   }
 
   .report-header h2 {
@@ -410,6 +420,7 @@
 <div class="report-shell">
   <div class="report-header">
     <div class="report-title-block">
+      <img class="report-logo" src="{% static 'image/PAYSLIP-LOGO.png' %}" alt="FMH Animal Clinic">
       <h2><i class='bx bx-file-blank'></i> Payroll Report - {{ period.period_display }}</h2>
       <div class="report-meta">
         <span class="report-scope-badge">{{ period.scope_display }}</span>

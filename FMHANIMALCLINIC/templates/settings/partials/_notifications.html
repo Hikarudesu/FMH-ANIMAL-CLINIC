@@ -37,28 +37,6 @@
         {% endif %}
       </div>
 
-      <div class="form-section-title">
-        <i class='bx bx-message'></i> SMS Settings
-      </div>
-
-      <div class="admin-field admin-field-full">
-        <div class="checkbox-field">
-          {{ forms.notifications.sms_enabled }}
-          <div class="checkbox-content">
-            <label for="id_sms_enabled">Enable SMS Notifications</label>
-            <p class="form-hint">{{ forms.notifications.sms_enabled.help_text }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="admin-field">
-        <label for="id_sms_default_recipient">Default SMS SIM Number (PH)</label>
-        {{ forms.notifications.sms_default_recipient }}
-        <p class="form-hint">{{ forms.notifications.sms_default_recipient.help_text }}</p>
-        {% if forms.notifications.sms_default_recipient.errors %}
-          <div class="error-text">{{ forms.notifications.sms_default_recipient.errors.0 }}</div>
-        {% endif %}
-      </div>
     </div>
 
     <div class="admin-actions">

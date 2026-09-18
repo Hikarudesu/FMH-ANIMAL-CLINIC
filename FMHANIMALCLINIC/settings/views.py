@@ -196,8 +196,6 @@ def _handle_notifications_form(request):
     if form.is_valid():
         data = form.cleaned_data
         set_setting('notification_email_enabled', data['email_enabled'], request.user, 'NOTIFICATION')
-        set_setting('notification_sms_enabled', data['sms_enabled'], request.user, 'NOTIFICATION')
-        set_setting('notification_sms_default_recipient', data['sms_default_recipient'], request.user, 'NOTIFICATION')
 
         set_setting('notification_from_email', data['from_email'], request.user, 'NOTIFICATION')
         set_setting('notification_sender_name', data['sender_name'], request.user, 'NOTIFICATION')

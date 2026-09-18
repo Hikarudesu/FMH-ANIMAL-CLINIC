@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from notifications.models import Notification
-from notifications.delivery import send_notification_email, send_notification_sms
+from notifications.delivery import send_notification_email
 
 
 def _notify_superadmins(title, message, notification_type, module_context, related_object_id=None):
@@ -42,9 +42,6 @@ def _notify_superadmins(title, message, notification_type, module_context, relat
             superuser_only=True,
             fail_silently=True,
         )
-
-    send_notification_sms(message=f"{title}: {message}")
-
 
 def create_notification(
     *,
