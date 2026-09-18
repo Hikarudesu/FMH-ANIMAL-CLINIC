@@ -1,0 +1,115 @@
+{% load currency_filters %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page { size: letter; margin: 0.45in; }
+    * { box-sizing: border-box; }
+    body { color: #000; font-family: Helvetica, Arial, sans-serif; font-size: 10px; margin: 0; }
+    table { border-collapse: collapse; width: 100%; }
+    .header { border-bottom: 2px solid #000; margin-bottom: 14px; }
+    .header td { vertical-align: bottom; padding-bottom: 8px; }
+    .logo-cell { width: 64%; }
+    .logo { width: 330px; height: auto; }
+    .title-cell { text-align: right; width: 36%; }
+    .title { font-size: 21px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
+    .meta { color: #333; font-size: 10px; line-height: 1.45; }
+    .info { margin-bottom: 10px; }
+    .info td { border: 1px solid #000; padding: 6px 9px; vertical-align: top; }
+    .info-label { color: #444; display: block; font-size: 8px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
+    .info-value { font-size: 11px; }
+    .ledger { margin-bottom: 12px; table-layout: fixed; }
+    .ledger th, .ledger td { border: 1px solid #000; padding: 6px 8px; }
+    .ledger th { background: #f1f5f9; font-size: 9px; text-align: left; text-transform: uppercase; }
+    .ledger .amount { font-family: Courier, monospace; text-align: right; }
+    .ledger .total td { background: #f8fafc; font-size: 10px; font-weight: bold; }
+    .muted { color: #666; font-style: italic; }
+    .statutory { border: 1px dashed #666; margin-bottom: 12px; padding: 7px; }
+    .statutory h4 { font-size: 9px; margin: 0 0 5px; text-transform: uppercase; }
+    .statutory td { border: 1px solid #000; padding: 5px 8px; }
+    .net-pay { border: 2px solid #000; margin-bottom: 16px; }
+    .net-pay td { padding: 10px 12px; }
+    .net-label { font-size: 15px; font-weight: bold; text-transform: uppercase; }
+    .net-amount { font-family: Courier, monospace; font-size: 19px; font-weight: bold; text-align: right; }
+    .footer { border-top: 1px solid #ccc; color: #666; font-size: 8px; padding-top: 7px; text-align: center; }
+  </style>
+</head>
+<body>
+  <table class="header">
+    <tr>
+      <td class="logo-cell"><img class="logo" src="{% static 'image/PAYSLIP-LOGO.png' %}" alt="FMH Animal Clinic"></td>
+      <td class="title-cell">
+        <div class="title">Official Payslip</div>
+        <div class="meta">Period: {{ payslip.payroll_period.month_name }} {{ payslip.payroll_period.year|stringformat:"s" }}</div>
+        <div class="meta">Date: {% now "M d, Y" %}</div>
+        <div class="meta">No: PS-{{ payslip.id }}-{{ payslip.payroll_period.year|stringformat:"s" }}{{ payslip.payroll_period.month|stringformat:"02d" }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <table class="info">
+    <tr>
+      <td width="50%"><span class="info-label">Employee Name</span><span class="info-value">{{ payslip.employee.full_name }}</span></td>
+      <td width="25%"><span class="info-label">Position</span><span class="info-value">{% if payslip.employee.user and payslip.employee.user.assigned_role %}{{ payslip.employee.user.assigned_role.name }}{% else %}{{ payslip.employee.get_position_display|default:"Staff" }}{% endif %}</span></td>
+      <td width="25%"><span class="info-label">Attendance</span><span class="info-value">{{ payslip.days_worked }}</span></td>
+    </tr>
+    <tr>
+      <td><span class="info-label">Branch</span><span class="info-value">{{ payslip.employee.branch.name|default:"Main Branch" }}</span></td>
+      <td><span class="info-label">Working Days</span><span class="info-value">{{ payslip.working_days }}</span></td>
+      <td><span class="info-label">Days Absent</span><span class="info-value">{{ payslip.days_absent }}</span></td>
+    </tr>
+  </table>
+
+  <table class="info">
+    <tr>
+      <td width="50%"><span class="info-label">Overtime</span><span class="info-value">{{ payslip.overtime_hours|overtime_duration }}</span></td>
+      <td width="50%"><span class="info-label">Leave Days</span><span class="info-value">{{ payslip.regular_leave_days|default:0 }}</span></td>
+    </tr>
+  </table>
+
+  <table class="ledger">
+    <tr>
+      <th width="35%">Earnings</th><th width="15%" class="amount">Amount (&#8369;)</th>
+      <th width="35%">Deductions</th><th width="15%" class="amount">Amount (&#8369;)</th>
+    </tr>
+    <tr>
+      <td>Base Salary</td><td class="amount">{{ payslip.base_salary|peso }}</td>
+      <td>{% if payslip.sss > 0 %}SSS Contribution{% elif payslip.late_deduction > 0 %}Late / Undertime{% else %}-{% endif %}</td>
+      <td class="amount">{% if payslip.sss > 0 %}{{ payslip.sss|peso }}{% elif payslip.late_deduction > 0 %}{{ payslip.late_deduction|peso }}{% else %}-{% endif %}</td>
+    </tr>
+    <tr>
+      <td>{% if payslip.overtime_pay > 0 %}Overtime Pay ({{ payslip.overtime_hours|overtime_duration }}){% elif payslip.holiday_pay > 0 %}Holiday Pay{% else %}-{% endif %}</td>
+      <td class="amount">{% if payslip.overtime_pay > 0 %}{{ payslip.overtime_pay|peso }}{% elif payslip.holiday_pay > 0 %}{{ payslip.holiday_pay|peso }}{% else %}-{% endif %}</td>
+      <td>{% if payslip.philhealth > 0 %}PhilHealth Contribution{% elif payslip.absent_deduction > 0 %}Absences{% else %}-{% endif %}</td>
+      <td class="amount">{% if payslip.philhealth > 0 %}{{ payslip.philhealth|peso }}{% elif payslip.absent_deduction > 0 %}{{ payslip.absent_deduction|peso }}{% else %}-{% endif %}</td>
+    </tr>
+    <tr>
+      <td>{% if payslip.bonus > 0 %}Bonus{% elif payslip.staff_allowance > 0 %}Staff Allowance{% else %}-{% endif %}</td>
+      <td class="amount">{% if payslip.bonus > 0 %}{{ payslip.bonus|peso }}{% elif payslip.staff_allowance > 0 %}{{ payslip.staff_allowance|peso }}{% else %}-{% endif %}</td>
+      <td>{% if payslip.pagibig > 0 %}Pag-IBIG Contribution{% elif payslip.other_deductions > 0 %}Imported Charges{% else %}-{% endif %}</td>
+      <td class="amount">{% if payslip.pagibig > 0 %}{{ payslip.pagibig|peso }}{% elif payslip.other_deductions > 0 %}{{ payslip.other_deductions|peso }}{% else %}-{% endif %}</td>
+    </tr>
+    <tr class="total">
+      <td>TOTAL GROSS EARNINGS</td><td class="amount">{{ payslip.gross_pay|peso }}</td>
+      <td>TOTAL DEDUCTIONS</td><td class="amount">{{ payslip.total_deductions|peso }}</td>
+    </tr>
+  </table>
+
+  {% if payslip.total_clinic_contributions > 0 %}
+  <div class="statutory">
+    <h4>Statutory Deductions</h4>
+    <table>
+      {% if payslip.clinic_sss > 0 %}<tr><td>SSS Contribution</td><td class="amount">{{ payslip.clinic_sss|peso }}</td></tr>{% endif %}
+      {% if payslip.clinic_philhealth > 0 %}<tr><td>PhilHealth Contribution</td><td class="amount">{{ payslip.clinic_philhealth|peso }}</td></tr>{% endif %}
+      {% if payslip.clinic_pagibig > 0 %}<tr><td>Pag-IBIG Contribution</td><td class="amount">{{ payslip.clinic_pagibig|peso }}</td></tr>{% endif %}
+      <tr><td><strong>Total Employer Contributions</strong></td><td class="amount"><strong>{{ payslip.total_clinic_contributions|peso }}</strong></td></tr>
+    </table>
+  </div>
+  {% endif %}
+
+  <table class="net-pay"><tr><td class="net-label">NET PAY FOR PERIOD</td><td class="net-amount">&#8369;{{ payslip.net_pay|peso }}</td></tr></table>
+  <div class="footer">This is a system-generated official payslip from FMH Animal Clinic. Any discrepancies should be reported to HR/Finance within a timely manner.</div>
+</body>
+</html>

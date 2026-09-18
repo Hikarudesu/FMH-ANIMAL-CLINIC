@@ -73,21 +73,25 @@
       margin-bottom: 25px;
       border-bottom: 2px solid #000;
       padding-bottom: 15px;
-      display: table;
-      table-layout: fixed;
+      border-collapse: collapse;
     }
     
+    .letterhead td {
+      vertical-align: bottom;
+    }
+
+    .letterhead .logo-cell {
+      width: 65%;
+    }
+
     .letterhead img {
-      display: table-cell;
       width: 420px;
       max-height: 80px;
       object-fit: contain;
-      vertical-align: bottom;
     }
     
     .document-title {
-      display: table-cell;
-      width: 230px;
+      width: 35%;
       vertical-align: bottom;
       text-align: right;
     }
@@ -138,18 +142,19 @@
     
     /* Financial Tables */
     .financials {
-      display: table;
-      table-layout: fixed;
-      border-spacing: 20px 0;
       width: 100%;
+      border-collapse: collapse;
       margin-bottom: 30px;
     }
 
     .financial-column {
-      display: table-cell;
       width: 50%;
+      padding: 0 10px;
       vertical-align: top;
     }
+
+    .financial-column:first-child { padding-left: 0; }
+    .financial-column:last-child { padding-right: 0; }
     
     .ledger-table {
       border-collapse: collapse;
@@ -193,14 +198,12 @@
       width: 100%;
       border: 2px solid #000;
       padding: 15px 20px;
-      display: table;
-      table-layout: fixed;
+      border-collapse: collapse;
       margin-bottom: 40px;
       background: #fafafa;
     }
     
     .net-pay-box .label {
-      display: table-cell;
       width: 65%;
       vertical-align: middle;
       font-size: 18px;
@@ -209,7 +212,6 @@
     }
     
     .net-pay-box .amount {
-      display: table-cell;
       width: 35%;
       vertical-align: middle;
       text-align: right;
@@ -256,15 +258,17 @@
   
   <div class="payslip-wrapper">
     <!-- Letterhead -->
-    <div class="letterhead">
-      <img src="{% static 'image/PAYSLIP-LOGO.png' %}" alt="FMH Animal Clinic Letterhead">
-      <div class="document-title">
+    <table class="letterhead">
+      <tr>
+        <td class="logo-cell"><img src="{% static 'image/PAYSLIP-LOGO.png' %}" alt="FMH Animal Clinic Letterhead"></td>
+        <td class="document-title">
         <h1>Official Payslip</h1>
         <p>Period: {{ payslip.payroll_period.month_name }} {{ payslip.payroll_period.year|stringformat:"s" }}</p>
         <p>Date: {% now "M d, Y" %}</p>
         <p>No: PS-{{ payslip.id }}-{{ payslip.payroll_period.year|stringformat:"s" }}{{ payslip.payroll_period.month|stringformat:"02d" }}</p>
-      </div>
-    </div>
+        </td>
+      </tr>
+    </table>
     
     <!-- Employee Details Grid -->
     <table class="info-grid">
@@ -306,9 +310,9 @@
     </table>
     
     <!-- Financials Tables (Earnings & Deductions side by side) -->
-    <div class="financials">
+    <table class="financials"><tr>
       <!-- Earnings -->
-      <div class="financial-column"><table class="ledger-table">
+      <td class="financial-column"><table class="ledger-table">
         <thead>
           <tr>
             <th width="70%">Earnings</th>
@@ -353,10 +357,10 @@
             <td class="amt">{{ payslip.gross_pay|peso }}</td>
           </tr>
         </tbody>
-      </table></div>
+      </table></td>
       
       <!-- Deductions -->
-      <div class="financial-column"><table class="ledger-table">
+      <td class="financial-column"><table class="ledger-table">
         <thead>
           <tr>
             <th width="70%">Deductions</th>
@@ -422,8 +426,8 @@
             <td class="amt">{{ payslip.total_deductions|peso }}</td>
           </tr>
         </tbody>
-      </table></div>
-    </div>
+      </table></td>
+    </tr></table>
     
     {% if payslip.total_clinic_contributions > 0 %}
     <div class="employer-contributions">
@@ -438,10 +442,10 @@
     {% endif %}
 
     <!-- Net Pay Box -->
-    <div class="net-pay-box">
-      <div class="label">NET PAY FOR PERIOD</div>
-      <div class="amount">₱{{ payslip.net_pay|peso }}</div>
-    </div>
+    <table class="net-pay-box"><tr>
+      <td class="label">NET PAY FOR PERIOD</td>
+      <td class="amount">₱{{ payslip.net_pay|peso }}</td>
+    </tr></table>
     
 
     

@@ -8,7 +8,6 @@ from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 
 from notifications.delivery import send_notification_email
-from settings.utils import get_setting
 
 from .models import PayslipEmailLog
 
@@ -24,15 +23,7 @@ def _pdf_link_callback(uri, rel):
 
 
 def _build_payslip_pdf(payslip):
-    html = render_to_string('payroll/payslip_print.html', {
-        'payslip': payslip,
-        'print_mode': True,
-        'return_to': '',
-        'payroll_signatory': get_setting(
-            'payroll_signatory_name_title',
-            'Authorized by Finance / Human Resources',
-        ),
-    })
+    html = render_to_string('payroll/payslip_email_pdf.html', {'payslip': payslip})
     result = io.BytesIO()
     pdf = pisa.pisaDocument(
         io.BytesIO(html.encode('utf-8')),
