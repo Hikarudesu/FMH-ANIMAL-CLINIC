@@ -170,15 +170,6 @@
             {% endif %}
           </div>
 
-          <div class="admin-field">
-            <label for="id_default_absent_deduction">Default Absent Deduction per Day (₱)</label>
-            {{ forms.payroll.default_absent_deduction }}
-            <p class="form-hint">{{ forms.payroll.default_absent_deduction.help_text }}</p>
-            {% if forms.payroll.default_absent_deduction.errors %}
-              <div class="error-text">{{ forms.payroll.default_absent_deduction.errors.0 }}</div>
-            {% endif %}
-          </div>
-
           <div class="admin-field payroll-field-full">
             <label for="id_paid_leave_type_options">Paid Leave Type Options</label>
             {{ forms.payroll.paid_leave_type_options }}

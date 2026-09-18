@@ -511,9 +511,6 @@ class Payslip(models.Model):
         self.working_days = working_days_for_half
         self.days_worked = min(complete_attendance_days, working_days_for_half)
         self.days_absent = max(0, working_days_for_half - self.days_worked)
-        self.absent_deduction = Decimal(str(self.days_absent)) * Decimal(str(
-            get_setting('payroll_default_absent_deduction', 100)
-        ))
 
         # Calculate daily salary based on base salary and the actual working days in-range.
         # When no attendance summary exists, working_days_for_half stays at zero.
@@ -521,6 +518,9 @@ class Payslip(models.Model):
             self.base_salary / Decimal(str(working_days_for_half))
             if self.base_salary and working_days_for_half > 0 else Decimal('0')
         )
+        self.absent_deduction = (
+            Decimal(str(self.days_absent)) * self.daily_salary
+        ).quantize(Decimal('0.01'))
 
         # ─────────── POPULATE ABSENCE DATA FROM BIOMETRICS ───────────
         # NOTE: Biometric data cannot differentiate between sick leave and regular leave

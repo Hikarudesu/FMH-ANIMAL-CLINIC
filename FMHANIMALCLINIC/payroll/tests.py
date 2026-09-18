@@ -403,9 +403,8 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(second_payslip.days_absent, 14)
         self.assertEqual(second_payslip.rest_days_actual, 4)
 
-    def test_payslip_applies_default_absent_deduction_on_generation(self):
+    def test_payslip_uses_daily_salary_for_absent_deduction(self):
         set_setting('payroll_default_rest_days', 4)
-        set_setting('payroll_default_absent_deduction', 150)
 
         staff = StaffMember.objects.create(
             first_name='Ari',
@@ -438,7 +437,8 @@ class PayrollRulesTests(TestCase):
         payslip.generate_from_employee()
 
         self.assertEqual(payslip.days_absent, 13)
-        self.assertEqual(payslip.absent_deduction, Decimal('1950.00'))
+        self.assertEqual(payslip.daily_salary, Decimal('15000') / Decimal('13'))
+        self.assertEqual(payslip.absent_deduction, Decimal('15000.00'))
 
     def test_report_allowances_include_all_earnings(self):
         staff = StaffMember.objects.create(

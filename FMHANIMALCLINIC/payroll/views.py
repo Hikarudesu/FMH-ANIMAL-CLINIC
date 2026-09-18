@@ -819,7 +819,9 @@ def payslip_edit(request, payslip_id):
         payslip.days_worked = 0
         payslip.days_absent = payslip.working_days
         payslip.rest_days_actual = 0
-        payslip.absent_deduction = Decimal(str(get_setting('payroll_default_absent_deduction', 100)))
+        payslip.absent_deduction = (
+            Decimal(str(payslip.days_absent)) * payslip.daily_salary
+        ).quantize(Decimal('0.01'))
         payslip.paid_leave_days = Decimal('0')
         if payslip.base_salary > 0 and payslip.working_days > 0:
             payslip.daily_salary = payslip.base_salary / Decimal(str(payslip.working_days))
@@ -917,9 +919,10 @@ def payslip_edit(request, payslip_id):
                         payslip.base_salary / Decimal(str(payslip.working_days))
                     )
 
-                default_absent_deduction = Decimal(str(get_setting('payroll_default_absent_deduction', 100)))
                 effective_absent_days = max(0, payslip.days_absent - int(payslip.paid_leave_days)) if payslip.paid_leave_days else payslip.days_absent
-                payslip.absent_deduction = Decimal(str(effective_absent_days)) * default_absent_deduction
+                payslip.absent_deduction = (
+                    Decimal(str(effective_absent_days)) * payslip.daily_salary
+                ).quantize(Decimal('0.01'))
                 
                 # Calculate leave deduction based on manual categorization
                 # Only regular (unpaid) leaves exceeding 4 rest days are deducted
@@ -1029,7 +1032,7 @@ def payslip_edit(request, payslip_id):
         'show_pagibig': get_setting('payroll_auto_statutory', True) and get_setting('payroll_enable_pagibig', True),
         'default_staff_allowance': configured_staff_allowance,
         'default_overtime_pay_per_hour': get_setting('payroll_default_overtime_pay_per_hour', 120),
-        'default_absent_deduction': get_setting('payroll_default_absent_deduction', 100),
+        'absence_deduction_per_day': payslip.daily_salary,
         'paid_leave_options': configured_paid_leave_types,
         'daily_salary_display': payslip.daily_salary,
         'display_rest_days': display_rest_days,

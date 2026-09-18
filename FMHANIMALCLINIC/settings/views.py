@@ -220,7 +220,6 @@ def _handle_payroll_form(request):
         set_setting('payroll_default_staff_allowance', data['default_staff_allowance'], request.user, 'PAYROLL')
         set_setting('payroll_default_overtime_pay_per_hour', data['default_overtime_pay_per_hour'], request.user, 'PAYROLL')
         set_setting('payroll_default_rest_days', data['default_rest_days'], request.user, 'PAYROLL')
-        set_setting('payroll_default_absent_deduction', data['default_absent_deduction'], request.user, 'PAYROLL')
         paid_leave_types = [
             line.strip() for line in str(data.get('paid_leave_type_options', '')).splitlines() if line.strip()
         ]

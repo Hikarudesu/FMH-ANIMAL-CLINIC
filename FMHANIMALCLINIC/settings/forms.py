@@ -339,14 +339,6 @@ class PayrollSettingsForm(AdminInputMixin, forms.Form):
         widget=forms.NumberInput(attrs={'step': '1'}),
         help_text='Default number of rest days used to compute absences and deductions each period.'
     )
-    default_absent_deduction = forms.DecimalField(
-        label='Default Absent Deduction per Day (₱)',
-        min_value=0,
-        max_digits=10,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={'step': '10'}),
-        help_text='Default daily deduction applied to excess absences after the configured rest-day allowance.'
-    )
     paid_leave_type_options = forms.CharField(
         label='Paid Leave Type Options',
         required=False,
@@ -411,7 +403,6 @@ class PayrollSettingsForm(AdminInputMixin, forms.Form):
         self.fields['default_staff_allowance'].initial = get_setting('payroll_default_staff_allowance', 2000)
         self.fields['default_overtime_pay_per_hour'].initial = get_setting('payroll_default_overtime_pay_per_hour', 120)
         self.fields['default_rest_days'].initial = get_setting('payroll_default_rest_days', 4)
-        self.fields['default_absent_deduction'].initial = get_setting('payroll_default_absent_deduction', 100)
         existing_paid_leave_options = get_setting('payroll_paid_leave_types', 'Sick Leave\nEmergency Leave')
         if isinstance(existing_paid_leave_options, (list, tuple)):
             existing_paid_leave_options = '\n'.join(str(item) for item in existing_paid_leave_options)

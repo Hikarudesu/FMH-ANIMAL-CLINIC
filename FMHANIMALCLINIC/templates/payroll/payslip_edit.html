@@ -133,9 +133,9 @@
       </div>
 
       <div class="form-group">
-        <label>Default Absent Deduction per Day (₱)</label>
-        <input type="text" value="{{ default_absent_deduction }}" readonly>
-        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only setting value used to calculate the absence deduction. Deductions are applied only when absences are greater than zero.</small>
+        <label>Absence Deduction per Day (₱)</label>
+        <input type="text" value="{{ absence_deduction_per_day|peso }}" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Automatically calculated from this staff member's daily salary.</small>
       </div>
     </div>
 
