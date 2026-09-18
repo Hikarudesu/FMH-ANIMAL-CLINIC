@@ -2195,9 +2195,8 @@ def export_payslips_excel(request, period_id):
 @login_required
 @module_permission_required('payroll', 'MANAGE')
 def send_payslip_email(request, payslip_id):
-    """Send payslip via email to employee."""
-    from django.core.mail import send_mail
-    from payroll.models import PayslipEmailLog
+    """Send the printable payslip PDF to one employee."""
+    from payroll.email_service import send_payslip_email as deliver_payslip_email
 
     if request.method != 'POST':
         return redirect('payroll:payslips', period_id=get_object_or_404(Payslip, id=payslip_id).payroll_period_id)
@@ -2214,81 +2213,11 @@ def send_payslip_email(request, payslip_id):
         return redirect('payroll:payslips', period_id=payslip.payroll_period.id)
 
     try:
-        # Get decimal values with defaults to avoid InvalidOperation errors
-        base_salary = payslip.base_salary or Decimal('0')
-        overtime_pay = payslip.overtime_pay or Decimal('0')
-        holiday_pay = payslip.holiday_pay or Decimal('0')
-        bonus = payslip.bonus or Decimal('0')
-        staff_allowance = payslip.staff_allowance or Decimal('0')
-        gross_pay = payslip.gross_pay or Decimal('0')
-        sss = payslip.sss or Decimal('0')
-        philhealth = payslip.philhealth or Decimal('0')
-        pagibig = payslip.pagibig or Decimal('0')
-        tax = payslip.tax or Decimal('0')
-        cash_advance = payslip.cash_advance or Decimal('0')
-        other_deductions = payslip.other_deductions or Decimal('0')
-        net_pay = payslip.net_pay or Decimal('0')
-        days_worked = payslip.days_worked or 0
-        days_absent = payslip.days_absent or 0
+        sent, reason = deliver_payslip_email(payslip, force=True)
+        if not sent:
+            messages.error(request, f'Failed to send email: {reason}')
+            return redirect('payroll:payslips', period_id=payslip.payroll_period.id)
 
-        # Build email content
-        subject = f'Payslip for {payslip.payroll_period.period_display} - FMH Animal Clinic'
-
-        message = f"""
-Dear {payslip.employee.full_name},
-
-Please find your payslip for {payslip.payroll_period.period_display} below:
-
-═══════════════════════════════════════════════════════════════
-PAYSLIP SUMMARY
-═══════════════════════════════════════════════════════════════
-
-Base Salary:          ₱{base_salary:>12,.2f}
-Overtime Pay:         ₱{overtime_pay:>12,.2f}
-Holiday Pay:          ₱{holiday_pay:>12,.2f}
-Bonus:                ₱{bonus:>12,.2f}
-Staff Allowance:      ₱{staff_allowance:>12,.2f}
-───────────────────────────────────────────────────────────────
-Gross Pay:            ₱{gross_pay:>12,.2f}
-
-DEDUCTIONS:
-SSS:                  ₱{sss:>12,.2f}
-PhilHealth:           ₱{philhealth:>12,.2f}
-PAG-IBIG:             ₱{pagibig:>12,.2f}
-Tax (BIR):            ₱{tax:>12,.2f}
-Cash Advance:         ₱{cash_advance:>12,.2f}
-Other Deductions:     ₱{other_deductions:>12,.2f}
-───────────────────────────────────────────────────────────────
-Net Pay (Take-home):  ₱{net_pay:>12,.2f}
-═══════════════════════════════════════════════════════════════
-
-Days Worked: {days_worked} days
-Days Absent: {days_absent} days
-
-This is an automated payroll notification. Please contact the Human Resources
-department if you have any questions regarding your payslip.
-
-Best regards,
-FMH Animal Clinic - Finance Department
-        """
-
-        # Send email
-        send_mail(
-            subject,
-            message,
-            'noreply@fmhanimalclinic.com',  # From email
-            [payslip.employee.email],  # To email
-            fail_silently=False,
-        )
-
-        # Log the email
-        email_log = PayslipEmailLog.objects.create(
-            payslip=payslip,
-            recipient_email=payslip.employee.email,
-            status='SENT'
-        )
-
-        # Log the action
         from payroll.models import PayrollAuditLog
         PayrollAuditLog.log(
             user=request.user,
@@ -2300,20 +2229,9 @@ FMH Animal Clinic - Finance Department
             metadata={'email': payslip.employee.email}
         )
 
-        messages.success(request, f'Payslip sent to {payslip.employee.email}')
+        messages.success(request, f'Payslip PDF sent to {payslip.employee.email}')
 
     except Exception as e:
-        # Log error
-        try:
-            email_log = PayslipEmailLog.objects.create(
-                payslip=payslip,
-                recipient_email=payslip.employee.email,
-                status='FAILED',
-                error_message=str(e)
-            )
-        except Exception:
-            pass
-
         messages.error(request, f'Failed to send email: {str(e)}')
 
     return redirect('payroll:payslips', period_id=payslip.payroll_period.id)
@@ -2322,84 +2240,26 @@ FMH Animal Clinic - Finance Department
 @login_required
 @module_permission_required('payroll', 'MANAGE')
 def send_payslips_bulk(request, period_id):
-    """Send payslips to all employees in a period via email."""
-    from django.core.mail import send_mail
-    from payroll.models import PayslipEmailLog
+    """Send printable payslip PDFs to all employees in a period."""
+    from payroll.email_service import send_payslip_email as deliver_payslip_email
 
     period = get_object_or_404(PayrollPeriod, id=period_id)
 
-    # Get payslips safely - ID first approach
-    payslips = []
-    try:
-        payslip_ids = list(period.payslips.filter(
-            employee__email__isnull=False
-        ).exclude(employee__email='').values_list('id', flat=True))
-
-        for ps_id in payslip_ids:
-            try:
-                ps = Payslip.objects.select_related('employee').get(id=ps_id)
-                payslips.append(ps)
-            except Exception:
-                continue
-    except Exception:
-        payslips = []
+    payslips = period.payslips.select_related('employee', 'payroll_period').filter(
+        employee__email__isnull=False
+    ).exclude(employee__email='')
 
     sent_count = 0
     failed_count = 0
 
     for payslip in payslips:
         try:
-            # Get decimal values with defaults
-            gross_pay = payslip.gross_pay or Decimal('0')
-            net_pay = payslip.net_pay or Decimal('0')
-
-            subject = f'Payslip for {period.period_display} - FMH Animal Clinic'
-
-            message = f"""
-Dear {payslip.employee.full_name},
-
-Your payslip for {period.period_display} has been generated and is ready for review.
-
-Gross Pay: ₱{gross_pay:,.2f}
-Net Pay: ₱{net_pay:,.2f}
-
-Please contact the Finance department if you have any questions.
-
-Best regards,
-FMH Animal Clinic
-            """
-
-            send_mail(
-                subject,
-                message,
-                'noreply@fmhanimalclinic.com',
-                [payslip.employee.email],
-                fail_silently=False,
-            )
-
-            # Log successful send
-            try:
-                PayslipEmailLog.objects.create(
-                    payslip=payslip,
-                    recipient_email=payslip.employee.email,
-                    status='SENT'
-                )
-            except Exception:
-                pass
-
-            sent_count += 1
-
-        except Exception as e:
-            # Log failed send
-            try:
-                PayslipEmailLog.objects.create(
-                    payslip=payslip,
-                    recipient_email=payslip.employee.email,
-                    status='FAILED',
-                    error_message=str(e)
-                )
-            except Exception:
-                pass
+            sent, _ = deliver_payslip_email(payslip, force=True)
+            if sent:
+                sent_count += 1
+            else:
+                failed_count += 1
+        except Exception:
             failed_count += 1
 
     # Log the bulk send action

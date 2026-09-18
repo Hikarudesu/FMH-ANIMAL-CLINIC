@@ -1,10 +1,47 @@
 """Reliable, auditable payslip email delivery."""
-from django.db import IntegrityError, transaction
+import io
+
 from django.conf import settings
+from django.db import IntegrityError, transaction
+from django.contrib.staticfiles import finders
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
 
 from notifications.delivery import send_notification_email
+from settings.utils import get_setting
 
 from .models import PayslipEmailLog
+
+
+def _pdf_link_callback(uri, rel):
+    """Resolve static assets used by the printable payslip template."""
+    static_url = settings.STATIC_URL
+    if uri.startswith(static_url):
+        path = finders.find(uri[len(static_url):])
+        if path:
+            return path
+    return uri
+
+
+def _build_payslip_pdf(payslip):
+    html = render_to_string('payroll/payslip_print.html', {
+        'payslip': payslip,
+        'print_mode': True,
+        'return_to': '',
+        'payroll_signatory': get_setting(
+            'payroll_signatory_name_title',
+            'Authorized by Finance / Human Resources',
+        ),
+    })
+    result = io.BytesIO()
+    pdf = pisa.pisaDocument(
+        io.BytesIO(html.encode('utf-8')),
+        result,
+        link_callback=_pdf_link_callback,
+    )
+    if pdf.err:
+        raise RuntimeError('Could not generate the printable payslip PDF.')
+    return result.getvalue()
 
 
 def send_payslip_email(payslip, *, force=False):
@@ -25,10 +62,7 @@ def send_payslip_email(payslip, *, force=False):
     subject = f'Payslip for {period.period_display} - FMH Animal Clinic'
     message = f"""Dear {payslip.employee.full_name},
 
-Your payslip for {period.period_display} has been released.
-
-Gross Pay: ₱{payslip.gross_pay or 0:,.2f}
-Net Pay: ₱{payslip.net_pay or 0:,.2f}
+Your official payslip for {period.period_display} is attached as a PDF.
 
 Please contact the Finance department if you have any questions.
 
@@ -37,12 +71,18 @@ FMH Animal Clinic
 """
 
     try:
+        pdf_content = _build_payslip_pdf(payslip)
         sent = send_notification_email(
             subject=subject,
             message=message.strip(),
             recipient_list=[recipient],
             fail_silently=False,
             from_email=settings.DEFAULT_FROM_EMAIL,
+            attachments=[(
+                f'payslip_{payslip.id}_{period.year}_{period.month:02d}.pdf',
+                pdf_content,
+                'application/pdf',
+            )],
         )
         if not sent:
             raise RuntimeError('Email backend did not accept the message.')

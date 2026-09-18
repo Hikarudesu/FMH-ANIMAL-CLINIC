@@ -3,6 +3,7 @@
 import smtplib
 import socket
 import json
+import base64
 from urllib import error, request
 
 from django.core.mail.backends.base import BaseEmailBackend
@@ -38,6 +39,14 @@ class BrevoAPIEmailBackend(BaseEmailBackend):
             'subject': email_message.subject,
             'textContent': email_message.body,
         }
+        if email_message.attachments:
+            payload['attachment'] = [
+                {
+                    'name': filename,
+                    'content': base64.b64encode(content).decode('ascii'),
+                }
+                for filename, content, _ in email_message.attachments
+            ]
         api_request = request.Request(
             self.api_url,
             data=json.dumps(payload).encode('utf-8'),

@@ -8,7 +8,7 @@ import re
 from email.utils import formataddr
 
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 
 from settings.utils import get_setting
 
@@ -63,6 +63,7 @@ def send_notification_email(
     fail_silently=True,
     superuser_only=False,
     from_email=None,
+    attachments=None,
 ):
     """Send notification email if enabled in settings.
 
@@ -86,13 +87,15 @@ def send_notification_email(
         return False
 
     try:
-        sent_count = send_mail(
+        email = EmailMessage(
             subject=subject,
-            message=message,
+            body=message,
             from_email=from_email or _from_header(),
-            recipient_list=recipients,
-            fail_silently=fail_silently,
+            to=recipients,
         )
+        for attachment in attachments or []:
+            email.attach(*attachment)
+        sent_count = email.send(fail_silently=fail_silently)
         if sent_count != len(recipients):
             logger.warning(
                 "Email backend accepted %s of %s recipients for subject '%s'.",
