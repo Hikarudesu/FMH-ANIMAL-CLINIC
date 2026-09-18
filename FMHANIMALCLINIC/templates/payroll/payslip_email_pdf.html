@@ -74,23 +74,14 @@
       <th width="35%">Earnings</th><th width="15%" class="amount">Amount (&#8369;)</th>
       <th width="35%">Deductions</th><th width="15%" class="amount">Amount (&#8369;)</th>
     </tr>
+    {% for row in ledger_rows %}
     <tr>
-      <td>Base Salary</td><td class="amount">{{ payslip.base_salary|peso }}</td>
-      <td>{% if payslip.sss > 0 %}SSS Contribution{% elif payslip.late_deduction > 0 %}Late / Undertime{% else %}-{% endif %}</td>
-      <td class="amount">{% if payslip.sss > 0 %}{{ payslip.sss|peso }}{% elif payslip.late_deduction > 0 %}{{ payslip.late_deduction|peso }}{% else %}-{% endif %}</td>
+      <td{% if not row.0.0 %} class="muted"{% endif %}>{{ row.0.0|default:"-" }}</td>
+      <td class="amount">{% if row.0.1 %}{{ row.0.1|peso }}{% else %}-{% endif %}</td>
+      <td>{{ row.1.0|default:"-" }}</td>
+      <td class="amount">{% if row.1.1 %}{{ row.1.1|peso }}{% else %}-{% endif %}</td>
     </tr>
-    <tr>
-      <td>{% if payslip.overtime_pay > 0 %}Overtime Pay ({{ payslip.overtime_hours|overtime_duration }}){% elif payslip.holiday_pay > 0 %}Holiday Pay{% else %}-{% endif %}</td>
-      <td class="amount">{% if payslip.overtime_pay > 0 %}{{ payslip.overtime_pay|peso }}{% elif payslip.holiday_pay > 0 %}{{ payslip.holiday_pay|peso }}{% else %}-{% endif %}</td>
-      <td>{% if payslip.philhealth > 0 %}PhilHealth Contribution{% elif payslip.absent_deduction > 0 %}Absences{% else %}-{% endif %}</td>
-      <td class="amount">{% if payslip.philhealth > 0 %}{{ payslip.philhealth|peso }}{% elif payslip.absent_deduction > 0 %}{{ payslip.absent_deduction|peso }}{% else %}-{% endif %}</td>
-    </tr>
-    <tr>
-      <td>{% if payslip.bonus > 0 %}Bonus{% elif payslip.staff_allowance > 0 %}Staff Allowance{% else %}-{% endif %}</td>
-      <td class="amount">{% if payslip.bonus > 0 %}{{ payslip.bonus|peso }}{% elif payslip.staff_allowance > 0 %}{{ payslip.staff_allowance|peso }}{% else %}-{% endif %}</td>
-      <td>{% if payslip.pagibig > 0 %}Pag-IBIG Contribution{% elif payslip.other_deductions > 0 %}Imported Charges{% else %}-{% endif %}</td>
-      <td class="amount">{% if payslip.pagibig > 0 %}{{ payslip.pagibig|peso }}{% elif payslip.other_deductions > 0 %}{{ payslip.other_deductions|peso }}{% else %}-{% endif %}</td>
-    </tr>
+    {% endfor %}
     <tr class="total">
       <td>TOTAL GROSS EARNINGS</td><td class="amount">{{ payslip.gross_pay|peso }}</td>
       <td>TOTAL DEDUCTIONS</td><td class="amount">{{ payslip.total_deductions|peso }}</td>

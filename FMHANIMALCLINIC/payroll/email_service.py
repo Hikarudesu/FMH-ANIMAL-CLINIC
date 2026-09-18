@@ -23,7 +23,47 @@ def _pdf_link_callback(uri, rel):
 
 
 def _build_payslip_pdf(payslip):
-    html = render_to_string('payroll/payslip_email_pdf.html', {'payslip': payslip})
+    earnings = []
+    if payslip.base_salary > 0:
+        earnings.append(('Base Salary', payslip.base_salary))
+    if payslip.overtime_pay > 0:
+        earnings.append((f'Overtime Pay ({payslip.overtime_hours} hrs)', payslip.overtime_pay))
+    if payslip.holiday_pay > 0:
+        earnings.append(('Holiday Pay', payslip.holiday_pay))
+    if payslip.bonus > 0:
+        earnings.append(('Bonus', payslip.bonus))
+    if payslip.staff_allowance > 0:
+        earnings.append(('Staff Allowance', payslip.staff_allowance))
+
+    deductions = []
+    if payslip.sss > 0:
+        deductions.append(('SSS Contribution', payslip.sss))
+    if payslip.philhealth > 0:
+        deductions.append(('PhilHealth Contribution', payslip.philhealth))
+    if payslip.pagibig > 0:
+        deductions.append(('Pag-IBIG Contribution', payslip.pagibig))
+    if payslip.late_deduction > 0:
+        deductions.append(('Late / Undertime', payslip.late_deduction))
+    if payslip.absent_deduction > 0:
+        deductions.append(('Absences', payslip.absent_deduction))
+    if payslip.other_deductions > 0:
+        deductions.append(('Imported Charges', payslip.other_deductions))
+    deductions.extend(
+        (deduction.reason, deduction.amount)
+        for deduction in payslip.custom_deductions.all()
+    )
+    if not deductions:
+        deductions.append(('No deductions this period', None))
+
+    row_count = max(len(earnings), len(deductions)) + 2
+    earnings.extend([('', None)] * (row_count - len(earnings)))
+    deductions.extend([('', None)] * (row_count - len(deductions)))
+    ledger_rows = list(zip(earnings, deductions))
+
+    html = render_to_string('payroll/payslip_email_pdf.html', {
+        'payslip': payslip,
+        'ledger_rows': ledger_rows,
+    })
     result = io.BytesIO()
     pdf = pisa.pisaDocument(
         io.BytesIO(html.encode('utf-8')),
