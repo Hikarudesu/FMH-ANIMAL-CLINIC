@@ -71,8 +71,8 @@
 
   <table class="ledger">
     <tr>
-      <th width="35%">Earnings</th><th width="15%" class="amount">Amount (&#8369;)</th>
-      <th width="35%">Deductions</th><th width="15%" class="amount">Amount (&#8369;)</th>
+      <th width="35%">Earnings</th><th width="15%" class="amount">Amount (PHP)</th>
+      <th width="35%">Deductions</th><th width="15%" class="amount">Amount (PHP)</th>
     </tr>
     {% for row in ledger_rows %}
     <tr>
@@ -88,7 +88,7 @@
     </tr>
   </table>
 
-  <table class="net-pay"><tr><td class="net-label">NET PAY FOR PERIOD</td><td class="net-amount">&#8369;{{ payslip.net_pay|peso }}</td></tr></table>
+  <table class="net-pay"><tr><td class="net-label">NET PAY FOR PERIOD</td><td class="net-amount">PHP {{ payslip.net_pay|peso }}</td></tr></table>
   <div class="footer">This is a system-generated official payslip from FMH Animal Clinic. Any discrepancies should be reported to HR/Finance within a timely manner.</div>
 </body>
 </html>
