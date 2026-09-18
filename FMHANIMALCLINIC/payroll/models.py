@@ -298,8 +298,7 @@ class Payslip(models.Model):
     )
     
     # ─────────── DEDUCTIONS ───────────
-    # Note: SSS, PhilHealth, PagIBIG kept for legacy data but no longer
-    # subtracted from employee pay. See clinic_* fields below.
+    # Employee statutory deductions, controlled by Payroll Settings.
     sss = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     philhealth = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     pagibig = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -368,6 +367,31 @@ class Payslip(models.Model):
     
     def calculate(self):
         """Calculate all totals based on current values."""
+        from settings.utils import get_setting
+
+        # Statutory deductions are employee deductions when enabled in payroll settings.
+        self.sss = Decimal('0')
+        self.philhealth = Decimal('0')
+        self.pagibig = Decimal('0')
+        auto_statutory = get_setting('payroll_auto_statutory', True)
+        statutory_fraction = Decimal('0.5')
+        if auto_statutory and self.base_salary > 0:
+            if get_setting('payroll_enable_sss', True):
+                self.sss = self.base_salary * (
+                    Decimal(str(get_setting('payroll_sss_rate', 4.50)))
+                    * statutory_fraction / Decimal('100')
+                )
+            if get_setting('payroll_enable_philhealth', True):
+                self.philhealth = self.base_salary * (
+                    Decimal(str(get_setting('payroll_philhealth_rate', 2.00)))
+                    * statutory_fraction / Decimal('100')
+                )
+            if get_setting('payroll_enable_pagibig', True):
+                self.pagibig = Decimal(str(get_setting('payroll_pagibig_fixed', 100))) * statutory_fraction
+
+        self.sss = self.sss.quantize(Decimal('0.01'))
+        self.philhealth = self.philhealth.quantize(Decimal('0.01'))
+        self.pagibig = self.pagibig.quantize(Decimal('0.01'))
         custom_total = self.custom_deductions_total or Decimal('0')
         if self.pk:
             custom_total = self.custom_deductions.aggregate(
@@ -403,11 +427,9 @@ class Payslip(models.Model):
             self.custom_deductions_total
         )
         
-        # Clinic-paid contributions (informational)
+        # Keep the legacy clinic contribution total synchronized for old reports.
         self.total_clinic_contributions = (
-            self.clinic_sss +
-            self.clinic_philhealth +
-            self.clinic_pagibig
+            self.sss + self.philhealth + self.pagibig
         )
         
         # Gross pay

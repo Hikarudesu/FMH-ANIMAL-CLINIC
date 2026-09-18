@@ -39,7 +39,7 @@
 <body>
   <table class="header">
     <tr>
-      <td class="logo-cell"><img class="logo" src="{% static 'image/PAYSLIP-LOGO.png' %}" alt="FMH Animal Clinic"></td>
+      <td class="logo-cell"><img class="logo" src="{{ logo_data_uri }}" alt="FMH Animal Clinic"></td>
       <td class="title-cell">
         <div class="title">Official Payslip</div>
         <div class="meta">Period: {{ payslip.payroll_period.month_name }} {{ payslip.payroll_period.year|stringformat:"s" }}</div>
@@ -87,18 +87,6 @@
       <td>TOTAL DEDUCTIONS</td><td class="amount">{{ payslip.total_deductions|peso }}</td>
     </tr>
   </table>
-
-  {% if payslip.total_clinic_contributions > 0 %}
-  <div class="statutory">
-    <h4>Statutory Deductions</h4>
-    <table>
-      {% if payslip.clinic_sss > 0 %}<tr><td>SSS Contribution</td><td class="amount">{{ payslip.clinic_sss|peso }}</td></tr>{% endif %}
-      {% if payslip.clinic_philhealth > 0 %}<tr><td>PhilHealth Contribution</td><td class="amount">{{ payslip.clinic_philhealth|peso }}</td></tr>{% endif %}
-      {% if payslip.clinic_pagibig > 0 %}<tr><td>Pag-IBIG Contribution</td><td class="amount">{{ payslip.clinic_pagibig|peso }}</td></tr>{% endif %}
-      <tr><td><strong>Total Employer Contributions</strong></td><td class="amount"><strong>{{ payslip.total_clinic_contributions|peso }}</strong></td></tr>
-    </table>
-  </div>
-  {% endif %}
 
   <table class="net-pay"><tr><td class="net-label">NET PAY FOR PERIOD</td><td class="net-amount">&#8369;{{ payslip.net_pay|peso }}</td></tr></table>
   <div class="footer">This is a system-generated official payslip from FMH Animal Clinic. Any discrepancies should be reported to HR/Finance within a timely manner.</div>

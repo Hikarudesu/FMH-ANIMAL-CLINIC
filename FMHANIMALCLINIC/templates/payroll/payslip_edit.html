@@ -201,6 +201,18 @@
     </div>
   </div>
 
+  {% if show_sss or show_philhealth or show_pagibig %}
+  <div class="form-section">
+    <h4>Statutory Deductions</h4>
+    <small style="color: var(--text-3); display: block; margin-bottom: 12px;">These deductions are enabled in Payroll Settings and are automatically deducted from net pay.</small>
+    <div class="form-grid">
+      {% if show_sss %}<div class="form-group"><label>SSS Contribution (&#8369;)</label><input type="text" name="sss" value="{{ payslip.sss|peso }}" readonly></div>{% endif %}
+      {% if show_philhealth %}<div class="form-group"><label>PhilHealth Contribution (&#8369;)</label><input type="text" name="philhealth" value="{{ payslip.philhealth|peso }}" readonly></div>{% endif %}
+      {% if show_pagibig %}<div class="form-group"><label>Pag-IBIG Contribution (&#8369;)</label><input type="text" name="pagibig" value="{{ payslip.pagibig|peso }}" readonly></div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Notes Section -->
   <div class="form-section">
     <h4>Notes</h4>

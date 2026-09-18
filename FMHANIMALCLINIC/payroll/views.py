@@ -1015,6 +1015,9 @@ def payslip_edit(request, payslip_id):
     ]:
         display_rest_days = max(1, display_rest_days // 2)
 
+    # Refresh automatic statutory values for the editable preview without saving.
+    payslip.calculate()
+
     context = {
         'payslip': payslip,
         'period': payslip.payroll_period,

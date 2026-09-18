@@ -1,5 +1,6 @@
 """Reliable, auditable payslip email delivery."""
 import io
+import base64
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -23,6 +24,14 @@ def _pdf_link_callback(uri, rel):
 
 
 def _build_payslip_pdf(payslip):
+    logo_path = finders.find('image/PAYSLIP-LOGO.png')
+    logo_data_uri = ''
+    if logo_path:
+        with open(logo_path, 'rb') as logo_file:
+            logo_data_uri = 'data:image/png;base64,' + base64.b64encode(
+                logo_file.read()
+            ).decode('ascii')
+
     earnings = []
     if payslip.base_salary > 0:
         earnings.append(('Base Salary', payslip.base_salary))
@@ -63,6 +72,7 @@ def _build_payslip_pdf(payslip):
     html = render_to_string('payroll/payslip_email_pdf.html', {
         'payslip': payslip,
         'ledger_rows': ledger_rows,
+        'logo_data_uri': logo_data_uri,
     })
     result = io.BytesIO()
     pdf = pisa.pisaDocument(
