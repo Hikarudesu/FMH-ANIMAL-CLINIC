@@ -36,7 +36,7 @@
           gap: 18px 20px;
           width: 100%;
           max-width: 920px;
-          align-items: start;
+          align-items: stretch;
           grid-column: 1 / -1;
           margin: 0 auto;
         }
@@ -85,8 +85,7 @@
           max-width: 100%;
           width: 100%;
           box-sizing: border-box;
-          max-width: 920px;
-          margin: 0 auto;
+          margin: 0;
         }
         .payroll-contribution .payroll-left {
           flex: 1 1 auto;
@@ -100,6 +99,11 @@
           flex-direction: column;
           gap: 5px;
           justify-content: center;
+        }
+        .payroll-contribution .payroll-right input {
+          width: 118px;
+          height: 38px;
+          box-sizing: border-box;
         }
         .payroll-contribution .checkbox-field {
           padding: 0;
