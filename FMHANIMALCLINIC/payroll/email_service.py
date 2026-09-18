@@ -1,5 +1,6 @@
 """Reliable, auditable payslip email delivery."""
 from django.db import IntegrityError, transaction
+from django.conf import settings
 
 from notifications.delivery import send_notification_email
 
@@ -41,6 +42,7 @@ FMH Animal Clinic
             message=message.strip(),
             recipient_list=[recipient],
             fail_silently=False,
+            from_email=settings.DEFAULT_FROM_EMAIL,
         )
         if not sent:
             raise RuntimeError('Email backend did not accept the message.')

@@ -7,6 +7,7 @@ import logging
 import re
 from email.utils import formataddr
 
+from django.conf import settings
 from django.core.mail import send_mail
 
 from settings.utils import get_setting
@@ -55,7 +56,14 @@ def normalize_ph_sim_number(raw_number):
     return ''
 
 
-def send_notification_email(subject, message, recipient_list, fail_silently=True, superuser_only=False):
+def send_notification_email(
+    subject,
+    message,
+    recipient_list,
+    fail_silently=True,
+    superuser_only=False,
+    from_email=None,
+):
     """Send notification email if enabled in settings.
 
     If ``superuser_only`` is true, recipients are restricted to active superusers.
@@ -81,7 +89,7 @@ def send_notification_email(subject, message, recipient_list, fail_silently=True
         sent_count = send_mail(
             subject=subject,
             message=message,
-            from_email=_from_header(),
+            from_email=from_email or _from_header(),
             recipient_list=recipients,
             fail_silently=fail_silently,
         )
