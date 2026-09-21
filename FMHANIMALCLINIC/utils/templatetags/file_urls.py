@@ -8,16 +8,20 @@ register = template.Library()
 
 @register.filter
 def stored_or_static_url(file_field):
-    """Use private media for new files and static storage for legacy files."""
+    """Return the media URL only when the uploaded file actually exists.
+
+    Do not silently fall back to a static file with the same name. When a DB path
+    points to a missing upload, the correct behavior is to surface the missing file
+    rather than masking it with a different static asset.
+    """
     if not file_field:
         return ''
+
     name = getattr(file_field, 'name', '')
     if not name:
         return ''
+
     if default_storage.exists(name):
         return file_field.url
-    try:
-        return static(name)
-    except ValueError:
-        # A legacy filename may not be present in WhiteNoise's manifest.
-        return f"{settings.STATIC_URL.rstrip('/')}/{name.lstrip('/')}"
+
+    return ''
