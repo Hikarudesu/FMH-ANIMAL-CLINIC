@@ -243,10 +243,20 @@ CLOUDINARY = {
     'api_secret': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
+cloud_name = CLOUDINARY['cloud_name']
+api_key = CLOUDINARY['api_key']
+api_secret = CLOUDINARY['api_secret']
+
+if not DEBUG and (not cloud_name or not api_key or not api_secret):
+    raise RuntimeError(
+        'Cloudinary credentials are missing. Set CLOUDINARY_CLOUD_NAME, '
+        'CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in the environment before deployment.'
+    )
+
 cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+    cloud_name=cloud_name,
+    api_key=api_key,
+    api_secret=api_secret,
 )
 
 STORAGES = {
