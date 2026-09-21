@@ -224,12 +224,12 @@ USE_THOUSAND_SEPARATOR = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = os.environ.get('STATIC_URL', '/static/')
 
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = Path(os.environ.get('STATIC_ROOT', str(BASE_DIR / 'staticfiles')))
 
 STORAGES = {
     'default': {
@@ -240,8 +240,9 @@ STORAGES = {
     },
 }
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = os.environ.get('MEDIA_URL', '/media/')
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', str(not DEBUG)).lower() in (
     'true', '1', 'yes'
