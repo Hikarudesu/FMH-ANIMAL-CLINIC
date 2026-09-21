@@ -52,6 +52,24 @@ warnings.filterwarnings(
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def _resolve_runtime_path(default_path, env_name, fallback_dir_name):
+    """Use explicit env overrides first; otherwise prefer Railway's mounted volume paths."""
+    configured = os.environ.get(env_name)
+    if configured:
+        path = Path(configured).expanduser()
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RAILWAY_SERVICE_NAME'):
+        railway_path = Path('/app') / fallback_dir_name
+        railway_path.mkdir(parents=True, exist_ok=True)
+        return railway_path
+
+    default_path.mkdir(parents=True, exist_ok=True)
+    return default_path
+
+
 # Load environment variables from .env file
 env_path = BASE_DIR / '.env'
 _load_environment_file(env_path)
@@ -229,7 +247,7 @@ STATIC_URL = os.environ.get('STATIC_URL', '/static/')
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
-STATIC_ROOT = Path(os.environ.get('STATIC_ROOT', str(BASE_DIR / 'staticfiles')))
+STATIC_ROOT = _resolve_runtime_path(BASE_DIR / 'staticfiles', 'STATIC_ROOT', 'staticfiles')
 
 STORAGES = {
     'default': {
@@ -241,8 +259,7 @@ STORAGES = {
 }
 
 MEDIA_URL = os.environ.get('MEDIA_URL', '/media/')
-MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
-MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+MEDIA_ROOT = _resolve_runtime_path(BASE_DIR / 'media', 'MEDIA_ROOT', 'media')
 
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', str(not DEBUG)).lower() in (
     'true', '1', 'yes'
