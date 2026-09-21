@@ -244,6 +244,13 @@ MEDIA_URL = os.environ.get('MEDIA_URL', '/media/')
 MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
+# Configure Whitenoise to serve media files from the /media/ URL
+WHITENOISE_MIMETYPES = {
+    '.webp': 'image/webp',
+}
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = DEBUG
+
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', str(not DEBUG)).lower() in (
     'true', '1', 'yes'
 )
@@ -353,3 +360,4 @@ elif not DEBUG and (not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD):
     raise RuntimeError('SMTP credentials or BREVO_API_KEY must be set when DEBUG=False.')
 DEFAULT_FROM_EMAIL = os.environ.get(
     'DEFAULT_FROM_EMAIL', os.environ.get('EMAIL_HOST_USER', 'noreply@fmhanimalclinic.com'))
+
