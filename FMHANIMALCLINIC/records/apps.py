@@ -8,3 +8,4 @@ class RecordsConfig(AppConfig):
     def ready(self):
         # Import models to register signal handlers defined there
         import records.models  # noqa: F401
+        import records.signals  # noqa: F401

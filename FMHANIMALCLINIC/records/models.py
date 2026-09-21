@@ -191,6 +191,15 @@ class MedicalFile(models.Model):
         self.original_name = self.original_name or os.path.basename(self.file.name)
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        """Delete the stored file from storage before deleting the DB row."""
+        if self.file:
+            try:
+                self.file.delete(save=False)
+            except Exception:
+                pass
+        return super().delete(*args, **kwargs)
+
 
 class MedicalFileAccessLog(models.Model):
     """Immutable audit trail for medical-file access attempts."""
