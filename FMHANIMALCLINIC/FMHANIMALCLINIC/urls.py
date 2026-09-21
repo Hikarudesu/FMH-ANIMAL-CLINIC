@@ -2,9 +2,10 @@
 Main URL Configuration for the FMHANIMALCLINIC project.
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
 
 # Import legacy URL patterns for backward compatibility
 from accounts.urls import legacy_urlpatterns
@@ -36,10 +37,14 @@ urlpatterns = [
 ] + legacy_urlpatterns  # Add legacy URL names for backward compatibility
 
 # Serve static and media files only in development.
-# In production, WhiteNoise serves them from the mounted runtime paths.
+# In production, explicitly serve media from the mounted Railway volume.
 if settings.DEBUG:
     urlpatterns += static(
         settings.STATIC_URL,
         document_root=settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else None
     )
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
