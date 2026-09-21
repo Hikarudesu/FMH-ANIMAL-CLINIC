@@ -802,6 +802,10 @@
         <div class="admin-field">
           <label>Image</label>
           <input type="file" name="image" id="service-image" class="admin-input" accept="image/png,image/jpeg">
+          <label class="form-checkbox-label" style="margin-top: 8px;">
+            <input type="checkbox" name="image-clear" id="service-image-clear" value="on">
+            <span>Remove current image</span>
+          </label>
           <p class="form-hint">Supported formats: .png, .jpeg (Max 10MB)</p>
         </div>
 
@@ -862,6 +866,10 @@
         <div class="admin-field">
           <label>Photo</label>
           <input type="file" name="photo" id="veterinarian-photo" class="admin-input" accept="image/png,image/jpeg">
+          <label class="form-checkbox-label" style="margin-top: 8px;">
+            <input type="checkbox" name="photo-clear" id="veterinarian-photo-clear" value="on">
+            <span>Remove current photo</span>
+          </label>
           <p class="form-hint">Supported formats: .png, .jpeg (Max 10MB)</p>
         </div>
 

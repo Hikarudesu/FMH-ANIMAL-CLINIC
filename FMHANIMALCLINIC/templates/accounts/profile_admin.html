@@ -280,7 +280,7 @@
               <i class='bx bx-camera'></i> Change Photo
             </label>
             <span class="avatar-hint">Supported formats: .png, .jpeg (Max 10MB)</span>
-            <div style="display: none;">{{ form.profile_picture }}</div>
+            <div class="avatar-file-input">{{ form.profile_picture }}</div>
             {% if form.profile_picture.errors %}<small class="field-error">{{ form.profile_picture.errors.as_text }}</small>{% endif %}
           </div>
         </div>
