@@ -1,7 +1,10 @@
 from unittest.mock import Mock
 
+from django import forms
 from django.test import SimpleTestCase
 
+from accounts.forms import UserProfileUpdateForm
+from settings.forms import ServiceForm
 from utils.templatetags.file_urls import stored_or_static_url
 
 
@@ -19,3 +22,13 @@ class StoredOrStaticUrlTests(SimpleTestCase):
         field.url = '/media/image/laboratory.png'
 
         self.assertEqual(stored_or_static_url(field), '/media/image/laboratory.png')
+
+
+class ImageRemovalWidgetTests(SimpleTestCase):
+    def test_service_form_uses_clearable_image_widget(self):
+        form = ServiceForm()
+        self.assertIsInstance(form.fields['image'].widget, forms.ClearableFileInput)
+
+    def test_profile_form_uses_clearable_image_widget(self):
+        form = UserProfileUpdateForm()
+        self.assertIsInstance(form.fields['profile_picture'].widget, forms.ClearableFileInput)

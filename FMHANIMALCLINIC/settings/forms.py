@@ -62,7 +62,7 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
             'instagram_url': forms.URLInput(attrs={'placeholder': 'https://instagram.com/your-page'}),
             'messenger_url': forms.URLInput(attrs={'placeholder': 'https://m.me/your-page'}),
             'tiktok_url': forms.URLInput(attrs={'placeholder': 'https://www.tiktok.com/@your-page'}),
-            'logo': forms.FileInput(attrs={'accept': 'image/*'}),
+            'logo': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -698,7 +698,7 @@ class ServiceForm(AdminInputMixin, forms.ModelForm):
                 'rows': 3, 'placeholder': 'Service description'
             }),
             'icon': forms.TextInput(attrs={'placeholder': 'bx-plus-medical'}),
-            'image': forms.FileInput(attrs={'accept': 'image/*'}),
+            'image': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
             'order': forms.NumberInput(attrs={'style': 'width: 80px;'}),
             'is_active': forms.CheckboxInput(),
         }
@@ -714,7 +714,7 @@ class VeterinarianForm(AdminInputMixin, forms.ModelForm):
             'name': forms.TextInput(attrs={'placeholder': 'Full name (without Dr.)'}),
             'title': forms.TextInput(attrs={'placeholder': 'e.g., Senior Veterinarian'}),
             'bio': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Short biography'}),
-            'photo': forms.FileInput(attrs={'accept': 'image/*'}),
+            'photo': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
             'order': forms.NumberInput(attrs={'style': 'width: 80px;'}),
             'is_active': forms.CheckboxInput(),
         }

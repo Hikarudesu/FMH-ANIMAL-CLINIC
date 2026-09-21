@@ -145,7 +145,7 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
             }),
             'address': forms.TextInput(attrs={'placeholder': ' '}),
             'branch': forms.Select(),
-            'profile_picture': forms.FileInput(),
+            'profile_picture': forms.ClearableFileInput(),
         }
 
     def clean_phone_number(self):
