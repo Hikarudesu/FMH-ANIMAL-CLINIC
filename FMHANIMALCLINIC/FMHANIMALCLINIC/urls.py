@@ -35,13 +35,11 @@ urlpatterns = [
     path('inquiries/', include('inquiries.urls')),
 ] + legacy_urlpatterns  # Add legacy URL names for backward compatibility
 
-# Serve static and media files in development
+# Serve static and media files only in development.
+# In production, WhiteNoise serves them from the mounted runtime paths.
 if settings.DEBUG:
     urlpatterns += static(
         settings.STATIC_URL,
         document_root=settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else None
     )
-
-# Railway mounts uploaded files at MEDIA_ROOT. Keep media URLs available in
-# production so images uploaded through Content Management remain editable.
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
