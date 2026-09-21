@@ -14,10 +14,6 @@ import os
 import warnings
 from pathlib import Path
 
-import cloudinary
-import cloudinary.api
-import cloudinary.uploader
-
 
 def _load_environment_file(env_path):
     """Load key/value pairs from a .env file into os.environ without overriding existing values."""
@@ -99,8 +95,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'cloudinary',
-    'cloudinary_storage',
 
     # Project apps
     'landing',
@@ -237,38 +231,15 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = Path(os.environ.get('STATIC_ROOT', str(BASE_DIR / 'staticfiles')))
 
-CLOUDINARY = {
-    'cloud_name': os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    'api_key': os.environ.get('CLOUDINARY_API_KEY'),
-    'api_secret': os.environ.get('CLOUDINARY_API_SECRET'),
-}
-
-cloud_name = CLOUDINARY['cloud_name']
-api_key = CLOUDINARY['api_key']
-api_secret = CLOUDINARY['api_secret']
-
-if not DEBUG and (not cloud_name or not api_key or not api_secret):
-    raise RuntimeError(
-        'Cloudinary credentials are missing. Set CLOUDINARY_CLOUD_NAME, '
-        'CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in the environment before deployment.'
-    )
-
-cloudinary.config(
-    cloud_name=cloud_name,
-    api_key=api_key,
-    api_secret=api_secret,
-)
-
 STORAGES = {
     'default': {
-        'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
     },
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
 }
 
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 MEDIA_URL = os.environ.get('MEDIA_URL', '/media/')
 MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
