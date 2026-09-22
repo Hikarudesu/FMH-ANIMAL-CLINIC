@@ -2821,7 +2821,14 @@
 /* ── Modal Enhancements ── */
 .profile-modal {
   max-width: 560px;
+  width: min(560px, calc(100vw - 28px));
+  max-height: calc(100vh - 90px);
   margin-top: 80px;
+  overflow: hidden;
+}
+.profile-modal .modal-body {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
 }
 .profile-modal .modal-header {
   gap: 14px;
