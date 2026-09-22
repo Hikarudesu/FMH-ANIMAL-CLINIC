@@ -64,6 +64,14 @@
     <div class="profile-fields">
 
       <div class="profile-field">
+        <div class="profile-field-icon"><i class='bx bx-at'></i></div>
+        <div class="profile-field-body">
+          <span class="profile-field-label">Username</span>
+          <span class="profile-field-value">{{ user.username|default:"N/A" }}</span>
+        </div>
+      </div>
+
+      <div class="profile-field">
         <div class="profile-field-icon"><i class='bx bx-user'></i></div>
         <div class="profile-field-body">
           <span class="profile-field-label">Full Name</span>
