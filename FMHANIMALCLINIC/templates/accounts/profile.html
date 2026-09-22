@@ -280,6 +280,12 @@
 
         <!-- Form Fields -->
         <div class="modal-form-grid">
+          <div class="floating-field full-width">
+            <div class="field-icon"><i class='bx bx-at'></i></div>
+            {{ form.username }}
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {% if form.username.errors %}<small class="field-error">{{ form.username.errors.as_text }}</small>{% endif %}
+          </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-user'></i></div>
             {{ form.first_name }}

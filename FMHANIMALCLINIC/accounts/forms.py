@@ -134,9 +134,10 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
     class Meta:
         """Meta options for UserProfileUpdateForm."""
         model = User
-        fields = ('first_name', 'last_name',
+        fields = ('username', 'first_name', 'last_name',
                   'email', 'phone_number', 'address', 'branch', 'profile_picture')
         widgets = {
+            'username': forms.TextInput(attrs={'placeholder': ' '}),
             'first_name': forms.TextInput(attrs={'placeholder': ' '}),
             'last_name': forms.TextInput(attrs={'placeholder': ' '}),
             'email': forms.EmailInput(attrs={'placeholder': ' '}),
@@ -161,13 +162,26 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
         self.fields['profile_picture'].widget.clear_checkbox_label = 'Remove current photo'
         self.fields['profile_picture'].widget.input_text = 'Choose photo'
 
+    def clean_username(self):
+        """Ensure the username is unique and not identical to the email."""
+        username = self.cleaned_data.get('username')
+        email = self.cleaned_data.get('email')
+        if username and email and username.casefold() == email.casefold():
+            raise forms.ValidationError(
+                "Username cannot be the same as your email address.")
+
+        if username and User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError(
+                "This username is already in use. Please choose another.")
+        return username
+
     def clean_phone_number(self):
         return validate_philippines_phone(self.cleaned_data.get('phone_number', ''))
 
     def clean_email(self):
         """Ensure the email address is not the username."""
         email = self.cleaned_data.get('email')
-        username = self.instance.username
+        username = self.cleaned_data.get('username') or self.instance.username
         if email and username and email.casefold() == username.casefold():
             raise forms.ValidationError(
                 "Email address cannot be the same as your username.")

@@ -280,6 +280,12 @@
 
         <!-- Form Fields -->
         <div class="modal-form-grid">
+          <div class="floating-field full-width">
+            <div class="field-icon"><i class='bx bx-at'></i></div>
+            {{ form.username }}
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {% if form.username.errors %}<small class="field-error">{{ form.username.errors.as_text }}</small>{% endif %}
+          </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-user'></i></div>
             {{ form.first_name }}
@@ -345,26 +351,11 @@
     {% endif %}
 
     const fileInput = document.querySelector('input[type="file"][name="profile_picture"]');
-    const previewContainer = document.getElementById('avatarPreview');
-
-    function renderAvatarPreview(src) {
-      previewContainer.innerHTML = '<img src="' + src + '" alt="Profile Preview" class="avatar-preview-image" style="width: 100%; height: 100%; object-fit: cover; display: block;">';
-    }
-
-    if (fileInput && previewContainer) {
+    if (fileInput) {
       fileInput.addEventListener('change', function (e) {
         const clearCheckbox = document.querySelector('input[name="profile_picture-clear"]');
         if (clearCheckbox) {
           clearCheckbox.checked = false;
-        }
-
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function(event) {
-            renderAvatarPreview(event.target.result);
-          };
-          reader.readAsDataURL(file);
         }
       });
     }

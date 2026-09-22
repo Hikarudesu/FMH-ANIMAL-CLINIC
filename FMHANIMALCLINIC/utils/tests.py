@@ -42,6 +42,11 @@ class ImageRemovalWidgetTests(SimpleTestCase):
         self.assertIn('avatar-file-input', widget.attrs.get('class', ''))
         self.assertEqual(widget.clear_checkbox_label, 'Remove current photo')
 
+    def test_profile_form_allows_username_to_be_updated(self):
+        form = UserProfileUpdateForm()
+        self.assertIn('username', form.fields)
+        self.assertEqual(form.fields['username'].widget.attrs.get('placeholder'), ' ')
+
 
 class RailwayVolumePathTests(SimpleTestCase):
     def test_railway_media_root_falls_back_to_app_volume(self):
