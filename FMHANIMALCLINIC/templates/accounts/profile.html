@@ -267,15 +267,8 @@
         {% endif %}
 
         <!-- Avatar Upload -->
-        <div class="modal-avatar-upload">
-          <div class="modal-avatar-preview" id="avatarPreview">
-            {% if user.profile_picture %}
-            <img src="{{ user.profile_picture|stored_or_static_url }}" alt="Profile">
-            {% else %}
-            <i class='bx bx-user'></i>
-            {% endif %}
-          </div>
-          <div class="modal-avatar-actions">
+        <div class="modal-avatar-upload" style="align-items: flex-start;">
+          <div class="modal-avatar-actions" style="width: 100%;">
             <label for="{{ form.profile_picture.id_for_label }}" class="avatar-upload-btn">
               <i class='bx bx-camera'></i> Change Photo
             </label>
@@ -352,17 +345,11 @@
     {% endif %}
 
     const fileInput = document.querySelector('input[type="file"][name="profile_picture"]');
-    const previewContainer = document.getElementById('avatarPreview');
-
-    if (fileInput && previewContainer) {
+    if (fileInput) {
       fileInput.addEventListener('change', function (e) {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function(event) {
-            previewContainer.innerHTML = '<img src="' + event.target.result + '" alt="Profile Preview">';
-          };
-          reader.readAsDataURL(file);
+        const clearCheckbox = document.querySelector('input[name="profile_picture-clear"]');
+        if (clearCheckbox) {
+          clearCheckbox.checked = false;
         }
       });
     }

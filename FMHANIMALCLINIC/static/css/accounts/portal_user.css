@@ -2891,9 +2891,11 @@
   flex-shrink: 0;
   border: 2px solid var(--border);
 }
-.modal-avatar-preview img {
+.modal-avatar-preview img,
+.modal-avatar-preview .avatar-preview-image {
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: cover;
 }
 .modal-avatar-preview i {
@@ -2927,6 +2929,31 @@
 .avatar-hint {
   font-size: 0.72rem;
   color: var(--text-3);
+}
+.avatar-file-input {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+.avatar-file-hidden {
+  display: none !important;
+}
+.avatar-clear-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.avatar-clear-toggle input[type="checkbox"] {
+  accent-color: var(--primary);
+  width: 15px;
+  height: 15px;
+  margin: 0;
 }
 .field-error {
   display: block;

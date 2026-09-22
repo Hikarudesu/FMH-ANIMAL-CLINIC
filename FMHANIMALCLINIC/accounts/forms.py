@@ -9,6 +9,11 @@ from .rbac_models import Role
 from branches.models import Branch
 
 
+class ProfilePhotoClearableFileInput(forms.ClearableFileInput):
+    """Render a cleaner profile image control without exposing the raw media URL."""
+    template_name = 'accounts/widgets/profile_picture_input.html'
+
+
 class PetOwnerRegistrationForm(FormControlMixin, UserCreationForm):
     """Registration form specifically for Pet Owners"""
 
@@ -145,8 +150,16 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
             }),
             'address': forms.TextInput(attrs={'placeholder': ' '}),
             'branch': forms.Select(),
-            'profile_picture': forms.ClearableFileInput(),
+            'profile_picture': ProfilePhotoClearableFileInput(attrs={
+                'accept': 'image/*',
+                'class': 'avatar-file-input',
+            }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['profile_picture'].widget.clear_checkbox_label = 'Remove current photo'
+        self.fields['profile_picture'].widget.input_text = 'Choose photo'
 
     def clean_phone_number(self):
         return validate_philippines_phone(self.cleaned_data.get('phone_number', ''))
