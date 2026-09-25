@@ -1,7 +1,0 @@
-[build]
-builder = "NIXPACKS"
-buildCommand = "pip install -r requirements.txt"
-
-[deploy]
-startCommand = "cd FMHANIMALCLINIC && python manage.py migrate --noinput && gunicorn FMHANIMALCLINIC.wsgi --bind 0.0.0.0:$PORT"
-restartPolicyType = "ON_FAILURE"
