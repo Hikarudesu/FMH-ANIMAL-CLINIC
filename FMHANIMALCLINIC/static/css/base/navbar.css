@@ -45,6 +45,12 @@
     #00796b 50%,
     #004d40 100%
   );
+  --gradient-blue: linear-gradient(
+    135deg,
+    #2563eb 0%,
+    #1d4ed8 50%,
+    #1e3a8a 100%
+  );
   --gradient-red: linear-gradient(
     135deg,
     #e63946 0%,
@@ -335,15 +341,15 @@
 
 /* Red/Accent Button */
 .btn-red {
-  background: var(--gradient-red);
+  background: var(--gradient-blue);
   color: var(--white);
   border: none;
-  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
 }
 
 .btn-red:hover {
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 12px 40px rgba(230, 57, 70, 0.4);
+  box-shadow: 0 12px 40px rgba(37, 99, 235, 0.4);
 }
 
 /* ================================================================
