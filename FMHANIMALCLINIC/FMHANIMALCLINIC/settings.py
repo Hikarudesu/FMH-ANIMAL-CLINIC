@@ -261,6 +261,20 @@ STORAGES = {
 MEDIA_URL = os.environ.get('MEDIA_URL', '/media/')
 MEDIA_ROOT = _resolve_runtime_path(BASE_DIR / 'media', 'MEDIA_ROOT', 'media')
 
+# Whitenoise configuration. WhiteNoiseMiddleware only serves STATIC_ROOT out
+# of the box, and Gunicorn has no static/media file serving of its own, so
+# uploaded media (profile photos, pet photos, service photos) must be served
+# explicitly. The actual media serving is wired up at the WSGI layer in
+# wsgi.py via whitenoise.WhiteNoise(root=MEDIA_ROOT), which works regardless
+# of DEBUG. These settings just make sure common upload formats and caching
+# behave correctly.
+WHITENOISE_AUTOREFRESH = DEBUG
+WHITENOISE_USE_FINDERS = DEBUG
+WHITENOISE_MIMETYPES = {
+    '.webp': 'image/webp',
+    '.weba': 'audio/webp',
+}
+
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', str(not DEBUG)).lower() in (
     'true', '1', 'yes'
 )
