@@ -11,8 +11,8 @@
     <i class='bx {% if request.resolver_match.url_name == "services_page" %}bxs-grid-alt{% else %}bx-grid-alt{% endif %}'></i>
   </a>
 
-  <a href="{% url 'appointments:public_book' %}" class="bottom-nav-item" aria-label="Book Now">
-    <i class='bx bx-calendar-plus'></i>
+  <a href="{% url 'appointments:public_book' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'public_book' or request.resolver_match.url_name == 'portal_book' %}active{% endif %}" aria-label="Book Now">
+    <i class='bx {% if request.resolver_match.url_name == "public_book" or request.resolver_match.url_name == "portal_book" %}bxs-calendar-plus{% else %}bx-calendar-plus{% endif %}'></i>
   </a>
 
   <a href="{% url 'aboutus_page' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'aboutus_page' %}active{% endif %}" aria-label="About Us">
