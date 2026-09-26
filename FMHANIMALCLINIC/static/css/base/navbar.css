@@ -548,6 +548,80 @@
   letter-spacing: 0.5px;
 }
 
+/* Landing-page profile menu */
+.landing-navbar .nav-profile-dropdown {
+  padding-bottom: 18px;
+  margin-bottom: -18px;
+}
+
+.landing-navbar .nav-dropdown-menu {
+  top: calc(100% + 8px);
+  width: min(300px, calc(100vw - 2rem));
+  padding: 8px 0;
+  border: 1px solid rgba(0, 121, 107, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 18px 45px rgba(18, 53, 59, 0.18);
+}
+
+.landing-navbar .nav-dropdown-menu::before {
+  right: 28px;
+  border-color: rgba(0, 121, 107, 0.08);
+}
+
+.landing-navbar .nav-dropdown-header {
+  padding: 18px 20px 16px;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.landing-navbar .nav-dropdown-header .nav-avatar {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  font-size: 1rem;
+}
+
+.landing-navbar .nav-dropdown-user-info {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.landing-navbar .nav-dropdown-header strong {
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.landing-navbar .nav-dropdown-user-info span:not(.role-badge) {
+  max-width: 100%;
+  font-size: 0.8rem;
+}
+
+.landing-navbar .nav-dropdown-user-info .role-badge {
+  max-width: 100%;
+  margin: 7px 0 0;
+  padding: 7px 10px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landing-navbar .nav-dropdown-item {
+  min-height: 52px;
+  padding: 14px 20px;
+  gap: 12px;
+  font-size: 0.95rem;
+}
+
+.landing-navbar .nav-dropdown-item:hover {
+  padding-left: 20px;
+}
+
+.landing-navbar .nav-dropdown-divider {
+  margin: 4px 0;
+}
+
 /* ================================================================
    6. MOBILE MENU & TOGGLE
    ================================================================ */

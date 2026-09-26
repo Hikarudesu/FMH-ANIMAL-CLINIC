@@ -47,7 +47,7 @@
     <div class="services-grid">
 
       {% for service in services %}
-      <div class="service-card fade-in">
+      <div class="service-card fade-in" id="service-{{ service.title|slugify }}">
         {% if service.image %}
           <img src="{{ service.image|stored_or_static_url }}" alt="{{ service.title }}" class="service-card-bg">
         {% else %}

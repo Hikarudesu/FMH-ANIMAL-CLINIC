@@ -42,12 +42,12 @@
       <div class="footer-col">
         <h4>Services</h4>
         <ul>
-          <li><a href="#services">Consultation &amp; Treatment</a></li>
-          <li><a href="#services">Wellness Check</a></li>
-          <li><a href="#services">Soft Tissue Surgery</a></li>
-          <li><a href="#services">Diagnostics</a></li>
-          <li><a href="#services">Ultrasound / X-Ray</a></li>
-          <li><a href="#services">Pet Grooming</a></li>
+          <li><a href="{% url 'services_page' %}#service-consultation-treatment">Consultation &amp; Treatment</a></li>
+          <li><a href="{% url 'services_page' %}#service-animal-wellness-check">Wellness Check</a></li>
+          <li><a href="{% url 'services_page' %}#service-soft-tissue-surgery">Soft Tissue Surgery</a></li>
+          <li><a href="{% url 'services_page' %}#service-diagnostics">Diagnostics</a></li>
+          <li><a href="{% url 'services_page' %}#service-ultrasound-x-ray">Ultrasound / X-Ray</a></li>
+          <li><a href="{% url 'services_page' %}#service-pet-grooming">Pet Grooming</a></li>
         </ul>
       </div>
 
@@ -55,9 +55,9 @@
       <div class="footer-col">
         <h4>Branches</h4>
         <ul>
-          <li><a href="{% url 'contact_page' %}">Pilar Branch</a></li>
-          <li><a href="{% url 'contact_page' %}">Molino Branch</a></li>
-          <li><a href="{% url 'contact_page' %}">Queensrow Branch</a></li>
+          <li><a href="{% url 'contact_page' %}?branch=pilar#branch-info-col">Pilar Branch</a></li>
+          <li><a href="{% url 'contact_page' %}?branch=molino#branch-info-col">Molino Branch</a></li>
+          <li><a href="{% url 'contact_page' %}?branch=queensrow#branch-info-col">Queensrow Branch</a></li>
         </ul>
       </div>
 

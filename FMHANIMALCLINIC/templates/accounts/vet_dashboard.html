@@ -228,6 +228,7 @@
 </div>
 
 <!-- TODAY'S SCHEDULE & APPOINTMENTS (MY APPOINTMENTS) -->
+{% if user.assigned_role.code != 'assistant_veterinarian' %}
 <div class="schedule-section">
   <div class="section-title">
     <i class='bx bx-user-pin'></i>
@@ -277,6 +278,7 @@
     {% endif %}
   </div>
 </div>
+{% endif %}
 
 <!-- ALL CLINIC APPOINTMENTS TODAY -->
 <div class="schedule-section mt-4" style="margin-top: 2rem;">

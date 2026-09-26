@@ -2812,6 +2812,15 @@ textarea.form-control {
   text-align: center;
 }
 
+@media (max-width: 768px) {
+  .filter-bar > .cal-nav {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    justify-content: center;
+  }
+}
+
 /* ---------- Text Utilities ---------- */
 .text-muted {
   color: var(--text-3);

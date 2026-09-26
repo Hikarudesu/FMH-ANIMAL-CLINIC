@@ -248,6 +248,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let currentBranchIdx = 0;
 
+  // Select a branch requested by footer links when the contact page opens.
+  const requestedBranch = new URLSearchParams(window.location.search).get("branch");
+  if (requestedBranch && branchData.length) {
+    const normalizedBranch = requestedBranch.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const matchingIndex = branchData.findIndex((branch) => {
+      const branchSlug = branch.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/-+$/, "");
+      return (
+        branchSlug === normalizedBranch ||
+        branchSlug.replace(/-branch$/, "") === normalizedBranch
+      );
+    });
+
+    if (matchingIndex >= 0) {
+      currentBranchIdx = matchingIndex;
+      updateBranchUI();
+    }
+  }
+
   function switchBranch(direction) {
     if (direction === "next") {
       currentBranchIdx = (currentBranchIdx + 1) % branchData.length;
