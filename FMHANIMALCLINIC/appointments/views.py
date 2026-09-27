@@ -91,7 +91,18 @@ def portal_book(request):
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        form = PortalAppointmentForm(user=request.user)
+        selected_pet = None
+        pet_id = request.GET.get('pet')
+        if pet_id:
+            try:
+                selected_pet = request.user.pets.get(
+                    pk=int(pet_id), is_active=True
+                )
+            except (ValueError, Pet.DoesNotExist):
+                selected_pet = None
+        form = PortalAppointmentForm(
+            user=request.user, selected_pet=selected_pet
+        )
 
     branches = Branch.objects.filter(is_active=True)
     user_pets = request.user.pets.filter(is_active=True) if hasattr(request.user, 'pets') else []
@@ -100,6 +111,10 @@ def portal_book(request):
         'form': form,
         'branches': branches,
         'user_pets': user_pets,
+        'selected_pet_id': (
+            form.initial.get('selected_pet_id')
+            if request.method != 'POST' else None
+        ),
     })
 
 

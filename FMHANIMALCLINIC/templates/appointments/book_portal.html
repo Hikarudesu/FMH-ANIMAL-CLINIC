@@ -88,7 +88,7 @@
           <select id="petSelector" class="form-control book-input">
             <option value="">-- Add New Pet --</option>
             {% for pet in user_pets %}
-            <option value="{{ pet.id }}" 
+            <option value="{{ pet.id }}" {% if pet.id == selected_pet_id %}selected{% endif %}
                     data-name="{{ pet.name }}" 
                     data-species="{{ pet.species }}"
                     data-breed="{{ pet.breed }}"
@@ -256,6 +256,10 @@ document.addEventListener("DOMContentLoaded", function() {
         if (petColorField) petColorField.value = '';
       }
     });
+
+    if (petSelector.value) {
+      petSelector.dispatchEvent(new Event('change'));
+    }
   }
 });
 </script>

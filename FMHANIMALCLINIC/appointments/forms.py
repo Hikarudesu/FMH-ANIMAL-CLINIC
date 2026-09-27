@@ -389,6 +389,7 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
+        selected_pet = kwargs.pop('selected_pet', None)
         super().__init__(*args, **kwargs)
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
         self.fields['preferred_vet'].queryset = StaffMember.objects.none()
@@ -419,6 +420,19 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
             # Pre-fill user's preferred branch if they have one set
             if self.user.branch and self.user.branch.is_active:
                 self.fields['branch'].initial = self.user.branch
+
+        if selected_pet is not None and (
+            self.user is None or selected_pet.owner_id == self.user.pk
+        ):
+            self.initial.update({
+                'selected_pet_id': selected_pet.pk,
+                'pet_name': selected_pet.name,
+                'pet_species': selected_pet.species,
+                'pet_breed': selected_pet.breed,
+                'pet_dob': selected_pet.date_of_birth,
+                'pet_sex': selected_pet.sex,
+                'pet_color': selected_pet.color,
+            })
 
         # Schedulable roles: veterinarians and vet assistants
         schedulable_roles = ['veterinarian', 'assistant_veterinarian']

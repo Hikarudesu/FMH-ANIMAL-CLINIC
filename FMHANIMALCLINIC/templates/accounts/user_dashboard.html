@@ -1005,52 +1005,6 @@
   }
 
   /* ═══════════════════════════════════════════════ */
-  /* QUICK ACTIONS */
-  /* ═══════════════════════════════════════════════ */
-  
-  .quick-actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 24px;
-    padding: 4px 0 20px;
-    margin-bottom: 32px;
-  }
-  
-  .quick-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 36px;
-    padding: 4px 0;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    color: var(--text-2);
-    text-decoration: none;
-    font-size: 0.82rem;
-    font-weight: 600;
-    transition: color 0.2s ease;
-  }
-  
-  .quick-action-btn:hover {
-    color: var(--primary-dark);
-  }
-  
-  .quick-action-btn > i {
-    font-size: 1.15rem;
-    color: var(--primary);
-  }
-  
-  @media (max-width: 500px) {
-    .quick-actions {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 4px;
-    }
-  }
-
-  /* ═══════════════════════════════════════════════ */
   /* EMPTY STATES */
   /* ═══════════════════════════════════════════════ */
   
@@ -1484,26 +1438,6 @@
       </div>
     </div>
   </div>
-</div>
-
-<!-- QUICK ACTIONS -->
-<div class="quick-actions">
-  <a href="{% url 'appointments:portal_book' %}" class="quick-action-btn">
-    <i class='bx bx-calendar-plus'></i>
-    <span class="quick-action-label">Book Appointment</span>
-  </a>
-  <a href="{% url 'patients:my_pets' %}" class="quick-action-btn">
-    <i class='bx bxs-dog'></i>
-    <span class="quick-action-label">View My Pets</span>
-  </a>
-  <a href="{% url 'appointments:my_appointments' %}" class="quick-action-btn">
-    <i class='bx bx-calendar'></i>
-    <span class="quick-action-label">My Appointments</span>
-  </a>
-  <a href="{% url 'notifications:notification_list' %}" class="quick-action-btn">
-    <i class='bx bx-bell'></i>
-    <span class="quick-action-label">Notifications {% if unread_notif_count > 0 %}({{ unread_notif_count }}){% endif %}</span>
-  </a>
 </div>
 
 <!-- INSIGHTS SECTION -->

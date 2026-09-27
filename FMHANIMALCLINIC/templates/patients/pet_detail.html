@@ -275,7 +275,7 @@
       <a href="{% url 'patients:my_pets' %}" class="upd-hero-btn ghost">
         <i class='bx bx-arrow-back'></i> My Pets
       </a>
-      <a href="{% url 'appointments:portal_book' %}" class="upd-hero-btn ghost">
+      <a href="{% url 'appointments:portal_book' %}?pet={{ pet.pk }}" class="upd-hero-btn ghost">
         <i class='bx bx-calendar-plus'></i> Book Visit
       </a>
       <a href="{% url 'patients:edit_pet' pet.pk %}" class="upd-hero-btn ghost">
@@ -363,7 +363,7 @@
         <div style="text-align:center; color:var(--text-3); padding:24px 0; font-size:0.85rem;">
           <i class='bx bx-calendar-x' style="font-size:1.5rem; display:block; margin-bottom:6px;"></i>
           No appointments yet.
-          <a href="{% url 'appointments:portal_book' %}" style="display:block; margin-top:8px; color:var(--primary); text-decoration:none; font-weight:600;">
+          <a href="{% url 'appointments:portal_book' %}?pet={{ pet.pk }}" style="display:block; margin-top:8px; color:var(--primary); text-decoration:none; font-weight:600;">
             <i class='bx bx-calendar-plus'></i> Book an Appointment
           </a>
         </div>
