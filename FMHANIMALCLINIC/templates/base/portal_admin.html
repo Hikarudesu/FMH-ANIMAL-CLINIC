@@ -381,8 +381,8 @@
             class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"
           >
             <i class="bx bx-envelope"></i><span>Inquiries</span>
-            {% if new_inquiry_count > 0 %}
-            <span class="badge" style="background: #ef4444;">{{ new_inquiry_count }}</span>
+            {% if unanswered_inquiry_count > 0 %}
+            <span class="badge" style="background: #ef4444;">{{ unanswered_inquiry_count }}</span>
             {% endif %}
           </a>
           {% endif %}

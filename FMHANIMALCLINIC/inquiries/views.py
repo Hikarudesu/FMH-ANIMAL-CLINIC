@@ -16,7 +16,6 @@ from branches.models import Branch
 from accounts.decorators import module_permission_required
 from notifications.utils import (
     notify_inquiry_archived,
-    notify_inquiry_received,
     notify_inquiry_responded,
 )
 
@@ -85,8 +84,6 @@ def submit_inquiry(request):
                     status='NEW',
                     priority='NORMAL'
                 )
-                notify_inquiry_received(inquiry)
-                
                 return JsonResponse({
                     'success': True,
                     'message': 'Your inquiry has been submitted successfully. We will contact you soon.',
@@ -116,7 +113,6 @@ def submit_inquiry(request):
             
             if form.is_valid():
                 inquiry = form.save()
-                notify_inquiry_received(inquiry)
                 return JsonResponse({
                     'success': True,
                     'message': 'Your inquiry has been submitted successfully. We will contact you soon.',

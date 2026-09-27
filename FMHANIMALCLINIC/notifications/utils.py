@@ -142,10 +142,11 @@ def notify_inquiry_received(inquiry):
         related_object_id=inquiry.id,
     )
     
-    # Notify receptionists in the same branch
-    if inquiry.branch:
+    # Notify branch cashiers/receptionists. If no branch was selected, notify
+    # all active cashiers so the inquiry is not left unowned.
+    for role_code in ('cashier', 'receptionist'):
         notify_role_users(
-            role_code='cashier',
+            role_code=role_code,
             branch=inquiry.branch,
             title='New Inquiry Received',
             message=message,
@@ -169,10 +170,9 @@ def notify_inquiry_responded(inquiry, responder=None):
         related_object_id=inquiry.id,
     )
     
-    # Notify receptionists in the same branch
-    if inquiry.branch:
+    for role_code in ('cashier', 'receptionist'):
         notify_role_users(
-            role_code='cashier',
+            role_code=role_code,
             branch=inquiry.branch,
             title='Inquiry Responded',
             message=message,
@@ -196,10 +196,9 @@ def notify_inquiry_archived(inquiry, actor=None):
         related_object_id=inquiry.id,
     )
     
-    # Notify receptionists in the same branch
-    if inquiry.branch:
+    for role_code in ('cashier', 'receptionist'):
         notify_role_users(
-            role_code='cashier',
+            role_code=role_code,
             branch=inquiry.branch,
             title='Inquiry Archived',
             message=message,

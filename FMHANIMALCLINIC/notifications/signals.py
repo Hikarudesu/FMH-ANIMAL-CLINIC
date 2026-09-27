@@ -4,11 +4,16 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 
 from .models import Notification
-from .utils import create_notification, notify_staff_appointment_status_change
+from .utils import (
+    create_notification,
+    notify_inquiry_received,
+    notify_staff_appointment_status_change,
+)
 from appointments.models import Appointment
 from inventory.models import Product, StockAdjustment
 from inventory.expiry_alerts import run_inventory_expiry_alert_job
 from settings.utils import get_setting
+from inquiries.models import Inquiry
 
 
 User = get_user_model()
@@ -33,6 +38,13 @@ def create_appointment_notification(sender, instance, created, **kwargs):
             instance,
             instance.status,
         )
+
+
+@receiver(post_save, sender=Inquiry)
+def create_inquiry_notification(sender, instance, created, **kwargs):
+    """Notify staff whenever a new inquiry is saved through any code path."""
+    if created:
+        notify_inquiry_received(instance)
 
 
 @receiver(post_save, sender=Product)
