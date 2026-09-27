@@ -4,7 +4,7 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 
 from .models import Notification
-from .utils import create_notification, notify_role_users
+from .utils import create_notification, notify_staff_appointment_status_change
 from appointments.models import Appointment
 from inventory.models import Product, StockAdjustment
 from inventory.expiry_alerts import run_inventory_expiry_alert_job
@@ -25,45 +25,13 @@ def get_admin_users():
 def create_appointment_notification(sender, instance, created, **kwargs):
     """
     Creates a notification when a new appointment is created.
-    Notifies receptionists and vet assistants (who monitor appointments).
+    Notify every appointment-enabled staff member in the appointment branch,
+    including all veterinarians for an any-available-vet appointment.
     """
     if created:
-        appointment_msg = (
-            f"A new appointment for {instance.pet_name} was booked for "
-            f"{instance.appointment_date} at {instance.appointment_time.strftime('%I:%M %p')}."
-        )
-        
-        # Notify receptionists
-        notify_role_users(
-            role_code='cashier',
-            branch=instance.branch,
-            title='New Appointment Booking',
-            message=appointment_msg,
-            notification_type=Notification.NotificationType.APPOINTMENT,
-            module_context=Notification.ModuleContext.APPOINTMENTS,
-            related_object_id=instance.id,
-        )
-        
-        # Notify vet assistants (who have appointments module access)
-        notify_role_users(
-            role_code='assistant_veterinarian',
-            branch=instance.branch,
-            title='New Appointment Booking',
-            message=appointment_msg,
-            notification_type=Notification.NotificationType.APPOINTMENT,
-            module_context=Notification.ModuleContext.APPOINTMENTS,
-            related_object_id=instance.id,
-        )
-        
-        # Notify veterinarians (who manage appointments)
-        notify_role_users(
-            role_code='veterinarian',
-            branch=instance.branch,
-            title='New Appointment Booking',
-            message=appointment_msg,
-            notification_type=Notification.NotificationType.APPOINTMENT,
-            module_context=Notification.ModuleContext.APPOINTMENTS,
-            related_object_id=instance.id,
+        notify_staff_appointment_status_change(
+            instance,
+            instance.status,
         )
 
 
@@ -258,4 +226,3 @@ def create_inventory_restock_notification(sender, instance, created, **kwargs):
                 related_object_id=instance.product.id,
             )
             notified_user_ids.add(veterinarian.id)
-

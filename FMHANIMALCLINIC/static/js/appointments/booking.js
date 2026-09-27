@@ -23,6 +23,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Store available dates for vet-specific filtering
   let vetAvailableDates = null;
+  let timeRequestId = 0;
+  let dateAvailabilityRequestId = 0;
 
   /**
    * Fetch available vets when branch or date changes
@@ -91,6 +93,7 @@ document.addEventListener("DOMContentLoaded", function () {
    * When vet selected: show detailed time slots
    */
   function fetchTimeSlots() {
+    const requestId = ++timeRequestId;
     const vet = vetSelect.value;
     const dt = dateInput ? dateInput.value : "";
     const branch = branchSelect.value;
@@ -121,6 +124,8 @@ document.addEventListener("DOMContentLoaded", function () {
     fetch(url)
       .then((r) => r.json())
       .then((data) => {
+        if (requestId !== timeRequestId) return;
+
         timeSelect.innerHTML = '<option value="">— Select Time —</option>';
 
         if (data.times.length === 0) {
@@ -263,6 +268,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateDateAvailability() {
     const vet = vetSelect.value;
     const branch = branchSelect.value;
+    const requestId = ++dateAvailabilityRequestId;
 
     if (!vet || !dateInput || !branch) {
       vetAvailableDates = null;
@@ -282,6 +288,14 @@ document.addEventListener("DOMContentLoaded", function () {
     fetch(url)
       .then((r) => r.json())
       .then((data) => {
+        if (
+          requestId !== dateAvailabilityRequestId ||
+          vetSelect.value !== vet ||
+          dateInput.value !== currentVal
+        ) {
+          return;
+        }
+
         vetAvailableDates = data.dates || [];
         if (vetAvailableDates.length === 0) {
           showTimeHint(
@@ -295,15 +309,6 @@ document.addEventListener("DOMContentLoaded", function () {
           );
         }
 
-        // If current date is selected but not available, clear it
-        if (currentVal && !vetAvailableDates.includes(currentVal)) {
-          dateInput.value = "";
-          timeSelect.innerHTML = '<option value="">— Select date first —</option>';
-          showTimeHint(
-            "Your selected date is not in this vet's schedule. Please pick an available date.",
-            "#e65100"
-          );
-        }
       })
       .catch(() => {
         vetAvailableDates = null;
@@ -313,33 +318,15 @@ document.addEventListener("DOMContentLoaded", function () {
   // ─── Event Listeners ───
 
   branchSelect.addEventListener("change", function () {
-    // Store current vet selection state before fetching new vets
-    const currentVetValue = vetSelect.value;
-    const currentTimeValue = timeSelect.value;
-    const isAnyVetMode = !currentVetValue; // True if "any available vet" was selected
-    
-    fetchVets();
     vetAvailableDates = null;
-    
-    // If user had "any available vet" selected and a date is set, re-fetch time slots
-    // This preserves the AM/PM mode instead of resetting to "specific time"
-    if (isAnyVetMode && dateInput && dateInput.value) {
-      // Short delay to allow vets to load first
-      setTimeout(() => {
+    fetchVets().then(() => {
+      if (dateInput && dateInput.value) {
         fetchTimeSlots();
-        // Try to restore previous time selection (MORNING/AFTERNOON)
-        if (currentTimeValue === "MORNING" || currentTimeValue === "AFTERNOON") {
-          setTimeout(() => {
-            if (timeSelect.querySelector(`option[value="${currentTimeValue}"]`)) {
-              timeSelect.value = currentTimeValue;
-            }
-          }, 100);
-        }
-      }, 200);
-    } else {
-      timeSelect.innerHTML = '<option value="">— Select branch and date first —</option>';
-      showTimeHint("Select a date to see available time slots.");
-    }
+      } else {
+        timeSelect.innerHTML = '<option value="">— Select branch and date first —</option>';
+        showTimeHint("Select a date to see available time slots.");
+      }
+    });
   });
 
   if (dateInput) {
@@ -353,10 +340,12 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   vetSelect.addEventListener("change", function () {
+    // Do not use the previous vet's schedule while loading the new one.
+    vetAvailableDates = null;
     if (this.value) {
       updateDateAvailability();
     } else {
-      vetAvailableDates = null;
+      dateAvailabilityRequestId += 1;
       showTimeHint("Select a date to see all available time slots.");
     }
     if (dateInput && dateInput.value) {
