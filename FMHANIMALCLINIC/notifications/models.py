@@ -164,6 +164,10 @@ class Notification(models.Model):
             visible_module_codes = set(
                 user.assigned_role.module_permissions.values_list('module__code', flat=True)
             )
+            # Cashiers handle appointment intake and must see appointment
+            # notifications even for databases with older role permissions.
+            if user.assigned_role.code in ('cashier', 'receptionist'):
+                visible_module_codes.add(cls.ModuleContext.APPOINTMENTS)
             visible_module_codes.update(['notifications', cls.ModuleContext.GENERAL])
             return visible_module_codes
 

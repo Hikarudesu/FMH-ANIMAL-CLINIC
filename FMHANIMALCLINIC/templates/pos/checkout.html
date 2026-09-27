@@ -60,6 +60,7 @@
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    justify-content: center;
   }
 
   .pos-category-tab {
@@ -1158,7 +1159,7 @@ let lastCompletedSaleId = null;
 
 // Pagination vars
 let currentPage = 1;
-const itemsPerPage = 21;
+let itemsPerPage = window.matchMedia('(max-width: 1024px)').matches ? 5 : 21;
 let currentCategory = 'all';
 
 // CSRF Token
@@ -1811,6 +1812,15 @@ function applyFiltersAndPagination() {
   renderPaginationLimits(totalPages);
 }
 
+window.addEventListener('resize', function () {
+  const nextItemsPerPage = window.matchMedia('(max-width: 1024px)').matches ? 5 : 21;
+  if (nextItemsPerPage !== itemsPerPage) {
+    itemsPerPage = nextItemsPerPage;
+    currentPage = 1;
+    applyFiltersAndPagination();
+  }
+});
+
 function changePage(delta) {
   currentPage += delta;
   applyFiltersAndPagination();
@@ -1914,4 +1924,3 @@ if (paymentInput) {
 
 </script>
 {% endblock %}
-

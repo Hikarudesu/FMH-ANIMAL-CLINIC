@@ -419,10 +419,11 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
     # Track users already notified
     notified_user_ids = set()
 
-    # Notify receptionists in the same branch
+    # Notify cashiers in the same branch. Include the legacy receptionist
+    # role code for accounts created before the role rename.
     receptionists = User.objects.filter(
         is_active=True,
-        assigned_role__code='cashier',
+        assigned_role__code__in=('cashier', 'receptionist'),
         branch=appointment.branch,
     )
     
