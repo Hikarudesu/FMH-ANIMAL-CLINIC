@@ -526,6 +526,9 @@
             class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}"
           >
             <i class="bx bx-calendar-check"></i><span>Appointments</span>
+            {% if pending_appointments_count > 0 %}
+            <span class="badge">{{ pending_appointments_count }}</span>
+            {% endif %}
           </a>
           {% endif %}
 

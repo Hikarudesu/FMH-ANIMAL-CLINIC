@@ -186,6 +186,9 @@
       </a>
       <a href="{% url 'appointments:my_appointments' %}" class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}">
         <i class='bx bx-calendar-check'></i><span>Appointments</span>
+        {% if pending_appointments_count > 0 %}
+        <span class="badge">{{ pending_appointments_count }}</span>
+        {% endif %}
       </a>
       <a href="{% url 'inventory:catalog' %}" class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}">
         <i class='bx bx-cart'></i><span>Digital Catalog</span>

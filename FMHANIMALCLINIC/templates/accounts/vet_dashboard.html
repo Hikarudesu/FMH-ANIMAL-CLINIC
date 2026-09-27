@@ -280,62 +280,6 @@
 </div>
 {% endif %}
 
-<!-- ALL CLINIC APPOINTMENTS TODAY -->
-<div class="schedule-section mt-4" style="margin-top: 2rem;">
-  <div class="section-title">
-    <i class='bx bx-calendar'></i>
-    <span>All Branch Appointments Today</span>
-  </div>
-  
-  <div class="schedule-table-wrapper">
-    {% if all_branch_appointments_today %}
-    <table class="schedule-table" style="background-color: var(--section-bg-secondary);">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Patient</th>
-          <th>Owner</th>
-          <th>Assigned To</th>
-          <th>Reason</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for appt in all_branch_appointments_today %}
-        <tr>
-          <td>
-            <span class="time-badge">{{ appt.appointment_time_display }}</span>
-          </td>
-          <td>
-            <div class="patient-info">
-              <i class='bx bxs-dog'></i>
-              <span>{{ appt.pet_name }}</span>
-            </div>
-          </td>
-          <td>{{ appt.owner_name }}</td>
-          <td>
-             {% if appt.preferred_vet %}
-                 {{ appt.preferred_vet.user.get_full_name }}
-             {% else %}
-                 <span style="color: var(--text-3); font-style: italic;">Unassigned</span>
-             {% endif %}
-          </td>
-          <td><span class="reason-tag">{{ appt.reason_display }}</span></td>
-          <td><span class="status-pill {{ appt.status|lower }}">{{ appt.get_status_display }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-schedule">
-      <i class='bx bx-calendar-x'></i>
-      <h4>No appointments for the branch today</h4>
-      <p>The branch schedule is clear today.</p>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
 <!-- THIS WEEK'S SCHEDULE SECTION -->
 <div class="schedule-section">
   <div class="section-title">

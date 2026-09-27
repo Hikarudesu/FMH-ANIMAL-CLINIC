@@ -20,7 +20,11 @@ from .models import Appointment
 from .forms import PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm, AppointmentEditForm
 from .services import AppointmentService
 from notifications.email_utils import send_appointment_confirmation
-from notifications.utils import notify_appointment_status_change, notify_follow_up_scheduled, notify_staff_appointment_status_change
+from notifications.utils import (
+    notify_appointment_status_change,
+    notify_follow_up_scheduled,
+    notify_staff_appointment_status_change,
+)
 
 
 # ──────────────────────── AVAILABILITY ENGINE ────────────────────────
@@ -51,6 +55,9 @@ def public_book(request):
         if form.is_valid():
             appointment = form.save()
             send_appointment_confirmation(appointment)
+            notify_staff_appointment_status_change(
+                appointment, appointment.status
+            )
             messages.success(
                 request,
                 'Your appointment has been booked successfully! We will contact you to confirm.'
@@ -85,6 +92,9 @@ def portal_book(request):
         if form.is_valid():
             appointment = form.save()
             send_appointment_confirmation(appointment)
+            notify_staff_appointment_status_change(
+                appointment, appointment.status, actor=request.user
+            )
             messages.success(
                 request, 'Your appointment has been booked successfully!')
             return redirect('appointments:my_appointments')

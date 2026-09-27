@@ -386,7 +386,14 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
     if actor is not None:
         actor_label = actor.get_full_name() or actor.username
 
-    if status == 'CONFIRMED':
+    if status == 'PENDING':
+        title = f'New Appointment Request: {appointment.pet_name}'
+        message = (
+            f'Appointment request for {appointment.pet_name} is pending review for '
+            f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
+            f"{appointment.appointment_time.strftime('%I:%M %p')}."
+        )
+    elif status == 'CONFIRMED':
         title = f'Appointment Confirmed: {appointment.pet_name}'
         message = (
             f'Appointment for {appointment.pet_name} has been confirmed for '
