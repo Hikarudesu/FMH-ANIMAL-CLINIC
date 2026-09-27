@@ -1185,9 +1185,10 @@ def vet_dashboard_view(request):
         todays_appointments = (
             Appointment.objects.filter(
                 appointment_date=today,
-                preferred_vet=staff_profile,
                 pet__isnull=False,
                 **appt_filter
+            ).filter(
+                Q(preferred_vet=staff_profile) | Q(preferred_vet__isnull=True)
             )
             .exclude(status='CANCELLED')
             .select_related('pet', 'branch', 'preferred_vet')

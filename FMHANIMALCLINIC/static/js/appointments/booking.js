@@ -30,18 +30,19 @@ document.addEventListener("DOMContentLoaded", function () {
   function fetchVets() {
     const branch = branchSelect.value;
     const dt = dateInput ? dateInput.value : "";
+    const selectedVet = vetSelect.value;
 
     vetSelect.innerHTML = '<option value="">Loading...</option>';
 
     if (!branch) {
       vetSelect.innerHTML = '<option value="">— Select branch first —</option>';
-      return;
+      return Promise.resolve();
     }
 
     let url = API_VETS + "?branch=" + branch;
     if (dt) url += "&date=" + dt;
 
-    fetch(url)
+    return fetch(url)
       .then((r) => r.json())
       .then((data) => {
         vetSelect.innerHTML =
@@ -66,6 +67,17 @@ document.addEventListener("DOMContentLoaded", function () {
           opt.textContent = v.name;
           vetSelect.appendChild(opt);
         });
+
+        // Date/branch reloads must not silently discard a vet selected while
+        // the availability request was in flight.
+        if (
+          selectedVet &&
+          Array.from(vetSelect.options).some(
+            (option) => option.value === selectedVet
+          )
+        ) {
+          vetSelect.value = selectedVet;
+        }
       })
       .catch(() => {
         vetSelect.innerHTML =
@@ -333,12 +345,10 @@ document.addEventListener("DOMContentLoaded", function () {
   if (dateInput) {
     // Listen to both 'input' and 'change' to handle both date picker and manual input
     dateInput.addEventListener("input", function () {
-      fetchVets();
-      fetchTimeSlots();
+      fetchVets().then(fetchTimeSlots);
     });
     dateInput.addEventListener("change", function () {
-      fetchVets();
-      fetchTimeSlots();
+      fetchVets().then(fetchTimeSlots);
     });
   }
 

@@ -232,7 +232,7 @@
 <div class="schedule-section">
   <div class="section-title">
     <i class='bx bx-user-pin'></i>
-    <span>My Appointments Today</span>
+    <span>My Appointments &amp; Any Available Vet Today</span>
     <a href="{% url 'appointments:admin_list' %}" class="section-link">View All <i class='bx bx-right-arrow-alt'></i></a>
   </div>
   
@@ -258,7 +258,12 @@
           <td>
             <div class="patient-info">
               <i class='bx bxs-dog'></i>
-              <span>{{ appt.pet_name }}</span>
+              <span>
+                {{ appt.pet_name }}
+                {% if not appt.preferred_vet %}
+                <small style="display:block; color:var(--text-3);">Any Available Vet</small>
+                {% endif %}
+              </span>
             </div>
           </td>
           <td>{{ appt.owner_name }}</td>
