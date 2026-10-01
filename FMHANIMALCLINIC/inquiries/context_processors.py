@@ -7,7 +7,7 @@ def new_inquiry_count(request):
     current staff user's visible branch scope.
     """
     if request.user.is_authenticated:
-        if request.user.is_clinic_staff():
+        if request.user.is_clinic_staff() and not request.user.is_superuser:
             inquiries = Inquiry.objects.filter(status__in=('NEW', 'READ'))
             if (
                 not request.user.is_superuser

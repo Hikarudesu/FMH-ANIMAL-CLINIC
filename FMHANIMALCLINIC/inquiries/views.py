@@ -20,6 +20,21 @@ from notifications.utils import (
 )
 
 
+def _inquiry_staff_access_required(view):
+    """Allow inquiry management to designated staff, excluding superadmins."""
+    from functools import wraps
+    from django.core.exceptions import PermissionDenied
+
+    @wraps(view)
+    @login_required
+    def wrapped(request, *args, **kwargs):
+        if request.user.is_superuser or not request.user.has_module_permission('inquiries', 'VIEW'):
+            raise PermissionDenied
+        return view(request, *args, **kwargs)
+
+    return wrapped
+
+
 def submit_inquiry(request):
     """
     AJAX endpoint for contact form submission.
@@ -130,8 +145,7 @@ def submit_inquiry(request):
     }, status=405)
 
 
-@login_required
-@module_permission_required('inquiries', 'VIEW')
+@_inquiry_staff_access_required
 def inquiry_list(request):
     """Admin view: List all inquiries with filtering."""
     inquiries = Inquiry.objects.select_related('branch', 'responded_by').all()
@@ -208,8 +222,7 @@ def inquiry_list(request):
     return render(request, 'inquiries/inquiry_list.html', context)
 
 
-@login_required
-@module_permission_required('inquiries', 'VIEW')
+@_inquiry_staff_access_required
 def inquiry_detail(request, pk):
     """Admin view: View and respond to a specific inquiry."""
     inquiry = get_object_or_404(Inquiry.objects.select_related('branch', 'responded_by'), pk=pk)
@@ -267,7 +280,7 @@ def inquiry_detail(request, pk):
     return render(request, 'inquiries/inquiry_detail.html', context)
 
 
-@login_required
+@_inquiry_staff_access_required
 @module_permission_required('inquiries', 'EDIT')
 @require_http_methods(['POST'])
 def inquiry_update_status(request, pk):
@@ -316,7 +329,7 @@ def inquiry_update_status(request, pk):
         }, status=400)
 
 
-@login_required
+@_inquiry_staff_access_required
 @module_permission_required('inquiries', 'EDIT')
 @require_http_methods(['POST'])
 def inquiry_bulk_action(request):
@@ -375,8 +388,7 @@ def inquiry_bulk_action(request):
         }, status=400)
 
 
-@login_required
-@module_permission_required('inquiries', 'VIEW')
+@_inquiry_staff_access_required
 def get_inquiry_stats(request):
     """API endpoint to get inquiry statistics (for dashboard widget)."""
     # Check if user is branch-restricted for inquiries

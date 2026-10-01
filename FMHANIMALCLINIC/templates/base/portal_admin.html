@@ -374,8 +374,8 @@
           </div>
           {% endif %}
 
-          {# Inquiries #}
-          {% if user|has_nav_module:'inquiries' %}
+          {# Inquiries are handled by designated staff, not superadmins. #}
+          {% if not user.is_superuser and user|has_nav_module:'inquiries' %}
           <a
             href="{% url 'inquiries:list' %}"
             class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"
@@ -584,7 +584,7 @@
           {% endif %}
 
           {# 7. Inquiries #}
-          {% if user|has_nav_module:'inquiries' %}
+          {% if not user.is_superuser and user|has_nav_module:'inquiries' %}
           <a
             href="{% url 'inquiries:list' %}"
             class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"
