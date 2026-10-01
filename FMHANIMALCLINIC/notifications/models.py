@@ -140,12 +140,12 @@ class Notification(models.Model):
         from accounts.rbac_models import Module
 
         if user.is_superuser:
-            visible_module_codes = set()
-            for module_code in Module.objects.filter(is_active=True).values_list('code', flat=True):
-                if module_code in OVERSEER_HIDDEN_NAV_MODULES:
-                    continue
-                visible_module_codes.add(module_code)
-
+            # Sidebar modules hidden from superadmins are still valid system
+            # event scopes. Notification visibility must cover the whole
+            # system, not only the navigation modules shown in the portal.
+            visible_module_codes = set(
+                Module.objects.filter(is_active=True).values_list('code', flat=True)
+            )
             visible_module_codes.update(['notifications', cls.ModuleContext.GENERAL])
             return visible_module_codes
 

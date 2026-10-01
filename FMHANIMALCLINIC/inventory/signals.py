@@ -3,11 +3,11 @@ Signal handlers for inventory app.
 Automatically log activities when stock adjustments, reservations, and transfers occur.
 Also creates notifications for reservation state changes and other inventory events.
 """
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_delete, pre_save
 from django.dispatch import receiver
-from django.utils import timezone
 
-from accounts.models import ActivityLog
+from accounts.activity_context import get_current_actor
+from accounts.models import ActivityLog, log_activity
 from .models import StockAdjustment, Reservation, StockTransfer
 
 # Store to track previous status in pre_save
@@ -47,13 +47,15 @@ def log_stock_adjustment(sender, instance, created, **kwargs):
         if instance.reason:
             details += f" | Reason: {instance.reason}"
 
-        ActivityLog.objects.create(
-            user=system_user,
+        log_activity(
+            user=get_current_actor() or system_user,
             action=action,
             category=ActivityLog.Category.STOCK,
+            action_type=ActivityLog.ActionType.CREATE,
             branch=instance.branch,
             details=details,
-            timestamp=timezone.now()
+            object_type='StockAdjustment',
+            object_id=instance.pk,
         )
 
 
@@ -103,13 +105,18 @@ def handle_reservation_notifications_and_logging(sender, instance, created, **kw
         f"User: {instance.user.get_full_name() or instance.user.username}"
     )
 
-    ActivityLog.objects.create(
-        user=instance.user,
+    log_activity(
+        user=get_current_actor() or instance.user,
         action=action,
         category=ActivityLog.Category.STOCK,
+        action_type=(
+            ActivityLog.ActionType.CREATE if created
+            else ActivityLog.ActionType.UPDATE
+        ),
         branch=instance.product.branch,
         details=details,
-        timestamp=timezone.now()
+        object_type='Reservation',
+        object_id=instance.pk,
     )
     
     # Create notifications based on status changes
@@ -143,11 +150,55 @@ def log_stock_transfer(sender, instance, created, **kwargs):
         f"Quantity: {instance.quantity}"
     )
 
-    ActivityLog.objects.create(
-        user=instance.requested_by if created else (instance.processed_by or instance.requested_by),
+    log_activity(
+        user=(
+            get_current_actor()
+            or (instance.requested_by if created else (instance.processed_by or instance.requested_by))
+        ),
         action=action,
         category=ActivityLog.Category.STOCK,
+        action_type=(
+            ActivityLog.ActionType.CREATE if created
+            else ActivityLog.ActionType.UPDATE
+        ),
         branch=instance.destination_branch,
         details=details,
-        timestamp=timezone.now()
+        object_type='StockTransfer',
+        object_id=instance.pk,
+    )
+
+
+@receiver(pre_delete, sender=Reservation)
+def log_reservation_delete(sender, instance, **kwargs):
+    """Log reservation deletion before related records are removed."""
+    actor = get_current_actor() or instance.user
+    if not actor:
+        return
+    log_activity(
+        user=actor,
+        action=f'Reservation deleted: {instance.pk}',
+        category=ActivityLog.Category.STOCK,
+        action_type=ActivityLog.ActionType.DELETE,
+        branch=instance.product.branch,
+        details=f'Product: {instance.product.name} | Quantity: {instance.quantity}',
+        object_type='Reservation',
+        object_id=instance.pk,
+    )
+
+
+@receiver(pre_delete, sender=StockTransfer)
+def log_stock_transfer_delete(sender, instance, **kwargs):
+    """Log stock transfer deletion before related records are removed."""
+    actor = get_current_actor() or instance.requested_by
+    if not actor:
+        return
+    log_activity(
+        user=actor,
+        action=f'Stock transfer deleted: {instance.pk}',
+        category=ActivityLog.Category.STOCK,
+        action_type=ActivityLog.ActionType.DELETE,
+        branch=instance.destination_branch,
+        details=f'Product: {instance.source_product.name} | Quantity: {instance.quantity}',
+        object_type='StockTransfer',
+        object_id=instance.pk,
     )

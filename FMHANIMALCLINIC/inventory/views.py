@@ -18,6 +18,8 @@ from accounts.decorators import module_permission_required
 from branches.models import Branch
 from notifications.models import Notification
 from notifications.utils import (
+    notify_module_users,
+    notify_reservation_status,
     notify_stock_transfer_approved,
     notify_stock_transfer_completed,
     notify_stock_transfer_rejected,
@@ -92,29 +94,8 @@ def auto_cancel_expired_reservations():
             reason="Automatically cancelled due to 24-hour expiration.",
         )
 
-        # Notify receptionists in the product's branch
-        admin_users = User.objects.filter(
-            assigned_role__code='cashier',
-            branch=res.product.branch
-        )
-        for admin in admin_users:
-            Notification.objects.create(
-                user=admin,
-                title="Reservation Auto-Cancelled",
-                message=(
-                    f"Reservation #{res.pk} for {res.quantity}x {res.product.name} "
-                    f"({res.product.sale_type_label}, {res.product.unit_display}) "
-                    f"reserved by {res.user.get_full_name() or res.user.username} "
-                    f"was automatically cancelled (24h expired)."
-                ),
-                notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=res.pk,
-            )
-
-        # Notify user
-        Notification.objects.create(
-            user=res.user,
+        notify_reservation_status(
+            res,
             title="Reservation Expired",
             message=(
                 f"Your reservation for {res.quantity}x {res.product.name} "
@@ -122,8 +103,6 @@ def auto_cancel_expired_reservations():
                 f"has expired after 24 hours and was cancelled."
             ),
             notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
-            module_context=Notification.ModuleContext.INVENTORY,
-            related_object_id=res.pk,
         )
 
 
@@ -542,24 +521,19 @@ def reserve_product_view(request, pk):
         return redirect('inventory:catalog')
 
     try:
-        admin_users = User.objects.filter(  # pylint: disable=no-member
-            assigned_role__code='cashier',
-            branch=product.branch
+        notify_module_users(
+            module_code='inventory',
+            branch=product.branch,
+            title="New Product Reservation",
+            message=(
+                f"{request.user.get_full_name() or request.user.username} "
+                f"reserved {quantity}x {product.name} "
+                f"({product.sale_type_label}, {product.unit_display})."
+            ),
+            notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
+            module_context=Notification.ModuleContext.INVENTORY,
+            related_object_id=reservation.pk,
         )
-        for admin in admin_users:
-            Notification.objects.create(  # pylint: disable=no-member
-                user=admin,
-                title="New Product Reservation",
-                message=(
-                    f"{request.user.get_full_name() or request.user.username} "
-                    f"reserved {quantity}x {product.name} "
-                    f"({product.sale_type_label}, {product.unit_display})."
-                ),
-                notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=reservation.pk,
-            )
-
     except Exception as exc:  # pragma: no cover - keep reservation flow resilient
         logger.warning(
             'Reservation post-save notifications failed for RSV-%s',
@@ -613,18 +587,15 @@ def confirm_reservation_view(request, pk):
     reservation.status = Reservation.Status.RELEASED
     reservation.save()
 
-    # Notify the user
-    Notification.objects.create(  # pylint: disable=no-member
-        user=reservation.user,
+    notify_reservation_status(
+        reservation,
         title="Reservation Released",
         message=(
             f"Your reservation for {reservation.quantity}x "
             f"{reservation.product.name} ({reservation.product.sale_type_label}, {reservation.product.unit_display}) has been released. "
             f"Thank you for your purchase!"
         ),
-        notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
-        module_context=Notification.ModuleContext.INVENTORY,
-        related_object_id=reservation.pk,
+        notification_type=Notification.NotificationType.RESERVATION_READY,
     )
 
     messages.success(
@@ -664,36 +635,26 @@ def cancel_reservation_view(request, pk):
             reason=f"Reservation cancelled by {request.user.get_full_name() or request.user.username}",
         )
 
-    # Notify admins (hierarchy level >= 8: Branch Admin or higher)
-    admin_users = User.objects.filter(  # pylint: disable=no-member
-        assigned_role__hierarchy_level__gte=8
+    notify_reservation_status(
+        reservation,
+        title="Reservation Cancelled",
+        message=(
+            f"Reservation for {reservation.quantity}x {reservation.product.name} by "
+            f"{reservation.user.get_full_name() or reservation.user.username} "
+            f"was cancelled. Stock has been restored."
+        ),
+        notification_type=Notification.NotificationType.RESERVATION_REJECTED,
+        notify_owner=False,
     )
-    for admin in admin_users:
-        Notification.objects.create(  # pylint: disable=no-member
-            user=admin,
-            title="Reservation Cancelled",
-            message=(
-                f"Reservation for {reservation.quantity}x "
-                f"{reservation.product.name} by "
-                f"{reservation.user.get_full_name() or reservation.user.username} "
-                f"was cancelled. Stock has been restored."
-            ),
-            notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
-            module_context=Notification.ModuleContext.INVENTORY,
-            related_object_id=reservation.pk,
-        )
-
-    # Notify user it was cancelled by the clinic
-    Notification.objects.create(  # pylint: disable=no-member
-        user=reservation.user,
+    notify_reservation_status(
+        reservation,
         title="Reservation Cancelled",
         message=(
             f"Your reservation for {reservation.quantity}x {reservation.product.name} "
             f"({reservation.product.sale_type_label}, {reservation.product.unit_display}) was cancelled by the clinic."
         ),
-        notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
-        module_context=Notification.ModuleContext.INVENTORY,
-        related_object_id=reservation.pk,
+        notification_type=Notification.NotificationType.RESERVATION_REJECTED,
+        notify_staff=False,
     )
 
     messages.success(

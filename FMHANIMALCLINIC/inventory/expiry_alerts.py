@@ -2,15 +2,12 @@
 
 from datetime import timedelta
 
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from inventory.models import Product
 from notifications.models import Notification
+from notifications.utils import notify_module_users
 from settings.utils import get_setting
-
-
-User = get_user_model()
 
 
 def run_inventory_expiry_alert_job(product_ids=None):
@@ -48,8 +45,6 @@ def run_inventory_expiry_alert_job(product_ids=None):
     if product_ids:
         products = products.filter(id__in=product_ids)
 
-    admins = User.objects.filter(is_staff=True)
-
     notifications_created = 0
     products_scanned = 0
 
@@ -70,85 +65,19 @@ def run_inventory_expiry_alert_job(product_ids=None):
             f"expires on {product.expiration_date:%Y-%m-%d} ({lead_text})."
         )
 
-        # Notify admins
-        for admin in admins:
-            exists_today = Notification.objects.filter(
-                user=admin,
-                notification_type=Notification.NotificationType.INVENTORY_EXPIRY_ALERT,
-                related_object_id=product.id,
-                created_at__date=today,
-            ).exists()
-
-            if exists_today:
-                continue
-
-            Notification.objects.create(
-                user=admin,
+        recipients = list(
+            notify_module_users(
+                module_code='inventory',
+                branch=product.branch,
                 title=title,
                 message=message,
                 notification_type=Notification.NotificationType.INVENTORY_EXPIRY_ALERT,
                 module_context=Notification.ModuleContext.INVENTORY,
                 related_object_id=product.id,
-            )
-            notifications_created += 1
-        
-        # Notify receptionists in the same branch
-        if product.branch:
-            receptionists = User.objects.filter(
-                is_active=True,
-                assigned_role__code='cashier',
-                branch=product.branch,
-            )
-            
-            for receptionist in receptionists:
-                exists_today = Notification.objects.filter(
-                    user=receptionist,
-                    notification_type=Notification.NotificationType.INVENTORY_EXPIRY_ALERT,
-                    related_object_id=product.id,
-                    created_at__date=today,
-                ).exists()
-
-                if exists_today:
-                    continue
-
-                Notification.objects.create(
-                    user=receptionist,
-                    title=title,
-                    message=message,
-                    notification_type=Notification.NotificationType.INVENTORY_EXPIRY_ALERT,
-                    module_context=Notification.ModuleContext.INVENTORY,
-                    related_object_id=product.id,
-                )
-                notifications_created += 1
-        
-        # Also notify vet assistants in the same branch
-        if product.branch:
-            vet_assistants = User.objects.filter(
-                is_active=True,
-                assigned_role__code='assistant_veterinarian',
-                branch=product.branch,
-            )
-            
-            for vet_assistant in vet_assistants:
-                exists_today = Notification.objects.filter(
-                    user=vet_assistant,
-                    notification_type=Notification.NotificationType.INVENTORY_EXPIRY_ALERT,
-                    related_object_id=product.id,
-                    created_at__date=today,
-                ).exists()
-
-                if exists_today:
-                    continue
-
-                Notification.objects.create(
-                    user=vet_assistant,
-                    title=title,
-                    message=message,
-                    notification_type=Notification.NotificationType.INVENTORY_EXPIRY_ALERT,
-                    module_context=Notification.ModuleContext.INVENTORY,
-                    related_object_id=product.id,
-                )
-                notifications_created += 1
+                dedupe_window_minutes=1440,
+            ) or []
+        )
+        notifications_created += len(recipients)
 
     return {
         'alerts_enabled': True,

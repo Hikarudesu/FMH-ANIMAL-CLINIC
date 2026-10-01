@@ -273,53 +273,34 @@ def sync_pet_clinical_status(sender, instance, **kwargs):
     # Create a notification for the pet's owner (only if owner exists)
     if pet.owner:
         from notifications.models import Notification  # local import to avoid circular
+        from notifications.utils import create_notification
 
         status_msg = STATUS_MESSAGES.get(new_status_code, 'has an updated clinical status.')
-        Notification.objects.create(
+        create_notification(
             user=pet.owner,
             title=f"Clinical Update: {pet.name}",
             message=f"Your pet {pet.name} {status_msg}",
-            notification_type=Notification.NotificationType.GENERAL,
+            notification_type=Notification.NotificationType.MEDICAL_RECORD_UPDATE,
             module_context=Notification.ModuleContext.MEDICAL_RECORDS,
+            related_object_id=instance.record.id,
         )
 
     # Also notify vet assistants in the same branch (they have medical records access)
     if instance.record.branch:
-        from accounts.models import User
         from notifications.models import Notification
+        from notifications.utils import notify_module_users
 
-        vet_assistants = User.objects.filter(
-            is_active=True,
-            assigned_role__code='assistant_veterinarian',
+        status_msg = STATUS_MESSAGES.get(new_status_code, 'has an updated clinical status.')
+        notify_module_users(
+            module_code='medical_records',
             branch=instance.record.branch,
+            title=f"Clinical Status Update: {pet.name}",
+            message=(
+                f"{pet.name}'s clinical status has changed to: "
+                f"{clinical_status_obj.description}. {status_msg}"
+            ),
+            notification_type=Notification.NotificationType.MEDICAL_RECORD_UPDATE,
+            module_context=Notification.ModuleContext.MEDICAL_RECORDS,
+            related_object_id=instance.record.id,
         )
-        
-        for vet_assistant in vet_assistants:
-            status_msg = STATUS_MESSAGES.get(new_status_code, 'has an updated clinical status.')
-            Notification.objects.create(
-                user=vet_assistant,
-                title=f"Clinical Status Update: {pet.name}",
-                message=f"{pet.name}'s clinical status has changed to: {clinical_status_obj.description}. {status_msg}",
-                notification_type=Notification.NotificationType.MEDICAL_RECORD_UPDATE,
-                module_context=Notification.ModuleContext.MEDICAL_RECORDS,
-                related_object_id=instance.record.id,
-            )
-        
-        # Also notify veterinarians in the same branch
-        veterinarians = User.objects.filter(
-            is_active=True,
-            assigned_role__code='veterinarian',
-            branch=instance.record.branch,
-        )
-        
-        for veterinarian in veterinarians:
-            status_msg = STATUS_MESSAGES.get(new_status_code, 'has an updated clinical status.')
-            Notification.objects.create(
-                user=veterinarian,
-                title=f"Clinical Status Update: {pet.name}",
-                message=f"{pet.name}'s clinical status has changed to: {clinical_status_obj.description}. {status_msg}",
-                notification_type=Notification.NotificationType.MEDICAL_RECORD_UPDATE,
-                module_context=Notification.ModuleContext.MEDICAL_RECORDS,
-                related_object_id=instance.record.id,
-            )
 

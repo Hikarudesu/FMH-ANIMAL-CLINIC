@@ -8,6 +8,22 @@ from django.contrib import messages
 from django.utils import timezone
 
 from .utils import get_setting
+from accounts.activity_context import reset_current_actor, set_current_actor
+
+
+class ActivityActorMiddleware:
+    """Expose the authenticated request actor to model audit signals."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        actor = request.user if request.user.is_authenticated else None
+        token = set_current_actor(actor)
+        try:
+            return self.get_response(request)
+        finally:
+            reset_current_actor(token)
 
 
 class SessionTimeoutMiddleware:

@@ -5,11 +5,15 @@ from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.contrib.auth import get_user_model
 from accounts.models import ActivityLog, log_activity
+from accounts.activity_context import get_current_actor
 
 
 def _resolve_actor(instance):
     """Return request actor when available; otherwise use a system fallback user."""
     actor = getattr(instance, '_user', None)
+    if actor:
+        return actor
+    actor = get_current_actor()
     if actor:
         return actor
     user_model = get_user_model()
@@ -56,7 +60,7 @@ try:
     @receiver(post_save, sender=Appointment)
     def log_appointment_changes(sender, instance, created, **kwargs):
         """Log appointment creation and updates."""
-        user = getattr(instance, '_user', None)
+        user = _resolve_actor(instance)
         if not user:
             return
 
@@ -75,6 +79,7 @@ try:
                 ip_address=ip_address
             )
         else:
+
             log_activity(
                 user=user,
                 action=f"Appointment updated: {instance.pet_name}",
@@ -118,7 +123,7 @@ try:
     @receiver(post_save, sender=Pet)
     def log_pet_changes(sender, instance, created, **kwargs):
         """Log pet creation and updates."""
-        user = getattr(instance, '_user', None)
+        user = _resolve_actor(instance)
         if not user:
             return
 
@@ -177,7 +182,7 @@ try:
     @receiver(post_save, sender=MedicalRecord)
     def log_medical_record_changes(sender, instance, created, **kwargs):
         """Log medical record creation and updates."""
-        user = getattr(instance, '_user', None)
+        user = _resolve_actor(instance)
         if not user:
             return
 
@@ -234,7 +239,7 @@ try:
     @receiver(post_save, sender=Sale)
     def log_sale_changes(sender, instance, created, **kwargs):
         """Log sale creation and updates."""
-        user = getattr(instance, '_user', None)
+        user = _resolve_actor(instance)
         if not user:
             return
 
@@ -275,7 +280,7 @@ try:
     @receiver(post_save, sender=CustomerStatement)
     def log_statement_changes(sender, instance, created, **kwargs):
         """Log statement creation and updates."""
-        user = getattr(instance, '_user', None)
+        user = _resolve_actor(instance)
         if not user:
             return
 
@@ -316,7 +321,7 @@ try:
     @receiver(post_save, sender=Product)
     def log_product_changes(sender, instance, created, **kwargs):
         """Log product creation and updates."""
-        user = getattr(instance, '_user', None)
+        user = _resolve_actor(instance)
         if not user:
             return
 
@@ -378,7 +383,7 @@ try:
     @receiver(post_save, sender=StaffMember)
     def log_staff_changes(sender, instance, created, **kwargs):
         """Log staff creation and updates."""
-        user = getattr(instance, '_user', None)
+        user = _resolve_actor(instance)
         if not user:
             return
 
@@ -441,7 +446,7 @@ try:
     @receiver(post_save, sender=Payroll)
     def log_payroll_changes(sender, instance, created, **kwargs):
         """Log payroll creation and updates."""
-        user = getattr(instance, '_user', None)
+        user = _resolve_actor(instance)
         if not user:
             return
 
@@ -490,6 +495,95 @@ except ImportError:
 
 
 try:
+    from inquiries.models import Inquiry
+
+    @receiver(post_save, sender=Inquiry)
+    def log_inquiry_changes(sender, instance, created, **kwargs):
+        """Log inquiry creation and status updates."""
+        user = getattr(instance, 'responded_by', None) or _resolve_actor(instance)
+        if not user:
+            return
+
+        action = 'Inquiry received' if created else 'Inquiry updated'
+        log_activity(
+            user=user,
+            action=f'{action}: {instance.full_name}',
+            category=ActivityLog.Category.SYSTEM,
+            action_type=(
+                ActivityLog.ActionType.CREATE if created
+                else ActivityLog.ActionType.UPDATE
+            ),
+            branch=instance.branch,
+            details=f'Status: {instance.status} | Priority: {instance.priority}',
+            object_type='Inquiry',
+            object_id=instance.id,
+        )
+
+    @receiver(pre_delete, sender=Inquiry)
+    def log_inquiry_delete(sender, instance, **kwargs):
+        user = _resolve_actor(instance)
+        if not user:
+            return
+
+        log_activity(
+            user=user,
+            action=f'Inquiry deleted: {instance.full_name}',
+            category=ActivityLog.Category.SYSTEM,
+            action_type=ActivityLog.ActionType.DELETE,
+            branch=instance.branch,
+            details=f'Status: {instance.status}',
+            object_type='Inquiry',
+            object_id=instance.id,
+        )
+except ImportError:
+    pass
+
+
+try:
+    from notifications.models import FollowUp
+
+    @receiver(post_save, sender=FollowUp)
+    def log_follow_up_changes(sender, instance, created, **kwargs):
+        """Log scheduled and updated follow-up visits."""
+        user = getattr(instance, 'created_by', None) or _resolve_actor(instance)
+        if not user:
+            return
+
+        action = 'Follow-up scheduled' if created else 'Follow-up updated'
+        log_activity(
+            user=user,
+            action=f'{action}: {instance.pet_name}',
+            category=ActivityLog.Category.APPOINTMENT,
+            action_type=(
+                ActivityLog.ActionType.CREATE if created
+                else ActivityLog.ActionType.UPDATE
+            ),
+            branch=instance.appointment.branch,
+            details=f'Date: {instance.follow_up_date} | Completed: {instance.is_completed}',
+            object_type='FollowUp',
+            object_id=instance.id,
+        )
+
+    @receiver(pre_delete, sender=FollowUp)
+    def log_follow_up_delete(sender, instance, **kwargs):
+        user = _resolve_actor(instance)
+        if not user:
+            return
+
+        log_activity(
+            user=user,
+            action=f'Follow-up deleted: {instance.pet_name}',
+            category=ActivityLog.Category.APPOINTMENT,
+            action_type=ActivityLog.ActionType.DELETE,
+            branch=instance.appointment.branch,
+            object_type='FollowUp',
+            object_id=instance.id,
+        )
+except ImportError:
+    pass
+
+
+try:
     from notifications.models import Notification
 
     @receiver(post_save, sender=Notification)
@@ -532,6 +626,95 @@ try:
         )
 except ImportError:
     pass
+
+
+def _audit_branch(instance):
+    """Find a branch on common domain objects without assuming one field."""
+    branch = getattr(instance, 'branch', None)
+    if branch is not None:
+        return branch
+    for relation_name in ('product', 'source_product', 'record', 'pet', 'appointment'):
+        related = getattr(instance, relation_name, None)
+        branch = getattr(related, 'branch', None) if related is not None else None
+        if branch is not None:
+            return branch
+    return None
+
+
+def _register_generic_audit(model, category):
+    """Register create/update/delete audit handlers for an uncovered model."""
+    label = model._meta.label_lower.replace('.', '_')
+
+    @receiver(post_save, sender=model, dispatch_uid=f'activity_create_update_{label}')
+    def log_generic_save(sender, instance, created, **kwargs):
+        actor = _resolve_actor(instance)
+        if not actor:
+            return
+        object_name = str(instance)[:120]
+        log_activity(
+            user=actor,
+            action=f'{sender._meta.verbose_name.title()} '
+                   f'{"created" if created else "updated"}: {object_name}',
+            category=category,
+            action_type=(
+                ActivityLog.ActionType.CREATE if created
+                else ActivityLog.ActionType.UPDATE
+            ),
+            branch=_audit_branch(instance),
+            object_type=sender.__name__,
+            object_id=instance.pk,
+        )
+
+    @receiver(pre_delete, sender=model, dispatch_uid=f'activity_delete_{label}')
+    def log_generic_delete(sender, instance, **kwargs):
+        actor = _resolve_actor(instance)
+        if not actor:
+            return
+        log_activity(
+            user=actor,
+            action=f'{sender._meta.verbose_name.title()} deleted: {str(instance)[:120]}',
+            category=category,
+            action_type=ActivityLog.ActionType.DELETE,
+            branch=_audit_branch(instance),
+            object_type=sender.__name__,
+            object_id=instance.pk,
+        )
+
+
+try:
+    from attendance.models import AttendanceUpload, DailyAttendance, MonthlyAttendanceSummary
+    from branches.models import Branch
+    from diagnostics.models import AIDiagnosis
+    from inventory.models import Reservation, StockAdjustment, StockTransfer
+    from records.models import MedicalFile, RecordEntry
+    from settings.models import (
+        ClinicalStatus, ClinicProfile, HeroStat, LegalDocument, ReasonForVisit,
+        SectionContent, Service, ShiftTypeOption, SystemSetting, Veterinarian,
+    )
+
+    for audited_model, audited_category in (
+        (AttendanceUpload, ActivityLog.Category.SYSTEM),
+        (DailyAttendance, ActivityLog.Category.STAFF),
+        (MonthlyAttendanceSummary, ActivityLog.Category.STAFF),
+        (Branch, ActivityLog.Category.SYSTEM),
+        (AIDiagnosis, ActivityLog.Category.MEDICAL),
+        (MedicalFile, ActivityLog.Category.MEDICAL),
+        (RecordEntry, ActivityLog.Category.MEDICAL),
+        (ClinicalStatus, ActivityLog.Category.SYSTEM),
+        (ClinicProfile, ActivityLog.Category.SYSTEM),
+        (HeroStat, ActivityLog.Category.SYSTEM),
+        (LegalDocument, ActivityLog.Category.SYSTEM),
+        (ReasonForVisit, ActivityLog.Category.SYSTEM),
+        (SectionContent, ActivityLog.Category.SYSTEM),
+        (Service, ActivityLog.Category.BILLING),
+        (ShiftTypeOption, ActivityLog.Category.SYSTEM),
+        (SystemSetting, ActivityLog.Category.SYSTEM),
+        (Veterinarian, ActivityLog.Category.STAFF),
+    ):
+        _register_generic_audit(audited_model, audited_category)
+except ImportError:
+    pass
+
 
 # ════════════════════════════════════════════════════════
 # LOGIN/LOGOUT SIGNALS

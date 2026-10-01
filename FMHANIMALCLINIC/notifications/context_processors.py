@@ -21,7 +21,7 @@ def unread_notifications(request):
             'recent_notifications': notifications,
             'unread_notifications_count': unread_count
         }
-        if request.user.is_clinic_staff:
+        if request.user.is_clinic_staff():
             pending_appointments = Appointment.objects.filter(
                 status=Appointment.Status.PENDING
             )

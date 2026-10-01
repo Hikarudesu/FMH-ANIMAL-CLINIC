@@ -107,9 +107,13 @@ def notify_role_users(
     """Send the same notification to users in a specific role and branch."""
     from accounts.models import User
 
+    role_codes = role_code if isinstance(role_code, (tuple, list, set)) else (role_code,)
+    if role_code == 'cashier':
+        role_codes = (*role_codes, 'receptionist')
+
     users = User.objects.filter(
         is_active=True,
-        assigned_role__code=role_code,
+        assigned_role__code__in=role_codes,
     )
     if branch is not None:
         users = users.filter(branch=branch)
@@ -123,6 +127,39 @@ def notify_role_users(
             module_context=module_context,
             related_object_id=related_object_id,
         )
+
+
+def users_with_module_access(module_code, branch=None):
+    """Return active staff users allowed to receive a module event."""
+    from accounts.models import User
+    from django.db.models import Q
+
+    users = User.objects.filter(is_active=True).filter(
+        Q(is_superuser=True)
+        | Q(assigned_role__module_permissions__module__code=module_code)
+    )
+    if branch is not None:
+        users = users.filter(Q(is_superuser=True) | Q(branch=branch))
+    return users.distinct()
+
+
+def notify_module_users(
+    *, module_code, branch, title, message, notification_type,
+    module_context, related_object_id=None, dedupe_window_minutes=15,
+):
+    """Notify every active user with access to a module in the branch scope."""
+    targets = list(users_with_module_access(module_code, branch))
+    for target in targets:
+        create_notification(
+            user=target,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=module_context,
+            related_object_id=related_object_id,
+            dedupe_window_minutes=dedupe_window_minutes,
+        )
+    return targets
 
 
 def notify_inquiry_received(inquiry):
@@ -144,7 +181,7 @@ def notify_inquiry_received(inquiry):
     
     # Notify branch cashiers/receptionists. If no branch was selected, notify
     # all active cashiers so the inquiry is not left unowned.
-    for role_code in ('cashier', 'receptionist'):
+    for role_code in ('cashier', 'executive_officer'):
         notify_role_users(
             role_code=role_code,
             branch=inquiry.branch,
@@ -170,7 +207,7 @@ def notify_inquiry_responded(inquiry, responder=None):
         related_object_id=inquiry.id,
     )
     
-    for role_code in ('cashier', 'receptionist'):
+    for role_code in ('cashier', 'executive_officer'):
         notify_role_users(
             role_code=role_code,
             branch=inquiry.branch,
@@ -196,7 +233,7 @@ def notify_inquiry_archived(inquiry, actor=None):
         related_object_id=inquiry.id,
     )
     
-    for role_code in ('cashier', 'receptionist'):
+    for role_code in ('cashier', 'executive_officer'):
         notify_role_users(
             role_code=role_code,
             branch=inquiry.branch,
@@ -475,26 +512,29 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
 
 
 def notify_follow_up_scheduled(appointment, followup, follow_up_reason=''):
-    """Create customer notification for a newly-scheduled follow-up."""
-    if not appointment.user:
-        return
+    """Notify the portal owner and email the appointment address."""
 
     date_str = str(followup.follow_up_date)
     if followup.follow_up_end_date and followup.follow_up_end_date != followup.follow_up_date:
         date_str = f"{followup.follow_up_date} to {followup.follow_up_end_date}"
 
-    create_notification(
-        user=appointment.user,
-        title=f'Follow-up Scheduled for {appointment.pet_name}',
-        message=(
-            f'A follow-up visit has been scheduled for {appointment.pet_name} '
-            f'from {date_str}. Reason: {follow_up_reason or "Routine follow-up"}'
-        ),
-        notification_type=Notification.NotificationType.FOLLOW_UP,
-        module_context=Notification.ModuleContext.APPOINTMENTS,
-        related_object_id=appointment.id,
-        related_follow_up=followup,
-    )
+    if appointment.user:
+        create_notification(
+            user=appointment.user,
+            title=f'Follow-up Scheduled for {appointment.pet_name}',
+            message=(
+                f'A follow-up visit has been scheduled for {appointment.pet_name} '
+                f'from {date_str}. Reason: {follow_up_reason or "Routine follow-up"}'
+            ),
+            notification_type=Notification.NotificationType.FOLLOW_UP,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            related_object_id=appointment.id,
+            related_follow_up=followup,
+        )
+
+    from notifications.followup_email_service import send_follow_up_email
+
+    transaction.on_commit(lambda: send_follow_up_email(followup))
 
 
 def notify_reservation_approved(reservation, actor=None):
@@ -513,6 +553,32 @@ def notify_reservation_approved(reservation, actor=None):
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=reservation.id,
     )
+
+
+def notify_reservation_status(
+    reservation, *, title, message, notification_type,
+    notify_owner=True, notify_staff=True,
+):
+    """Notify the owner and inventory-enabled staff about a reservation event."""
+    if notify_owner:
+        create_notification(
+            user=reservation.user,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.INVENTORY,
+            related_object_id=reservation.id,
+        )
+    if notify_staff:
+        notify_module_users(
+            module_code='inventory',
+            branch=reservation.product.branch,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.INVENTORY,
+            related_object_id=reservation.id,
+        )
 
 
 def notify_reservation_ready(reservation, actor=None):

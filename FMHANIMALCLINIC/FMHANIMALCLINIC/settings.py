@@ -146,6 +146,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'settings.middleware.MaintenanceModeMiddleware',
     'settings.middleware.SessionTimeoutMiddleware',
+    'settings.middleware.ActivityActorMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 

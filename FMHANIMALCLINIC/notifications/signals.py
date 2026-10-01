@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from .models import Notification
 from .utils import (
     create_notification,
+    notify_module_users,
     notify_inquiry_received,
     notify_staff_appointment_status_change,
 )
@@ -73,81 +74,15 @@ def create_low_inventory_notification(sender, instance, **kwargs):
         f"Thresholds: critical <= {critical_threshold}, low <= {low_threshold}."
     )
 
-    # Track users already notified to avoid duplicates
-    notified_user_ids = set()
-
-    # Notify admin users
-    for admin in get_admin_users():
-        existing = Notification.objects.filter(
-            user=admin,
-            notification_type=Notification.NotificationType.LOW_INVENTORY,
-            related_object_id=instance.id,
-            is_read=False
-        ).exists()
-
-        if not existing:
-            create_notification(
-                user=admin,
-                title=title,
-                message=message,
-                notification_type=Notification.NotificationType.LOW_INVENTORY,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=instance.id,
-            )
-            notified_user_ids.add(admin.id)
-    
-    # Notify receptionists in the same branch
-    from accounts.models import User
-    receptionists = User.objects.filter(
-        is_active=True,
-        assigned_role__code='cashier',
+    notify_module_users(
+        module_code='inventory',
         branch=instance.branch,
-    ).exclude(id__in=notified_user_ids)
-    
-    for receptionist in receptionists:
-        existing = Notification.objects.filter(
-            user=receptionist,
-            notification_type=Notification.NotificationType.LOW_INVENTORY,
-            related_object_id=instance.id,
-            is_read=False
-        ).exists()
-
-        if not existing:
-            create_notification(
-                user=receptionist,
-                title=title,
-                message=message,
-                notification_type=Notification.NotificationType.LOW_INVENTORY,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=instance.id,
-            )
-            notified_user_ids.add(receptionist.id)
-    
-    # Also notify vet assistants in the same branch
-    vet_assistants = User.objects.filter(
-        is_active=True,
-        assigned_role__code='assistant_veterinarian',
-        branch=instance.branch,
-    ).exclude(id__in=notified_user_ids)
-    
-    for vet_assistant in vet_assistants:
-        existing = Notification.objects.filter(
-            user=vet_assistant,
-            notification_type=Notification.NotificationType.LOW_INVENTORY,
-            related_object_id=instance.id,
-            is_read=False
-        ).exists()
-
-        if not existing:
-            create_notification(
-                user=vet_assistant,
-                title=title,
-                message=message,
-                notification_type=Notification.NotificationType.LOW_INVENTORY,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=instance.id,
-            )
-            notified_user_ids.add(vet_assistant.id)
+        title=title,
+        message=message,
+        notification_type=Notification.NotificationType.LOW_INVENTORY,
+        module_context=Notification.ModuleContext.INVENTORY,
+        related_object_id=instance.id,
+    )
 
 
 
@@ -169,72 +104,12 @@ def create_inventory_restock_notification(sender, instance, created, **kwargs):
     if created and instance.adjustment_type == 'ADD' and instance.quantity > 0:
         message = f"{instance.quantity} units of '{instance.product.name}' have been received."
         
-        # Track users already notified to avoid duplicates
-        notified_user_ids = set()
-        
-        # Notify admin users
-        for admin in get_admin_users():
-            create_notification(
-                user=admin,
-                title="Inventory Restocked",
-                message=message,
-                notification_type=Notification.NotificationType.INVENTORY_RESTOCK,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=instance.product.id,
-            )
-            notified_user_ids.add(admin.id)
-        
-        # Notify receptionists in the same branch
-        from accounts.models import User
-        receptionists = User.objects.filter(
-            is_active=True,
-            assigned_role__code='cashier',
+        notify_module_users(
+            module_code='inventory',
             branch=instance.product.branch,
-        ).exclude(id__in=notified_user_ids)
-        
-        for receptionist in receptionists:
-            create_notification(
-                user=receptionist,
-                title="Inventory Restocked",
-                message=message,
-                notification_type=Notification.NotificationType.INVENTORY_RESTOCK,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=instance.product.id,
-            )
-            notified_user_ids.add(receptionist.id)
-        
-        # Also notify vet assistants in the same branch
-        vet_assistants = User.objects.filter(
-            is_active=True,
-            assigned_role__code='assistant_veterinarian',
-            branch=instance.product.branch,
-        ).exclude(id__in=notified_user_ids)
-        
-        for vet_assistant in vet_assistants:
-            create_notification(
-                user=vet_assistant,
-                title="Inventory Restocked",
-                message=message,
-                notification_type=Notification.NotificationType.INVENTORY_RESTOCK,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=instance.product.id,
-            )
-            notified_user_ids.add(vet_assistant.id)
-
-        # Also notify veterinarians in the same branch
-        veterinarians = User.objects.filter(
-            is_active=True,
-            assigned_role__code='veterinarian',
-            branch=instance.product.branch,
-        ).exclude(id__in=notified_user_ids)
-
-        for veterinarian in veterinarians:
-            create_notification(
-                user=veterinarian,
-                title="Inventory Restocked",
-                message=message,
-                notification_type=Notification.NotificationType.INVENTORY_RESTOCK,
-                module_context=Notification.ModuleContext.INVENTORY,
-                related_object_id=instance.product.id,
-            )
-            notified_user_ids.add(veterinarian.id)
+            title="Inventory Restocked",
+            message=message,
+            notification_type=Notification.NotificationType.INVENTORY_RESTOCK,
+            module_context=Notification.ModuleContext.INVENTORY,
+            related_object_id=instance.product.id,
+        )

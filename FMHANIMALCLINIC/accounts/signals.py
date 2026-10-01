@@ -8,7 +8,8 @@ from django.db.models.signals import post_save
 from django.db.models.signals import post_delete, pre_save
 from django.dispatch import receiver
 
-from .models import User, ActivityLog
+from .models import User, ActivityLog, log_activity
+from .activity_context import get_current_actor
 from utils.file_cleanup import safely_delete_field_file
 
 
@@ -33,21 +34,37 @@ def stash_old_profile_picture(sender, instance, **kwargs):
 @receiver(post_save, sender=User)
 def log_user_change(sender, instance, created, **kwargs):
     """Log when a user is created or updated."""
-    if created:
-        branch = None
-        try:
-            branch = instance.branch
-        except Exception:
-            branch = None
+    actor = get_current_actor() or instance
+    log_activity(
+        user=actor,
+        action=f"User account {'created' if created else 'updated'}: {instance.username}",
+        category=ActivityLog.Category.USER,
+        action_type=(
+            ActivityLog.ActionType.CREATE if created
+            else ActivityLog.ActionType.UPDATE
+        ),
+        branch=instance.branch,
+        details=f"Role: {instance.get_display_role()}",
+        object_type='User',
+        object_id=instance.pk,
+    )
 
-        if branch is not None:
-            ActivityLog.objects.create(
-                user=instance,
-                action="User Account Created",
-                category=ActivityLog.Category.USER,
-                branch=branch,
-                details=f"Username: {instance.username} | Role: {instance.get_display_role()}"
-            )
+
+@receiver(post_delete, sender=User)
+def log_user_delete(sender, instance, **kwargs):
+    """Log user account deletion before its related records disappear."""
+    actor = get_current_actor() or User.objects.filter(is_superuser=True).first()
+    if not actor:
+        return
+    log_activity(
+        user=actor,
+        action=f'User account deleted: {instance.username}',
+        category=ActivityLog.Category.USER,
+        action_type=ActivityLog.ActionType.DELETE,
+        branch=instance.branch,
+        object_type='User',
+        object_id=instance.pk,
+    )
 
 
 @receiver(post_save, sender=User)
