@@ -842,10 +842,14 @@ def admin_dashboard_view(request):
     # ── New Inquiries ──
     # Wrap in try/except in case migrations haven't been run yet
     try:
-        new_inquiry_count = Inquiry.objects.filter(status='NEW').count()
-        recent_inquiries = Inquiry.objects.filter(
-            status='NEW'
-        ).select_related('branch').order_by('-created_at')[:5]
+        if request.user.is_superuser:
+            new_inquiry_count = 0
+            recent_inquiries = []
+        else:
+            new_inquiry_count = Inquiry.objects.filter(status='NEW').count()
+            recent_inquiries = Inquiry.objects.filter(
+                status='NEW'
+            ).select_related('branch').order_by('-created_at')[:5]
     except Exception:
         # Table doesn't exist yet (migrations not run)
         new_inquiry_count = 0
