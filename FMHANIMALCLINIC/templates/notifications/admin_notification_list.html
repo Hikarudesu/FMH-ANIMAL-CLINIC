@@ -411,6 +411,48 @@ function confirmClearAllNotifications() {
   </div>
 </div>
 
+<style>
+  .modal-footer .btn-cancel,
+  .modal-footer .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .modal-footer .btn-cancel {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+  }
+
+  .modal-footer .btn-cancel:hover {
+    border-color: var(--border-hover);
+    background: var(--bg);
+  }
+
+  .modal-footer .btn-submit {
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.25);
+  }
+
+  .modal-footer .btn-submit:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(230, 57, 70, 0.35);
+  }
+</style>
+
 {% else %}
 <!-- No results for current filter -->
 <div class="notif-filter-empty">
