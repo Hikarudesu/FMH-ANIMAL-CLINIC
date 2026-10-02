@@ -365,27 +365,53 @@ function deleteNotification(evt, btn, pk) {
 }
 
 function clearAllNotifications() {
-  if (confirm('Are you sure you want to delete all notifications? This action cannot be undone.')) {
-    const cards = document.querySelectorAll('.notif-card-v2');
-    cards.forEach((card, index) => {
-      setTimeout(() => {
-        card.classList.add('deleting');
-      }, index * 50);
+  document.getElementById('clearNotificationsModal').classList.add('active');
+}
+
+function closeClearNotificationsModal() {
+  document.getElementById('clearNotificationsModal').classList.remove('active');
+}
+
+function confirmClearAllNotifications() {
+  closeClearNotificationsModal();
+  const cards = document.querySelectorAll('.notif-card-v2');
+  cards.forEach((card, index) => {
+    setTimeout(() => card.classList.add('deleting'), index * 50);
+  });
+  setTimeout(() => {
+    fetch("{% url 'notifications:delete_all' %}", {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": "{{ csrf_token }}",
+        "Content-Type": "application/json"
+      }
+    }).then(response => {
+      if (response.ok) window.location.reload();
     });
-    setTimeout(() => {
-      fetch("{% url 'notifications:delete_all' %}", {
-        method: "POST",
-        headers: {
-          "X-CSRFToken": "{{ csrf_token }}",
-          "Content-Type": "application/json"
-        }
-      }).then(response => {
-        if (response.ok) window.location.reload();
-      });
-    }, cards.length * 50 + 400);
-  }
+  }, cards.length * 50 + 400);
 }
 </script>
+
+<!-- Clear Notifications Modal -->
+<div class="modal-overlay" id="clearNotificationsModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Clear Notifications</h3>
+      <button type="button" class="modal-close" onclick="closeClearNotificationsModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Clear all notifications?</h4>
+      <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+        Are you completely sure you want to delete all notifications? This action cannot be undone.
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+      <button type="button" class="btn-cancel" onclick="closeClearNotificationsModal()">Cancel</button>
+      <button type="button" class="btn-submit" onclick="confirmClearAllNotifications()">Yes, Clear All</button>
+    </div>
+  </div>
+</div>
 
 {% else %}
 <!-- No results for current filter -->
