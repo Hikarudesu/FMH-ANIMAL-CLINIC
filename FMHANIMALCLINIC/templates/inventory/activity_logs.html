@@ -14,15 +14,27 @@
   .logs-filter-form .filter-select { min-width: 140px; }
   .logs-filter-form .filter-clear-btn { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
   .logs-content { display: flex; flex-direction: column; gap: 16px; }
-  .log-section { width: 100%; overflow: hidden; }
-  .section-header { display: flex; align-items: center; justify-content: space-between; }
+  .log-section { width: 100%; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+  .section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: linear-gradient(135deg, var(--primary-light), var(--surface)); border-bottom: 1px solid var(--border); }
   .section-title { display: flex; align-items: center; gap: 14px; }
-  .section-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  .section-title h3 { margin: 0; color: var(--text-1); font-size: 1rem; font-weight: 700; }
+  .section-count { color: var(--text-2); font-size: 0.8rem; }
+  .section-icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px; background: var(--primary); color: #fff; font-size: 1.2rem; }
+  .section-toggle { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text-2); cursor: pointer; }
+  .log-items-container { padding: 16px 20px; }
   .log-items { display: flex; flex-direction: column; gap: 12px; }
-  .log-card-inner { display: flex; align-items: flex-start; gap: 16px; }
-  .log-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 48px; }
+  .log-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .log-card-inner { display: flex; align-items: flex-start; gap: 16px; padding: 16px; }
+  .log-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 48px; width: 48px; height: 48px; border-radius: 14px; font-size: 1.4rem; background: var(--primary-light); color: var(--primary); }
   .log-body { flex: 1 1 auto; min-width: 0; }
   .log-header, .log-meta, .log-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .log-header { margin-bottom: 10px; }
+  .log-action { color: var(--text-1); font-size: 0.95rem; font-weight: 700; }
+  .log-meta { margin-bottom: 10px; }
+  .meta-item, .log-time { display: inline-flex; align-items: center; gap: 5px; color: var(--text-2); font-size: 0.82rem; }
+  .log-details { padding: 10px 14px; margin-bottom: 10px; overflow-wrap: anywhere; background: var(--surface); border-left: 3px solid var(--primary); border-radius: 8px; color: var(--text-2); font-size: 0.82rem; }
+  .log-footer { justify-content: space-between; padding-top: 10px; border-top: 1px dashed var(--border); }
+  .delete-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid #fca5a5; border-radius: 8px; background: #fee2e2; color: #dc2626; cursor: pointer; }
   .log-action, .log-details { overflow-wrap: anywhere; }
   @media (max-width: 700px) {
     .logs-filter-form .filter-divider { display: none; }
