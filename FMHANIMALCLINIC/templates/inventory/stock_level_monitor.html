@@ -84,7 +84,7 @@
     <div class="stat-value">{{ total_products }}</div>
     <div class="stat-sub">Active tracked items</div>
   </div>
-  <div class="stat-card teal">
+  <div class="stat-card teal inventory-value-card">
     <div class="stat-icon-bg"><i class='bx bx-wallet'></i></div>
     <div class="stat-label">Inventory Value</div>
     {% if all_costs_missing and total_products > 0 %}
@@ -96,6 +96,32 @@
     {% endif %}
   </div>
 </div>
+
+<style>
+  /* Keep long currency totals inside the metric card at every width. */
+  .inventory-value-card {
+    min-width: 0;
+  }
+
+  .inventory-value-card .stat-value {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 1.35rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .inventory-value-card .stat-sub {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 900px) {
+    .inventory-value-card .stat-value {
+      font-size: 1.15rem;
+    }
+  }
+</style>
 
 {% if all_costs_missing and total_products > 0 %}
 <div class="dashboard-card full-width" style="margin-bottom: 22px; border-left: 4px solid #f59e0b;">
