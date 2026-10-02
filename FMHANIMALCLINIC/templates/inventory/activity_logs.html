@@ -764,6 +764,7 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  overflow-y: auto;
   backdrop-filter: blur(4px);
 }
 
@@ -776,8 +777,20 @@
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 480px;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   animation: modalSlideIn 0.3s ease;
+}
+
+.modal-content > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 @keyframes modalSlideIn {
@@ -819,7 +832,12 @@
   color: var(--text-1);
 }
 
-.modal-body { padding: 24px; }
+.modal-body {
+  padding: 24px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 .warning-text {
   display: flex;
@@ -877,6 +895,7 @@
   border-top: 1px solid var(--border);
   background: var(--bg);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  flex: 0 0 auto;
 }
 
 .btn-secondary {
@@ -915,6 +934,17 @@
 
 /* ══════ RESPONSIVE ══════ */
 @media (max-width: 768px) {
+  .modal-overlay { align-items: flex-start; padding: 10px; }
+  .modal-content {
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+    margin: auto 0;
+  }
+  .modal-header { padding: 14px 16px; }
+  .modal-body { padding: 16px; }
+  .modal-footer { padding: 14px 16px; flex-wrap: wrap; }
+  .modal-footer .btn-secondary,
+  .modal-footer .btn-danger { flex: 1 1 140px; justify-content: center; }
   .logs-hero { padding: 24px 18px; }
   .logs-hero-inner { flex-direction: column; text-align: center; }
   .logs-hero-text h1 { font-size: 1.3rem; justify-content: center; }
