@@ -5,6 +5,34 @@
 
 {% block content %}
 
+<style>
+  /* Critical layout rules prevent a flash of unstyled activity-log content. */
+  .logs-filter-bar { display: block; width: 100%; }
+  .logs-filter-form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .logs-filter-form .filter-group { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+  .logs-filter-form .filter-divider { width: 1px; height: 28px; flex: 0 0 1px; }
+  .logs-filter-form .filter-select { min-width: 140px; }
+  .logs-filter-form .filter-clear-btn { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+  .logs-content { display: flex; flex-direction: column; gap: 16px; }
+  .log-section { width: 100%; overflow: hidden; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; }
+  .section-title { display: flex; align-items: center; gap: 14px; }
+  .section-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  .log-items { display: flex; flex-direction: column; gap: 12px; }
+  .log-card-inner { display: flex; align-items: flex-start; gap: 16px; }
+  .log-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 48px; }
+  .log-body { flex: 1 1 auto; min-width: 0; }
+  .log-header, .log-meta, .log-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .log-action, .log-details { overflow-wrap: anywhere; }
+  @media (max-width: 700px) {
+    .logs-filter-form .filter-divider { display: none; }
+    .logs-filter-form .filter-group,
+    .logs-filter-form .filter-select { width: 100%; }
+    .logs-filter-form .filter-clear-btn { margin-left: 0; }
+    .log-card-inner { gap: 10px; }
+  }
+</style>
+
 <!-- ══════ ACTIVITY LOGS HERO ══════ -->
 {% url 'inventory:activity_logs' as logs_url %}
 {% include "components/page_hero.html" with title="Activity Logs" icon="bx-history" subtitle="Monitor all system activities, user actions, and changes" action_url=logs_url action_icon="bx-refresh" action_label="Refresh" action_button_label="Clear Logs" action_button_icon="bx-trash" action_button_onclick="openClearModal()" action_button_class="danger" %}
