@@ -114,6 +114,18 @@ def login_view(request):
         )
 
         if user is not None:
+            from .lifecycle import resolve_owner_deactivation_on_login
+
+            deactivation_result = resolve_owner_deactivation_on_login(user)
+            if deactivation_result == 'expired':
+                messages.error(
+                    request,
+                    'This account reached its scheduled deactivation date. Contact the clinic for help.',
+                )
+                return redirect('accounts:login_page')
+            if deactivation_result == 'cancelled':
+                messages.success(request, 'Your account deactivation was cancelled because you logged in.')
+
             if maintenance_mode and user.is_pet_owner():
                 messages.warning(request, maintenance_message)
                 request.session['maintenance_login_popup'] = True
@@ -574,6 +586,27 @@ def profile_view(request):
         'user': request.user,
         'form': form,
     })
+
+
+@login_required
+def request_owner_deactivation(request):
+    if request.method != 'POST' or not request.user.is_pet_owner():
+        return redirect('accounts:profile')
+    if request.POST.get('confirm_deactivation') != 'on':
+        messages.error(request, 'Confirm that you want to schedule account deactivation.')
+        return redirect('accounts:profile')
+    if request.user.owner_deactivation_due_at:
+        messages.info(request, 'Your account is already scheduled for deactivation.')
+        return redirect('accounts:profile')
+
+    from .lifecycle import schedule_owner_deactivation
+
+    schedule_owner_deactivation(request.user)
+    messages.success(
+        request,
+        'Your account is scheduled for deactivation in one month. Log in before then to keep it active.',
+    )
+    return redirect('accounts:profile')
 
 
 @login_required

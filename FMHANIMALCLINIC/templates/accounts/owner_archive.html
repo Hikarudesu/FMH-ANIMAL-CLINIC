@@ -1,0 +1,166 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Pet Owner Archive{% endblock %}
+
+{% block content %}
+{% include "components/page_hero.html" with title="Pet Owner Archive" subtitle="Retained accounts and records for deactivated pet owners" icon="bx-archive" %}
+
+<form method="get" class="c-filter-bar" role="search">
+  <div class="c-filter-bar__search">
+    <i class="bx bx-search c-filter-bar__search-icon"></i>
+    <input class="c-filter-bar__search-input" type="search" name="q" value="{{ search_query }}" placeholder="Search pet owner or pet...">
+  </div>
+  <div class="archive-filters">
+    <label>Branch
+      <select name="branch">
+        <option value="">All branches</option>
+        {% for branch in branches %}
+        <option value="{{ branch.pk }}" {% if selected_branch == branch.pk|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Deactivated from <input type="date" name="date_from" value="{{ date_from }}"></label>
+    <label>Through <input type="date" name="date_to" value="{{ date_to }}"></label>
+    <button class="archive-filter-submit" type="submit"><i class="bx bx-filter-alt"></i> Filter</button>
+    {% if search_query or selected_branch or date_from or date_to %}
+    <a class="c-filter-bar__clear" href="{% url 'accounts:owner_archive' %}" title="Clear filters"><i class="bx bx-x"></i></a>
+    {% endif %}
+  </div>
+</form>
+
+<p class="archive-result-count">{{ archive_count }} archived pet owner{{ archive_count|pluralize }}</p>
+
+{% if archived_owners %}
+<div class="owner-archive-list">
+  {% for item in archived_owners %}
+  <details class="owner-archive-entry">
+    <summary>
+      <span class="owner-archive-identity">
+        <span class="owner-archive-avatar"><i class="bx bx-user"></i></span>
+        <span><strong>{{ item.owner.get_full_name|default:item.owner.username }}</strong><small>{{ item.owner.email }} · {{ item.owner.username }}</small></span>
+      </span>
+      <span class="owner-archive-meta">
+        <span>{{ item.owner.branch.name|default:"All branches" }}</span>
+        <span>Deactivated {{ item.owner.owner_account_deactivated_at|date:"M j, Y" }}</span>
+        <span>{{ item.counts.pets }} pets · {{ item.counts.medical_records }} medical records · {{ item.counts.sales }} transactions</span>
+      </span>
+      <i class="bx bx-chevron-down owner-archive-chevron"></i>
+    </summary>
+
+    <div class="owner-archive-content">
+      <section class="archive-section">
+        <h2><i class="bx bx-dog"></i> Pets &amp; Medical Records</h2>
+        {% for pet_section in item.pets %}
+        <div class="archive-pet-row">
+          <h3>{{ pet_section.pet.name }} <span>{{ pet_section.pet.species }}{% if pet_section.pet.breed %} · {{ pet_section.pet.breed }}{% endif %}</span></h3>
+          {% for record in pet_section.medical_records %}
+          <div class="archive-record-row">
+            <strong>Medical record · {{ record.date_recorded|date:"M j, Y" }}</strong>
+            {% if record.branch %}<span>{{ record.branch.name }}</span>{% endif %}
+            {% if record.entries.all %}
+            <ul>
+              {% for entry in record.entries.all %}
+              <li>{{ entry.date_recorded|date:"M j, Y" }}{% if entry.treatment %} · {{ entry.treatment|truncatechars:180 }}{% endif %}{% if entry.rx %} · Rx: {{ entry.rx|truncatechars:120 }}{% endif %}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if record.medical_files.all %}
+            <p class="archive-muted">Files: {% for file in record.medical_files.all %}{{ file.original_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+            {% endif %}
+          </div>
+          {% empty %}<p class="archive-muted">No medical records retained for this pet.</p>{% endfor %}
+          {% for diagnosis in pet_section.diagnoses %}
+          <div class="archive-record-row"><strong>AI diagnostic · {{ diagnosis.created_at|date:"M j, Y" }}</strong><span>{{ diagnosis.selected_condition|default:diagnosis.primary_condition }}</span></div>
+          {% endfor %}
+        </div>
+        {% empty %}<p class="archive-muted">No pets are linked to this account.</p>{% endfor %}
+      </section>
+
+      <section class="archive-section">
+        <h2><i class="bx bx-receipt"></i> Point-of-Sale Transactions</h2>
+        {% for sale in item.sales %}
+        <div class="archive-record-row archive-row-inline"><strong>{{ sale.transaction_id }}</strong><span>{{ sale.created_at|date:"M j, Y g:i A" }}</span><span>{{ sale.branch.name }}</span><span>{{ sale.get_status_display }}</span><strong>₱{{ sale.total|floatformat:2 }}</strong></div>
+        {% empty %}<p class="archive-muted">No POS transactions.</p>{% endfor %}
+      </section>
+
+      <section class="archive-section">
+        <h2><i class="bx bx-file"></i> Statements of Account</h2>
+        {% for statement in item.statements %}
+        <div class="archive-record-row archive-row-inline"><strong>{{ statement.statement_number|default:"Statement" }}</strong><span>{{ statement.date|date:"M j, Y" }}</span><span>{{ statement.patient_name }}</span><span>{{ statement.get_status_display }}</span><strong>₱{{ statement.total_amount|floatformat:2 }}</strong></div>
+        {% empty %}<p class="archive-muted">No statements of account.</p>{% endfor %}
+      </section>
+
+      <section class="archive-section">
+        <h2><i class="bx bx-calendar-check"></i> Appointments</h2>
+        {% for appointment in item.appointments %}
+        <div class="archive-record-row archive-row-inline"><strong>{{ appointment.appointment_date|date:"M j, Y" }} · {{ appointment.appointment_time|time:"g:i A" }}</strong><span>{{ appointment.pet.name|default:appointment.pet_name }}</span><span>{{ appointment.branch.name }}</span><span>{{ appointment.get_status_display }}</span></div>
+        {% empty %}<p class="archive-muted">No appointments.</p>{% endfor %}
+      </section>
+
+      <section class="archive-section">
+        <h2><i class="bx bx-package"></i> Reservations</h2>
+        {% for reservation in item.reservations %}
+        <div class="archive-record-row archive-row-inline"><strong>{{ reservation.product.name }}</strong><span>{{ reservation.created_at|date:"M j, Y" }}</span><span>{{ reservation.product.branch.name|default:"—" }}</span><span>{{ reservation.quantity }} · {{ reservation.get_status_display }}</span></div>
+        {% empty %}<p class="archive-muted">No reservations.</p>{% endfor %}
+      </section>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav class="archive-pagination" aria-label="Archive pages">
+  {% if page_obj.has_previous %}<a href="?q={{ search_query|urlencode }}&branch={{ selected_branch }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+  <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?q={{ search_query|urlencode }}&branch={{ selected_branch }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="dashboard-card full-width archive-empty"><i class="bx bx-archive"></i><h2>No archived pet owners found</h2><p>Accounts appear here after their scheduled deactivation date.</p></div>
+{% endif %}
+
+<style>
+  .archive-filters { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+  .archive-filters label { display:flex; align-items:center; gap:7px; color:var(--text-2); font-size:12px; font-weight:600; }
+  .archive-filters select, .archive-filters input { min-height:38px; max-width:190px; padding:6px 9px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text-1); }
+  .archive-filter-submit { min-height:38px; display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border:0; border-radius:6px; background:var(--primary); color:#fff; font:inherit; font-size:13px; cursor:pointer; }
+  .archive-result-count { margin:0 0 12px; color:var(--text-2); font-size:13px; }
+  .owner-archive-list { border-top:1px solid var(--border); }
+  .owner-archive-entry { border:1px solid var(--border); border-top:0; background:var(--surface); }
+  .owner-archive-entry > summary { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:16px; cursor:pointer; list-style:none; }
+  .owner-archive-entry > summary::-webkit-details-marker { display:none; }
+  .owner-archive-identity { display:flex; align-items:center; gap:12px; min-width:220px; }
+  .owner-archive-avatar { width:38px; height:38px; display:grid; place-items:center; flex:none; border-radius:50%; background:var(--primary-light); color:var(--primary); font-size:19px; }
+  .owner-archive-identity strong, .owner-archive-identity small { display:block; }
+  .owner-archive-identity small { margin-top:3px; color:var(--text-3); font-size:12px; overflow-wrap:anywhere; }
+  .owner-archive-meta { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px 16px; color:var(--text-2); font-size:12px; text-align:right; }
+  .owner-archive-chevron { color:var(--text-3); transition:transform .2s; }
+  .owner-archive-entry[open] .owner-archive-chevron { transform:rotate(180deg); }
+  .owner-archive-content { padding:0 18px 18px; border-top:1px solid var(--border); }
+  .archive-section { padding:16px 0; border-bottom:1px solid var(--border); }
+  .archive-section:last-child { border-bottom:0; }
+  .archive-section h2 { display:flex; align-items:center; gap:8px; margin:0 0 10px; color:var(--text-1); font-size:15px; }
+  .archive-section h2 i { color:var(--primary); font-size:18px; }
+  .archive-pet-row { padding:8px 0 8px 14px; border-left:2px solid var(--primary-light); }
+  .archive-pet-row + .archive-pet-row { margin-top:10px; }
+  .archive-pet-row h3 { margin:0 0 8px; font-size:14px; }
+  .archive-pet-row h3 span, .archive-muted { color:var(--text-3); font-size:12px; font-weight:400; }
+  .archive-record-row { display:flex; flex-wrap:wrap; gap:6px 14px; padding:8px 0; color:var(--text-2); font-size:12px; }
+  .archive-record-row strong { color:var(--text-1); }
+  .archive-record-row ul { flex-basis:100%; margin:2px 0 0; padding-left:18px; }
+  .archive-record-row li { margin:3px 0; }
+  .archive-row-inline { align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+  .archive-row-inline:last-child { border-bottom:0; }
+  .archive-muted { margin:6px 0; }
+  .archive-pagination { display:flex; align-items:center; justify-content:center; gap:16px; padding:18px; color:var(--text-2); font-size:13px; }
+  .archive-pagination a { color:var(--primary); }
+  .archive-empty { padding:36px; text-align:center; }
+  .archive-empty > i { color:var(--primary); font-size:34px; }
+  @media (max-width:760px) {
+    .owner-archive-entry > summary { align-items:flex-start; flex-wrap:wrap; }
+    .owner-archive-meta { justify-content:flex-start; text-align:left; padding-left:50px; }
+    .archive-row-inline { align-items:flex-start; justify-content:flex-start; }
+    .archive-filters { width:100%; }
+  }
+</style>
+{% endblock %}

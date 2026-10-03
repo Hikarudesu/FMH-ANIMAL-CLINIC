@@ -79,6 +79,7 @@ class StaffMember(SoftDeleteModel):
     )
     date_hired = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    inactive_since = models.DateTimeField(null=True, blank=True)
 
     # ─────────── DEFAULT PAYROLL CONFIGURATION ───────────
     # These defaults are used when generating new payslips
@@ -125,6 +126,17 @@ class StaffMember(SoftDeleteModel):
     def __str__(self):
         # pylint: disable=no-member
         return f'{self.first_name} {self.last_name} — {self.get_position_display()}'
+
+    def set_active(self, active):
+        """Keep the staff profile and its login account in the same active state."""
+        if self.user_id and self.user.is_superuser:
+            active = True
+        self.is_active = bool(active)
+        self.inactive_since = None if active else (self.inactive_since or timezone.now())
+        self.save(update_fields=['is_active', 'inactive_since'])
+        if self.user_id and self.user.is_active != bool(active):
+            self.user.is_active = bool(active)
+            self.user.save(update_fields=['is_active'])
 
     @property
     def full_name(self):

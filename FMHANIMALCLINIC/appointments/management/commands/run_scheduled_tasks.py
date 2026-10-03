@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
-    help = 'Run recurring reminders and inventory alert jobs once.'
+    help = 'Run recurring reminders, inventory alerts, and pet-owner account expiry once.'
     lock_key = 'fmh:scheduled-tasks:lock'
 
     def handle(self, *args, **options):
@@ -20,6 +20,7 @@ class Command(BaseCommand):
                 'send_reminders',
                 'send_followup_emails',
                 'check_inventory_expiry_alerts',
+                'expire_pet_owner_accounts',
             ):
                 output = StringIO()
                 try:

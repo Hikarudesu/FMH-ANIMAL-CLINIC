@@ -693,7 +693,8 @@ def assign_user_role(request, user_id):
                     'phone': user.phone_number or '',
                     'position': position,
                     'branch': user.branch,
-                    'is_active': True,
+                    'is_active': user.is_active,
+                    'inactive_since': None if user.is_active else timezone.now(),
                 }
             )
 
@@ -706,8 +707,7 @@ def assign_user_role(request, user_id):
         if old_role and old_role.is_staff_role:
             try:
                 staff_profile = user.staff_profile
-                staff_profile.is_active = False
-                staff_profile.save()
+                staff_profile.set_active(False)
             except ObjectDoesNotExist:
                 pass  # No staff profile exists
 

@@ -66,6 +66,40 @@
   </div>
   {% endif %}
 
+  {% if user.owner_deactivation_due_at %}
+  <div class="profile-card" role="status" style="margin-bottom: 24px;">
+    <div class="profile-card-header">
+      <div class="profile-card-title">
+        <div class="profile-card-icon"><i class='bx bx-time-five'></i></div>
+        <div>
+          <h2>Deactivation scheduled</h2>
+          <p>Your account will be deactivated on {{ user.owner_deactivation_due_at|date:"M j, Y" }}. Log in before then to keep it active.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="profile-card" style="margin-bottom: 24px;">
+    <div class="profile-card-header">
+      <div class="profile-card-title">
+        <div class="profile-card-icon"><i class='bx bx-user-minus'></i></div>
+        <div>
+          <h2>Deactivate account</h2>
+          <p>Schedule deactivation after one month. Log in during that time to cancel it. Your records are retained.</p>
+        </div>
+      </div>
+      <form method="post" action="{% url 'accounts:request_owner_deactivation' %}" style="margin: 0;">
+        {% csrf_token %}
+        <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--text-2); font-size:12px;">
+          <input type="checkbox" name="confirm_deactivation" required>
+          I understand
+        </label>
+        <button type="submit" class="profile-edit-btn"><i class='bx bx-user-minus'></i> Schedule</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ── Details Card ── -->
   <div class="profile-card">
     <div class="profile-card-header">

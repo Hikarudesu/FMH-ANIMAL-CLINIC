@@ -374,6 +374,15 @@
           </div>
           {% endif %}
 
+          {% if user.is_admin_role %}
+          <a
+            href="{% url 'accounts:owner_archive' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'owner_archive' %}active{% endif %}"
+          >
+            <i class="bx bx-archive"></i><span>Pet Owner Archive</span>
+          </a>
+          {% endif %}
+
           {# Inquiries are handled by designated staff, not superadmins. #}
           {% if not user.is_superuser and user|has_nav_module:'inquiries' %}
           <a
@@ -715,6 +724,15 @@
           {% endif %}
           {% else %}
           {% endif %}
+          {% endif %}
+
+          {% if user.is_admin_role and not user.is_superuser %}
+          <a
+            href="{% url 'accounts:owner_archive' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'owner_archive' %}active{% endif %}"
+          >
+            <i class="bx bx-archive"></i><span>Pet Owner Archive</span>
+          </a>
           {% endif %}
 
           {% if user|has_nav_module:'notifications' %}

@@ -2,6 +2,7 @@
 from django.urls import path
 from . import views
 from . import rbac_views
+from . import archive_views
 
 app_name = 'accounts'
 
@@ -23,6 +24,8 @@ urlpatterns = [
     path('vet-dashboard/', views.vet_dashboard_view, name='vet_dashboard'),
     path('receptionist-dashboard/', views.receptionist_dashboard_view, name='receptionist_dashboard'),
     path('profile/', views.profile_view, name='profile'),
+    path('profile/deactivate/', views.request_owner_deactivation, name='request_owner_deactivation'),
+    path('owner-archive/', archive_views.owner_archive, name='owner_archive'),
     path('profile/resend-verification/', views.resend_email_verification, name='resend_email_verification'),
     path('create-account/', views.admin_create_account, name='admin_create_account'),
 

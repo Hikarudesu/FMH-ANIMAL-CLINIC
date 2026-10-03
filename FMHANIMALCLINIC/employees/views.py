@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.db.models import Q
+from django.utils.dateparse import parse_date
 
 from accounts.decorators import module_permission_required, special_permission_required, admin_only
 from accounts.rbac_models import Role
@@ -26,18 +27,32 @@ def staff_list(request):
     q = request.GET.get('q', '').strip()
     branch_id = request.GET.get('branch', '')
     position = request.GET.get('position', '')
+    status = 'inactive' if request.GET.get('status') == 'inactive' else 'active'
+    inactive_from = request.GET.get('inactive_from', '').strip()
+    inactive_to = request.GET.get('inactive_to', '').strip()
+    inactive_from_date = parse_date(inactive_from)
+    inactive_to_date = parse_date(inactive_to)
 
     # Get all users with staff roles assigned, excluding superadmin (owner)
     staff_users = User.objects.filter(
         assigned_role__is_staff_role=True
     ).exclude(
-        assigned_role__code='superadmin'
+        Q(assigned_role__code='superadmin') | Q(is_superuser=True)
     ).select_related('assigned_role', 'branch', 'staff_profile').order_by(
         '-assigned_role__hierarchy_level',
         'assigned_role__name',
         'last_name',
         'first_name',
     )
+    active_staff = staff_users.filter(
+        is_active=True,
+    ).filter(Q(staff_profile__isnull=True) | Q(staff_profile__is_active=True))
+    inactive_staff = staff_users.filter(
+        Q(is_active=False) | Q(staff_profile__is_active=False)
+    )
+    active_count = active_staff.count()
+    inactive_count = inactive_staff.count()
+    staff_users = inactive_staff if status == 'inactive' else active_staff
 
     # Apply search filter
     if q:
@@ -59,6 +74,12 @@ def staff_list(request):
         except (TypeError, ValueError):
             pass
 
+    if status == 'inactive':
+        if inactive_from_date:
+            staff_users = staff_users.filter(staff_profile__inactive_since__date__gte=inactive_from_date)
+        if inactive_to_date:
+            staff_users = staff_users.filter(staff_profile__inactive_since__date__lte=inactive_to_date)
+
     # Build dropdown options from live RBAC roles (Roles & Permissions)
     role_positions = list(
         Role.objects.filter(is_staff_role=True)
@@ -68,7 +89,7 @@ def staff_list(request):
     )
     positions = [(str(role_id), role_name) for role_id, role_name in role_positions]
 
-    branches = Branch.objects.filter(is_active=True)
+    branches = Branch.objects.all().order_by('name')
 
     return render(request, 'employees/staff_list.html', {
         'staff_users': staff_users,
@@ -77,6 +98,11 @@ def staff_list(request):
         'q': q,
         'selected_branch': branch_id,
         'selected_position': position,
+        'status': status,
+        'active_count': active_count,
+        'inactive_count': inactive_count,
+        'inactive_from': inactive_from,
+        'inactive_to': inactive_to,
     })
 
 
@@ -107,7 +133,9 @@ def staff_edit(request, user_id):
     """Edit staff member profile (salary, license, etc.) via their user account."""
     from accounts.models import User
 
-    user = get_object_or_404(User, pk=user_id, assigned_role__is_staff_role=True)
+    user = get_object_or_404(
+        User, pk=user_id, assigned_role__is_staff_role=True, is_superuser=False
+    )
 
     # Get or create StaffMember profile
     staff_profile, created = StaffMember.objects.get_or_create(
@@ -119,7 +147,8 @@ def staff_edit(request, user_id):
             'phone': user.phone_number or '',
             'branch': user.branch,
             'position': StaffMember.Position.RECEPTIONIST,  # Default
-            'is_active': True,
+            'is_active': user.is_active,
+            'inactive_since': None if user.is_active else timezone.now(),
         }
     )
 
@@ -143,15 +172,16 @@ def staff_edit(request, user_id):
                 })
 
         user.branch = branch
-        user.save(update_fields=['branch'])
+        user.is_active = is_active
+        user.save(update_fields=['branch', 'is_active'])
 
         staff_profile.branch = branch
-        staff_profile.is_active = is_active
-        update_fields = ['branch', 'is_active']
+        update_fields = ['branch']
         if request.user.is_superuser or getattr(getattr(request.user, 'assigned_role', None), 'hierarchy_level', 0) >= 10:
             staff_profile.biometric_id = request.POST.get('biometric_id', '').strip() or None
             update_fields.append('biometric_id')
         staff_profile.save(update_fields=update_fields)
+        staff_profile.set_active(is_active)
 
         messages.success(request, f'{user.get_full_name()} profile updated successfully.')
         return redirect('employees:staff_list')
@@ -167,7 +197,7 @@ def staff_edit(request, user_id):
 @module_permission_required('staff', 'DELETE')
 def staff_delete(request, pk):
     """Soft-delete a staff member — deactivate and optionally reassign appointments."""
-    member = get_object_or_404(StaffMember, pk=pk)
+    member = get_object_or_404(StaffMember.objects.exclude(user__is_superuser=True), pk=pk)
 
     # Get future appointments assigned to this vet
     from appointments.models import Appointment
@@ -202,8 +232,7 @@ def staff_delete(request, pk):
                     request, f'{future_appointments.count()} appointment(s) set to "Any available vet".')
 
             # Soft-delete: deactivate instead of hard delete
-            member.is_active = False
-            member.save(update_fields=['is_active'])
+            member.set_active(False)
             messages.success(
                 request, f'{member.full_name} has been deactivated.')
         else:
