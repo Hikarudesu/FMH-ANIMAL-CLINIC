@@ -1470,10 +1470,10 @@
             margin: -20px -24px 18px;
         }
         .mf-upload-form {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(180px, 0.8fr) minmax(280px, 1.5fr) auto;
             gap: 12px;
-            flex-wrap: wrap;
-            align-items: end;
+            align-items: start;
             margin-bottom: 18px;
             padding: 16px;
             background: var(--bg);
@@ -1484,6 +1484,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
+            min-width: 0;
         }
         #laboratoryTypeGroup[hidden] {
             display: none;
@@ -1502,6 +1503,9 @@
         }
         .mf-form-group select,
         .mf-form-group input[type="file"] {
+            box-sizing: border-box;
+            width: 100%;
+            height: 42px;
             padding: 8px 10px;
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -1518,6 +1522,22 @@
             cursor: pointer;
             font-weight: 500;
             font-size: 12px;
+        }
+        .mf-upload-submit {
+            height: 42px;
+            align-self: start;
+            margin-top: 21px;
+            white-space: nowrap;
+        }
+        @media (max-width: 760px) {
+            .mf-upload-form {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            .mf-upload-submit {
+                width: 100%;
+                justify-content: center;
+                margin-top: 0;
+            }
         }
         .mf-file-item {
             display: flex;
@@ -1589,14 +1609,6 @@
     <form method="post" enctype="multipart/form-data" action="{% url 'records:medical_file_upload' record.pk %}" class="mf-upload-form">
         {% csrf_token %}
         <div class="mf-form-group">
-            <label for="file_type">File Type</label>
-            <select name="file_type" id="file_type" required onchange="updateMedicalFileAccept()">
-                <option value="LAB">Laboratory</option>
-                <option value="IMAGING">Medical Imaging</option>
-                <option value="OTHER">Other Medical Document</option>
-            </select>
-        </div>
-        <div class="mf-form-group" id="laboratoryTypeGroup">
             <label for="laboratory_type">Laboratory Type</label>
             <select name="laboratory_type" id="laboratory_type" required>
                 {% for laboratory_type in laboratory_types %}
@@ -1609,27 +1621,8 @@
             <input type="file" id="file_upload" name="file" accept=".png,.jpg,.jpeg" required>
             <small id="medicalFileHelp">PNG or JPEG only, up to 10 MB.</small>
         </div>
-        <button type="submit" class="mf-btn" style="margin-top: 20px;"><i class="bx bx-upload"></i> Upload File</button>
+        <button type="submit" class="mf-btn mf-upload-submit"><i class="bx bx-upload"></i> Upload File</button>
     </form>
-        <script>
-            function updateMedicalFileAccept() {
-                const fileType = document.getElementById('file_type').value;
-                const fileInput = document.getElementById('file_upload');
-                const helpText = document.getElementById('medicalFileHelp');
-                const laboratoryTypeGroup = document.getElementById('laboratoryTypeGroup');
-                const laboratoryTypeSelect = document.getElementById('laboratory_type');
-                const isLaboratory = fileType === 'LAB';
-                laboratoryTypeGroup.hidden = !isLaboratory;
-                laboratoryTypeSelect.required = isLaboratory;
-                if (isLaboratory) {
-                    fileInput.accept = '.png,.jpg,.jpeg';
-                    helpText.textContent = 'PNG or JPEG only, up to 10 MB.';
-                } else {
-                    fileInput.accept = '.pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx';
-                    helpText.textContent = 'PDF, PNG, JPEG, DOC, DOCX, XLS, or XLSX; up to 20 MB.';
-                }
-            }
-        </script>
     {% endif %}
     {% if medical_files %}
     {% for medical_file in medical_files %}

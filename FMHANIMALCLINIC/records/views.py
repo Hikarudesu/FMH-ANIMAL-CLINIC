@@ -682,7 +682,7 @@ def medical_file_upload(request, pk):
     upload = request.FILES['file']
     medical_file = MedicalFile(
         record=record, file=upload, original_name=os.path.basename(upload.name),
-        file_type=request.POST.get('file_type', MedicalFile.FileType.OTHER),
+        file_type=MedicalFile.FileType.LAB,
         laboratory_type=request.POST.get('laboratory_type', '').strip(),
         uploaded_by=request.user,
     )
