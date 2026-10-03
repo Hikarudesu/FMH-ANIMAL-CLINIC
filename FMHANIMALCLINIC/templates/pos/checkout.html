@@ -1653,11 +1653,13 @@ function processPayment() {
     .then(r => r.json())
     .then(data => {
       if (data.success && data.completed) {
-        lastCompletedSaleId = saleId;
-        document.getElementById('modalTxnId').textContent = data.sale.transaction_id;
-        document.getElementById('modalAmountPaid').textContent = '₱' + parseFloat(data.sale.amount_paid).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('modalChange').textContent = '₱' + parseFloat(data.sale.change_due).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('successModal').classList.add('active');
+        sessionStorage.setItem('posCompletedSale', JSON.stringify({
+          id: saleId,
+          transactionId: data.sale.transaction_id,
+          amountPaid: data.sale.amount_paid,
+          changeDue: data.sale.change_due
+        }));
+        window.location.reload();
       } else if (!data.success) {
         alert(data.error || 'Payment failed');
       }
@@ -1750,7 +1752,7 @@ function closeCancelSaleModal() {
 
 
 function newSale() {
-  window.location.reload();
+  closeSuccessModal();
 }
 
 function closeSuccessModal() {
@@ -1768,6 +1770,20 @@ function viewStatement() {
 function printReceipt() {
   if (lastCompletedSaleId) {
     window.open(`/pos/sales/${lastCompletedSaleId}/receipt/`, '_blank');
+  }
+}
+
+const completedSale = sessionStorage.getItem('posCompletedSale');
+if (completedSale) {
+  try {
+    const sale = JSON.parse(completedSale);
+    lastCompletedSaleId = sale.id;
+    document.getElementById('modalTxnId').textContent = sale.transactionId;
+    document.getElementById('modalAmountPaid').textContent = '₱' + parseFloat(sale.amountPaid).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('modalChange').textContent = '₱' + parseFloat(sale.changeDue).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('successModal').classList.add('active');
+  } finally {
+    sessionStorage.removeItem('posCompletedSale');
   }
 }
 

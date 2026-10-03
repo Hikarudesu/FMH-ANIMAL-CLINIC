@@ -59,7 +59,7 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True)
     address = models.TextField(
         blank=True, help_text='Full address of the pet owner')
-    email_verified = models.BooleanField(default=True)
+    email_verified = models.BooleanField(default=False)
 
     # ── helper properties ──────────────────────────────────
     def is_admin_role(self):

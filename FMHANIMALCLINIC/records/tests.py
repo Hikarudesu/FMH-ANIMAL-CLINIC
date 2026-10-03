@@ -1,8 +1,10 @@
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
+from unittest.mock import patch
 
 from .models import validate_laboratory_image, validate_medical_file
+from settings.forms import MedicalRecordsSettingsForm
 
 
 class MedicalFileValidationTests(SimpleTestCase):
@@ -22,6 +24,38 @@ class MedicalFileValidationTests(SimpleTestCase):
         upload = SimpleUploadedFile('result.pdf', b'%PDF-1.7 test document')
 
         validate_medical_file(upload)
+
+
+class LaboratoryTypeSettingsTests(SimpleTestCase):
+    @patch('settings.forms.get_setting')
+    def test_laboratory_types_can_be_added_and_duplicates_are_removed(self, get_setting):
+        get_setting.side_effect = lambda key, default=None: (
+            ['Laboratory Result'] if key == 'medical_laboratory_type_options' else default
+        )
+        form = MedicalRecordsSettingsForm(data={
+            'laboratory_types': 'CBC\nBlood Chemistry\nCBC',
+            'default_followup_days': '7',
+            'vaccination_reminders': 'on',
+            'reminder_days_before': '7',
+            'clinical_status_auto_actions': 'on',
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['laboratory_types'], ['CBC', 'Blood Chemistry'])
+
+    @patch('settings.forms.get_setting')
+    def test_laboratory_type_list_cannot_be_empty(self, get_setting):
+        get_setting.side_effect = lambda key, default=None: (
+            ['Laboratory Result'] if key == 'medical_laboratory_type_options' else default
+        )
+        form = MedicalRecordsSettingsForm(data={
+            'laboratory_types': '  \n',
+            'default_followup_days': '7',
+            'reminder_days_before': '7',
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('laboratory_types', form.errors)
 
     def test_laboratory_images_accept_png_and_jpeg(self):
         for filename in ('result.png', 'result.jpg', 'result.jpeg'):

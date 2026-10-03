@@ -75,11 +75,11 @@
         </div>
 
         <div class="admin-field">
-          <label for="id_laboratory_type_label">Laboratory Type</label>
-          {{ forms.scheduling.medical.laboratory_type_label }}
-          <p class="form-hint">{{ forms.scheduling.medical.laboratory_type_label.help_text }}</p>
-          {% if forms.scheduling.medical.laboratory_type_label.errors %}
-            <div class="error-text">{{ forms.scheduling.medical.laboratory_type_label.errors.0 }}</div>
+          <label for="id_laboratory_types">Laboratory Types</label>
+          {{ forms.scheduling.medical.laboratory_types }}
+          <p class="form-hint">{{ forms.scheduling.medical.laboratory_types.help_text }}</p>
+          {% if forms.scheduling.medical.laboratory_types.errors %}
+            <div class="error-text">{{ forms.scheduling.medical.laboratory_types.errors.0 }}</div>
           {% endif %}
         </div>
 

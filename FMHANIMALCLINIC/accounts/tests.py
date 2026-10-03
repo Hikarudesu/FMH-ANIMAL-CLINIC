@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -86,3 +87,27 @@ class RegistrationEmailVerificationTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn('email', form.errors)
+
+    def test_new_users_are_unverified_by_default(self):
+        user = get_user_model().objects.create_user(
+            username='pendingowner',
+            email='pending@example.com',
+            password='A-secure-test-password-923!',
+        )
+
+        self.assertFalse(user.email_verified)
+
+    def test_database_rejects_case_insensitive_duplicate_emails(self):
+        get_user_model().objects.create_user(
+            username='existingowner',
+            email='owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                get_user_model().objects.create_user(
+                    username='duplicateowner',
+                    email='OWNER@example.com',
+                    password='A-secure-test-password-923!',
+                )

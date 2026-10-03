@@ -29,7 +29,10 @@ from employees.models import StaffMember
 from FMHANIMALCLINIC.form_mixins import validate_philippines_phone
 from settings.models import ClinicalStatus, ClinicProfile
 from settings.utils import get_setting
-from .models import MedicalRecord, RecordEntry, MedicalFile, MedicalFileAccessLog
+from .models import (
+    MedicalRecord, RecordEntry, MedicalFile, MedicalFileAccessLog,
+    get_laboratory_type_options,
+)
 from .forms import MedicalRecordForm, RecordEntryForm
 
 User = get_user_model()
@@ -639,7 +642,7 @@ def admin_record_detail(request, pk):
         'from_patients': from_patients,
         'active_tab': active_tab,
         'medical_files': medical_files,
-        'laboratory_type_label': get_setting('medical_laboratory_type_label', 'Laboratory Result'),
+        'laboratory_types': get_laboratory_type_options(),
     })
 
 
@@ -680,6 +683,7 @@ def medical_file_upload(request, pk):
     medical_file = MedicalFile(
         record=record, file=upload, original_name=os.path.basename(upload.name),
         file_type=request.POST.get('file_type', MedicalFile.FileType.OTHER),
+        laboratory_type=request.POST.get('laboratory_type', '').strip(),
         uploaded_by=request.user,
     )
     try:

@@ -171,6 +171,25 @@ def validate_laboratory_image(upload):
         raise ValidationError('Laboratory files must be PNG or JPEG images.')
 
 
+def get_laboratory_type_options():
+    from settings.utils import get_setting
+
+    options = get_setting('medical_laboratory_type_options', None)
+    if options is None:
+        options = [get_setting('medical_laboratory_type_label', 'Laboratory Result')]
+    if isinstance(options, str):
+        options = options.splitlines()
+
+    normalized = []
+    seen = set()
+    for option in options:
+        label = ' '.join(str(option).split())
+        if label and label.casefold() not in seen:
+            seen.add(label.casefold())
+            normalized.append(label)
+    return normalized or ['Laboratory Result']
+
+
 class MedicalFile(models.Model):
     """Private laboratory, imaging, and external medical document."""
     class FileType(models.TextChoices):
@@ -182,6 +201,7 @@ class MedicalFile(models.Model):
     file = models.FileField(upload_to=medical_file_upload_path, validators=[validate_medical_file])
     original_name = models.CharField(max_length=255)
     file_type = models.CharField(max_length=20, choices=FileType.choices, default=FileType.OTHER)
+    laboratory_type = models.CharField(max_length=80, blank=True, default='')
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     sha256 = models.CharField(max_length=64, editable=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -193,6 +213,8 @@ class MedicalFile(models.Model):
         super().clean()
         if self.file and self.file_type == self.FileType.LAB:
             validate_laboratory_image(self.file)
+            if self.laboratory_type not in get_laboratory_type_options():
+                raise ValidationError({'laboratory_type': 'Select a valid laboratory type.'})
 
     def save(self, *args, **kwargs):
         if self.file and not self.sha256:

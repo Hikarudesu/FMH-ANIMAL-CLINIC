@@ -474,11 +474,11 @@ class AppointmentSettingsForm(AdminInputMixin, forms.Form):
 class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
     """Form for medical records settings."""
 
-    laboratory_type_label = forms.CharField(
-        label='Laboratory Type Label',
-        max_length=60,
-        widget=forms.TextInput(),
-        help_text='Customize the Laboratory file type name shown when uploading and viewing medical files.'
+    laboratory_types = forms.CharField(
+        label='Laboratory Types',
+        max_length=2000,
+        widget=forms.Textarea(attrs={'rows': 5}),
+        help_text='Enter one laboratory type per line. Add a line to create a type or remove a line to delete it.'
     )
     default_followup_days = forms.IntegerField(
         label='Default Follow-up Period (days)',
@@ -509,12 +509,37 @@ class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['laboratory_type_label'].initial = get_setting(
-            'medical_laboratory_type_label', 'Laboratory Result')
+        laboratory_types = get_setting('medical_laboratory_type_options', None)
+        if laboratory_types is None:
+            laboratory_types = [get_setting('medical_laboratory_type_label', 'Laboratory Result')]
+        if isinstance(laboratory_types, str):
+            laboratory_types = laboratory_types.splitlines()
+        self.fields['laboratory_types'].initial = '\n'.join(
+            str(laboratory_type).strip()
+            for laboratory_type in laboratory_types
+            if str(laboratory_type).strip()
+        )
         self.fields['default_followup_days'].initial = get_setting('medical_default_followup_days', 7)
         self.fields['vaccination_reminders'].initial = get_setting('medical_vaccination_reminders', True)
         self.fields['reminder_days_before'].initial = get_setting('medical_reminder_days_before', 7)
         self.fields['clinical_status_auto_actions'].initial = get_setting('medical_clinical_status_auto_actions', True)
+
+    def clean_laboratory_types(self):
+        laboratory_types = []
+        seen = set()
+        for line in self.cleaned_data['laboratory_types'].splitlines():
+            label = ' '.join(line.split())
+            if not label:
+                continue
+            if len(label) > 80:
+                raise forms.ValidationError('Each laboratory type must be 80 characters or fewer.')
+            key = label.casefold()
+            if key not in seen:
+                seen.add(key)
+                laboratory_types.append(label)
+        if not laboratory_types:
+            raise forms.ValidationError('Keep at least one laboratory type.')
+        return laboratory_types
 
 
 # =============================================================================

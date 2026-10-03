@@ -46,13 +46,17 @@
     </div>
   </div>
 
-  {% if not user.email_verified %}
+  {% if user.email %}
   <div class="profile-card" role="status">
+    {% if user.email_verified %}
+    <p><i class='bx bx-check-circle'></i> Your email address is verified.</p>
+    {% else %}
     <p>Your email address is not verified. Check your inbox for the verification link.</p>
     <form method="post" action="{% url 'accounts:resend_email_verification' %}">
       {% csrf_token %}
       <button type="submit" class="profile-edit-btn"><i class='bx bx-envelope'></i> Resend verification link</button>
     </form>
+    {% endif %}
   </div>
   {% endif %}
 

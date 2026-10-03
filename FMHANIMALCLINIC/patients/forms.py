@@ -254,6 +254,16 @@ class AdminPetForm(forms.ModelForm):
                         self.add_error('guest_owner_phone', e)
                 # Clear portal owner when source is WALKIN
                 cleaned['owner'] = None
+                if cleaned.get('create_new_account'):
+                    email = cleaned.get('guest_owner_email', '').strip()
+                    if email:
+                        from django.contrib.auth import get_user_model
+
+                        if get_user_model().objects.filter(email__iexact=email).exists():
+                            self.add_error(
+                                'guest_owner_email',
+                                'This email already has an account. Select that account to link it instead.',
+                            )
             else:
                 # When editing walk-in patient, still validate phone if it's being changed
                 phone = cleaned.get('guest_owner_phone', '').strip()

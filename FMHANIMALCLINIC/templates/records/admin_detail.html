@@ -1485,6 +1485,16 @@
             flex-direction: column;
             gap: 6px;
         }
+        #laboratoryTypeGroup[hidden] {
+            display: none;
+        }
+        #medicalFileHelp {
+            max-width: 230px;
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 11px;
+            line-height: 1.35;
+        }
         .mf-form-group label {
             font-size: 12px;
             font-weight: 600;
@@ -1581,15 +1591,23 @@
         <div class="mf-form-group">
             <label for="file_type">File Type</label>
             <select name="file_type" id="file_type" required onchange="updateMedicalFileAccept()">
-                <option value="LAB">{{ laboratory_type_label }}</option>
+                <option value="LAB">Laboratory</option>
                 <option value="IMAGING">Medical Imaging</option>
                 <option value="OTHER">Other Medical Document</option>
+            </select>
+        </div>
+        <div class="mf-form-group" id="laboratoryTypeGroup">
+            <label for="laboratory_type">Laboratory Type</label>
+            <select name="laboratory_type" id="laboratory_type" required>
+                {% for laboratory_type in laboratory_types %}
+                <option value="{{ laboratory_type }}">{{ laboratory_type }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="mf-form-group">
             <label for="file_upload">Select File</label>
             <input type="file" id="file_upload" name="file" accept=".png,.jpg,.jpeg" required>
-            <p id="medicalFileHelp" class="form-hint">Laboratory images only: PNG or JPEG, maximum 10 MB.</p>
+            <small id="medicalFileHelp">PNG or JPEG only, up to 10 MB.</small>
         </div>
         <button type="submit" class="mf-btn" style="margin-top: 20px;"><i class="bx bx-upload"></i> Upload File</button>
     </form>
@@ -1598,12 +1616,17 @@
                 const fileType = document.getElementById('file_type').value;
                 const fileInput = document.getElementById('file_upload');
                 const helpText = document.getElementById('medicalFileHelp');
-                if (fileType === 'LAB') {
+                const laboratoryTypeGroup = document.getElementById('laboratoryTypeGroup');
+                const laboratoryTypeSelect = document.getElementById('laboratory_type');
+                const isLaboratory = fileType === 'LAB';
+                laboratoryTypeGroup.hidden = !isLaboratory;
+                laboratoryTypeSelect.required = isLaboratory;
+                if (isLaboratory) {
                     fileInput.accept = '.png,.jpg,.jpeg';
-                    helpText.textContent = 'Laboratory images only: PNG or JPEG, maximum 10 MB.';
+                    helpText.textContent = 'PNG or JPEG only, up to 10 MB.';
                 } else {
                     fileInput.accept = '.pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx';
-                    helpText.textContent = 'Accepted formats: PDF, PNG, JPEG, DOC, DOCX, XLS, or XLSX; maximum 20 MB.';
+                    helpText.textContent = 'PDF, PNG, JPEG, DOC, DOCX, XLS, or XLSX; up to 20 MB.';
                 }
             }
         </script>
@@ -1613,7 +1636,7 @@
     <div class="mf-file-item">
         <div class="mf-file-info">
             <span class="mf-file-name">{{ medical_file.original_name }}</span>
-            <span class="mf-file-type">{{ medical_file.get_file_type_display }} • Uploaded {{ medical_file.uploaded_at|date:"M j, Y" }}</span>
+            <span class="mf-file-type">{% if medical_file.file_type == 'LAB' %}{{ medical_file.laboratory_type|default:medical_file.get_file_type_display }}{% else %}{{ medical_file.get_file_type_display }}{% endif %} • Uploaded {{ medical_file.uploaded_at|date:"M j, Y" }}</span>
         </div>
         <div class="mf-file-actions">
             <a href="{% url 'records:medical_file_download' medical_file.pk %}" class="mf-btn"><i class="bx bx-download"></i> Download</a>
