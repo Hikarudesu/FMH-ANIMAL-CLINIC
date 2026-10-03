@@ -163,6 +163,14 @@ def validate_medical_file(upload):
     upload.seek(0)
 
 
+def validate_laboratory_image(upload):
+    if upload.size > 10 * 1024 * 1024:
+        raise ValidationError('Laboratory images must not exceed 10 MB.')
+    extension = os.path.splitext(upload.name)[1].lower()
+    if extension not in {'.png', '.jpg', '.jpeg'}:
+        raise ValidationError('Laboratory files must be PNG or JPEG images.')
+
+
 class MedicalFile(models.Model):
     """Private laboratory, imaging, and external medical document."""
     class FileType(models.TextChoices):
@@ -180,6 +188,11 @@ class MedicalFile(models.Model):
 
     class Meta:
         ordering = ['-uploaded_at']
+
+    def clean(self):
+        super().clean()
+        if self.file and self.file_type == self.FileType.LAB:
+            validate_laboratory_image(self.file)
 
     def save(self, *args, **kwargs):
         if self.file and not self.sha256:

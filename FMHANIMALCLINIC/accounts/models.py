@@ -3,6 +3,8 @@
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import Q
+from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -57,6 +59,7 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True)
     address = models.TextField(
         blank=True, help_text='Full address of the pet owner')
+    email_verified = models.BooleanField(default=True)
 
     # ── helper properties ──────────────────────────────────
     def is_admin_role(self):
@@ -229,6 +232,13 @@ class User(AbstractUser):
     class Meta:
         """Meta options for User model."""
         ordering = ['username']
+        constraints = [
+            models.UniqueConstraint(
+                Lower('email'),
+                condition=~Q(email=''),
+                name='accounts_user_email_ci_unique',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.username} ({self.get_display_role()})'

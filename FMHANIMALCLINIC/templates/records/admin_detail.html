@@ -1580,18 +1580,33 @@
         {% csrf_token %}
         <div class="mf-form-group">
             <label for="file_type">File Type</label>
-            <select name="file_type" id="file_type" required>
-                <option value="LAB">Laboratory Result</option>
+            <select name="file_type" id="file_type" required onchange="updateMedicalFileAccept()">
+                <option value="LAB">{{ laboratory_type_label }}</option>
                 <option value="IMAGING">Medical Imaging</option>
                 <option value="OTHER">Other Medical Document</option>
             </select>
         </div>
         <div class="mf-form-group">
             <label for="file_upload">Select File</label>
-            <input type="file" id="file_upload" name="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx" required>
+            <input type="file" id="file_upload" name="file" accept=".png,.jpg,.jpeg" required>
+            <p id="medicalFileHelp" class="form-hint">Laboratory images only: PNG or JPEG, maximum 10 MB.</p>
         </div>
         <button type="submit" class="mf-btn" style="margin-top: 20px;"><i class="bx bx-upload"></i> Upload File</button>
     </form>
+        <script>
+            function updateMedicalFileAccept() {
+                const fileType = document.getElementById('file_type').value;
+                const fileInput = document.getElementById('file_upload');
+                const helpText = document.getElementById('medicalFileHelp');
+                if (fileType === 'LAB') {
+                    fileInput.accept = '.png,.jpg,.jpeg';
+                    helpText.textContent = 'Laboratory images only: PNG or JPEG, maximum 10 MB.';
+                } else {
+                    fileInput.accept = '.pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx';
+                    helpText.textContent = 'Accepted formats: PDF, PNG, JPEG, DOC, DOCX, XLS, or XLSX; maximum 20 MB.';
+                }
+            }
+        </script>
     {% endif %}
     {% if medical_files %}
     {% for medical_file in medical_files %}

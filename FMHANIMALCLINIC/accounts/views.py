@@ -2,11 +2,16 @@
 # pylint: disable=no-member, import-outside-toplevel, line-too-long, trailing-whitespace, missing-docstring, invalid-name, broad-exception-caught, unused-import, redefined-outer-name, reimported, too-many-lines, wrong-import-position, wrong-import-order, ungrouped-imports
 
 import json
+import logging
 from decimal import Decimal
 from datetime import date, timedelta
+from django.conf import settings as django_settings
+from django.core import signing
+from django.core.mail import send_mail
 from django.db.models import Count, Sum, Q, F
 from django.db.models.functions import TruncDate
 from django.core.serializers.json import DjangoJSONEncoder
+from django.utils.html import format_html
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -20,6 +25,41 @@ from .models import User
 from .decorators import module_permission_required, admin_only, special_permission_required, staff_only
 from .forms import PetOwnerRegistrationForm
 from settings.utils import get_setting
+
+EMAIL_VERIFICATION_SALT = 'accounts.email-verification'
+EMAIL_VERIFICATION_MAX_AGE = 60 * 60 * 24
+
+
+def _send_email_verification(request, user):
+    token = signing.dumps(
+        {'user_id': user.pk, 'email': user.email},
+        salt=EMAIL_VERIFICATION_SALT,
+    )
+    verification_url = request.build_absolute_uri(
+        f"{reverse('accounts:verify_email')}?token={token}"
+    )
+    name = user.get_full_name() or user.username
+    message = (
+        f'Hello {name},\n\n'
+        'Please verify your email address for your FMH Animal Clinic account by opening this link:\n\n'
+        f'{verification_url}\n\n'
+        'This link expires in 24 hours. If you did not create this account, you can ignore this email.'
+    )
+    html_message = format_html(
+        '<p>Hello {},</p><p>Verify your email address for your FMH Animal Clinic account.</p>'
+        '<p><a href="{}">Verify now</a></p>'
+        '<p>This link expires in 24 hours. If you did not create this account, ignore this email.</p>',
+        name,
+        verification_url,
+    )
+    send_mail(
+        'Verify your FMH Animal Clinic email address',
+        message,
+        django_settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=False,
+        html_message=html_message,
+    )
 
 
 def get_month_offset(base_date, months_back):
@@ -120,9 +160,24 @@ def register_view(request):
         form = PetOwnerRegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            try:
+                _send_email_verification(request, user)
+            except Exception:
+                logging.getLogger('fmh').exception(
+                    'Registration verification email failed for user %s.', user.pk
+                )
+                messages.warning(
+                    request,
+                    'Your account was created, but the verification email could not be sent. '
+                    'Use My Profile to request a new verification link.',
+                )
+            else:
+                messages.success(
+                    request,
+                    'Account created. Check your email and select Verify now to confirm your address.',
+                )
             # Auto-login after registration
             login(request, user)
-            messages.success(request, 'Account created successfully!')
             return redirect('select_branch')
         else:
             messages.error(request, 'Please correct the errors below.')
@@ -487,11 +542,23 @@ def profile_view(request):
     """User profile page."""
     from .forms import UserProfileUpdateForm
     if request.method == 'POST':
+        old_email = request.user.email
         form = UserProfileUpdateForm(
             request.POST, request.FILES, instance=request.user)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Your profile was successfully updated.')
+            user = form.save()
+            if user.email.casefold() != old_email.casefold():
+                try:
+                    _send_email_verification(request, user)
+                except Exception:
+                    logging.getLogger('fmh').exception(
+                        'Profile email verification send failed for user %s.', user.pk
+                    )
+                    messages.warning(request, 'Profile updated, but the verification email could not be sent.')
+                else:
+                    messages.success(request, 'Profile updated. Verify your new email address using the link we sent.')
+            else:
+                messages.success(request, 'Your profile was successfully updated.')
             return redirect('profile')
         else:
             messages.error(request, 'Please correct the errors below.')
@@ -507,6 +574,54 @@ def profile_view(request):
         'user': request.user,
         'form': form,
     })
+
+
+@login_required
+def resend_email_verification(request):
+    if request.method != 'POST':
+        return redirect('accounts:profile')
+    if request.user.email_verified:
+        messages.info(request, 'Your email address is already verified.')
+    else:
+        try:
+            _send_email_verification(request, request.user)
+        except Exception:
+            logging.getLogger('fmh').exception(
+                'Email verification resend failed for user %s.', request.user.pk
+            )
+            messages.error(request, 'We could not send a verification link right now. Please try again later.')
+        else:
+            messages.success(request, 'A new verification link has been sent to your email address.')
+    return redirect('accounts:profile')
+
+
+def verify_email_view(request):
+    token = request.GET.get('token', '')
+    try:
+        payload = signing.loads(
+            token,
+            salt=EMAIL_VERIFICATION_SALT,
+            max_age=EMAIL_VERIFICATION_MAX_AGE,
+        )
+    except signing.BadSignature:
+        messages.error(request, 'This verification link is invalid or has expired. Request a new one from My Profile.')
+        return redirect('accounts:login_page')
+
+    user = User.objects.filter(
+        pk=payload.get('user_id'),
+        email__iexact=payload.get('email', ''),
+    ).first()
+    if user is None:
+        messages.error(request, 'This verification link is no longer valid for your account.')
+        return redirect('accounts:login_page')
+
+    if not user.email_verified:
+        user.email_verified = True
+        user.save(update_fields=['email_verified'])
+    if not request.user.is_authenticated:
+        login(request, user)
+    messages.success(request, 'Your email address has been verified.')
+    return redirect('select_branch' if not user.branch_id else 'accounts:profile')
 
 
 @login_required
@@ -2070,7 +2185,23 @@ def admin_create_account(request):
                         }
                     )
 
-                messages.success(request, f'Account created for {user.get_full_name() or user.username}.')
+                try:
+                    _send_email_verification(request, user)
+                except Exception:
+                    logging.getLogger('fmh').exception(
+                        'Staff account verification email failed for user %s.', user.pk
+                    )
+                    messages.warning(
+                        request,
+                        f'Account created for {user.get_full_name() or user.username}, '
+                        'but the verification email could not be sent.',
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f'Account created for {user.get_full_name() or user.username}. '
+                        'A verification link was sent to the registered email.',
+                    )
                 return redirect('accounts:user_role_list')
             
             except IntegrityError as e:

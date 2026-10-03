@@ -46,6 +46,16 @@
     </div>
   </div>
 
+  {% if not user.email_verified %}
+  <div class="profile-card" role="status">
+    <p>Your email address is not verified. Check your inbox for the verification link.</p>
+    <form method="post" action="{% url 'accounts:resend_email_verification' %}">
+      {% csrf_token %}
+      <button type="submit" class="profile-edit-btn"><i class='bx bx-envelope'></i> Resend verification link</button>
+    </form>
+  </div>
+  {% endif %}
+
   <!-- ── Details Card ── -->
   <div class="profile-card">
     <div class="profile-card-header">

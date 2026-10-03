@@ -9,6 +9,7 @@ urlpatterns = [
     # Authentication URLs (these also have legacy non-namespaced names via redirect)
     path('login/', views.login_view, name='login_page'),
     path('register/', views.register_view, name='register_page'),
+    path('verify-email/', views.verify_email_view, name='verify_email'),
     path('forgot-password/', views.forgot_password_view, name='forgot_password'),
     path('reset-password/', views.reset_password_view, name='reset_password'),
     path('change-password/', views.change_password_view, name='change_password'),
@@ -22,6 +23,7 @@ urlpatterns = [
     path('vet-dashboard/', views.vet_dashboard_view, name='vet_dashboard'),
     path('receptionist-dashboard/', views.receptionist_dashboard_view, name='receptionist_dashboard'),
     path('profile/', views.profile_view, name='profile'),
+    path('profile/resend-verification/', views.resend_email_verification, name='resend_email_verification'),
     path('create-account/', views.admin_create_account, name='admin_create_account'),
 
     # Role Management URLs

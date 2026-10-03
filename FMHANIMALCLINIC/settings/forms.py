@@ -474,6 +474,12 @@ class AppointmentSettingsForm(AdminInputMixin, forms.Form):
 class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
     """Form for medical records settings."""
 
+    laboratory_type_label = forms.CharField(
+        label='Laboratory Type Label',
+        max_length=60,
+        widget=forms.TextInput(),
+        help_text='Customize the Laboratory file type name shown when uploading and viewing medical files.'
+    )
     default_followup_days = forms.IntegerField(
         label='Default Follow-up Period (days)',
         min_value=1,
@@ -503,6 +509,8 @@ class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['laboratory_type_label'].initial = get_setting(
+            'medical_laboratory_type_label', 'Laboratory Result')
         self.fields['default_followup_days'].initial = get_setting('medical_default_followup_days', 7)
         self.fields['vaccination_reminders'].initial = get_setting('medical_vaccination_reminders', True)
         self.fields['reminder_days_before'].initial = get_setting('medical_reminder_days_before', 7)

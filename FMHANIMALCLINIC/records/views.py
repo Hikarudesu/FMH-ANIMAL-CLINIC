@@ -28,6 +28,7 @@ from branches.models import Branch
 from employees.models import StaffMember
 from FMHANIMALCLINIC.form_mixins import validate_philippines_phone
 from settings.models import ClinicalStatus, ClinicProfile
+from settings.utils import get_setting
 from .models import MedicalRecord, RecordEntry, MedicalFile, MedicalFileAccessLog
 from .forms import MedicalRecordForm, RecordEntryForm
 
@@ -638,6 +639,7 @@ def admin_record_detail(request, pk):
         'from_patients': from_patients,
         'active_tab': active_tab,
         'medical_files': medical_files,
+        'laboratory_type_label': get_setting('medical_laboratory_type_label', 'Laboratory Result'),
     })
 
 

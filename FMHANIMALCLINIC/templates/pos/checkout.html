@@ -954,13 +954,9 @@
           </form>
         </div>
         <div class="pos-cart-item-total">₱{{ item.line_total|floatformat:2 }}</div>
-        <form method="post" action="{% url 'pos:remove_item' %}" style="display:inline-flex; margin:0;">
-          {% csrf_token %}
-          <input type="hidden" name="item_id" value="{{ item.pk }}">
-          <button type="submit" class="pos-cart-item-remove" title="Remove">
-            <i class='bx bx-trash'></i>
-          </button>
-        </form>
+        <button type="button" class="pos-cart-item-remove" title="Remove item" onclick="removeItem({{ item.pk }})">
+          <i class='bx bx-trash'></i>
+        </button>
       </div>
       {% empty %}
       <div class="pos-cart-empty" id="cartEmpty">
@@ -1046,7 +1042,7 @@
 <!-- Success Modal -->
 <div class="pos-modal" id="successModal">
   <div class="pos-modal-content">
-    <button class="pos-modal-close" onclick="closeSuccessModal()" title="Close">&times;</button>
+    <button type="button" class="pos-modal-close" onclick="closeSuccessModal()" title="Close">&times;</button>
     <div class="pos-modal-icon"><i class='bx bx-check-circle'></i></div>
     <div class="pos-modal-title">Sale Complete!</div>
     <p>Transaction processed successfully</p>
@@ -1109,7 +1105,7 @@
   <div class="modal-content" style="max-width: 480px;">
     <div class="modal-header">
       <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Discount Reason Required</h3>
-      <button type="button" class="modal-close" onclick="closeDiscountValidationModal()">&times;</button>
+      <button type="button" class="modal-close" onclick="closeDiscountValidationModal()" title="Close">&times;</button>
     </div>
     <div class="modal-body" style="text-align: center; padding-top: 30px;">
       <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
@@ -1129,7 +1125,7 @@
   <div class="modal-content" style="max-width: 480px;">
     <div class="modal-header">
       <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Cancel Sale</h3>
-      <button type="button" class="modal-close" onclick="closeCancelSaleModal()">&times;</button>
+      <button type="button" class="modal-close" onclick="closeCancelSaleModal()" title="Close">&times;</button>
     </div>
     <form id="cancelSaleForm" method="post" action="{% url 'pos:cancel_sale' sale.pk %}">
       {% csrf_token %}
@@ -1376,13 +1372,9 @@ function addItemToCart(item) {
             </form>
         </div>
         <div class="pos-cart-item-total">₱${parseFloat(item.line_total).toFixed(2)}</div>
-          <form method="post" action="{% url 'pos:remove_item' %}" style="display:inline-flex; margin:0;">
-            <input type="hidden" name="csrfmiddlewaretoken" value="${getCsrfToken()}">
-            <input type="hidden" name="item_id" value="${item.id}">
-            <button type="submit" class="pos-cart-item-remove" title="Remove">
-              <i class='bx bx-trash'></i>
-            </button>
-          </form>
+          <button type="button" class="pos-cart-item-remove" title="Remove item" onclick="removeItem(${item.id})">
+            <i class='bx bx-trash'></i>
+          </button>
       </div>
     `;
     cartItems.insertAdjacentHTML('beforeend', itemHtml);
@@ -1457,6 +1449,7 @@ function removeItem(itemId) {
       method: 'POST',
       headers: {
         'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest',
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: `item_id=${itemId}`

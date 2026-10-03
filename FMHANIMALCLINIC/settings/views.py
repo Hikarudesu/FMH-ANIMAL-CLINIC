@@ -278,6 +278,7 @@ def _handle_medical_form(request):
     form = MedicalRecordsSettingsForm(request.POST)
     if form.is_valid():
         data = form.cleaned_data
+        set_setting('medical_laboratory_type_label', data['laboratory_type_label'].strip(), request.user, 'MEDICAL')
         set_setting('medical_default_followup_days', data['default_followup_days'], request.user, 'MEDICAL')
         set_setting('medical_vaccination_reminders', data['vaccination_reminders'], request.user, 'MEDICAL')
         set_setting('medical_reminder_days_before', data['reminder_days_before'], request.user, 'MEDICAL')

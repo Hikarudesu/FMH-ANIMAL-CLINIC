@@ -112,6 +112,7 @@ class PetOwnerRegistrationForm(FormControlMixin, UserCreationForm):
         user.address = self.cleaned_data['address']
 
         if commit:
+            user.email_verified = False
             user.save()
         return user
 
@@ -122,7 +123,7 @@ class PetOwnerRegistrationForm(FormControlMixin, UserCreationForm):
         if email and username and email.casefold() == username.casefold():
             raise forms.ValidationError(
                 "Email address cannot be the same as your username.")
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError(
                 "A user with this email already exists.")
         return email
@@ -162,6 +163,16 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
         self.fields['profile_picture'].widget.clear_checkbox_label = 'Remove current photo'
         self.fields['profile_picture'].widget.input_text = 'Choose photo'
 
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        original_email = self.initial.get('email', '').strip().casefold()
+        if user.email.strip().casefold() != original_email:
+            user.email_verified = False
+        if commit:
+            user.save()
+            self.save_m2m()
+        return user
+
     def clean_username(self):
         """Ensure the username is unique and not identical to the email."""
         username = self.cleaned_data.get('username')
@@ -185,6 +196,8 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
         if email and username and email.casefold() == username.casefold():
             raise forms.ValidationError(
                 "Email address cannot be the same as your username.")
+        if email and User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("A user with this email already exists.")
         return email
 
 
@@ -296,7 +309,7 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
         if email and username and email.casefold() == username.casefold():
             raise forms.ValidationError(
                 "Email address cannot be the same as the username.")
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError(
                 "A user with this email already exists.")
         return email
@@ -312,5 +325,6 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
         user.branch = self.cleaned_data.get('branch')
 
         if commit:
+            user.email_verified = False
             user.save()
         return user
