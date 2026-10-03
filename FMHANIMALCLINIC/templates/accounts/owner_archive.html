@@ -5,28 +5,36 @@
 {% block content %}
 {% include "components/page_hero.html" with title="Pet Owner Archive" subtitle="Retained accounts and records for deactivated pet owners" icon="bx-archive" %}
 
-<form method="get" class="c-filter-bar" role="search">
-  <div class="c-filter-bar__search">
-    <i class="bx bx-search c-filter-bar__search-icon"></i>
-    <input class="c-filter-bar__search-input" type="search" name="q" value="{{ search_query }}" placeholder="Search pet owner or pet...">
-  </div>
-  <div class="archive-filters">
-    <label>Branch
-      <select name="branch">
-        <option value="">All branches</option>
-        {% for branch in branches %}
-        <option value="{{ branch.pk }}" {% if selected_branch == branch.pk|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>Deactivated from <input type="date" name="date_from" value="{{ date_from }}"></label>
-    <label>Through <input type="date" name="date_to" value="{{ date_to }}"></label>
-    <button class="archive-filter-submit" type="submit"><i class="bx bx-filter-alt"></i> Filter</button>
-    {% if search_query or selected_branch or date_from or date_to %}
-    <a class="c-filter-bar__clear" href="{% url 'accounts:owner_archive' %}" title="Clear filters"><i class="bx bx-x"></i></a>
-    {% endif %}
-  </div>
-</form>
+<div class="c-filter-bar">
+  <div class="c-filter-bar__glow"></div>
+  <form method="get" class="c-filter-bar__form archive-filter-form" role="search">
+    <div class="c-filter-bar__search">
+      <i class="bx bx-search c-filter-bar__search-icon"></i>
+      <input class="c-filter-bar__search-input" type="search" name="q" value="{{ search_query }}" placeholder="Search owner, pet, or email...">
+    </div>
+    <div class="archive-filters">
+      <div class="c-filter-dropdown">
+        <div class="c-filter-dropdown__trigger{% if selected_branch %} active{% endif %}">
+          <i class="bx bx-building c-filter-dropdown__icon"></i>
+          <span class="c-filter-dropdown__label">{% if selected_branch %}{% for branch in branches %}{% if selected_branch == branch.pk|stringformat:"s" %}{{ branch.name }}{% endif %}{% endfor %}{% else %}All branches{% endif %}</span>
+          <i class="bx bx-chevron-down c-filter-dropdown__arrow"></i>
+        </div>
+        <select class="c-filter-dropdown__select sd-convert" name="branch" aria-label="Filter by branch">
+          <option value="">All branches</option>
+          {% for branch in branches %}
+          <option value="{{ branch.pk }}" {% if selected_branch == branch.pk|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <label class="archive-date-filter"><span>From</span><input type="date" name="date_from" value="{{ date_from }}" aria-label="Deactivated from"></label>
+      <label class="archive-date-filter"><span>To</span><input type="date" name="date_to" value="{{ date_to }}" aria-label="Deactivated to"></label>
+      <button class="archive-filter-submit" type="submit" aria-label="Apply filters"><i class="bx bx-filter-alt"></i></button>
+      {% if search_query or selected_branch or date_from or date_to %}
+      <a class="c-filter-bar__clear" href="{% url 'accounts:owner_archive' %}" title="Clear filters"><i class="bx bx-x"></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
 
 <p class="archive-result-count">{{ archive_count }} archived pet owner{{ archive_count|pluralize }}</p>
 
@@ -39,10 +47,14 @@
         <span class="owner-archive-avatar"><i class="bx bx-user"></i></span>
         <span><strong>{{ item.owner.get_full_name|default:item.owner.username }}</strong><small>{{ item.owner.email }} · {{ item.owner.username }}</small></span>
       </span>
-      <span class="owner-archive-meta">
-        <span>{{ item.owner.branch.name|default:"All branches" }}</span>
-        <span>Deactivated {{ item.owner.owner_account_deactivated_at|date:"M j, Y" }}</span>
-        <span>{{ item.counts.pets }} pets · {{ item.counts.medical_records }} medical records · {{ item.counts.sales }} transactions</span>
+      <span class="owner-archive-cell">
+        <small>Branch</small><strong>{{ item.owner.branch.name|default:"All branches" }}</strong>
+      </span>
+      <span class="owner-archive-cell">
+        <small>Deactivated</small><strong>{{ item.owner.owner_account_deactivated_at|date:"M j, Y" }}</strong>
+      </span>
+      <span class="owner-archive-cell owner-archive-counts">
+        <small>Records retained</small><strong>{{ item.counts.pets }} pets · {{ item.counts.medical_records }} medical · {{ item.counts.sales }} POS</strong>
       </span>
       <i class="bx bx-chevron-down owner-archive-chevron"></i>
     </summary>
@@ -120,20 +132,23 @@
 {% endif %}
 
 <style>
-  .archive-filters { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
-  .archive-filters label { display:flex; align-items:center; gap:7px; color:var(--text-2); font-size:12px; font-weight:600; }
-  .archive-filters select, .archive-filters input { min-height:38px; max-width:190px; padding:6px 9px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text-1); }
-  .archive-filter-submit { min-height:38px; display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border:0; border-radius:6px; background:var(--primary); color:#fff; font:inherit; font-size:13px; cursor:pointer; }
+  .archive-filter-form { flex-wrap:wrap; }
+  .archive-filters { display:flex; flex:1; min-width:0; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; }
+  .archive-date-filter { display:flex; height:40px; align-items:center; gap:7px; padding:0 9px; border:1.5px solid var(--border); border-radius:10px; color:var(--text-3); font-size:11px; font-weight:600; }
+  .archive-date-filter input { width:132px; height:36px; border:0; outline:0; background:transparent; color:var(--text-1); font:inherit; font-size:12px; }
+  .archive-filter-submit { width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; border:0; border-radius:10px; background:var(--primary); color:#fff; font-size:17px; cursor:pointer; }
   .archive-result-count { margin:0 0 12px; color:var(--text-2); font-size:13px; }
   .owner-archive-list { border-top:1px solid var(--border); }
   .owner-archive-entry { border:1px solid var(--border); border-top:0; background:var(--surface); }
-  .owner-archive-entry > summary { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:16px; cursor:pointer; list-style:none; }
+  .owner-archive-entry > summary { display:grid; grid-template-columns:minmax(200px,1.5fr) minmax(110px,.8fr) minmax(115px,.8fr) minmax(190px,1.2fr) auto; align-items:center; gap:18px; padding:16px; cursor:pointer; list-style:none; }
   .owner-archive-entry > summary::-webkit-details-marker { display:none; }
   .owner-archive-identity { display:flex; align-items:center; gap:12px; min-width:220px; }
   .owner-archive-avatar { width:38px; height:38px; display:grid; place-items:center; flex:none; border-radius:50%; background:var(--primary-light); color:var(--primary); font-size:19px; }
   .owner-archive-identity strong, .owner-archive-identity small { display:block; }
   .owner-archive-identity small { margin-top:3px; color:var(--text-3); font-size:12px; overflow-wrap:anywhere; }
-  .owner-archive-meta { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px 16px; color:var(--text-2); font-size:12px; text-align:right; }
+  .owner-archive-cell small, .owner-archive-cell strong { display:block; }
+  .owner-archive-cell small { margin-bottom:4px; color:var(--text-3); font-size:10px; text-transform:uppercase; }
+  .owner-archive-cell strong { color:var(--text-2); font-size:12px; font-weight:600; }
   .owner-archive-chevron { color:var(--text-3); transition:transform .2s; }
   .owner-archive-entry[open] .owner-archive-chevron { transform:rotate(180deg); }
   .owner-archive-content { padding:0 18px 18px; border-top:1px solid var(--border); }
@@ -157,8 +172,9 @@
   .archive-empty { padding:36px; text-align:center; }
   .archive-empty > i { color:var(--primary); font-size:34px; }
   @media (max-width:760px) {
-    .owner-archive-entry > summary { align-items:flex-start; flex-wrap:wrap; }
-    .owner-archive-meta { justify-content:flex-start; text-align:left; padding-left:50px; }
+    .owner-archive-entry > summary { grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:12px; }
+    .owner-archive-cell { grid-column:1 / -1; padding-left:50px; }
+    .owner-archive-counts { overflow-wrap:anywhere; }
     .archive-row-inline { align-items:flex-start; justify-content:flex-start; }
     .archive-filters { width:100%; }
   }
