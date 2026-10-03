@@ -6,7 +6,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.db.models import Q
-from django.utils.dateparse import parse_date
 
 from accounts.decorators import module_permission_required, special_permission_required, admin_only
 from accounts.rbac_models import Role
@@ -28,10 +27,6 @@ def staff_list(request):
     branch_id = request.GET.get('branch', '')
     position = request.GET.get('position', '')
     status = 'inactive' if request.GET.get('status') == 'inactive' else 'active'
-    inactive_from = request.GET.get('inactive_from', '').strip()
-    inactive_to = request.GET.get('inactive_to', '').strip()
-    inactive_from_date = parse_date(inactive_from)
-    inactive_to_date = parse_date(inactive_to)
 
     # Get all users with staff roles assigned, excluding superadmin (owner)
     staff_users = User.objects.filter(
@@ -74,12 +69,6 @@ def staff_list(request):
         except (TypeError, ValueError):
             pass
 
-    if status == 'inactive':
-        if inactive_from_date:
-            staff_users = staff_users.filter(staff_profile__inactive_since__date__gte=inactive_from_date)
-        if inactive_to_date:
-            staff_users = staff_users.filter(staff_profile__inactive_since__date__lte=inactive_to_date)
-
     # Build dropdown options from live RBAC roles (Roles & Permissions)
     role_positions = list(
         Role.objects.filter(is_staff_role=True)
@@ -101,8 +90,6 @@ def staff_list(request):
         'status': status,
         'active_count': active_count,
         'inactive_count': inactive_count,
-        'inactive_from': inactive_from,
-        'inactive_to': inactive_to,
     })
 
 
