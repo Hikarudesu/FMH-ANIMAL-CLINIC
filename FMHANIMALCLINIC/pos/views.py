@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
-from django.db.models import Prefetch, Q, Sum
+from django.db.models import Q, Sum
 from django.db import transaction
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -776,25 +776,50 @@ def search_customers(request):
             Q(phone_number__icontains=term)
         )
 
-    customers = customers.prefetch_related(Prefetch(
-        'pets',
-        queryset=Pet.objects.filter(is_active=True).only('id', 'name', 'species', 'owner_id'),
-        to_attr='active_pets',
-    )).order_by('first_name', 'last_name', 'username')[:10]
+    customers = list(
+        customers.order_by('first_name', 'last_name', 'username')[:26]
+    )
 
-    results = []
-    for c in customers:
-        pets = [{'id': pet.pk, 'name': pet.name, 'species': pet.species}
-                for pet in c.active_pets]
-        results.append({
+    results = [{
             'id': c.pk,
             'name': c.get_full_name() or c.email or c.username,
             'email': c.email,
             'phone': getattr(c, 'phone_number', ''),
-            'pets': pets,
-        })
+        } for c in customers[:25]]
 
-    return JsonResponse({'results': results})
+    return JsonResponse({'results': results, 'has_more': len(customers) > 25})
+
+
+@login_required
+@special_permission_required('can_access_pos')
+@require_GET
+def search_customer_pets(request):
+    """Search active pets belonging to one eligible registered customer."""
+    customer_id = request.GET.get('customer_id', '').strip()
+    query = request.GET.get('q', '').strip()
+    if not customer_id.isdecimal() or len(query) < 2:
+        return JsonResponse({'results': [], 'has_more': False})
+
+    customer = User.objects.filter(
+        pk=customer_id,
+        is_active=True,
+        is_superuser=False,
+    ).filter(
+        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
+    )
+    if not customer.exists():
+        return JsonResponse({'results': [], 'has_more': False})
+
+    pets = Pet.objects.filter(owner_id=customer_id, is_active=True)
+    for term in query.split():
+        pets = pets.filter(Q(name__icontains=term) | Q(species__icontains=term))
+
+    matches = list(pets.order_by('name')[:26])
+    return JsonResponse({
+        'results': [{'id': pet.pk, 'name': pet.name, 'species': pet.species}
+                    for pet in matches[:25]],
+        'has_more': len(matches) > 25,
+    })
 
 
 @login_required

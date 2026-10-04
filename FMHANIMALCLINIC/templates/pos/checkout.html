@@ -425,6 +425,11 @@
     box-shadow: 0 0 0 3px var(--primary-light);
   }
   .pos-customer-search-results { display: grid; gap: 5px; max-height: 150px; overflow-y: auto; margin: -2px 0 8px; }
+  .pos-customer-search-row { display: flex; gap: 6px; align-items: stretch; }
+  .pos-customer-search-row .pos-customer-input { flex: 1; min-width: 0; }
+  .pos-lookup-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 82px; height: 40px; margin-bottom: 8px; padding: 0 10px; border: 1px solid var(--primary); border-radius: var(--radius-sm); background: var(--primary); color: #fff; font-size: .78rem; font-weight: 600; cursor: pointer; }
+  .pos-lookup-button:hover { filter: brightness(.94); }
+  .pos-lookup-button:focus-visible { outline: 2px solid var(--text-1); outline-offset: 2px; }
   .pos-customer-search-result { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-1); text-align: left; cursor: pointer; }
   .pos-customer-search-result:hover, .pos-customer-search-result:focus-visible { border-color: var(--primary); outline: none; }
   .pos-customer-search-result strong { font-size: .82rem; }
@@ -432,6 +437,9 @@
   .pos-selected-customer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: .78rem; }
   .pos-selected-customer[hidden] { display: none; }
   .pos-selected-customer button { border: 0; background: none; color: var(--primary); font-weight: 600; cursor: pointer; }
+  .pos-selected-pet { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: .78rem; }
+  .pos-selected-pet[hidden] { display: none; }
+  .pos-selected-pet button { border: 0; background: none; color: var(--primary); font-weight: 600; cursor: pointer; }
 
   /* Payment Section */
   .pos-payment-section {
@@ -990,16 +998,28 @@
       <input type="text" class="pos-customer-input" id="guestName" placeholder="Customer name (optional)">
       <input type="text" class="pos-customer-input" id="guestPetName" placeholder="Pet name (optional)" style="margin-top: 0;">
       <div id="registeredCustomerFields" style="display: none;">
-        <input type="search" class="pos-customer-input" id="customerSearch" placeholder="Search registered customer" autocomplete="off" minlength="2">
-        <div id="customerSearchResults" class="pos-customer-search-results" role="listbox" aria-live="polite"></div>
+        <div class="pos-customer-search-row">
+          <input type="search" class="pos-customer-input" id="customerSearch" placeholder="Search client name or account" autocomplete="off" minlength="2">
+          <button type="button" class="pos-lookup-button" id="customerSearchButton"><i class='bx bx-search'></i> Search</button>
+        </div>
+        <div id="customerSearchResults" class="pos-customer-search-results" role="listbox" aria-live="polite"><span class="pos-customer-search-message">Enter at least two characters, then select Search.</span></div>
         <div id="selectedCustomer" class="pos-selected-customer" hidden>
           <span id="selectedCustomerName"></span>
           <button type="button" onclick="changeCustomer()">Change</button>
         </div>
         <input type="hidden" id="registeredCustomer" value="">
-        <select class="pos-customer-input" id="registeredPet" style="display: none;">
-          <option value="">Select a pet...</option>
-        </select>
+        <div id="registeredPetFields" style="display: none;">
+          <div class="pos-customer-search-row">
+            <input type="search" class="pos-customer-input" id="petSearch" placeholder="Search this client's pets" autocomplete="off" minlength="2">
+            <button type="button" class="pos-lookup-button" id="petSearchButton"><i class='bx bx-search'></i> Search</button>
+          </div>
+          <div id="petSearchResults" class="pos-customer-search-results" role="listbox" aria-live="polite"></div>
+          <div id="selectedPet" class="pos-selected-pet" hidden>
+            <span id="selectedPetName"></span>
+            <button type="button" id="clearSelectedPet">Clear</button>
+          </div>
+          <input type="hidden" id="registeredPet" value="">
+        </div>
       </div>
     </div>
 
@@ -1165,6 +1185,7 @@ let lastCompletedSaleId = null;
 let paymentInProgress = false;
 let customerSearchTimer = null;
 let customerSearchController = null;
+let petSearchController = null;
 let skipCartAbandonment = false;
 
 window.addEventListener('pagehide', function() {
@@ -1601,7 +1622,8 @@ function setCustomerType(type) {
   const guestPetNameInput = document.getElementById('guestPetName');
   const registeredSelect = document.getElementById('registeredCustomer');
   const registeredFields = document.getElementById('registeredCustomerFields');
-  const registeredPetSelect = document.getElementById('registeredPet');
+  const registeredPetFields = document.getElementById('registeredPetFields');
+  const registeredPetInput = document.getElementById('registeredPet');
   
   if (type === 'WALKIN') {
     guestNameInput.style.display = 'block';
@@ -1611,32 +1633,54 @@ function setCustomerType(type) {
     document.getElementById('customerSearch').value = '';
     document.getElementById('customerSearchResults').replaceChildren();
     document.getElementById('selectedCustomer').hidden = true;
-    registeredPetSelect.style.display = 'none';
-    registeredPetSelect.innerHTML = '<option value="">Select a pet...</option>';
-    registeredPetSelect.value = '';
+    registeredPetFields.style.display = 'none';
+    registeredPetInput.value = '';
+    document.getElementById('petSearch').value = '';
+    document.getElementById('petSearchResults').replaceChildren();
+    document.getElementById('selectedPet').hidden = true;
   } else {
     guestNameInput.style.display = 'none';
     guestPetNameInput.style.display = 'none';
     registeredFields.style.display = 'block';
-    registeredPetSelect.style.display = 'block';
     guestNameInput.value = '';
     guestPetNameInput.value = '';
   }
 }
 
 const customerSearchInput = document.getElementById('customerSearch');
+function clearSelectedCustomer() {
+  document.getElementById('registeredCustomer').value = '';
+  document.getElementById('selectedCustomer').hidden = true;
+  document.getElementById('registeredPetFields').style.display = 'none';
+  document.getElementById('registeredPet').value = '';
+  document.getElementById('petSearch').value = '';
+  document.getElementById('petSearchResults').replaceChildren();
+  document.getElementById('selectedPet').hidden = true;
+}
+
 customerSearchInput.addEventListener('input', function() {
   window.clearTimeout(customerSearchTimer);
   if (customerSearchController) customerSearchController.abort();
-  document.getElementById('registeredCustomer').value = '';
-  document.getElementById('selectedCustomer').hidden = true;
-  document.getElementById('registeredPet').innerHTML = '<option value="">Select a pet...</option>';
-  const query = this.value.trim();
+  clearSelectedCustomer();
+  renderCustomerSearchMessage('Select Search to look up matching clients.');
+});
+
+function runCustomerSearch() {
+  if (customerSearchController) customerSearchController.abort();
+  const query = customerSearchInput.value.trim();
   if (query.length < 2) {
-    renderCustomerSearchMessage('Enter at least two characters to search.');
+    renderCustomerSearchMessage('Enter at least two characters, then select Search.');
     return;
   }
-  customerSearchTimer = window.setTimeout(() => searchCustomers(query), 250);
+  customerSearchTimer = window.setTimeout(() => searchCustomers(query), 120);
+}
+
+document.getElementById('customerSearchButton').addEventListener('click', runCustomerSearch);
+customerSearchInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    runCustomerSearch();
+  }
 });
 
 function renderCustomerSearchMessage(message) {
@@ -1678,6 +1722,12 @@ async function searchCustomers(query) {
       option.addEventListener('click', () => selectCustomer(customer));
       results.appendChild(option);
     });
+    if (data.has_more) {
+      const note = document.createElement('span');
+      note.className = 'pos-customer-search-message';
+      note.textContent = 'Showing 25 matches. Refine the client search to narrow results.';
+      results.appendChild(note);
+    }
   } catch (error) {
     if (error.name !== 'AbortError') renderCustomerSearchMessage('Could not search customers. Try again.');
   }
@@ -1688,25 +1738,110 @@ function selectCustomer(customer) {
   document.getElementById('selectedCustomerName').textContent = `${customer.name}${customer.email ? ` · ${customer.email}` : ''}`;
   document.getElementById('selectedCustomer').hidden = false;
   document.getElementById('customerSearchResults').replaceChildren();
-  const petSelect = document.getElementById('registeredPet');
-  petSelect.innerHTML = '<option value="">Select a pet...</option>';
-  (customer.pets || []).forEach(pet => {
-    const option = document.createElement('option');
-    option.value = pet.id;
-    option.textContent = `${pet.name} (${pet.species})`;
-    petSelect.appendChild(option);
-  });
+  document.getElementById('registeredPetFields').style.display = 'block';
+  document.getElementById('registeredPet').value = '';
+  document.getElementById('petSearch').value = '';
+  document.getElementById('selectedPet').hidden = true;
+  renderPetSearchMessage('Search by pet name or species. Pet selection is optional.');
 }
 
 function changeCustomer() {
-  document.getElementById('registeredCustomer').value = '';
-  document.getElementById('selectedCustomer').hidden = true;
-  document.getElementById('registeredPet').innerHTML = '<option value="">Select a pet...</option>';
+  clearSelectedCustomer();
   const searchInput = document.getElementById('customerSearch');
   searchInput.value = '';
-  renderCustomerSearchMessage('Enter at least two characters to search.');
+  renderCustomerSearchMessage('Enter at least two characters, then select Search.');
   searchInput.focus();
 }
+
+function renderPetSearchMessage(message) {
+  const results = document.getElementById('petSearchResults');
+  results.replaceChildren();
+  const note = document.createElement('span');
+  note.className = 'pos-customer-search-message';
+  note.textContent = message;
+  results.appendChild(note);
+}
+
+document.getElementById('petSearchButton').addEventListener('click', searchCustomerPets);
+const petSearchInput = document.getElementById('petSearch');
+petSearchInput.addEventListener('input', () => {
+  if (petSearchController) petSearchController.abort();
+  document.getElementById('registeredPet').value = '';
+  document.getElementById('selectedPet').hidden = true;
+  renderPetSearchMessage('Select Search to look up this client’s pets.');
+});
+petSearchInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    searchCustomerPets();
+  }
+});
+
+async function searchCustomerPets() {
+  const customerId = document.getElementById('registeredCustomer').value;
+  const query = document.getElementById('petSearch').value.trim();
+  if (!customerId) {
+    renderPetSearchMessage('Select a registered client first.');
+    return;
+  }
+  if (query.length < 2) {
+    renderPetSearchMessage('Enter at least two characters, then select Search.');
+    return;
+  }
+
+  if (petSearchController) petSearchController.abort();
+  petSearchController = new AbortController();
+  renderPetSearchMessage('Searching this client’s pets…');
+  try {
+    const params = new URLSearchParams({ customer_id: customerId, q: query });
+    const response = await fetch(`{% url "pos:search_customer_pets" %}?${params.toString()}`, {
+      signal: petSearchController.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Pet search failed');
+    const data = await response.json();
+    const results = document.getElementById('petSearchResults');
+    results.replaceChildren();
+    if (!data.results.length) {
+      renderPetSearchMessage('No matching pets found for this client.');
+      return;
+    }
+    data.results.forEach(pet => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'pos-customer-search-result';
+      option.setAttribute('role', 'option');
+      const name = document.createElement('strong');
+      name.textContent = pet.name;
+      const details = document.createElement('small');
+      details.textContent = pet.species;
+      option.append(name, details);
+      option.addEventListener('click', () => selectPet(pet));
+      results.appendChild(option);
+    });
+    if (data.has_more) {
+      const note = document.createElement('span');
+      note.className = 'pos-customer-search-message';
+      note.textContent = 'Showing 25 matches. Refine the pet search to narrow results.';
+      results.appendChild(note);
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') renderPetSearchMessage('Could not search pets. Try again.');
+  }
+}
+
+function selectPet(pet) {
+  document.getElementById('registeredPet').value = pet.id;
+  document.getElementById('selectedPetName').textContent = `${pet.name} (${pet.species})`;
+  document.getElementById('selectedPet').hidden = false;
+  document.getElementById('petSearchResults').replaceChildren();
+}
+
+document.getElementById('clearSelectedPet').addEventListener('click', () => {
+  document.getElementById('registeredPet').value = '';
+  document.getElementById('selectedPet').hidden = true;
+  document.getElementById('petSearch').focus();
+});
 
 async function processPayment() {
   if (paymentInProgress) return;

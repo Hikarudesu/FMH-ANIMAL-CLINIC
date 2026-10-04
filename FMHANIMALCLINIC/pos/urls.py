@@ -22,6 +22,7 @@ urlpatterns = [
     # Search endpoints
     path('api/search/items/', views.search_items, name='search_items'),
     path('api/search/customers/', views.search_customers, name='search_customers'),
+    path('api/search/customer-pets/', views.search_customer_pets, name='search_customer_pets'),
 
     # Sales management
     path('sales/', views.sales_list, name='sales_list'),
