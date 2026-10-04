@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/update-quantity/', views.update_item_quantity, name='update_quantity'),
     path('api/update-sale/', views.update_sale_info, name='update_sale'),
     path('api/process-payment/', views.process_payment, name='process_payment'),
+    path('api/abandon-sale/<int:sale_id>/', views.abandon_sale, name='abandon_sale'),
     path('api/filter-items/', views.filter_items_by_branch, name='filter_items'),
 
     # Search endpoints

@@ -2,6 +2,7 @@
 # pylint: disable=no-member, unused-import, line-too-long, unused-variable
 
 
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -9,9 +10,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
-from django.db.models import Q, Sum
+from django.db.models import Prefetch, Q, Sum
 from django.db import transaction
 from django.core.paginator import Paginator
+from django.utils import timezone
 
 from accounts.decorators import module_permission_required, special_permission_required
 from accounts.models import User
@@ -37,7 +39,13 @@ def checkout(request):
     if not branch:
         branch = Branch.objects.first()
 
-    # Create new pending sale or get existing one
+    # Discard abandoned carts, then restore only this cashier's active sale.
+    Sale.objects.filter(
+        cashier=request.user,
+        status=Sale.Status.PENDING,
+        created_at__lt=timezone.now() - timedelta(hours=24),
+    ).delete()
+
     pending_sale = Sale.objects.filter(
         branch=branch,
         cashier=request.user,
@@ -75,29 +83,12 @@ def checkout(request):
         products = Product.objects.none()
         medications = Product.objects.none()
 
-    # Get customers for dropdown (pet owners = not staff or no role)
-    customers = User.objects.filter(
-        is_active=True
-    ).filter(
-        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
-    ).order_by('first_name', 'last_name').prefetch_related('pets')
-
-    # Build pets mapping for dynamic dropdown in frontend
-    pets_map = {}
-    for customer in customers:
-        pets_map[customer.id] = [{'id': pet.id, 'name': pet.name}
-                                 for pet in customer.pets.all()]
-
-    import json
-
     context = {
         'sale': pending_sale,
         'items': pending_sale.items.all(),
         'services': services,
         'products': products,
         'medications': medications,
-        'customers': customers,
-        'pets_json': json.dumps(pets_map),
         'branches': branches,
         'payment_methods': Payment.Method.choices,
         'is_branch_restricted': True,  # POS is always branch-restricted
@@ -113,10 +104,15 @@ def add_item(request):
     sale_id = request.POST.get('sale_id')
     item_type = request.POST.get('item_type')
     item_id = request.POST.get('item_id')
-    quantity = int(request.POST.get('quantity', 1))
+    try:
+        quantity = int(request.POST.get('quantity', 1))
+    except (ValueError, TypeError):
+        return JsonResponse({'success': False, 'error': 'Invalid quantity'}, status=400)
+    if quantity < 1:
+        return JsonResponse({'success': False, 'error': 'Quantity must be at least one'}, status=400)
 
     try:
-        sale = Sale.objects.get(pk=sale_id, status=Sale.Status.PENDING)
+        sale = Sale.objects.get(pk=sale_id, cashier=request.user, status=Sale.Status.PENDING)
     except Sale.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
@@ -145,7 +141,7 @@ def add_item(request):
 
         elif item_type in ['PRODUCT', 'MEDICATION']:
             try:
-                item = Product.objects.get(pk=item_id, is_available=True)
+                item = Product.objects.get(pk=item_id, branch=sale.branch, is_available=True)
                 existing_item = sale.items.filter(
                     item_type=item_type, product=item).first()
                 new_quantity = (
@@ -202,7 +198,11 @@ def remove_item(request):
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     try:
-        item = SaleItem.objects.get(pk=item_id)
+        item = SaleItem.objects.get(
+            pk=item_id,
+            sale__cashier=request.user,
+            sale__status=Sale.Status.PENDING,
+        )
         sale = item.sale
         item.delete()
         sale.calculate_totals()
@@ -236,7 +236,11 @@ def update_item_quantity(request):
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     try:
-        item = SaleItem.objects.get(pk=item_id)
+        item = SaleItem.objects.get(
+            pk=item_id,
+            sale__cashier=request.user,
+            sale__status=Sale.Status.PENDING,
+        )
 
         if quantity_value not in (None, ''):
             quantity = int(quantity_value)
@@ -295,7 +299,7 @@ def update_sale_info(request):
     sale_id = request.POST.get('sale_id')
 
     try:
-        sale = Sale.objects.get(pk=sale_id, status=Sale.Status.PENDING)
+        sale = Sale.objects.get(pk=sale_id, cashier=request.user, status=Sale.Status.PENDING)
     except Sale.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
@@ -379,18 +383,74 @@ def process_payment(request):
     """Process payment for a sale."""
     sale_id = request.POST.get('sale_id')
     method = request.POST.get('method')
-    amount = Decimal(request.POST.get('amount', '0'))
+    try:
+        amount = Decimal(request.POST.get('amount', '0'))
+    except (InvalidOperation, TypeError):
+        return JsonResponse({'success': False, 'error': 'Enter a valid payment amount'}, status=400)
     reference = request.POST.get('reference_number', '')
 
-    try:
-        sale = Sale.objects.get(pk=sale_id, status=Sale.Status.PENDING)
-    except Sale.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
+    if not amount.is_finite() or amount <= 0:
+        return JsonResponse({'success': False, 'error': 'Payment amount must be greater than zero'}, status=400)
+    if method not in Payment.Method.values:
+        return JsonResponse({'success': False, 'error': 'Select a valid payment method'}, status=400)
 
-    if not sale.items.exists():
-        return JsonResponse({'success': False, 'error': 'Cannot process empty sale'}, status=400)
+    customer_type = request.POST.get('customer_type', Sale.CustomerType.WALKIN)
+    if customer_type not in Sale.CustomerType.values:
+        return JsonResponse({'success': False, 'error': 'Select a valid customer type'}, status=400)
 
     with transaction.atomic():
+        try:
+            sale = Sale.objects.select_for_update().get(
+                pk=sale_id,
+                cashier=request.user,
+                status=Sale.Status.PENDING,
+            )
+        except Sale.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
+
+        if not sale.items.exists():
+            return JsonResponse({'success': False, 'error': 'Cannot process empty sale'}, status=400)
+
+        if customer_type == Sale.CustomerType.REGISTERED:
+            customer_id = request.POST.get('customer_id')
+            customer = User.objects.filter(
+                pk=customer_id,
+                is_active=True,
+                is_superuser=False,
+            ).filter(
+                Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
+            ).first()
+            if not customer:
+                return JsonResponse({'success': False, 'error': 'Select a valid registered customer'}, status=400)
+
+            pet_id = request.POST.get('pet_id')
+            pet = None
+            if pet_id:
+                pet = Pet.objects.filter(pk=pet_id, owner=customer, is_active=True).first()
+                if not pet:
+                    return JsonResponse({'success': False, 'error': 'Select a pet belonging to this customer'}, status=400)
+
+            sale.customer_type = Sale.CustomerType.REGISTERED
+            sale.customer = customer
+            sale.pet = pet
+            sale.guest_name = customer.get_full_name()
+            sale.guest_phone = customer.phone_number or ''
+            sale.guest_email = customer.email or ''
+            sale.guest_pet_name = ''
+        else:
+            sale.customer_type = Sale.CustomerType.WALKIN
+            sale.customer = None
+            sale.pet = None
+            sale.guest_name = request.POST.get('guest_name', '').strip()
+            sale.guest_pet_name = request.POST.get('guest_pet_name', '').strip()
+            sale.guest_phone = ''
+            sale.guest_email = ''
+
+        sale.save(update_fields=[
+            'customer_type', 'customer', 'pet', 'guest_name',
+            'guest_phone', 'guest_email', 'guest_pet_name',
+        ])
+
         Payment.objects.create(
             sale=sale,
             method=method,
@@ -401,18 +461,27 @@ def process_payment(request):
 
         if sale.is_fully_paid:
             sale.complete_sale()
-            create_or_release_soa_for_sale(sale)
+            completed = True
+        else:
+            completed = False
 
-            return JsonResponse({
-                'success': True,
-                'completed': True,
-                'sale': {
-                    'transaction_id': sale.transaction_id,
-                    'total': str(sale.total),
-                    'amount_paid': str(sale.amount_paid),
-                    'change_due': str(sale.change_due),
-                }
-            })
+    if completed:
+        try:
+            create_or_release_soa_for_sale(sale)
+        except Exception:  # Keep a committed payment successful if notification delivery fails.
+            import logging
+            logging.getLogger(__name__).exception('Unable to release POS sale statement')
+
+        return JsonResponse({
+            'success': True,
+            'completed': True,
+            'sale': {
+                'transaction_id': sale.transaction_id,
+                'total': str(sale.total),
+                'amount_paid': str(sale.amount_paid),
+                'change_due': str(sale.change_due),
+            }
+        })
 
     return JsonResponse({
         'success': True,
@@ -452,13 +521,30 @@ def void_sale(request, sale_id):
 def cancel_sale(request, sale_id):
     """Cancel a pending sale (delete it)."""
     try:
-        sale = Sale.objects.get(pk=sale_id, status=Sale.Status.PENDING)
+        sale = Sale.objects.get(
+            pk=sale_id,
+            cashier=request.user,
+            status=Sale.Status.PENDING,
+        )
         sale.delete()
         messages.info(request, 'Sale cancelled.')
     except Sale.DoesNotExist:
         messages.error(request, 'Sale not found or already completed.')
 
     return redirect('pos:checkout')
+
+
+@login_required
+@special_permission_required('can_access_pos')
+@require_POST
+def abandon_sale(request, sale_id):
+    """Discard this cashier's unfinished sale when leaving the checkout page."""
+    Sale.objects.filter(
+        pk=sale_id,
+        cashier=request.user,
+        status=Sale.Status.PENDING,
+    ).delete()
+    return JsonResponse({'success': True})
 
 
 # =============================================================================
@@ -647,22 +733,33 @@ def search_customers(request):
         return JsonResponse({'results': []})
 
     customers = User.objects.filter(
-        is_active=True
+        is_active=True,
+        is_superuser=False,
     ).filter(
         Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
-    ).filter(
-        Q(first_name__icontains=query) |
-        Q(last_name__icontains=query) |
-        Q(email__icontains=query)
-    )[:10]
+    )
+    for term in query.split():
+        customers = customers.filter(
+            Q(first_name__icontains=term) |
+            Q(last_name__icontains=term) |
+            Q(username__icontains=term) |
+            Q(email__icontains=term) |
+            Q(phone_number__icontains=term)
+        )
+
+    customers = customers.prefetch_related(Prefetch(
+        'pets',
+        queryset=Pet.objects.filter(is_active=True).only('id', 'name', 'species', 'owner_id'),
+        to_attr='active_pets',
+    )).order_by('first_name', 'last_name', 'username')[:10]
 
     results = []
     for c in customers:
-        pets = list(c.pets.filter(is_active=True).values(
-            'id', 'name', 'species'))
+        pets = [{'id': pet.pk, 'name': pet.name, 'species': pet.species}
+                for pet in c.active_pets]
         results.append({
             'id': c.pk,
-            'name': c.get_full_name() or c.email,
+            'name': c.get_full_name() or c.email or c.username,
             'email': c.email,
             'phone': getattr(c, 'phone_number', ''),
             'pets': pets,

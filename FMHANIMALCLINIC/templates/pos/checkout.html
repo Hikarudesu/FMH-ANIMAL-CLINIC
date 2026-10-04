@@ -424,6 +424,14 @@
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-light);
   }
+  .pos-customer-search-results { display: grid; gap: 5px; max-height: 150px; overflow-y: auto; margin: -2px 0 8px; }
+  .pos-customer-search-result { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-1); text-align: left; cursor: pointer; }
+  .pos-customer-search-result:hover, .pos-customer-search-result:focus-visible { border-color: var(--primary); outline: none; }
+  .pos-customer-search-result strong { font-size: .82rem; }
+  .pos-customer-search-result small, .pos-customer-search-message { color: var(--text-3); font-size: .72rem; }
+  .pos-selected-customer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: .78rem; }
+  .pos-selected-customer[hidden] { display: none; }
+  .pos-selected-customer button { border: 0; background: none; color: var(--primary); font-weight: 600; cursor: pointer; }
 
   /* Payment Section */
   .pos-payment-section {
@@ -939,19 +947,9 @@
           {% endif %}
         </div>
         <div class="pos-cart-item-qty">
-          <form method="post" action="{% url 'pos:update_quantity' %}" style="display:inline-flex; margin:0;">
-            {% csrf_token %}
-            <input type="hidden" name="item_id" value="{{ item.pk }}">
-            <input type="hidden" name="delta" value="-1">
-            <button type="submit" class="pos-qty-btn" title="Decrease">−</button>
-          </form>
+          <button type="button" class="pos-qty-btn" title="Decrease" onclick="updateQty({{ item.pk }}, -1)">−</button>
           <span class="pos-qty-value">{{ item.quantity }}</span>
-          <form method="post" action="{% url 'pos:update_quantity' %}" style="display:inline-flex; margin:0;">
-            {% csrf_token %}
-            <input type="hidden" name="item_id" value="{{ item.pk }}">
-            <input type="hidden" name="delta" value="1">
-            <button type="submit" class="pos-qty-btn" title="Increase">+</button>
-          </form>
+          <button type="button" class="pos-qty-btn" title="Increase" onclick="updateQty({{ item.pk }}, 1)">+</button>
         </div>
         <div class="pos-cart-item-total">₱{{ item.line_total|floatformat:2 }}</div>
         <button type="button" class="pos-cart-item-remove" title="Remove item" onclick="removeItem({{ item.pk }})">
@@ -991,17 +989,18 @@
       <!-- Walk-in: Text inputs for name and pet name -->
       <input type="text" class="pos-customer-input" id="guestName" placeholder="Customer name (optional)">
       <input type="text" class="pos-customer-input" id="guestPetName" placeholder="Pet name (optional)" style="margin-top: 0;">
-      <!-- Registered: Dropdown for pet owners -->
-      <select class="pos-customer-input" id="registeredCustomer" style="display: none;">
-        <option value="">Select a registered customer...</option>
-        {% for customer in customers %}
-        <option value="{{ customer.id }}">{{ customer.get_full_name|default:customer.email }} {% if customer.phone_number %}({{ customer.phone_number }}){% endif %}</option>
-        {% endfor %}
-      </select>
-      <!-- Registered: Pet dropdown (populated via JS when customer is selected) -->
-      <select class="pos-customer-input" id="registeredPet" style="display: none;">
-        <option value="">Select a pet...</option>
-      </select>
+      <div id="registeredCustomerFields" style="display: none;">
+        <input type="search" class="pos-customer-input" id="customerSearch" placeholder="Search registered customer" autocomplete="off" minlength="2">
+        <div id="customerSearchResults" class="pos-customer-search-results" role="listbox" aria-live="polite"></div>
+        <div id="selectedCustomer" class="pos-selected-customer" hidden>
+          <span id="selectedCustomerName"></span>
+          <button type="button" onclick="changeCustomer()">Change</button>
+        </div>
+        <input type="hidden" id="registeredCustomer" value="">
+        <select class="pos-customer-input" id="registeredPet" style="display: none;">
+          <option value="">Select a pet...</option>
+        </select>
+      </div>
     </div>
 
     <!-- Payment Section -->
@@ -1152,6 +1151,26 @@ let currentTotal = {{ sale.total|default:0 }};
 let paymentMethod = 'CASH';
 let customerType = 'WALKIN';
 let lastCompletedSaleId = null;
+let paymentInProgress = false;
+let customerSearchTimer = null;
+let customerSearchController = null;
+let currentBalance = {{ sale.balance_due|default:sale.total }};
+let skipCartAbandonment = false;
+
+window.addEventListener('pagehide', function() {
+  if (skipCartAbandonment || !navigator.sendBeacon) return;
+  const formData = new FormData();
+  formData.append('csrfmiddlewaretoken', getCsrfToken());
+  navigator.sendBeacon('{% url "pos:abandon_sale" sale.pk %}', formData);
+});
+
+window.addEventListener('pageshow', function(event) {
+  if (event.persisted) window.location.reload();
+});
+
+document.getElementById('cancelSaleForm').addEventListener('submit', function() {
+  skipCartAbandonment = true;
+});
 
 // Pagination vars
 let currentPage = 1;
@@ -1357,19 +1376,9 @@ function addItemToCart(item) {
           ${item.unit_display ? `<div style="font-size: 0.72rem; color: var(--text-3);">${item.unit_display}${item.sale_type_label ? ' · ' + item.sale_type_label : ''}</div>` : ''}
         </div>
         <div class="pos-cart-item-qty">
-            <form method="post" action="{% url 'pos:update_quantity' %}" style="display:inline-flex; margin:0;">
-              <input type="hidden" name="csrfmiddlewaretoken" value="${getCsrfToken()}">
-              <input type="hidden" name="item_id" value="${item.id}">
-              <input type="hidden" name="delta" value="-1">
-              <button type="submit" class="pos-qty-btn" title="Decrease">−</button>
-            </form>
+            <button type="button" class="pos-qty-btn" title="Decrease" onclick="updateQty(${item.id}, -1)">−</button>
           <span class="pos-qty-value">${item.quantity}</span>
-            <form method="post" action="{% url 'pos:update_quantity' %}" style="display:inline-flex; margin:0;">
-              <input type="hidden" name="csrfmiddlewaretoken" value="${getCsrfToken()}">
-              <input type="hidden" name="item_id" value="${item.id}">
-              <input type="hidden" name="delta" value="1">
-              <button type="submit" class="pos-qty-btn" title="Increase">+</button>
-            </form>
+            <button type="button" class="pos-qty-btn" title="Increase" onclick="updateQty(${item.id}, 1)">+</button>
         </div>
         <div class="pos-cart-item-total">₱${parseFloat(item.line_total).toFixed(2)}</div>
           <button type="button" class="pos-cart-item-remove" title="Remove item" onclick="removeItem(${item.id})">
@@ -1407,7 +1416,8 @@ function updateQty(itemId, delta) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRFToken': getCsrfToken()
+        'X-CSRFToken': getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest'
       },
       body: `item_id=${itemId}&quantity=${qty}`
     })
@@ -1553,8 +1563,6 @@ function setPaymentMethod(method) {
   });
 }
 
-const customerPetsMap = JSON.parse('{{ pets_json|escapejs }}' || '{}');
-
 function setCustomerType(type) {
   customerType = type;
   document.querySelectorAll('.pos-customer-btn').forEach(btn => {
@@ -1565,54 +1573,120 @@ function setCustomerType(type) {
   const guestNameInput = document.getElementById('guestName');
   const guestPetNameInput = document.getElementById('guestPetName');
   const registeredSelect = document.getElementById('registeredCustomer');
+  const registeredFields = document.getElementById('registeredCustomerFields');
   const registeredPetSelect = document.getElementById('registeredPet');
   
   if (type === 'WALKIN') {
     guestNameInput.style.display = 'block';
     guestPetNameInput.style.display = 'block';
-    registeredSelect.style.display = 'none';
-    registeredPetSelect.style.display = 'none';
+    registeredFields.style.display = 'none';
     registeredSelect.value = '';
+    document.getElementById('customerSearch').value = '';
+    document.getElementById('customerSearchResults').replaceChildren();
+    document.getElementById('selectedCustomer').hidden = true;
+    registeredPetSelect.style.display = 'none';
     registeredPetSelect.innerHTML = '<option value="">Select a pet...</option>';
     registeredPetSelect.value = '';
   } else {
     guestNameInput.style.display = 'none';
     guestPetNameInput.style.display = 'none';
-    registeredSelect.style.display = 'block';
+    registeredFields.style.display = 'block';
     registeredPetSelect.style.display = 'block';
     guestNameInput.value = '';
     guestPetNameInput.value = '';
   }
 }
 
-// Add event listener to populate pets when customer changes
-const registeredCustomerSelect = document.getElementById('registeredCustomer');
-if (registeredCustomerSelect) {
-  registeredCustomerSelect.addEventListener('change', function() {
-    const registeredPetSelect = document.getElementById('registeredPet');
-    const customerId = this.value;
-    
-    if (!registeredPetSelect) return;
-    registeredPetSelect.innerHTML = '<option value="">Select a pet...</option>';
-    
-    if (customerId && customerPetsMap[customerId]) {
-      customerPetsMap[customerId].forEach(pet => {
-        const option = document.createElement('option');
-        option.value = pet.id;
-        option.textContent = pet.name;
-        registeredPetSelect.appendChild(option);
-      });
-    }
-  });
-} else {
-  console.warn('registeredCustomer element not found');
+const customerSearchInput = document.getElementById('customerSearch');
+customerSearchInput.addEventListener('input', function() {
+  window.clearTimeout(customerSearchTimer);
+  if (customerSearchController) customerSearchController.abort();
+  document.getElementById('registeredCustomer').value = '';
+  document.getElementById('selectedCustomer').hidden = true;
+  document.getElementById('registeredPet').innerHTML = '<option value="">Select a pet...</option>';
+  const query = this.value.trim();
+  if (query.length < 2) {
+    renderCustomerSearchMessage('Enter at least two characters to search.');
+    return;
+  }
+  customerSearchTimer = window.setTimeout(() => searchCustomers(query), 250);
+});
+
+function renderCustomerSearchMessage(message) {
+  const results = document.getElementById('customerSearchResults');
+  results.replaceChildren();
+  const note = document.createElement('span');
+  note.className = 'pos-customer-search-message';
+  note.textContent = message;
+  results.appendChild(note);
 }
 
-function processPayment() {
+async function searchCustomers(query) {
+  if (customerSearchController) customerSearchController.abort();
+  customerSearchController = new AbortController();
+  renderCustomerSearchMessage('Searching…');
+  try {
+    const response = await fetch(`{% url "pos:search_customers" %}?q=${encodeURIComponent(query)}`, {
+      signal: customerSearchController.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Customer search failed');
+    const data = await response.json();
+    const results = document.getElementById('customerSearchResults');
+    results.replaceChildren();
+    if (!data.results.length) {
+      renderCustomerSearchMessage('No registered customers found.');
+      return;
+    }
+    data.results.forEach(customer => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'pos-customer-search-result';
+      option.setAttribute('role', 'option');
+      const name = document.createElement('strong');
+      name.textContent = customer.name;
+      const details = document.createElement('small');
+      details.textContent = [customer.email, customer.phone].filter(Boolean).join(' · ');
+      option.append(name, details);
+      option.addEventListener('click', () => selectCustomer(customer));
+      results.appendChild(option);
+    });
+  } catch (error) {
+    if (error.name !== 'AbortError') renderCustomerSearchMessage('Could not search customers. Try again.');
+  }
+}
+
+function selectCustomer(customer) {
+  document.getElementById('registeredCustomer').value = customer.id;
+  document.getElementById('selectedCustomerName').textContent = `${customer.name}${customer.email ? ` · ${customer.email}` : ''}`;
+  document.getElementById('selectedCustomer').hidden = false;
+  document.getElementById('customerSearchResults').replaceChildren();
+  const petSelect = document.getElementById('registeredPet');
+  petSelect.innerHTML = '<option value="">Select a pet...</option>';
+  (customer.pets || []).forEach(pet => {
+    const option = document.createElement('option');
+    option.value = pet.id;
+    option.textContent = `${pet.name} (${pet.species})`;
+    petSelect.appendChild(option);
+  });
+}
+
+function changeCustomer() {
+  document.getElementById('registeredCustomer').value = '';
+  document.getElementById('selectedCustomer').hidden = true;
+  document.getElementById('registeredPet').innerHTML = '<option value="">Select a pet...</option>';
+  const searchInput = document.getElementById('customerSearch');
+  searchInput.value = '';
+  renderCustomerSearchMessage('Enter at least two characters to search.');
+  searchInput.focus();
+}
+
+async function processPayment() {
+  if (paymentInProgress) return;
   const amountStr = document.getElementById('paymentAmount').value.replace(/,/g, '');
   const amount = parseFloat(amountStr) || 0;
-  if (amount < currentTotal) {
-    alert('Payment amount is less than total');
+  if (amount < currentBalance) {
+    alert('Payment amount is less than the remaining balance');
     return;
   }
 
@@ -1622,49 +1696,64 @@ function processPayment() {
   const registeredCustomerId = document.getElementById('registeredCustomer').value;
   const registeredPetId = document.getElementById('registeredPet').value;
   
-  let bodyParams = `sale_id=${saleId}&customer_type=${customerType}`;
+  const params = new URLSearchParams({
+    sale_id: saleId,
+    method: paymentMethod,
+    amount: amount.toFixed(2),
+    customer_type: customerType,
+  });
   if (customerType === 'WALKIN') {
-    bodyParams += `&guest_name=${encodeURIComponent(guestName)}&guest_pet_name=${encodeURIComponent(guestPetName)}`;
+    params.set('guest_name', guestName);
+    params.set('guest_pet_name', guestPetName);
   } else {
-    bodyParams += `&customer_id=${registeredCustomerId}`;
-    if (registeredPetId) {
-      bodyParams += `&pet_id=${registeredPetId}`;
+    if (!registeredCustomerId) {
+      alert('Search for and select a registered customer first.');
+      return;
     }
+    params.set('customer_id', registeredCustomerId);
+    if (registeredPetId) params.set('pet_id', registeredPetId);
   }
-  
-  // Update customer info first
-  fetch('{% url "pos:update_sale" %}', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRFToken': getCsrfToken()
-    },
-    body: bodyParams
-  }).then(() => {
-    // Then process payment
-    fetch('{% url "pos:process_payment" %}', {
+
+  const button = document.getElementById('checkoutBtn');
+  const originalContent = button.innerHTML;
+  paymentInProgress = true;
+  button.disabled = true;
+  button.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Processing payment…';
+
+  try {
+    const response = await fetch('{% url "pos:process_payment" %}', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRFToken': getCsrfToken()
+        'X-CSRFToken': getCsrfToken(),
       },
-      body: `sale_id=${saleId}&method=${paymentMethod}&amount=${amount}`
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success && data.completed) {
-        sessionStorage.setItem('posCompletedSale', JSON.stringify({
-          id: saleId,
-          transactionId: data.sale.transaction_id,
-          amountPaid: data.sale.amount_paid,
-          changeDue: data.sale.change_due
-        }));
-        window.location.reload();
-      } else if (!data.success) {
-        alert(data.error || 'Payment failed');
-      }
+      body: params.toString(),
     });
-  });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || 'Payment failed.');
+
+    if (data.completed) {
+      skipCartAbandonment = true;
+      lastCompletedSaleId = saleId;
+      document.getElementById('modalTxnId').textContent = data.sale.transaction_id;
+      document.getElementById('modalAmountPaid').textContent = '₱' + Number(data.sale.amount_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      document.getElementById('modalChange').textContent = '₱' + Number(data.sale.change_due).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      document.getElementById('successModal').classList.add('active');
+      return;
+    }
+
+    currentBalance = Number(data.sale.balance_due);
+    document.getElementById('paymentAmount').value = '';
+    alert(`Payment recorded. Remaining balance: ₱${currentBalance.toFixed(2)}`);
+  } catch (error) {
+    alert(error.message || 'Payment could not be completed. Please retry.');
+  } finally {
+    paymentInProgress = false;
+    if (!document.getElementById('successModal').classList.contains('active')) {
+      button.disabled = false;
+      button.innerHTML = originalContent;
+    }
+  }
 }
 
 function applyDiscount() {
@@ -1752,11 +1841,11 @@ function closeCancelSaleModal() {
 
 
 function newSale() {
-  closeSuccessModal();
+  window.location.reload();
 }
 
 function closeSuccessModal() {
-  document.getElementById('successModal').classList.remove('active');
+  newSale();
 }
 
 function viewStatement() {
@@ -1770,20 +1859,6 @@ function viewStatement() {
 function printReceipt() {
   if (lastCompletedSaleId) {
     window.open(`/pos/sales/${lastCompletedSaleId}/receipt/`, '_blank');
-  }
-}
-
-const completedSale = sessionStorage.getItem('posCompletedSale');
-if (completedSale) {
-  try {
-    const sale = JSON.parse(completedSale);
-    lastCompletedSaleId = sale.id;
-    document.getElementById('modalTxnId').textContent = sale.transactionId;
-    document.getElementById('modalAmountPaid').textContent = '₱' + parseFloat(sale.amountPaid).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    document.getElementById('modalChange').textContent = '₱' + parseFloat(sale.changeDue).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    document.getElementById('successModal').classList.add('active');
-  } finally {
-    sessionStorage.removeItem('posCompletedSale');
   }
 }
 

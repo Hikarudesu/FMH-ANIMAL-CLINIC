@@ -219,6 +219,12 @@ def select_branch_view(request):
 
 def logout_view(request):
     """Logout view"""
+    if request.user.is_authenticated:
+        from pos.models import Sale
+        Sale.objects.filter(
+            cashier=request.user,
+            status=Sale.Status.PENDING,
+        ).delete()
     logout(request)
     messages.success(request, 'You have been successfully logged out.')
     return redirect('landing_page')
