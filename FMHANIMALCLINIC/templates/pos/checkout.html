@@ -1070,6 +1070,17 @@
   </div>
 </div>
 
+<div class="pos-modal" id="posMessageModal" role="alertdialog" aria-modal="true" aria-labelledby="posMessageTitle" aria-describedby="posMessageText">
+  <div class="pos-modal-content">
+    <div class="pos-modal-icon" id="posMessageIcon"><i class='bx bx-error-circle'></i></div>
+    <div class="pos-modal-title" id="posMessageTitle">Payment needs attention</div>
+    <p id="posMessageText"></p>
+    <div class="pos-modal-actions">
+      <button type="button" class="pos-modal-btn primary" onclick="closePosMessage()">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- Discount Modal -->
 <div class="pos-modal" id="discountModal">
   <div class="pos-modal-content">
@@ -1563,6 +1574,23 @@ function setPaymentMethod(method) {
   });
 }
 
+function showPosMessage(title, message, kind = 'error') {
+  const modal = document.getElementById('posMessageModal');
+  const icon = document.getElementById('posMessageIcon');
+  document.getElementById('posMessageTitle').textContent = title;
+  document.getElementById('posMessageText').textContent = message;
+  icon.innerHTML = kind === 'success'
+    ? "<i class='bx bx-check-circle'></i>"
+    : "<i class='bx bx-error-circle'></i>";
+  icon.style.background = kind === 'success' ? '#e8f5e9' : '#ffebee';
+  icon.style.color = kind === 'success' ? '#218739' : '#c62828';
+  modal.classList.add('active');
+}
+
+function closePosMessage() {
+  document.getElementById('posMessageModal').classList.remove('active');
+}
+
 function setCustomerType(type) {
   customerType = type;
   document.querySelectorAll('.pos-customer-btn').forEach(btn => {
@@ -1686,7 +1714,10 @@ async function processPayment() {
   const amountStr = document.getElementById('paymentAmount').value.replace(/,/g, '');
   const amount = parseFloat(amountStr) || 0;
   if (amount < currentBalance) {
-    alert('Payment amount is less than the remaining balance');
+    showPosMessage(
+      'Insufficient payment',
+      `Enter at least ₱${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to cover the remaining balance.`
+    );
     return;
   }
 
@@ -1707,7 +1738,7 @@ async function processPayment() {
     params.set('guest_pet_name', guestPetName);
   } else {
     if (!registeredCustomerId) {
-      alert('Search for and select a registered customer first.');
+      showPosMessage('Customer required', 'Search for and select a registered customer before taking payment.');
       return;
     }
     params.set('customer_id', registeredCustomerId);
@@ -1729,7 +1760,13 @@ async function processPayment() {
       },
       body: params.toString(),
     });
-    const data = await response.json();
+    const responseText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (_error) {
+      throw new Error('The server could not complete this payment. Your cart is still available; please try again or contact an administrator.');
+    }
     if (!response.ok || !data.success) throw new Error(data.error || 'Payment failed.');
 
     if (data.completed) {
@@ -1744,9 +1781,13 @@ async function processPayment() {
 
     currentBalance = Number(data.sale.balance_due);
     document.getElementById('paymentAmount').value = '';
-    alert(`Payment recorded. Remaining balance: ₱${currentBalance.toFixed(2)}`);
+    showPosMessage(
+      'Payment recorded',
+      `Remaining balance: ₱${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. You can enter another payment to finish the sale.`,
+      'success'
+    );
   } catch (error) {
-    alert(error.message || 'Payment could not be completed. Please retry.');
+    showPosMessage('Payment not completed', error.message || 'Payment could not be completed. Please retry.');
   } finally {
     paymentInProgress = false;
     if (!document.getElementById('successModal').classList.contains('active')) {
