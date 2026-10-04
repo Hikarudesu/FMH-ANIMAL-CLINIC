@@ -263,14 +263,13 @@ def api_vet_times(request):
 
 @require_GET
 def api_available_dates(request):
-    """Return dates where a specific vet has schedule entries for a given month.
-    Used for greying out unavailable dates in the booking calendar."""
+    """Return dates with at least one available vet schedule for a month."""
     vet_id = request.GET.get('vet')
     year = request.GET.get('year')
     month = request.GET.get('month')
     branch_id = request.GET.get('branch')
 
-    if not (vet_id and year and month):
+    if not (year and month):
         return JsonResponse({'dates': []})
 
     try:
@@ -279,18 +278,23 @@ def api_available_dates(request):
     except (ValueError, TypeError):
         return JsonResponse({'dates': []})
 
+    if month < 1 or month > 12:
+        return JsonResponse({'dates': []})
+
     _, last_day = cal_mod.monthrange(year, month)
 
     filters = {
-        'staff_id': vet_id,
         'date__gte': date(year, month, 1),
         'date__lte': date(year, month, last_day),
         'is_available': True,
+        'staff__is_active': True,
+        'staff__user__is_active': True,
+        'staff__user__assigned_role__code__in': ['veterinarian', 'assistant_veterinarian'],
     }
+    if vet_id:
+        filters['staff_id'] = vet_id
     if branch_id:
         filters['branch_id'] = branch_id
-
-    filters['staff__user__assigned_role__code__in'] = ['veterinarian', 'assistant_veterinarian']
     available_dates = VetSchedule.objects.filter(
         **filters
     ).values_list('date', flat=True).distinct()

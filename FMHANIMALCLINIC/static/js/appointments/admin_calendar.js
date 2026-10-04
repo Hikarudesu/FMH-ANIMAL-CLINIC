@@ -73,6 +73,7 @@ function getLocalYMD(d) {
   let currentView = "table";
   let currentDate = new Date();
   let events = [];
+  let scheduledDates = null;
 
   // Get view from URL parameter (persisted across filter submissions)
   const urlParams = new URLSearchParams(window.location.search);
@@ -131,12 +132,25 @@ function getLocalYMD(d) {
     if (sourceFilter && sourceFilter.value)
       url += `&source=${sourceFilter.value}`;
 
+    const scheduleParams = new URLSearchParams({ year, month });
+    if (branchFilter && branchFilter.value) {
+      scheduleParams.set("branch", branchFilter.value);
+    } else if (window.CALENDAR_BRANCH) {
+      scheduleParams.set("branch", window.CALENDAR_BRANCH);
+    }
+    if (vetFilter && vetFilter.value) scheduleParams.set("vet", vetFilter.value);
+
     try {
-      const res = await fetch(url);
-      const data = await res.json();
+      const [res, scheduleRes] = await Promise.all([
+        fetch(url),
+        fetch(`${API_DATES}?${scheduleParams.toString()}`),
+      ]);
+      const [data, scheduleData] = await Promise.all([res.json(), scheduleRes.json()]);
       events = data.events || [];
+      scheduledDates = new Set(scheduleData.dates || []);
     } catch (e) {
       events = [];
+      scheduledDates = null;
     }
 
     if (currentView === "daily") renderDailyView();
@@ -313,6 +327,7 @@ function getLocalYMD(d) {
       html += `
         <div class="cal-day ${isToday ? "today" : ""} ${dayEvents.length > 0 ? "has-events" : ""}" data-date="${dateStr}">
           <span class="cal-day-number">${d}</span>
+          ${scheduledDates === null ? "" : `<span class="cal-day-schedule-dot ${scheduledDates.has(dateStr) ? "is-scheduled" : "no-schedule"}" title="${scheduledDates.has(dateStr) ? "Vet scheduled" : "No vet schedule"}" aria-label="${scheduledDates.has(dateStr) ? "Vet scheduled" : "No vet schedule"}"></span>`}
           ${
             dayEvents.length > 0
               ? `
@@ -703,6 +718,60 @@ function getLocalYMD(d) {
   );
   const qcTime = document.querySelector("#id_quick_appointment_time");
   const qcTimeHint = document.getElementById("quickTimeHint");
+  let qcScheduledDates = null;
+  let qcDatePicker = null;
+  let qcScheduleRequestId = 0;
+
+  function fetchQCScheduleDays(year, month) {
+    const branchId = qcBranch ? qcBranch.value : "";
+    const requestId = ++qcScheduleRequestId;
+    if (!branchId || !qcDatePicker) {
+      qcScheduledDates = null;
+      if (qcDatePicker) qcDatePicker.redraw();
+      return;
+    }
+
+    qcScheduledDates = null;
+    const params = new URLSearchParams({ year, month, branch: branchId });
+    fetch(`${API_DATES}?${params.toString()}`)
+      .then(response => response.json())
+      .then(data => {
+        if (
+          requestId !== qcScheduleRequestId ||
+          qcBranch.value !== branchId ||
+          qcDatePicker.currentYear !== Number(year) ||
+          qcDatePicker.currentMonth + 1 !== Number(month)
+        ) return;
+        qcScheduledDates = new Set(data.dates || []);
+        qcDatePicker.redraw();
+      })
+      .catch(() => {
+        if (requestId === qcScheduleRequestId) {
+          qcScheduledDates = null;
+          qcDatePicker.redraw();
+        }
+      });
+  }
+
+  if (qcDate && typeof window.flatpickr === "function") {
+    qcDatePicker = window.flatpickr(qcDate, {
+      dateFormat: "Y-m-d",
+      minDate: "today",
+      disableMobile: true,
+      onOpen: (_dates, _value, instance) => fetchQCScheduleDays(instance.currentYear, instance.currentMonth + 1),
+      onMonthChange: (_dates, _value, instance) => fetchQCScheduleDays(instance.currentYear, instance.currentMonth + 1),
+      onYearChange: (_dates, _value, instance) => fetchQCScheduleDays(instance.currentYear, instance.currentMonth + 1),
+      onDayCreate: (_dates, _value, _instance, dayElement) => {
+        if (qcScheduledDates === null) return;
+        const dayDate = dayElement.dateObj;
+        const dateKey = [dayDate.getFullYear(), String(dayDate.getMonth() + 1).padStart(2, "0"), String(dayDate.getDate()).padStart(2, "0")].join("-");
+        const indicator = document.createElement("span");
+        indicator.className = "schedule-day-dot " + (qcScheduledDates.has(dateKey) ? "has-schedule" : "no-schedule");
+        indicator.setAttribute("aria-hidden", "true");
+        dayElement.appendChild(indicator);
+      },
+    });
+  }
 
   // Helper to show hints
   function showQCHint(msg, color = "#666") {
@@ -887,6 +956,7 @@ function getLocalYMD(d) {
     qcBranch.addEventListener("change", () => {
       fetchQCVets();
       fetchQCTimes();
+      if (qcDatePicker) fetchQCScheduleDays(qcDatePicker.currentYear, qcDatePicker.currentMonth + 1);
     });
   }
   if (qcDate) {

@@ -23,8 +23,81 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Store available dates for vet-specific filtering
   let vetAvailableDates = null;
+  let scheduledDates = null;
   let timeRequestId = 0;
   let dateAvailabilityRequestId = 0;
+  let scheduleDaysRequestId = 0;
+  let datePicker = null;
+
+  if (dateInput && typeof window.flatpickr === "function") {
+    datePicker = window.flatpickr(dateInput, {
+      dateFormat: "Y-m-d",
+      minDate: "today",
+      disableMobile: true,
+      onOpen: (_selectedDates, _dateString, instance) => {
+        fetchScheduleDays(instance.currentYear, instance.currentMonth + 1);
+      },
+      onMonthChange: (_selectedDates, _dateString, instance) => {
+        fetchScheduleDays(instance.currentYear, instance.currentMonth + 1);
+        if (vetSelect.value) updateDateAvailability(instance.currentYear, instance.currentMonth + 1);
+      },
+      onYearChange: (_selectedDates, _dateString, instance) => {
+        fetchScheduleDays(instance.currentYear, instance.currentMonth + 1);
+        if (vetSelect.value) updateDateAvailability(instance.currentYear, instance.currentMonth + 1);
+      },
+      onDayCreate: (_selectedDates, _dateString, _instance, dayElement) => {
+        if (scheduledDates === null) return;
+        const dayDate = dayElement.dateObj;
+        const dateKey = [
+          dayDate.getFullYear(),
+          String(dayDate.getMonth() + 1).padStart(2, "0"),
+          String(dayDate.getDate()).padStart(2, "0"),
+        ].join("-");
+        const indicator = document.createElement("span");
+        indicator.className = "schedule-day-dot " +
+          (scheduledDates.has(dateKey) ? "has-schedule" : "no-schedule");
+        indicator.setAttribute("aria-hidden", "true");
+        dayElement.appendChild(indicator);
+      },
+    });
+  }
+
+  function fetchScheduleDays(year, month) {
+    const branch = branchSelect.value;
+    const vet = vetSelect.value;
+    const requestId = ++scheduleDaysRequestId;
+
+    if (!branch || !datePicker) {
+      scheduledDates = null;
+      if (datePicker) datePicker.redraw();
+      return;
+    }
+
+    scheduledDates = null;
+    const params = new URLSearchParams({ year, month, branch });
+    if (vet) params.set("vet", vet);
+
+    fetch(`${API_DATES}?${params.toString()}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (
+          requestId !== scheduleDaysRequestId ||
+          branchSelect.value !== branch ||
+          vetSelect.value !== vet ||
+          datePicker.currentYear !== Number(year) ||
+          datePicker.currentMonth + 1 !== Number(month)
+        ) return;
+
+        scheduledDates = new Set(data.dates || []);
+        datePicker.redraw();
+      })
+      .catch(() => {
+        if (requestId === scheduleDaysRequestId) {
+          scheduledDates = null;
+          datePicker.redraw();
+        }
+      });
+  }
 
   /**
    * Fetch available vets when branch or date changes
@@ -103,16 +176,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!dt || !branch) {
       timeSelect.innerHTML = '<option value="">— Select branch and date first —</option>';
       showTimeHint("Select a branch and date to load available times.");
-      return;
-    }
-
-    // If vet-specific dates are loaded and this date is not available
-    if (vet && vetAvailableDates && !vetAvailableDates.includes(dt)) {
-      timeSelect.innerHTML = '<option value="">— No slots available —</option>';
-      showTimeHint(
-        "This vet is not scheduled on this date. Please pick another date or vet.",
-        "#e65100"
-      );
       return;
     }
 
@@ -265,7 +328,7 @@ document.addEventListener("DOMContentLoaded", function () {
   /**
    * If vet is selected, fetch available dates for that vet
    */
-  function updateDateAvailability() {
+  function updateDateAvailability(targetYear, targetMonth) {
     const vet = vetSelect.value;
     const branch = branchSelect.value;
     const requestId = ++dateAvailabilityRequestId;
@@ -275,13 +338,13 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    // Calculate month/year based on current date input or now
+    // Use the visible calendar month, or fall back to the selected date.
     const currentVal = dateInput.value;
     const refDate = currentVal
       ? new Date(currentVal + "T00:00:00")
       : new Date();
-    const year = refDate.getFullYear();
-    const month = refDate.getMonth() + 1;
+    const year = targetYear || refDate.getFullYear();
+    const month = targetMonth || refDate.getMonth() + 1;
 
     const url = `${API_DATES}?vet=${vet}&year=${year}&month=${month}&branch=${branch}`;
 
@@ -320,6 +383,9 @@ document.addEventListener("DOMContentLoaded", function () {
   branchSelect.addEventListener("change", function () {
     vetAvailableDates = null;
     fetchVets().then(() => {
+      if (datePicker) {
+        fetchScheduleDays(datePicker.currentYear, datePicker.currentMonth + 1);
+      }
       if (dateInput && dateInput.value) {
         fetchTimeSlots();
       } else {
@@ -342,6 +408,9 @@ document.addEventListener("DOMContentLoaded", function () {
   vetSelect.addEventListener("change", function () {
     // Do not use the previous vet's schedule while loading the new one.
     vetAvailableDates = null;
+    if (datePicker) {
+      fetchScheduleDays(datePicker.currentYear, datePicker.currentMonth + 1);
+    }
     if (this.value) {
       updateDateAvailability();
     } else {
@@ -355,6 +424,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // ─── Auto-initialize if branch is pre-filled (e.g., user's preferred branch) ───
   if (branchSelect.value) {
-    fetchVets();
+    fetchVets().then(() => {
+      if (datePicker) {
+        fetchScheduleDays(datePicker.currentYear, datePicker.currentMonth + 1);
+      }
+    });
   }
 });

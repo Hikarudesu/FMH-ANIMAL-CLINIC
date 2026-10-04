@@ -178,6 +178,7 @@
             <label for="{{ form.appointment_date.id_for_label }}">Date *</label>
             {% if form.appointment_date.errors %}<span class="book-field-error">{{ form.appointment_date.errors.0 }}</span>{% endif %}
           </div>
+          <span class="book-field-helper schedule-legend"><span><i class="schedule-day-dot has-schedule"></i> Scheduled</span><span><i class="schedule-day-dot no-schedule"></i> No schedule</span></span>
         </div>
         <div class="book-field-wrap">
           <div class="book-field">
@@ -216,6 +217,17 @@
     </div>
   </form>
 </div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+  .flatpickr-day { position: relative; padding-bottom: 5px; }
+  .schedule-day-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+  .flatpickr-day .schedule-day-dot { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); }
+  .schedule-day-dot.has-schedule { background: #218739; }
+  .schedule-day-dot.no-schedule { background: #d93b42; }
+  .schedule-legend { display: flex; gap: 14px; margin-top: 6px; }
+  .schedule-legend span { display: inline-flex; align-items: center; gap: 5px; }
+</style>
 
 <script>
 const API_VETS = "{% url 'appointments:api_vets' %}";
@@ -264,6 +276,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{% static 'js/appointments/booking.js' %}"></script>
 
 <!-- Auto-Capitalize Script for Client and Pet Details -->

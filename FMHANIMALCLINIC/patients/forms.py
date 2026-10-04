@@ -123,7 +123,8 @@ class AdminPetForm(forms.ModelForm):
 
         # Build queryset for portal/pet-owner accounts (excludes staff/admin)
         portal_users_qs = User.objects.filter(
-            is_active=True
+            is_active=True,
+            is_superuser=False,
         ).filter(
             Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
         ).distinct().order_by('first_name', 'last_name', 'username')
@@ -132,6 +133,8 @@ class AdminPetForm(forms.ModelForm):
         self.fields['owner'].queryset = portal_users_qs
         self.fields['owner'].required = False
         self.fields['owner'].empty_label = '— Select Portal Account User —'
+        if not (self.instance and self.instance.pk):
+            self.fields['owner'].widget = forms.HiddenInput(attrs={'id': 'id_owner'})
         # Customize the label for the owner dropdown
         self.fields['owner'].label_from_instance = lambda obj: (
             f"{obj.get_full_name()} ({obj.username})"

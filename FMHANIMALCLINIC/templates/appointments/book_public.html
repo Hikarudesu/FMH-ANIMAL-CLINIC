@@ -163,6 +163,7 @@
             <div class="form-group-book">
               <label for="{{ form.appointment_date.id_for_label }}">Preferred Date *</label>
               {{ form.appointment_date }}
+              <span class="form-hint schedule-legend"><span><i class="schedule-day-dot has-schedule"></i> Scheduled</span><span><i class="schedule-day-dot no-schedule"></i> No schedule</span></span>
               {% if form.appointment_date.errors %}<span class="form-error">{{ form.appointment_date.errors.0 }}</span>{% endif %}
             </div>
             <div class="form-group-book">
@@ -198,11 +199,23 @@
   </div>
 </section>
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+  .flatpickr-day { position: relative; padding-bottom: 5px; }
+  .schedule-day-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+  .flatpickr-day .schedule-day-dot { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); }
+  .schedule-day-dot.has-schedule { background: #218739; }
+  .schedule-day-dot.no-schedule { background: #d93b42; }
+  .schedule-legend { display: flex; gap: 14px; }
+  .schedule-legend span { display: inline-flex; align-items: center; gap: 5px; }
+</style>
+
 <script>
 const API_VETS = "{% url 'appointments:api_vets' %}";
 const API_TIMES = "{% url 'appointments:api_times' %}";
 const API_DATES = "{% url 'appointments:api_dates' %}";
 </script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{% static 'js/appointments/booking.js' %}"></script>
 
 <!-- Auto-Capitalize Script for Client and Pet Details -->

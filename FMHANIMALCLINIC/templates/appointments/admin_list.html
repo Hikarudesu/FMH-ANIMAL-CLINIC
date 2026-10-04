@@ -581,6 +581,7 @@ document.querySelectorAll('.accordion-row').forEach(row => {
   <div class="dashboard-card full-width" style="margin-top: 14px;">
     <div class="card-body" style="padding: 12px;">
       <div id="calendarContent"></div>
+      <div class="schedule-calendar-legend"><span><i class="schedule-day-dot has-schedule"></i> Vet scheduled</span><span><i class="schedule-day-dot no-schedule"></i> No vet schedule</span></div>
     </div>
   </div>
   <!-- See More Detail Container -->
@@ -1142,12 +1143,26 @@ document.querySelectorAll('.accordion-row').forEach(row => {
 }
 </style>
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+  .schedule-day-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+  .flatpickr-day { position: relative; padding-bottom: 5px; }
+  .flatpickr-day .schedule-day-dot { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); }
+  .schedule-day-dot.has-schedule, .cal-day-schedule-dot.is-scheduled { background: #218739; }
+  .schedule-day-dot.no-schedule, .cal-day-schedule-dot.no-schedule { background: #d93b42; }
+  .schedule-calendar-legend { display: flex; gap: 16px; margin-top: 10px; color: var(--text-3); font-size: .78rem; }
+  .schedule-calendar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .cal-day-schedule-dot { display: block; width: 6px; height: 6px; border-radius: 50%; margin: -4px 0 8px; }
+</style>
 
 <script>
 const CALENDAR_API = "{% url 'appointments:admin_calendar_api' %}";
+const API_DATES = "{% url 'appointments:api_dates' %}";
+window.CALENDAR_BRANCH = "{% if is_branch_restricted and user_branch %}{{ user_branch.pk }}{% endif %}";
 const API_VETS = "{% url 'appointments:api_vets' %}";
 const API_TIMES = "{% url 'appointments:api_times' %}";
 </script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{% static 'js/appointments/admin_calendar.js' %}?v=4"></script>
 
 <!-- Quick Create Dynamic Time Loading Script -->
