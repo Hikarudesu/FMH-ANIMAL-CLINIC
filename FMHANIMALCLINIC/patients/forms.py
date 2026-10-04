@@ -17,7 +17,17 @@ def can_transfer_walkin_patient(user):
 
     role_code = (role.code or '').lower()
     role_name = (role.name or '').strip().lower()
-    return role_code in {'cashier', 'receptionist'} or role_name in {'cashier', 'receptionist'}
+    return role_code in {
+        'cashier',
+        'receptionist',
+        'veterinarian',
+        'assistant_veterinarian',
+    } or role_name in {
+        'cashier',
+        'receptionist',
+        'veterinarian',
+        'assistant veterinarian',
+    }
 
 
 class PetForm(forms.ModelForm):
