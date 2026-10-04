@@ -411,6 +411,16 @@ def process_payment(request):
         if not sale.items.exists():
             return JsonResponse({'success': False, 'error': 'Cannot process empty sale'}, status=400)
 
+        if amount < sale.total:
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    f'Insufficient payment. The amount must be at least '
+                    f'{sale.total:.2f} to cover the sale total.'
+                ),
+                'total': str(sale.total),
+            }, status=400)
+
         if customer_type == Sale.CustomerType.REGISTERED:
             customer_id = request.POST.get('customer_id')
             customer = User.objects.filter(

@@ -1165,7 +1165,6 @@ let lastCompletedSaleId = null;
 let paymentInProgress = false;
 let customerSearchTimer = null;
 let customerSearchController = null;
-let currentBalance = {{ sale.balance_due|default:sale.total }};
 let skipCartAbandonment = false;
 
 window.addEventListener('pagehide', function() {
@@ -1713,10 +1712,10 @@ async function processPayment() {
   if (paymentInProgress) return;
   const amountStr = document.getElementById('paymentAmount').value.replace(/,/g, '');
   const amount = parseFloat(amountStr) || 0;
-  if (amount < currentBalance) {
+  if (amount < currentTotal) {
     showPosMessage(
       'Insufficient payment',
-      `Enter at least ₱${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to cover the remaining balance.`
+      `Enter at least ₱${currentTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to cover the sale total.`
     );
     return;
   }
@@ -1779,13 +1778,7 @@ async function processPayment() {
       return;
     }
 
-    currentBalance = Number(data.sale.balance_due);
-    document.getElementById('paymentAmount').value = '';
-    showPosMessage(
-      'Payment recorded',
-      `Remaining balance: ₱${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. You can enter another payment to finish the sale.`,
-      'success'
-    );
+    showPosMessage('Payment not completed', 'The sale was not completed. Please verify the payment amount and try again.');
   } catch (error) {
     showPosMessage('Payment not completed', error.message || 'Payment could not be completed. Please retry.');
   } finally {
