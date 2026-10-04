@@ -53,6 +53,13 @@
   }
   .apf-walkin-notice i { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
 
+  .apf-field-help {
+    display: flex; align-items: flex-start; gap: 6px;
+    margin-top: 7px; color: var(--text-secondary); font-size: 0.76rem;
+    line-height: 1.45;
+  }
+  .apf-field-help i { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+
   /* Link-to-account notice */
   .apf-link-notice {
     display: flex; align-items: flex-start; gap: 12px;
@@ -703,6 +710,10 @@
             {% else %}
             <label for="{{ form.owner.id_for_label }}">Portal Account <span class="req">*</span></label>
             {{ form.owner }}
+            <div class="apf-field-help">
+              <i class='bx bx-info-circle'></i>
+              <span>This is the portal account that owns this pet. Use this field only when correcting the pet's registered owner. Changing it moves the pet's portal ownership; it does not edit the user's personal details.</span>
+            </div>
             {% endif %}
             {% if form.owner.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.owner.errors.0 }}</span>{% endif %}
           </div>
@@ -748,7 +759,7 @@
           <i class='bx bx-transfer-alt'></i>
           <div>
             <strong>Transfer this walk-in patient to a portal account</strong>
-            <span>This will transfer pet ownership, all medical records, and appointment history. Guest owner details will be cleared. This action cannot be undone.</span>
+            <span>Use this when a walk-in guest has created or chosen a portal account. It links the pet to that account and transfers ownership, medical records, and appointment history. Guest owner details will be cleared. This action cannot be undone.</span>
           </div>
         </div>
 

@@ -14,7 +14,7 @@ from accounts.decorators import module_permission_required
 from records.models import MedicalRecord
 from records.views import get_record_missing_fields
 from .models import Pet
-from .forms import PetForm, AdminPetForm
+from .forms import AdminPetForm, PetForm, can_transfer_walkin_patient
 
 
 @login_required
@@ -660,8 +660,7 @@ def admin_edit_pet_view(request, pk):
             create_new = form.cleaned_data.get('create_new_account')
 
             # Server-side guard: only receptionists/superusers can transfer
-            user_role = getattr(request.user, 'assigned_role', None)
-            is_receptionist = request.user.is_superuser or (user_role and user_role.code == 'cashier')
+            is_receptionist = can_transfer_walkin_patient(request.user)
 
             if pet.source == Pet.Source.WALKIN and (create_new or link_user) and is_receptionist:
                 if create_new:
