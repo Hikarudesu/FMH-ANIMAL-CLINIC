@@ -4,6 +4,22 @@ from FMHANIMALCLINIC.form_mixins import validate_philippines_phone
 from .models import Pet
 
 
+def can_transfer_walkin_patient(user):
+    """Return whether a staff user may transfer a walk-in patient."""
+    if not user:
+        return False
+    if user.is_superuser:
+        return True
+
+    role = getattr(user, 'assigned_role', None)
+    if not role:
+        return False
+
+    role_code = (role.code or '').lower()
+    role_name = (role.name or '').strip().lower()
+    return role_code in {'cashier', 'receptionist'} or role_name in {'cashier', 'receptionist'}
+
+
 class PetForm(forms.ModelForm):
     """Form for creating and editing a pet (user portal)."""
 
@@ -161,13 +177,7 @@ class AdminPetForm(forms.ModelForm):
 
         # Determine if the current user is allowed to transfer walk-in patients.
         # Only receptionists (role code 'receptionist') and superusers can perform transfers.
-        self._can_transfer = False
-        if self.current_user:
-            role = getattr(self.current_user, 'assigned_role', None)
-            self._can_transfer = (
-                self.current_user.is_superuser
-                or (role and role.code == 'cashier')
-            )
+        self._can_transfer = can_transfer_walkin_patient(self.current_user)
 
         # Set up branch field
         from branches.models import Branch
