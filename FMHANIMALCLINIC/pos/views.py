@@ -4,6 +4,7 @@
 
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -25,6 +26,8 @@ from patients.models import Pet
 from .models import Sale, SaleItem, Payment, Refund
 from .forms import RefundForm
 from .services import create_or_release_soa_for_sale
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -380,6 +383,22 @@ def update_sale_info(request):
 @special_permission_required('can_access_pos')
 @require_POST
 def process_payment(request):
+    """Return a JSON error for unexpected failures and log the traceback."""
+    try:
+        return _process_payment(request)
+    except Exception:
+        logger.exception(
+            'POS payment failed for sale %s and cashier %s',
+            request.POST.get('sale_id'),
+            request.user.pk,
+        )
+        return JsonResponse({
+            'success': False,
+            'error': 'The payment was not completed and no charge was recorded. Please retry or contact an administrator.',
+        }, status=500)
+
+
+def _process_payment(request):
     """Process payment for a sale."""
     sale_id = request.POST.get('sale_id')
     method = request.POST.get('method')
