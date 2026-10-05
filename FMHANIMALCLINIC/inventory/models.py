@@ -2,6 +2,7 @@
 Models for the inventory application.
 """
 import uuid
+from datetime import datetime, time, timedelta
 
 from django.db import models
 from django.conf import settings
@@ -315,6 +316,19 @@ class Reservation(models.Model):
             f"Reservation #{self.pk} — {self.product.name} "
             f"x{self.quantity} ({self.status})"
         )
+
+    @property
+    def expires_at(self):
+        """Return expiry 24 hours after pickup day, or creation for undated reservations."""
+        if self.pickup_date:
+            expiry_date = self.pickup_date + timedelta(days=2)
+            return timezone.make_aware(
+                datetime.combine(expiry_date, time.min),
+                timezone.get_current_timezone(),
+            )
+        if self.created_at:
+            return self.created_at + timedelta(hours=24)
+        return None
 
 
 class StockTransfer(models.Model):

@@ -94,7 +94,7 @@ Reservations{% endblock %} {% block content %}
     </div>
     <div class="rsv-card-right">
       {% if rsv.status == 'Pending' %}
-      <div class="rsv-countdown" data-created="{{ rsv.created_at|date:'c' }}">
+      <div class="rsv-countdown" data-expires="{{ rsv.expires_at|date:'c' }}">
         <i class="bx bx-time-five"></i>
         <span class="time-left">Calculating...</span>
       </div>
@@ -252,13 +252,10 @@ Reservations{% endblock %} {% block content %}
 
     function updateTimers() {
       countdowns.forEach((el) => {
-        const createdStr = el.getAttribute("data-created");
-        if (!createdStr) return;
+        const expiresStr = el.getAttribute("data-expires");
+        if (!expiresStr) return;
 
-        const createdDate = new Date(createdStr);
-        const expireDate = new Date(
-          createdDate.getTime() + 24 * 60 * 60 * 1000,
-        );
+        const expireDate = new Date(expiresStr);
         const now = new Date();
         const diff = expireDate - now;
 
