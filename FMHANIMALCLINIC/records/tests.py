@@ -11,7 +11,7 @@ from accounts.activity_signals import log_medical_record_changes
 from accounts.models import ActivityLog
 from .models import MedicalRecord
 from .models import validate_laboratory_image, validate_medical_file
-from .views import _pdf_link_callback
+from .views import _get_pdf_styles, _pdf_link_callback
 from settings.forms import MedicalRecordsSettingsForm
 
 
@@ -107,6 +107,12 @@ class LaboratoryTypeSettingsTests(SimpleTestCase):
 
 
 class PdfAssetResolutionTests(SimpleTestCase):
+    def test_pdf_stylesheet_is_available_for_inline_rendering(self):
+        stylesheet = _get_pdf_styles()
+
+        self.assertIn('.section-header', stylesheet)
+        self.assertIn('background-color: #333', stylesheet)
+
     def test_media_assets_are_resolved_to_local_files(self):
         with tempfile.TemporaryDirectory() as media_root:
             logo_path = os.path.join(media_root, 'branches', 'logo.png')

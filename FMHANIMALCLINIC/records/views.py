@@ -1000,6 +1000,15 @@ def _pdf_link_callback(uri, rel):
     return uri
 
 
+def _get_pdf_styles():
+    """Load the PDF stylesheet inline because xhtml2pdf may skip link tags."""
+    stylesheet_path = finders.find('css/records/pdf_record.css')
+    if not stylesheet_path:
+        raise RuntimeError('The medical record PDF stylesheet could not be found.')
+    with open(stylesheet_path, encoding='utf-8') as stylesheet:
+        return stylesheet.read()
+
+
 @login_required
 def download_pdf_view(request, pk):
     """
@@ -1046,6 +1055,7 @@ def download_pdf_view(request, pk):
         'generated_date': timezone.now(),
         'is_admin': request.user.is_clinic_staff(),
         'clinic_profile': clinic_profile,
+        'pdf_styles': _get_pdf_styles(),
     })
 
     # Generate PDF using xhtml2pdf
