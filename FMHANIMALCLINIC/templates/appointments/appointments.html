@@ -1,5 +1,5 @@
 {% extends 'base/portal_user.html' %}
-{% load record_filters %}
+{% load static record_filters %}
 
 {% block title %}Appointments{% endblock %}
 
@@ -65,6 +65,11 @@
                 <span><i class='bx bx-building-house'></i> {{ appt.branch.name }}</span>
                 <span><i class='bx bx-calendar'></i> {{ appt.appointment_date|date:"M j, Y" }}</span>
                 <span><i class='bx bx-time'></i> {{ appt.appointment_time_display }}</span>
+                {% if appt.auto_cancel_countdown_active %}
+                  <span class="appointment-auto-cancel-countdown" data-auto-cancel-at="{{ appt.auto_cancel_at|date:'c' }}">
+                    <i class='bx bx-hourglass'></i> Auto-cancels in <time data-countdown-value>24:00:00</time>
+                  </span>
+                {% endif %}
               </div>
             </div>
             <i class='bx bx-chevron-down appt-toggle-icon'></i>
@@ -458,5 +463,6 @@
     });
   });
 </script>
+<script src="{% static 'js/appointments/countdown.js' %}" defer></script>
 
 {% endblock %}

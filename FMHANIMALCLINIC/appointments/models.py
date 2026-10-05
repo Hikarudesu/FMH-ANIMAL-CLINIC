@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.db import models
 from django.utils import timezone
 from branches.models import Branch
@@ -7,6 +7,8 @@ from employees.models import StaffMember
 
 class Appointment(models.Model):
     """Represents a pet appointment / reservation."""
+
+    AUTO_CANCEL_AFTER_HOURS = 24
 
     class Source(models.TextChoices):
         WALKIN = 'WALKIN', 'Walk-In / Guest User'
@@ -158,11 +160,29 @@ class Appointment(models.Model):
     @property
     def is_past(self):
         """Returns True if the appointment date+time has already passed."""
-        now = timezone.now()
-        appt_dt = timezone.make_aware(
-            datetime.combine(self.appointment_date, self.appointment_time)
+        return self.scheduled_datetime < timezone.now()
+
+    @property
+    def scheduled_datetime(self):
+        """Return the scheduled appointment date and time in the current timezone."""
+        return timezone.make_aware(
+            datetime.combine(self.appointment_date, self.appointment_time),
+            timezone.get_current_timezone(),
         )
-        return appt_dt < now
+
+    @property
+    def auto_cancel_at(self):
+        """Return when an unconfirmed appointment becomes eligible for cancellation."""
+        return self.scheduled_datetime + timedelta(hours=self.AUTO_CANCEL_AFTER_HOURS)
+
+    @property
+    def auto_cancel_countdown_active(self):
+        """Show the countdown only while a pending appointment is in its 24-hour window."""
+        now = timezone.now()
+        return (
+            self.status == self.Status.PENDING
+            and self.scheduled_datetime <= now < self.auto_cancel_at
+        )
 
     # ── Dynamic pet/owner data helpers ────────────────────────────────────
     @property
@@ -243,7 +263,6 @@ class Appointment(models.Model):
     @classmethod
     def cleanup_expired(cls):
         """Cancel pending appointments more than 24 hours past their scheduled time."""
-        from datetime import timedelta
         now = timezone.now()
         cutoff_date = timezone.localdate(now - timedelta(hours=24))
         candidates = cls.objects.filter(
@@ -257,7 +276,7 @@ class Appointment(models.Model):
                 datetime.combine(appointment.appointment_date, appointment.appointment_time),
                 timezone.get_current_timezone(),
             )
-            if scheduled_at + timedelta(hours=24) > now:
+            if scheduled_at + timedelta(hours=cls.AUTO_CANCEL_AFTER_HOURS) > now:
                 continue
 
             updated = cls.objects.filter(

@@ -3905,6 +3905,20 @@ textarea.form-control {
   color: #f57c00;
 }
 
+.appointment-auto-cancel-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .admin-badge.cancelled,
 .admin-badge.inactive {
   background: #fce4ec;

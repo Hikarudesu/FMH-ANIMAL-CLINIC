@@ -53,3 +53,18 @@ class ExpiredAppointmentCleanupTests(TestCase):
         Appointment.cleanup_expired()
 
         self.assertTrue(Appointment.objects.filter(pk=appointment.pk).exists())
+
+    @patch('appointments.models.timezone.now')
+    def test_countdown_is_active_only_during_pending_24_hour_window(self, mocked_now):
+        mocked_now.return_value = self.now
+        started = self.create_appointment(self.now - timedelta(minutes=1))
+        future = self.create_appointment(self.now + timedelta(minutes=1))
+        expired = self.create_appointment(self.now - timedelta(hours=24, minutes=1))
+        confirmed = self.create_appointment(
+            self.now - timedelta(minutes=1), status=Appointment.Status.CONFIRMED,
+        )
+
+        self.assertTrue(started.auto_cancel_countdown_active)
+        self.assertFalse(future.auto_cancel_countdown_active)
+        self.assertFalse(expired.auto_cancel_countdown_active)
+        self.assertFalse(confirmed.auto_cancel_countdown_active)

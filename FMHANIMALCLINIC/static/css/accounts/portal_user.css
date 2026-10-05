@@ -4277,6 +4277,24 @@
   color: #dc2626;
 }
 
+.appointment-auto-cancel-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #92400e !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+}
+
+.appointment-auto-cancel-countdown i {
+  color: inherit;
+}
+
 /* Meta row */
 .appt-card-meta {
   display: flex;

@@ -471,7 +471,16 @@
           </div>
         </td>
         <td style="text-align: center;"><span class="admin-badge source-{{ appt.source|lower }}">{{ appt.get_source_display }}</span></td>
-        <td style="text-align: center;"><span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span></td>
+        <td style="text-align: center;">
+          <div class="cell-stack" style="align-items: center;">
+            <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+            {% if appt.auto_cancel_countdown_active %}
+              <span class="appointment-auto-cancel-countdown" data-auto-cancel-at="{{ appt.auto_cancel_at|date:'c' }}">
+                <i class='bx bx-hourglass'></i> <time data-countdown-value>24:00:00</time>
+              </span>
+            {% endif %}
+          </div>
+        </td>
         {% if can_edit or can_delete %}
         <td style="text-align: center;">
           <div class="actions-cell">
@@ -1995,5 +2004,7 @@ function closeDeleteModal() {
     box-shadow: 0 6px 16px rgba(230, 57, 70, 0.35) !important;
   }
 </style>
+
+<script src="{% static 'js/appointments/countdown.js' %}" defer></script>
 
 {% endblock %}
