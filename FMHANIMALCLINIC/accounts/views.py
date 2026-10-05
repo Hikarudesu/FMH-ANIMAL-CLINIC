@@ -19,6 +19,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.utils import timezone
 
 from branches.models import Branch
 from .models import User
@@ -28,6 +29,10 @@ from settings.utils import get_setting
 
 EMAIL_VERIFICATION_SALT = 'accounts.email-verification'
 EMAIL_VERIFICATION_MAX_AGE = 60 * 60 * 24
+LOGIN_FAILURES_SESSION_KEY = 'login_failed_attempts'
+LOGIN_LOCK_UNTIL_SESSION_KEY = 'login_locked_until'
+LOGIN_MAX_FAILED_ATTEMPTS = 3
+LOGIN_LOCKOUT_SECONDS = 60 * 60
 
 
 def _send_email_verification(request, user):
@@ -92,6 +97,22 @@ def login_view(request):
                 return redirect('admin_dashboard')
         return redirect('user_dashboard')
 
+    lock_until = request.session.get(LOGIN_LOCK_UNTIL_SESSION_KEY)
+    if lock_until:
+        seconds_remaining = int(float(lock_until) - timezone.now().timestamp())
+        if seconds_remaining > 0:
+            minutes_remaining = max(1, (seconds_remaining + 59) // 60)
+            messages.error(
+                request,
+                'This browser is temporarily locked after 3 unsuccessful attempts. '
+                f'Try again in about {minutes_remaining} minute(s).',
+            )
+            return render(request, 'accounts/login.html', {
+                'show_maintenance_popup': show_maintenance_popup,
+            })
+        request.session.pop(LOGIN_LOCK_UNTIL_SESSION_KEY, None)
+        request.session.pop(LOGIN_FAILURES_SESSION_KEY, None)
+
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password')
@@ -114,6 +135,8 @@ def login_view(request):
         )
 
         if user is not None:
+            request.session.pop(LOGIN_FAILURES_SESSION_KEY, None)
+            request.session.pop(LOGIN_LOCK_UNTIL_SESSION_KEY, None)
             from .lifecycle import resolve_owner_deactivation_on_login
 
             deactivation_result = resolve_owner_deactivation_on_login(user)
@@ -148,7 +171,23 @@ def login_view(request):
                     return redirect('admin_dashboard')
             return redirect('user_dashboard')
         else:
-            messages.error(request, 'Invalid username/email or password')
+            failed_attempts = request.session.get(LOGIN_FAILURES_SESSION_KEY, 0) + 1
+            request.session[LOGIN_FAILURES_SESSION_KEY] = failed_attempts
+            if failed_attempts >= LOGIN_MAX_FAILED_ATTEMPTS:
+                request.session[LOGIN_LOCK_UNTIL_SESSION_KEY] = (
+                    timezone.now().timestamp() + LOGIN_LOCKOUT_SECONDS
+                )
+                messages.error(
+                    request,
+                    'Too many unsuccessful attempts. This browser is locked for 1 hour.',
+                )
+            else:
+                attempts_left = LOGIN_MAX_FAILED_ATTEMPTS - failed_attempts
+                messages.error(
+                    request,
+                    f'Invalid username/email or password. '
+                    f'{attempts_left} attempt(s) remain before this browser is locked for 1 hour.',
+                )
 
     return render(request, 'accounts/login.html', {
         'show_maintenance_popup': show_maintenance_popup,

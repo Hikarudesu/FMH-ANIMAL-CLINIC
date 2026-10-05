@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.db import IntegrityError, transaction
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -225,3 +225,69 @@ class OwnerAccountDeactivationTests(TestCase):
         self.assertContains(response, 'Archive Companion')
         self.assertContains(response, 'Medical record')
         self.assertTrue(get_user_model().objects.filter(pk=self.user.pk).exists())
+
+
+class BrowserLoginLockoutTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='loginowner',
+            email='loginowner@example.com',
+            password='A-secure-test-password-923!',
+        )
+
+    def test_three_failures_lock_only_the_current_browser(self):
+        browser = Client()
+        login_url = reverse('accounts:login_page')
+
+        for attempt in range(3):
+            response = browser.post(login_url, {
+                'username': f'wrong-user-{attempt}',
+                'password': 'wrong-password',
+            })
+            self.assertEqual(response.status_code, 200)
+
+        blocked_response = browser.post(login_url, {
+            'username': self.user.username,
+            'password': 'A-secure-test-password-923!',
+        })
+        self.assertEqual(blocked_response.status_code, 200)
+        self.assertNotIn('_auth_user_id', browser.session)
+
+        another_browser = Client()
+        allowed_response = another_browser.post(login_url, {
+            'username': self.user.username,
+            'password': 'A-secure-test-password-923!',
+        })
+        self.assertEqual(allowed_response.status_code, 302)
+        self.assertEqual(
+            another_browser.session.get('_auth_user_id'), str(self.user.pk),
+        )
+
+    def test_browser_lock_expires_after_one_hour(self):
+        from datetime import timedelta
+        from unittest.mock import patch
+
+        from django.utils import timezone
+
+        now = timezone.now()
+        browser = Client()
+        login_url = reverse('accounts:login_page')
+
+        with patch('accounts.views.timezone.now', return_value=now):
+            for _ in range(3):
+                browser.post(login_url, {
+                    'username': self.user.username,
+                    'password': 'wrong-password',
+                })
+
+        with patch(
+            'accounts.views.timezone.now',
+            return_value=now + timedelta(hours=1, seconds=1),
+        ):
+            response = browser.post(login_url, {
+                'username': self.user.username,
+                'password': 'A-secure-test-password-923!',
+            })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(browser.session.get('_auth_user_id'), str(self.user.pk))
