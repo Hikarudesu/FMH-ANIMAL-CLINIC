@@ -1687,6 +1687,22 @@ p {
   margin-top: 3rem;
 }
 
+.vet-carousel-wrapper {
+  margin-top: 3rem;
+}
+
+.vet-carousel-track {
+  display: flex;
+  align-items: stretch;
+  margin-top: 0;
+}
+
+.vet-carousel-card {
+  flex: 0 0 calc(25% - 1.125rem);
+  min-height: 390px;
+  height: auto;
+}
+
 .vet-card {
   background: var(--white);
   border-radius: var(--card-radius);

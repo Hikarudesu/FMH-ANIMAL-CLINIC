@@ -475,17 +475,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /* ---------- SATISFIED CUSTOMERS CAROUSEL ---------- */
-  const carouselTrack = document.getElementById("carouselTrack");
-  const carouselPrevBtn = document.getElementById("carouselPrevBtn");
-  const carouselNextBtn = document.getElementById("carouselNextBtn");
-  const carouselContainer = document.querySelector(".carousel-container");
-
-  // Helper to check if on mobile
+  /* ---------- LANDING PAGE CAROUSELS ---------- */
   const isMobile = () => window.innerWidth <= 768;
 
-  if (carouselTrack) {
-    let cardCount = carouselTrack.children.length;
+  function initializeCarousel(trackId, prevButtonId, nextButtonId, containerSelector) {
+    const carouselTrack = document.getElementById(trackId);
+    const carouselPrevBtn = document.getElementById(prevButtonId);
+    const carouselNextBtn = document.getElementById(nextButtonId);
+    const carouselContainer = document.querySelector(containerSelector);
+
+    const cardCount = carouselTrack ? carouselTrack.children.length : 0;
+    if (cardCount < 2) {
+      if (carouselPrevBtn) carouselPrevBtn.hidden = true;
+      if (carouselNextBtn) carouselNextBtn.hidden = true;
+      return;
+    }
+
     if (cardCount > 0) {
       // Only clone cards for desktop (transform-based scroll)
       if (!isMobile()) {
@@ -601,6 +606,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
+
+  initializeCarousel(
+    "carouselTrack",
+    "carouselPrevBtn",
+    "carouselNextBtn",
+    ".carousel-container:not(.vet-carousel-container)",
+  );
+  initializeCarousel(
+    "vetCarouselTrack",
+    "vetCarouselPrevBtn",
+    "vetCarouselNextBtn",
+    ".vet-carousel-container",
+  );
 
   /* ================================================================
      14. GLOBAL MESSAGES (TOASTS) AUTO-DISMISS

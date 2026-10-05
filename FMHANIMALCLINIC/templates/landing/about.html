@@ -164,35 +164,46 @@
     <h2 class="section-title fade-in">{% if vets_intro %}{{ vets_intro.title }}{% else %}Meet Our <span class="teal-text">Veterinarians</span>{% endif %}</h2>
     <p class="section-subtitle fade-in">{% if vets_intro %}{{ vets_intro.subtitle }}{% else %}Experienced, compassionate professionals dedicated to your pet's health and well-being.{% endif %}</p>
 
-    <div class="vet-grid">
-      {% for vet in veterinarians %}
-      <div class="vet-card fade-in">
-        <div class="vet-image">
-          {% if vet.photo %}
-            <img src="{{ vet.photo.url }}" alt="{{ vet.name }}">
-          {% else %}
-            <i class='bx bx-user-circle'></i>
-          {% endif %}
-        </div>
-        <div class="vet-info">
-          <h3>{{ vet.name }}</h3>
-          <p class="vet-title">{{ vet.title }}</p>
-          <p class="vet-bio">{{ vet.bio }}</p>
+    <div class="carousel-wrapper vet-carousel-wrapper">
+      <button class="carousel-btn carousel-prev" id="vetCarouselPrevBtn" aria-label="Previous veterinarian">
+        <i class='bx bx-chevron-left'></i>
+      </button>
+
+      <div class="carousel-container vet-carousel-container">
+        <div class="vet-grid vet-carousel-track" id="vetCarouselTrack">
+          {% for vet in veterinarians %}
+          <div class="vet-card vet-carousel-card fade-in">
+            <div class="vet-image">
+              {% if vet.photo %}
+                <img src="{{ vet.photo.url }}" alt="{{ vet.name }}">
+              {% else %}
+                <i class='bx bx-user-circle'></i>
+              {% endif %}
+            </div>
+            <div class="vet-info">
+              <h3>{{ vet.name }}</h3>
+              <p class="vet-title">{{ vet.title }}</p>
+              <p class="vet-bio">{{ vet.bio }}</p>
+            </div>
+          </div>
+          {% empty %}
+          <div class="vet-card vet-carousel-card fade-in">
+            <div class="vet-image">
+              <i class='bx bx-user-circle'></i>
+            </div>
+            <div class="vet-info">
+              <h3>Our Veterinarians</h3>
+              <p class="vet-title">Coming Soon</p>
+              <p class="vet-bio">Meet our team of dedicated professionals.</p>
+            </div>
+          </div>
+          {% endfor %}
         </div>
       </div>
-      {% empty %}
-      <!-- Fallback if no veterinarians in database -->
-      <div class="vet-card fade-in">
-        <div class="vet-image">
-          <i class='bx bx-user-circle'></i>
-        </div>
-        <div class="vet-info">
-          <h3>Our Veterinarians</h3>
-          <p class="vet-title">Coming Soon</p>
-          <p class="vet-bio">Meet our team of dedicated professionals.</p>
-        </div>
-      </div>
-      {% endfor %}
+
+      <button class="carousel-btn carousel-next" id="vetCarouselNextBtn" aria-label="Next veterinarian">
+        <i class='bx bx-chevron-right'></i>
+      </button>
     </div>
   </div>
 </section>
