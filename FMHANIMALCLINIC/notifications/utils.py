@@ -377,14 +377,15 @@ def notify_statement_released(statement):
             )
 
 
-def notify_appointment_status_change(appointment, status, actor=None):
+def notify_appointment_status_change(appointment, status, actor=None, actor_label=None):
     """Create standardized customer notifications for appointment status changes."""
     if not appointment.user:
         return
 
-    actor_label = 'clinic staff'
-    if actor is not None:
-        actor_label = actor.get_full_name() or actor.username
+    if actor_label is None:
+        actor_label = 'clinic staff'
+        if actor is not None:
+            actor_label = actor.get_full_name() or actor.username
 
     if status == 'CONFIRMED':
         title = f'Appointment Confirmed for {appointment.pet_name}'

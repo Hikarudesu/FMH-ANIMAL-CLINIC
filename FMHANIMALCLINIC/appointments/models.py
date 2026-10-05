@@ -242,13 +242,38 @@ class Appointment(models.Model):
 
     @classmethod
     def cleanup_expired(cls):
-        """Delete PENDING appointments that are 1+ day past their booked time."""
+        """Cancel pending appointments more than 24 hours past their scheduled time."""
         from datetime import timedelta
-        cutoff = timezone.now() - timedelta(days=1)
-        expired = cls.objects.filter(
-            appointment_date__lt=cutoff.date(),
-            status='PENDING',
-        )
-        count = expired.count()
-        expired.delete()
-        return count
+        now = timezone.now()
+        cutoff_date = timezone.localdate(now - timedelta(hours=24))
+        candidates = cls.objects.filter(
+            appointment_date__lte=cutoff_date,
+            status=cls.Status.PENDING,
+        ).select_related('branch', 'user')
+
+        cancelled_count = 0
+        for appointment in candidates.iterator():
+            scheduled_at = timezone.make_aware(
+                datetime.combine(appointment.appointment_date, appointment.appointment_time),
+                timezone.get_current_timezone(),
+            )
+            if scheduled_at + timedelta(hours=24) > now:
+                continue
+
+            updated = cls.objects.filter(
+                pk=appointment.pk,
+                status=cls.Status.PENDING,
+            ).update(status=cls.Status.CANCELLED, updated_at=now)
+            if not updated:
+                continue
+
+            appointment.status = cls.Status.CANCELLED
+            from notifications.utils import notify_appointment_status_change
+            notify_appointment_status_change(
+                appointment,
+                cls.Status.CANCELLED,
+                actor_label='the clinic system automatically',
+            )
+            cancelled_count += updated
+
+        return cancelled_count

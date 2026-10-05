@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
-    help = 'Run recurring reminders, inventory alerts, and pet-owner account expiry once.'
+    help = 'Run recurring appointment, reminder, inventory, and account tasks once.'
     lock_key = 'fmh:scheduled-tasks:lock'
 
     def handle(self, *args, **options):
@@ -16,6 +16,12 @@ class Command(BaseCommand):
             return
 
         try:
+            from appointments.services import AppointmentService
+
+            cancelled = AppointmentService.cleanup_expired_appointments()
+            self.stdout.write(
+                f'Cancelled {cancelled} expired pending appointment(s).'
+            )
             for command_name in (
                 'send_reminders',
                 'send_followup_emails',
