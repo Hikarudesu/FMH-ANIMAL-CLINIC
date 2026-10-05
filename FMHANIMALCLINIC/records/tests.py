@@ -1,10 +1,37 @@
+from types import SimpleNamespace
+from unittest.mock import patch
+
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
-from unittest.mock import patch
 
+from accounts.activity_signals import log_medical_record_changes
+from accounts.models import ActivityLog
+from .models import MedicalRecord
 from .models import validate_laboratory_image, validate_medical_file
 from settings.forms import MedicalRecordsSettingsForm
+
+
+class MedicalRecordActivitySignalTests(SimpleTestCase):
+    @patch('accounts.activity_signals.log_activity')
+    def test_creation_logs_current_clinical_signs_field(self, log_activity):
+        instance = SimpleNamespace(
+            _user=object(),
+            _ip_address=None,
+            id=1,
+            pet=SimpleNamespace(name='Carl'),
+            history_clinical_signs='Limping',
+        )
+
+        log_medical_record_changes(MedicalRecord, instance, created=True)
+
+        self.assertEqual(
+            log_activity.call_args.kwargs['details'],
+            'History / Clinical Signs: Limping',
+        )
+        self.assertEqual(
+            log_activity.call_args.kwargs['category'], ActivityLog.Category.MEDICAL,
+        )
 
 
 class MedicalFileValidationTests(SimpleTestCase):

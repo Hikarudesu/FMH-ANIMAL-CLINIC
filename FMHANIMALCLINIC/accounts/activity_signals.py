@@ -194,7 +194,10 @@ try:
                 action=f"Medical record created for {instance.pet.name}",
                 category=ActivityLog.Category.MEDICAL,
                 action_type=ActivityLog.ActionType.CREATE,
-                details=f"Chief complaint: {instance.chief_complaint}",
+                details=(
+                    'History / Clinical Signs: '
+                    f"{instance.history_clinical_signs or 'Not provided'}"
+                ),
                 object_type='MedicalRecord',
                 object_id=instance.id,
                 ip_address=ip_address
