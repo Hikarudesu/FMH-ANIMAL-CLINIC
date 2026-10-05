@@ -1,14 +1,17 @@
+import os
+import tempfile
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from accounts.activity_signals import log_medical_record_changes
 from accounts.models import ActivityLog
 from .models import MedicalRecord
 from .models import validate_laboratory_image, validate_medical_file
+from .views import _pdf_link_callback
 from settings.forms import MedicalRecordsSettingsForm
 
 
@@ -101,3 +104,17 @@ class LaboratoryTypeSettingsTests(SimpleTestCase):
 
         with self.assertRaises(ValidationError):
             validate_laboratory_image(upload)
+
+
+class PdfAssetResolutionTests(SimpleTestCase):
+    def test_media_assets_are_resolved_to_local_files(self):
+        with tempfile.TemporaryDirectory() as media_root:
+            logo_path = os.path.join(media_root, 'branches', 'logo.png')
+            os.makedirs(os.path.dirname(logo_path))
+            with open(logo_path, 'wb') as logo_file:
+                logo_file.write(b'logo')
+
+            with override_settings(MEDIA_ROOT=media_root, MEDIA_URL='/media/'):
+                resolved_path = _pdf_link_callback('/media/branches/logo.png', '')
+
+            self.assertEqual(resolved_path, logo_path)
