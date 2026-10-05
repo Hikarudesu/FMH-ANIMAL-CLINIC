@@ -2147,6 +2147,15 @@
   outline: none;
   border-radius: 14px;
 }
+[data-theme="dark"] .pf-field select.pf-input {
+  color-scheme: dark;
+  background-color: var(--surface);
+  color: var(--text-1);
+}
+[data-theme="dark"] .pf-field select.pf-input option {
+  background-color: var(--surface);
+  color: var(--text-1);
+}
 .pf-input::placeholder {
   color: transparent;
 }

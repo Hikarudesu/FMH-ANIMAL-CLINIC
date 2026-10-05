@@ -70,12 +70,15 @@ def _can_mark_transfer_received(user, transfer):
 
 
 def auto_cancel_expired_reservations():
-    """Finds pending reservations older than 24 hours and cancels them."""
+    """Cancel reservations 24 hours after pickup day, or 24 hours after creation if undated."""
     expiration_threshold = timezone.now() - timedelta(hours=24)
+    pickup_date_threshold = timezone.localdate() - timedelta(days=2)
     # pylint: disable=no-member
     expired_reservations = Reservation.objects.filter(
         status=Reservation.Status.PENDING,
-        created_at__lte=expiration_threshold
+    ).filter(
+        Q(pickup_date__isnull=True, created_at__lte=expiration_threshold) |
+        Q(pickup_date__isnull=False, pickup_date__lte=pickup_date_threshold)
     ).select_related('product', 'product__branch', 'user')
 
     for res in expired_reservations:
@@ -100,7 +103,7 @@ def auto_cancel_expired_reservations():
             message=(
                 f"Your reservation for {res.quantity}x {res.product.name} "
                 f"({res.product.sale_type_label}, {res.product.unit_display}) "
-                f"has expired after 24 hours and was cancelled."
+                f"has expired and was cancelled."
             ),
             notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
         )
