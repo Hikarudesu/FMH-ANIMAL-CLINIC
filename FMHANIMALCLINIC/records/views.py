@@ -5,6 +5,7 @@ Views for handling specific actions within Medical Records.
 import io
 import json
 import os
+from urllib.parse import unquote, urlparse
 
 from xhtml2pdf import pisa
 
@@ -968,16 +969,44 @@ def api_search_owners(request):
 
 def _pdf_link_callback(uri, rel):
     """
-    Resolve static file URIs to absolute filesystem paths so xhtml2pdf
-    can load CSS/image assets during PDF generation.
+    Resolve local static and media URIs to filesystem paths so xhtml2pdf
+    can load CSS and image assets during PDF generation.
+
+    Uploaded branch and clinic logos are served from MEDIA_URL, unlike the
+    fallback logo which is served from STATIC_URL. Returning the local path
+    is required because xhtml2pdf cannot read a relative web URL directly.
     """
-    static_url = settings.STATIC_URL  # e.g. 'static/'
-    if uri.startswith(static_url):
-        relative = uri[len(static_url):]
-        path = finders.find(relative)
+    parsed_uri = urlparse(uri)
+    uri_path = unquote(parsed_uri.path)
+
+    static_url = urlparse(settings.STATIC_URL).path
+    if static_url and uri_path.startswith(static_url):
+        path = finders.find(uri_path[len(static_url):].lstrip('/'))
         if path:
             return path
+
+    media_url = urlparse(settings.MEDIA_URL).path
+    if media_url and uri_path.startswith(media_url):
+        media_root = os.path.abspath(settings.MEDIA_ROOT)
+        media_path = os.path.abspath(
+            os.path.join(media_root, uri_path[len(media_url):].lstrip('/'))
+        )
+        if (
+            os.path.commonpath((media_root, media_path)) == media_root
+            and os.path.isfile(media_path)
+        ):
+            return media_path
+
     return uri
+
+
+def _get_pdf_styles():
+    """Load the PDF stylesheet inline because xhtml2pdf may skip link tags."""
+    stylesheet_path = finders.find('css/records/pdf_record.css')
+    if not stylesheet_path:
+        raise RuntimeError('The medical record PDF stylesheet could not be found.')
+    with open(stylesheet_path, encoding='utf-8') as stylesheet:
+        return stylesheet.read()
 
 
 @login_required
@@ -1026,6 +1055,7 @@ def download_pdf_view(request, pk):
         'generated_date': timezone.now(),
         'is_admin': request.user.is_clinic_staff(),
         'clinic_profile': clinic_profile,
+        'pdf_styles': _get_pdf_styles(),
     })
 
     # Generate PDF using xhtml2pdf

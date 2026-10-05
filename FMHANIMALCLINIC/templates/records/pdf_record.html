@@ -5,7 +5,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Medical Record - {{ record.pet.name }}</title>
-    <link rel="stylesheet" href="{% static 'css/records/pdf_record.css' %}">
+    <style>
+        {{ pdf_styles|safe }}
+    </style>
     <style>
         @page {
             size: A4;
