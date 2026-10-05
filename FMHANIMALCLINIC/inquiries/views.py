@@ -234,7 +234,7 @@ def inquiry_detail(request, pk):
     # If branch restricted, ensure user can only view inquiries from their own branch
     if is_branch_restricted and user_branch and inquiry.branch != user_branch:
         return redirect('inquiries:list')
-    
+
     was_responded = inquiry.status == 'RESPONDED'
 
     # Mark as READ if it's NEW

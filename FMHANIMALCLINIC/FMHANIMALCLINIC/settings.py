@@ -143,6 +143,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'notifications.middleware.NotificationModuleReadMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'settings.middleware.MaintenanceModeMiddleware',
     'settings.middleware.SessionTimeoutMiddleware',

@@ -1,7 +1,8 @@
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.test import Client, TestCase
+from django.test import Client, RequestFactory, TestCase
+from django.urls import resolve, reverse
 from django.utils import timezone
 
 from accounts.activity_context import reset_current_actor, set_current_actor
@@ -14,8 +15,14 @@ from inquiries.models import Inquiry
 from payroll.email_service import send_payslip_email
 from payroll.models import Payslip, PayslipEmailLog, PayrollPeriod
 from notifications.models import FollowUp, Notification
+from notifications.context_processors import unread_notifications
 from notifications.delivery import send_notification_email
-from notifications.utils import notify_follow_up_scheduled, notify_inquiry_received
+from notifications.middleware import NotificationModuleReadMiddleware
+from notifications.utils import (
+    mark_module_notifications_read,
+    notify_follow_up_scheduled,
+    notify_inquiry_received,
+)
 from notifications.views import get_allowed_notification_types_for_user
 
 
@@ -92,6 +99,120 @@ class NotificationRoutingTests(TestCase):
             code='executive_officer',
             defaults={'name': 'Branch Administrator', 'hierarchy_level': 8},
         )
+
+    def test_open_inventory_notification_marks_read_and_opens_catalog_for_pet_owner(self):
+        notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Reservation update',
+            message='Your reservation is ready.',
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+        self.client.force_login(self.pet_owner)
+
+        response = self.client.get(
+            reverse('notifications:open_notification', args=[notification.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('inventory:catalog'))
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+
+    def test_marking_module_notifications_read_does_not_clear_other_modules(self):
+        inventory_notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Reservation update',
+            message='Your reservation is ready.',
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+        inquiry_notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Inquiry update',
+            message='Your inquiry was answered.',
+            module_context=Notification.ModuleContext.INQUIRIES,
+        )
+
+        mark_module_notifications_read(
+            self.pet_owner,
+            Notification.ModuleContext.INVENTORY,
+        )
+
+        inventory_notification.refresh_from_db()
+        inquiry_notification.refresh_from_db()
+        self.assertTrue(inventory_notification.is_read)
+        self.assertFalse(inquiry_notification.is_read)
+
+    def test_module_navigation_marks_only_its_notifications_read(self):
+        inventory_notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Reservation update',
+            message='Your reservation is ready.',
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+        inquiry_notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Inquiry update',
+            message='Your inquiry was answered.',
+            module_context=Notification.ModuleContext.INQUIRIES,
+        )
+        request = RequestFactory().get('/inventory/catalog/')
+        request.user = self.pet_owner
+        request.resolver_match = resolve('/inventory/catalog/')
+
+        NotificationModuleReadMiddleware(lambda _request: None).process_view(
+            request, None, (), {},
+        )
+
+        inventory_notification.refresh_from_db()
+        inquiry_notification.refresh_from_db()
+        self.assertTrue(inventory_notification.is_read)
+        self.assertFalse(inquiry_notification.is_read)
+
+    def test_module_read_middleware_ignores_inventory_api_requests(self):
+        notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Reservation update',
+            message='Your reservation is ready.',
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+        request = RequestFactory().get('/inventory/get-branch-products/1/')
+        request.user = self.pet_owner
+        request.resolver_match = resolve('/inventory/get-branch-products/1/')
+
+        NotificationModuleReadMiddleware(lambda _request: None).process_view(
+            request, None, (), {},
+        )
+
+        notification.refresh_from_db()
+        self.assertFalse(notification.is_read)
+
+    def test_pet_portal_combines_and_clears_pet_and_medical_record_alerts(self):
+        patient_notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Pet update',
+            message='Your pet profile was updated.',
+            module_context=Notification.ModuleContext.PATIENTS,
+        )
+        record_notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Medical record update',
+            message='A medical record was added.',
+            module_context=Notification.ModuleContext.MEDICAL_RECORDS,
+        )
+        request = RequestFactory().get('/patients/my-pets/')
+        request.user = self.pet_owner
+        request.resolver_match = resolve('/patients/my-pets/')
+
+        context = unread_notifications(request)
+        NotificationModuleReadMiddleware(lambda _request: None).process_view(
+            request, None, (), {},
+        )
+
+        self.assertEqual(context['unread_pet_notifications_count'], 2)
+        patient_notification.refresh_from_db()
+        record_notification.refresh_from_db()
+        self.assertTrue(patient_notification.is_read)
+        self.assertTrue(record_notification.is_read)
 
     @patch('notifications.followup_email_service.send_follow_up_email')
     def test_scheduled_follow_up_notifies_portal_and_registered_email(self, send_email):

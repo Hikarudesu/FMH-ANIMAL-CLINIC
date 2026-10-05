@@ -9,6 +9,14 @@ from notifications.models import Notification
 from notifications.delivery import send_notification_email
 
 
+def mark_module_notifications_read(user, module_context):
+    """Mark visible unread notifications for one module as read."""
+    return Notification.scoped_for_user(user).filter(
+        module_context=module_context,
+        is_read=False,
+    ).update(is_read=True)
+
+
 def _notify_superadmins(title, message, notification_type, module_context, related_object_id=None):
     from accounts.models import User
 

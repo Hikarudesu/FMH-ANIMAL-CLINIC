@@ -78,7 +78,7 @@
           <div class="notif-list">
             {% if recent_notifications %}
               {% for notif in recent_notifications %}
-              <div class="notif-item">
+              <a href="{% url 'notifications:open_notification' notif.pk %}" class="notif-item" style="text-decoration: none; color: inherit;">
                 <div class="notif-icon">
                   <i class='bx bx-info-circle'></i>
                 </div>
@@ -89,7 +89,7 @@
                   </div>
                   <span class="notif-msg">{{ notif.message|truncatechars:50 }}</span>
                 </div>
-              </div>
+              </a>
               {% endfor %}
             {% else %}
               <div class="notif-empty">No unread notifications</div>
@@ -183,18 +183,22 @@
         {% if user_pets_count %}
         <span class="badge" style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: auto;">{{ user_pets_count }}</span>
         {% endif %}
+        {% if unread_pet_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_pet_notifications_count }}</span>{% endif %}
       </a>
       <a href="{% url 'appointments:my_appointments' %}" class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}">
         <i class='bx bx-calendar-check'></i><span>Appointments</span>
         {% if pending_appointments_count > 0 %}
         <span class="badge">{{ pending_appointments_count }}</span>
         {% endif %}
+        {% if unread_notifications_by_module.appointments > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.appointments }}</span>{% endif %}
       </a>
       <a href="{% url 'inventory:catalog' %}" class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}">
         <i class='bx bx-cart'></i><span>Digital Catalog</span>
+        {% if unread_inventory_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_inventory_notifications_count }}</span>{% endif %}
       </a>
       <a href="{% url 'billing:my_statements' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_statements' or request.resolver_match.url_name == 'my_statement_detail' %}active{% endif %}">
         <i class='bx bx-receipt'></i><span>Statement of Account</span>
+        {% if unread_notifications_by_module.soa > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.soa }}</span>{% endif %}
       </a>
       <a href="{% url 'notifications:notification_list' %}" class="sidebar-link {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}">
         <i class='bx bx-bell'></i><span>Notification</span>

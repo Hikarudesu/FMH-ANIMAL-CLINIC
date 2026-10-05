@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.urls import reverse
 
 from .models import Notification
 from accounts.decorators import module_permission_required
@@ -208,6 +209,65 @@ def user_notifications(request):
         'tab_list': tab_list,
         'search_value': search_value,
     })
+
+
+@login_required
+def open_notification(request, pk):
+    """Mark a visible notification read and open its owning module."""
+    notification = get_object_or_404(
+        Notification.scoped_for_user(request.user),
+        pk=pk,
+    )
+    if not notification.is_read:
+        notification.is_read = True
+        notification.save(update_fields=['is_read'])
+
+    module_context = notification.module_context
+    user = request.user
+    target = reverse('notifications:notification_list')
+
+    if module_context == Notification.ModuleContext.INVENTORY:
+        if user.is_pet_owner():
+            target = reverse('inventory:catalog')
+        elif user.has_navigation_module_access('inventory'):
+            target = reverse('inventory:management')
+    elif module_context == Notification.ModuleContext.INQUIRIES:
+        if not user.is_superuser and user.has_module_permission('inquiries', 'VIEW'):
+            if notification.related_object_id:
+                target = reverse('inquiries:detail', args=[notification.related_object_id])
+            else:
+                target = reverse('inquiries:list')
+    elif module_context == Notification.ModuleContext.APPOINTMENTS:
+        if user.is_pet_owner():
+            target = reverse('appointments:my_appointments')
+        elif user.has_navigation_module_access('appointments'):
+            target = reverse('appointments:admin_list')
+    elif module_context == Notification.ModuleContext.PATIENTS:
+        if user.is_clinic_staff() and user.has_navigation_module_access('patients'):
+            target = reverse('patients:admin_list')
+        elif user.is_pet_owner():
+            target = reverse('patients:my_pets')
+    elif module_context == Notification.ModuleContext.MEDICAL_RECORDS:
+        if user.is_pet_owner():
+            target = reverse('patients:my_pets')
+        elif user.has_navigation_module_access('medical_records'):
+            if notification.related_object_id:
+                target = reverse('records:admin_detail', args=[notification.related_object_id])
+            else:
+                target = reverse('records:admin_list')
+    elif module_context == Notification.ModuleContext.AI_DIAGNOSTICS:
+        if user.has_navigation_module_access('ai_diagnostics'):
+            target = reverse('diagnostics:dashboard')
+    elif module_context == Notification.ModuleContext.PAYROLL:
+        if user.has_navigation_module_access('payroll'):
+            target = reverse('payroll:dashboard')
+    elif module_context == Notification.ModuleContext.SOA:
+        if user.is_pet_owner():
+            target = reverse('billing:my_statements')
+        elif user.has_navigation_special_permission('can_access_pos'):
+            target = reverse('pos:sales_list')
+
+    return redirect(target)
 
 
 

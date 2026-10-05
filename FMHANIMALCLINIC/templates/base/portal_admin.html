@@ -117,7 +117,7 @@
               <div class="dropdown-divider"></div>
               <div class="notif-list">
                 {% for notif in recent_notifications %}
-                <div class="notif-item">
+                <a href="{% url 'notifications:open_notification' notif.pk %}" class="notif-item" style="text-decoration: none; color: inherit;">
                   <div class="notif-icon">
                     {% if notif.notification_type == 'APPOINTMENT' %}
                     <i
@@ -176,7 +176,7 @@
                       >{{ notif.message|truncatechars:50 }}</span
                     >
                   </div>
-                </div>
+                </a>
                   {% empty %}
                 <div class="notif-empty">No unread notifications</div>
                   {% endfor %}
@@ -368,6 +368,7 @@
                 class="sidebar-submenu-link {% if 'payroll' in request.path and 'settings' not in request.path %}active{% endif %}"
               >
                 <i class="bx bx-money"></i><span>Payroll</span>
+                {% if unread_notifications_by_module.payroll > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.payroll }}</span>{% endif %}
               </a>
               {% endif %}
             </div>
@@ -381,8 +382,8 @@
             class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"
           >
             <i class="bx bx-envelope"></i><span>Inquiries</span>
-            {% if unanswered_inquiry_count > 0 %}
-            <span class="badge" style="background: #ef4444;">{{ unanswered_inquiry_count }}</span>
+            {% if unread_inquiry_notifications_count > 0 %}
+            <span class="badge" style="background: #ef4444;">{{ unread_inquiry_notifications_count }}</span>
             {% endif %}
           </a>
           {% endif %}
@@ -396,6 +397,7 @@
                 class="sidebar-link {% if 'inventory' in request.path and 'logs' not in request.path or request.resolver_match.app_name == 'billing' or 'transfers' in request.path or request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
               >
                 <i class="bx bx-package"></i><span>Inventory Management</span>
+                {% if unread_inventory_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_inventory_notifications_count }}</span>{% endif %}
               </a>
             {% else %}
             <div class="sidebar-item has-submenu">
@@ -405,6 +407,7 @@
                 id="inventoryDropdownToggle"
               >
                 <i class="bx bx-package"></i><span>Inventory Management</span>
+                {% if unread_inventory_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_inventory_notifications_count }}</span>{% endif %}
                 <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
               </a>
               <div class="sidebar-submenu" id="inventorySubmenu">
@@ -524,6 +527,7 @@
               >{{ total_patients_count }}</span
             >
             {% endif %}
+            {% if unread_notifications_by_module.patients > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.patients }}</span>{% endif %}
           </a>
           {% endif %}
 
@@ -537,6 +541,7 @@
             {% if pending_appointments_count > 0 %}
             <span class="badge">{{ pending_appointments_count }}</span>
             {% endif %}
+            {% if unread_notifications_by_module.appointments > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.appointments }}</span>{% endif %}
           </a>
           {% endif %}
 
@@ -547,6 +552,7 @@
             class="sidebar-link {% if active_tab == 'medical_records' and active_tab != 'patients' %}active{% elif 'records' in request.path and active_tab != 'patients' %}active{% endif %}"
           >
             <i class="bx bx-file"></i><span>Medical Records</span>
+            {% if unread_notifications_by_module.medical_records > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.medical_records }}</span>{% endif %}
           </a>
           {% endif %}
 
@@ -558,6 +564,7 @@
             class="sidebar-link {% if 'diagnostics' in request.path %}active{% endif %}"
           >
             <i class="bx bx-brain"></i><span>AI Diagnostics</span>
+            {% if unread_notifications_by_module.ai_diagnostics > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.ai_diagnostics }}</span>{% endif %}
           </a>
           {% endif %}
 
@@ -578,6 +585,7 @@
             class="sidebar-link {% if 'pos' in request.path %}active{% endif %}"
           >
             <i class="bx bx-cart"></i><span>Point of Sale</span>
+            {% if unread_pos_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_pos_notifications_count }}</span>{% endif %}
           </a>
           {% endif %}
 
@@ -598,8 +606,8 @@
             class="sidebar-link {% if 'inquiries' in request.path %}active{% endif %}"
           >
             <i class="bx bx-envelope"></i><span>Inquiries</span>
-            {% if new_inquiry_count > 0 %}
-            <span class="badge" style="background: #ef4444;">{{ new_inquiry_count }}</span>
+            {% if unread_inquiry_notifications_count > 0 %}
+            <span class="badge" style="background: #ef4444;">{{ unread_inquiry_notifications_count }}</span>
             {% endif %}
           </a>
           {% endif %}
@@ -625,6 +633,7 @@
                 id="inventoryDropdownToggle"
               >
                 <i class="bx bx-package"></i><span>Inventory Management</span>
+                {% if unread_inventory_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_inventory_notifications_count }}</span>{% endif %}
                 <span class="submenu-arrow"><i class="bx bx-chevron-right"></i></span>
               </a>
               <div class="sidebar-submenu" id="inventorySubmenu">
@@ -660,6 +669,7 @@
               class="sidebar-link {% if request.resolver_match.url_name == 'management' or request.resolver_match.url_name == 'product_new' or request.resolver_match.url_name == 'adjustment_new' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}"
             >
               <i class="bx bx-package"></i><span>{% if user|inventory_is_view_only %}Inventory{% else %}Inventory Management{% endif %}</span>
+              {% if unread_inventory_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_inventory_notifications_count }}</span>{% endif %}
             </a>
             {% elif has_stock %}
             <a
