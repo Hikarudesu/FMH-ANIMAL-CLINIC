@@ -817,6 +817,7 @@ Catalog{% endblock %} {% block content %}
       align-items: center;
       gap: 4px;
     }
+    .my-rsv-countdown[hidden] { display: none; }
 
     .my-rsv-cancel-btn {
       padding: 5px 14px;
@@ -997,6 +998,7 @@ Catalog{% endblock %} {% block content %}
         <div
           class="my-rsv-countdown"
           data-expires="{{ rsv.expires_at|date:'c' }}"
+          hidden
         >
           <i class="bx bx-time-five"></i>
           <span class="time-left">Calculating...</span>
@@ -1057,18 +1059,23 @@ Catalog{% endblock %} {% block content %}
         const expireDate = new Date(expiresStr);
         const now = new Date();
         const diff = expireDate - now;
+        const finalDayWindow = 24 * 60 * 60 * 1000;
 
         const timeSpan = el.querySelector(".time-left");
 
         if (diff <= 0) {
+          el.hidden = false;
           timeSpan.textContent = "Expired";
           el.style.color = "#c62828";
           el.style.background = "#ffebee";
           setTimeout(() => window.location.reload(), 2000);
-        } else {
+        } else if (diff <= finalDayWindow) {
+          el.hidden = false;
           const hours = Math.floor(diff / (1000 * 60 * 60));
           const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
           timeSpan.textContent = `Expires in: ${hours}h ${minutes}m`;
+        } else {
+          el.hidden = true;
         }
       });
     }
