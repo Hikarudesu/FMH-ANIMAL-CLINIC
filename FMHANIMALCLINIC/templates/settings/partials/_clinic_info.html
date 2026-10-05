@@ -21,6 +21,11 @@
           {% endif %}
           <div style="flex: 1;">
             {{ forms.clinic.logo }}
+            {% if clinic_profile.logo %}
+              <label class="logo-remove-current" for="{{ forms.clinic.remove_logo.id_for_label }}">
+                {{ forms.clinic.remove_logo }} Remove current logo
+              </label>
+            {% endif %}
             <p class="form-hint">Supported formats: .png, .jpeg (Max 10MB)</p>
           </div>
         </div>

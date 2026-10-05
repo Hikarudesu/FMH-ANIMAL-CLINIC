@@ -16,12 +16,8 @@
   <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'image/fmh-logo.png' %}">
   <title>FMH Animal Clinic | Veterinary Care</title>
 
-  <!-- Favicon -->
-  {% if CLINIC_LOGO_URL %}
-    <link rel="icon" type="image/png" href="{{ CLINIC_LOGO_URL }}">
-  {% else %}
-    <link rel="icon" type="image/png" href="{% static 'image/fmh-logo.png' %}">
-  {% endif %}
+  <link rel="icon" type="image/png" sizes="512x512" href="{% static 'image/fmh-logo.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'image/fmh-logo.png' %}">
 
   <!-- Preconnect for external resources -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>

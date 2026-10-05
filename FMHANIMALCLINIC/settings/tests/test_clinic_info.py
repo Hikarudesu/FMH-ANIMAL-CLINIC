@@ -1,4 +1,5 @@
 from django.test import RequestFactory, TestCase
+from django.forms import FileInput
 
 from settings.context_processors import clinic_settings
 from settings.forms import ClinicInfoForm
@@ -8,6 +9,21 @@ from settings.models import ClinicProfile, LegalDocument
 class ClinicInfoTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
+
+    def test_clinic_logo_upload_does_not_render_current_file_link(self):
+        widget = ClinicInfoForm.base_fields['logo'].widget
+
+        self.assertIsInstance(widget, FileInput)
+        self.assertIn('remove_logo', ClinicInfoForm.base_fields)
+        
+        profile = ClinicProfile(name='Test Clinic', logo='image/Logo.png')
+        form = ClinicInfoForm(
+            data={'name': 'Test Clinic', 'remove_logo': 'on'},
+            instance=profile,
+        )
+        
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.save(commit=False).logo)
 
     def test_clinic_profile_is_singleton(self):
         first = ClinicProfile.get_instance()

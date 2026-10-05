@@ -24,6 +24,8 @@ from .utils import (
 class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
     """Form for clinic profile/branding settings."""
 
+    remove_logo = forms.BooleanField(required=False)
+
     tos_content = forms.CharField(
         label="Terms of Service",
         widget=forms.Textarea(attrs={'rows': 10, 'placeholder': 'Enter the Terms of Service content here...'}),
@@ -62,7 +64,7 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
             'instagram_url': forms.URLInput(attrs={'placeholder': 'https://instagram.com/your-page'}),
             'messenger_url': forms.URLInput(attrs={'placeholder': 'https://m.me/your-page'}),
             'tiktok_url': forms.URLInput(attrs={'placeholder': 'https://www.tiktok.com/@your-page'}),
-            'logo': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+            'logo': forms.FileInput(attrs={'accept': 'image/*'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -86,6 +88,8 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
         return validate_philippines_phone(self.cleaned_data.get('phone', ''))
 
     def save(self, commit=True):
+        if self.cleaned_data.get('remove_logo') and not self.files.get(self.add_prefix('logo')):
+            self.cleaned_data['logo'] = False
         instance = super().save(commit=commit)
         if commit:
             from .models import LegalDocument
