@@ -33,6 +33,7 @@ class NotificationModuleReadMiddleware:
         match = getattr(request, 'resolver_match', None)
         if not match:
             return None
+        url_name = match.url_name or ''
 
         if match.app_name == 'inquiries' and user.is_superuser:
             return None
@@ -43,9 +44,9 @@ class NotificationModuleReadMiddleware:
         }:
             return None
         if (
-            'api' in match.url_name.lower()
-            or 'search' in match.url_name.lower()
-            or match.url_name == 'get_branch_products'
+            'api' in url_name.lower()
+            or 'search' in url_name.lower()
+            or url_name == 'get_branch_products'
         ):
             return None
 

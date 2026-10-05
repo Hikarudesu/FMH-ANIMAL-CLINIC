@@ -1,4 +1,5 @@
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import Client, RequestFactory, TestCase
@@ -185,6 +186,17 @@ class NotificationRoutingTests(TestCase):
 
         notification.refresh_from_db()
         self.assertFalse(notification.is_read)
+
+    def test_module_read_middleware_handles_unnamed_routes(self):
+        request = RequestFactory().get('/media/profiles/Carl.jpg')
+        request.user = self.pet_owner
+        request.resolver_match = SimpleNamespace(app_name='', url_name=None)
+
+        result = NotificationModuleReadMiddleware(lambda _request: None).process_view(
+            request, None, (), {},
+        )
+
+        self.assertIsNone(result)
 
     def test_pet_portal_combines_and_clears_pet_and_medical_record_alerts(self):
         patient_notification = Notification.objects.create(
