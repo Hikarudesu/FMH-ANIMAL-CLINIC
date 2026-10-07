@@ -163,8 +163,6 @@ class Product(SoftDeleteModel):
         """Override save to auto-generate SKU and verify availability."""
         if self.stock_quantity == 0:
             self.is_available = False
-        else:
-            self.is_available = True
 
         # Auto-generate SKU if blank
         if not self.sku:

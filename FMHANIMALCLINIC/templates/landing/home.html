@@ -141,7 +141,7 @@
   <!-- Goals (Text Left, Image Right) -->
   <div class="container split-container" style="padding-top: 6rem; padding-bottom: 3rem;">
     <div class="split-content fade-in">
-      <h2 class="section-title">Our <span class="teal-text">Mission</span></h2>
+      <h2 class="section-title">{% if mission_content and mission_content.title %}{{ mission_content.title }}{% else %}Our <span class="teal-text">Mission</span>{% endif %}</h2>
       <p class="section-description">{% if mission_content %}{{ mission_content.description }}{% else %}We pet care professionals who work as as a team to helps many people and their pets in our community to have the best hunan-animal bonding possible by offering optimal health, excellent veterinary care, and stress-free environment.{% endif %}</p>
     </div>
     <div class="split-image fade-in">
@@ -155,7 +155,7 @@
       <img src="{% static 'image/benefits.png' %}" alt="Clinic Benefits" loading="lazy" class="modern-radius shadow-lg">
     </div>
     <div class="split-content fade-in">
-      <h2 class="section-title">Our<span class="teal-text"> Vision</span></h2>
+      <h2 class="section-title">{% if vision_content and vision_content.title %}{{ vision_content.title }}{% else %}Our<span class="teal-text"> Vision</span>{% endif %}</h2>
       <p class="section-description">{% if vision_content %}{{ vision_content.description }}{% else %}Our Vision is to provide the highest level of pet care, through medical innovation, continued education, and advancements in animal heathcare.
         We will strengthen communication with our clients, and set a precedence of treating them and their pets responsibly, ethically, and individually in family environment, all while inspiring a culture of trust and conpasssion. Through our community involvement and support, we will promote and nurture the joy of the pet-human bond.
       {% endif %}</p>
@@ -166,7 +166,7 @@
   <!-- Pet Healthcare (Text Left, Image Right) -->
   <div class="container split-container" style="padding-top: 3rem; padding-bottom: 6rem;">
     <div class="split-content fade-in">
-      <h2 class="section-title">Core <span class="teal-text"> Values</span></h2>
+      <h2 class="section-title">{% if core_values_intro and core_values_intro.title %}{{ core_values_intro.title }}{% else %}Core <span class="teal-text"> Values</span>{% endif %}</h2>
       {% if core_values_intro and core_values_intro.description %}
       <p class="section-description">{{ core_values_intro.description }}</p>
       {% endif %}

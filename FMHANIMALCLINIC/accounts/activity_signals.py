@@ -648,6 +648,10 @@ def _register_generic_audit(model, category):
     """Register create/update/delete audit handlers for an uncovered model."""
     label = model._meta.label_lower.replace('.', '_')
 
+    def numeric_object_id(instance):
+        object_id = instance.pk
+        return object_id if isinstance(object_id, int) else None
+
     @receiver(post_save, sender=model, dispatch_uid=f'activity_create_update_{label}')
     def log_generic_save(sender, instance, created, **kwargs):
         actor = _resolve_actor(instance)
@@ -665,7 +669,7 @@ def _register_generic_audit(model, category):
             ),
             branch=_audit_branch(instance),
             object_type=sender.__name__,
-            object_id=instance.pk,
+            object_id=numeric_object_id(instance),
         )
 
     @receiver(pre_delete, sender=model, dispatch_uid=f'activity_delete_{label}')
@@ -680,7 +684,7 @@ def _register_generic_audit(model, category):
             action_type=ActivityLog.ActionType.DELETE,
             branch=_audit_branch(instance),
             object_type=sender.__name__,
-            object_id=instance.pk,
+            object_id=numeric_object_id(instance),
         )
 
 

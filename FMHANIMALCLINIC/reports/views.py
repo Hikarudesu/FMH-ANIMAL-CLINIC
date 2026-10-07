@@ -7,8 +7,8 @@ from calendar import monthrange
 
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Count, Avg, F, Q, DecimalField, ExpressionWrapper
-from django.db.models.functions import TruncDate, ExtractHour
+from django.db.models import Sum, Count, Avg, F, Q, DecimalField, ExpressionWrapper, Value
+from django.db.models.functions import TruncDate, ExtractHour, Round
 from django.utils import timezone
 from django.http import HttpResponse
 
@@ -38,11 +38,13 @@ def analytics_dashboard(request):
     Filterable by Branch and Time Period (daily, weekly, monthly).
     """
     branch = request.user.branch
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     # ── Filters ───────────────────────────────────────────────────────
     branch_id = request.GET.get('branch', '')
     period = request.GET.get('period', 'monthly')  # daily | weekly | monthly
+    if period not in {'daily', 'weekly', 'monthly'}:
+        period = 'monthly'
 
     # Determine date range from period
     if period == 'daily':
@@ -60,17 +62,26 @@ def analytics_dashboard(request):
         period_label = today.strftime('%B %Y')
 
     # Branch filtering
+    branch_restricted = request.user.is_module_branch_restricted('reports')
     filter_branch = None
-    if request.user.is_module_branch_restricted('reports') and branch:
+    if branch_restricted:
         filter_branch = branch
     elif branch_id:
         try:
-            filter_branch = Branch.objects.get(id=branch_id)
+            filter_branch = Branch.objects.get(id=branch_id, is_active=True)
         except (Branch.DoesNotExist, ValueError):
             filter_branch = None
+    branch_scope_empty = branch_restricted and filter_branch is None
+
+    def apply_branch_filter(queryset, field='branch'):
+        if branch_scope_empty:
+            return queryset.none()
+        if filter_branch:
+            return queryset.filter(**{field: filter_branch})
+        return queryset
 
     # ── Metric 1: Total Patients ──────────────────────────────────────
-    pets_qs = Pet.objects.filter(is_active=True)
+    pets_qs = apply_branch_filter(Pet.objects.filter(is_active=True))
     total_patients = pets_qs.count()
     new_patients_period = pets_qs.filter(
         created_at__date__gte=date_from,
@@ -79,12 +90,11 @@ def analytics_dashboard(request):
 
     # ── Metric 2: Gross & Net Sales ───────────────────────────────────
     sales_qs = Sale.objects.filter(
-        status=Sale.Status.COMPLETED,
+        status__in=[Sale.Status.COMPLETED, Sale.Status.REFUNDED],
         created_at__date__gte=date_from,
         created_at__date__lte=date_to,
     )
-    if filter_branch:
-        sales_qs = sales_qs.filter(branch=filter_branch)
+    sales_qs = apply_branch_filter(sales_qs)
 
     sales_agg = sales_qs.aggregate(
         gross_sales=Sum('subtotal'),
@@ -93,12 +103,16 @@ def analytics_dashboard(request):
     )
     gross_sales = sales_agg['gross_sales'] or Decimal('0')
     net_sales = sales_agg['net_sales'] or Decimal('0')
-    # Calculate total discount amount from percentage discounts
-    total_discount = Decimal('0')
-    for sale in sales_qs:
-        if sale.discount_percent > 0:
-            total_discount += (sale.subtotal * sale.discount_percent /
-                               Decimal('100')).quantize(Decimal('0.01'))
+    discount_expression = Round(
+        ExpressionWrapper(
+            F('subtotal') * F('discount_percent') / Value(Decimal('100')),
+            output_field=DecimalField(max_digits=16, decimal_places=4),
+        ),
+        precision=2,
+    )
+    total_discount = sales_qs.aggregate(
+        total=Sum(discount_expression),
+    )['total'] or Decimal('0.00')
     transaction_count = sales_agg['transaction_count'] or 0
 
     # Subtract Refund amounts from Net Sales
@@ -107,8 +121,7 @@ def analytics_dashboard(request):
         created_at__date__gte=date_from,
         created_at__date__lte=date_to,
     )
-    if filter_branch:
-        refund_qs = refund_qs.filter(sale__branch=filter_branch)
+    refund_qs = apply_branch_filter(refund_qs, 'sale__branch')
     total_refunds = refund_qs.aggregate(total=Sum('amount'))[
         'total'] or Decimal('0')
     net_sales -= total_refunds
@@ -131,20 +144,18 @@ def analytics_dashboard(request):
             appointment_date__gte=m_start,
             appointment_date__lte=m_end,
         ).exclude(status='CANCELLED')
-        if filter_branch:
-            appts_qs = appts_qs.filter(branch=filter_branch)
+        appts_qs = apply_branch_filter(appts_qs)
 
         new_count = appts_qs.filter(is_returning_customer=False).count()
         returning_count = appts_qs.filter(is_returning_customer=True).count()
 
         # Sales totals
         m_sales_qs = Sale.objects.filter(
-            status=Sale.Status.COMPLETED,
+            status__in=[Sale.Status.COMPLETED, Sale.Status.REFUNDED],
             created_at__date__gte=m_start,
             created_at__date__lte=m_end,
         )
-        if filter_branch:
-            m_sales_qs = m_sales_qs.filter(branch=filter_branch)
+        m_sales_qs = apply_branch_filter(m_sales_qs)
 
         m_sales_agg = m_sales_qs.aggregate(
             gross_sales=Sum('subtotal'),
@@ -156,8 +167,7 @@ def analytics_dashboard(request):
             created_at__date__gte=m_start,
             created_at__date__lte=m_end,
         )
-        if filter_branch:
-            m_refund_qs = m_refund_qs.filter(sale__branch=filter_branch)
+        m_refund_qs = apply_branch_filter(m_refund_qs, 'sale__branch')
         m_refund_total = m_refund_qs.aggregate(total=Sum('amount'))[
             'total'] or Decimal('0')
 
@@ -179,8 +189,7 @@ def analytics_dashboard(request):
         appointment_date__gte=date_from,
         appointment_date__lte=date_to,
     ).exclude(status='CANCELLED')
-    if filter_branch:
-        period_appts = period_appts.filter(branch=filter_branch)
+    period_appts = apply_branch_filter(period_appts)
 
     new_clients = period_appts.filter(is_returning_customer=False).count()
     returning_clients = period_appts.filter(is_returning_customer=True).count()
@@ -190,11 +199,13 @@ def analytics_dashboard(request):
 
     # ── Branches for filter dropdown ──────────────────────────────────
     branches = Branch.objects.filter(is_active=True).order_by('name')
+    if branch_restricted:
+        branches = branches.filter(pk=filter_branch.pk) if filter_branch else branches.none()
 
     context = {
         # Filters
         'branches': branches,
-        'selected_branch': branch_id,
+        'selected_branch': str(filter_branch.pk) if branch_restricted and filter_branch else branch_id,
         'selected_period': period,
         'period_label': period_label,
         'date_from': date_from,

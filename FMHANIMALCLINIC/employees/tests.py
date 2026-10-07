@@ -95,3 +95,51 @@ class InactiveStaffListTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'inactiveclinicstaff')
         self.assertEqual(list(response.context['staff_users']), [inactive_user])
+
+    def test_edit_inactive_staff_reuses_soft_deleted_profile(self):
+        branch = Branch.objects.create(
+            name='Soft Deleted Staff Branch',
+            phone_number='09123456789',
+            address='1 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        role = Role.objects.create(
+            name='Soft Deleted Staff Role',
+            code='soft-deleted-staff-test',
+            hierarchy_level=3,
+            is_staff_role=True,
+        )
+        inactive_user = get_user_model().objects.create_user(
+            username='softdeletedstaff',
+            email='softdeletedstaff@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+            is_active=False,
+        )
+        profile = StaffMember.objects.create(
+            user=inactive_user,
+            first_name='Soft Deleted',
+            last_name='Staff',
+            email=inactive_user.email,
+            position=StaffMember.Position.RECEPTIONIST,
+            branch=branch,
+            is_active=False,
+            inactive_since=timezone.now(),
+        )
+        profile.delete()
+        superadmin = get_user_model().objects.create_superuser(
+            username='softdeletedstaffadmin',
+            email='softdeletedstaffadmin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(superadmin)
+
+        response = self.client.get(
+            reverse('employees:staff_edit', args=[inactive_user.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['staff_profile'].pk, profile.pk)

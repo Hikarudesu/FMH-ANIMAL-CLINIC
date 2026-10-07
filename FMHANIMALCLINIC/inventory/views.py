@@ -377,19 +377,28 @@ def product_create_view(request):
     if request.method == 'POST':
         form = ProductForm(request.POST)
         if form.is_valid():
-            product = form.save()
+            initial_stock = form.cleaned_data['stock_quantity']
+            available_for_sale = form.cleaned_data['is_available']
+            with transaction.atomic():
+                product = form.save(commit=False)
+                product.stock_quantity = 0
+                product.is_available = False
+                product.save()
 
-            # Create initial stock adjustment if stock_quantity > 0
-            if product.stock_quantity > 0:
-                StockAdjustment.objects.create(
-                    branch=product.branch,
-                    product=product,
-                    adjustment_type='ADD',
-                    reference=f"NEW-ITEM-{product.pk}",
-                    date=timezone.now().date(),
-                    quantity=product.stock_quantity,
-                    cost_per_unit=product.unit_cost,
-                    reason=f"Initial stock for new item: {product.name}",
+                if initial_stock > 0:
+                    StockAdjustment.objects.create(
+                        branch=product.branch,
+                        product=product,
+                        adjustment_type='ADD',
+                        reference=f"NEW-ITEM-{product.pk}",
+                        date=timezone.now().date(),
+                        quantity=initial_stock,
+                        cost_per_unit=product.unit_cost,
+                        reason=f"Initial stock for new item: {product.name}",
+                    )
+
+                Product.objects.filter(pk=product.pk).update(
+                    is_available=bool(initial_stock and available_for_sale),
                 )
 
             messages.success(request, "Item created successfully.")
@@ -449,15 +458,38 @@ def stock_adjustment_create_view(request):
     if request.method == 'POST':
         form = StockAdjustmentForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(
-                request, "Stock adjustment recorded successfully.")
-            return redirect('inventory:management')
+            with transaction.atomic():
+                product = Product.objects.select_for_update().get(
+                    pk=form.cleaned_data['product'].pk,
+                )
+                quantity = form.cleaned_data['quantity']
+                if (
+                    form.cleaned_data['adjustment_type'] == 'REMOVE'
+                    and quantity > product.stock_quantity
+                ):
+                    warning = (
+                        f'Cannot remove {quantity}; only {product.stock_quantity} '
+                        f'{product.unit_label} currently in stock.'
+                    )
+                    form.add_error('quantity', warning)
+                    messages.warning(request, warning)
+                else:
+                    form.instance.product = product
+                    form.instance.branch = product.branch
+                    form.save()
+
+            if not form.errors:
+                messages.success(request, "Stock adjustment recorded successfully.")
+                return redirect('inventory:management')
         else:
-            messages.error(
-                request,
-                "Failed to record adjustment. Please check the form errors."
-            )
+            quantity_errors = form.errors.get('quantity', [])
+            if any('Cannot remove' in error for error in quantity_errors):
+                messages.warning(request, quantity_errors[0])
+            else:
+                messages.error(
+                    request,
+                    "Failed to record adjustment. Please check the form errors."
+                )
     else:
         form = StockAdjustmentForm()
 

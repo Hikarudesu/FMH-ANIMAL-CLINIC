@@ -121,6 +121,28 @@ class StockAdjustmentForm(FormControlMixin, forms.ModelForm):
         # Reason is required for manual adjustments
         self.fields['reason'].required = True
 
+    def clean(self):
+        cleaned_data = super().clean()
+        adjustment_type = cleaned_data.get('adjustment_type')
+        quantity = cleaned_data.get('quantity')
+        product = cleaned_data.get('product')
+
+        if quantity is not None and quantity < 1:
+            self.add_error('quantity', 'Enter a quantity greater than zero.')
+        elif (
+            adjustment_type == 'REMOVE'
+            and product
+            and quantity is not None
+            and quantity > product.stock_quantity
+        ):
+            self.add_error(
+                'quantity',
+                f'Cannot remove {quantity}; only {product.stock_quantity} '
+                f'{product.unit_label} currently in stock.',
+            )
+
+        return cleaned_data
+
     class Meta:
         """Meta options for StockAdjustmentForm."""
         model = StockAdjustment

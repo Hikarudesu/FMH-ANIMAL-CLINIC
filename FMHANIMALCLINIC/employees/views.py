@@ -124,20 +124,22 @@ def staff_edit(request, user_id):
         User, pk=user_id, assigned_role__is_staff_role=True, is_superuser=False
     )
 
-    # Get or create StaffMember profile
-    staff_profile, created = StaffMember.objects.get_or_create(
-        user=user,
-        defaults={
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'email': user.email,
-            'phone': user.phone_number or '',
-            'branch': user.branch,
-            'position': StaffMember.Position.RECEPTIONIST,  # Default
-            'is_active': user.is_active,
-            'inactive_since': None if user.is_active else timezone.now(),
-        }
-    )
+    # Include soft-deleted profiles so inactive staff can still be edited
+    # without attempting to create a duplicate one-to-one profile.
+    staff_profile = StaffMember.all_objects.filter(user=user).first()
+    created = staff_profile is None
+    if created:
+        staff_profile = StaffMember.objects.create(
+            user=user,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            email=user.email,
+            phone=user.phone_number or '',
+            branch=user.branch,
+            position=StaffMember.Position.RECEPTIONIST,  # Default
+            is_active=user.is_active,
+            inactive_since=None if user.is_active else timezone.now(),
+        )
 
     # Always sync branch from User account (in case it was changed via Assign Roles)
     if not created:
@@ -162,6 +164,8 @@ def staff_edit(request, user_id):
         user.is_active = is_active
         user.save(update_fields=['branch', 'is_active'])
 
+        if is_active and staff_profile.is_deleted:
+            staff_profile.restore()
         staff_profile.branch = branch
         update_fields = ['branch']
         if request.user.is_superuser or getattr(getattr(request.user, 'assigned_role', None), 'hierarchy_level', 0) >= 10:
