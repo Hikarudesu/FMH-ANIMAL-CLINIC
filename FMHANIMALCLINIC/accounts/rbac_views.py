@@ -470,24 +470,16 @@ def role_delete(request, role_id):
     # Check if role is in use
     user_count = role.users.count()
 
-    # Non-superusers cannot delete roles with assigned users
-    if user_count > 0 and not request.user.is_superuser:
+    # Never silently unassign accounts when a role is deleted.
+    if user_count > 0:
         messages.error(
             request,
-            f'Cannot delete role "{role.name}". It is assigned to {user_count} user(s).'
+            f'Cannot delete role "{role.name}" while {user_count} account(s) '
+            'are assigned. Reassign those accounts first.'
         )
         return redirect('accounts:role_list')
 
     name = role.name
-
-    # If deleting a role with users, unassign them first
-    if user_count > 0:
-        role.users.all().update(assigned_role=None)
-        messages.warning(
-            request,
-            f'{user_count} user(s) were unassigned from this role.'
-        )
-
     role.delete()
     messages.success(request, f'Role "{name}" deleted successfully.')
     return redirect('accounts:role_list')
@@ -547,9 +539,13 @@ def user_role_list(request):
     role_filter = request.GET.get('role', '')
     branch_filter = request.GET.get('branch', '')
 
-    # Base queryset — ONLY show staff users (not Pet Owners)
+    # Show active staff users, including staff profiles whose role was cleared.
     users = User.objects.select_related('assigned_role', 'branch').filter(
-        models.Q(assigned_role__is_staff_role=True) | models.Q(is_superuser=True)
+        is_active=True,
+    ).filter(
+        models.Q(assigned_role__is_staff_role=True)
+        | models.Q(staff_profile__isnull=False)
+        | models.Q(is_superuser=True)
     ).distinct()
 
     # Apply search filter
@@ -656,9 +652,15 @@ def assign_user_role(request, user_id):
     from employees.models import StaffMember
 
     user = get_object_or_404(User, pk=user_id)
+    if not user.is_active:
+        messages.error(request, 'Inactive staff accounts cannot be assigned roles.')
+        return redirect('accounts:user_role_list')
     role_id = request.POST.get('role_id')
 
     old_role = user.assigned_role
+    if not role_id and not old_role:
+        messages.error(request, 'Choose a role before saving this staff account.')
+        return redirect('accounts:user_role_list')
 
     if role_id:
         role = get_object_or_404(Role, pk=role_id)
@@ -676,12 +678,15 @@ def assign_user_role(request, user_id):
                 'superadmin': StaffMember.Position.ADMIN,
                 'admin': StaffMember.Position.ADMIN,
             }
-            existing_profile = StaffMember.objects.filter(user=user).first()
+            existing_profile = StaffMember.all_objects.filter(user=user).first()
             position = (
                 existing_profile.position
                 if existing_profile
                 else role_to_position.get(role.code, StaffMember.Position.RECEPTIONIST)
             )
+
+            if existing_profile and existing_profile.is_deleted:
+                existing_profile.restore()
 
             # Create or update StaffMember record
             StaffMember.objects.update_or_create(

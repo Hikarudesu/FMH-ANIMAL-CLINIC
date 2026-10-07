@@ -28,6 +28,16 @@
         {{ form.non_field_errors.as_text }}
       </div>
       {% endif %}
+      {% if form.errors %}
+      <div class="portal-message danger" role="alert" style="margin-bottom: 20px">
+        <strong>Item was not saved. Please correct these fields:</strong>
+        <ul style="margin: 8px 0 0 20px">
+          {% for field in form %}
+            {% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
 
       <!-- Identity Section -->
       <div class="inv-section-title" onclick="toggleSection(this)" style="cursor: pointer;">
@@ -45,6 +55,7 @@
         <div class="inv-field">
           <label>Branch <span class="req">*</span></label>
           {{ form.branch }}
+          {% if form.branch.errors %}<small class="field-err">{{ form.branch.errors.as_text }}</small>{% endif %}
         </div>
       </div>
       <div class="inv-grid cols-3">

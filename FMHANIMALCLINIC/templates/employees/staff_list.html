@@ -143,7 +143,11 @@
             </div>
           </td>
           <td style="text-align: left;">
-            <span class="admin-badge position-{{ user.assigned_role.code|lower }}">{{ user.assigned_role.name }}</span>
+            {% if user.assigned_role %}
+              <span class="admin-badge position-{{ user.assigned_role.code|lower }}">{{ user.assigned_role.name }}</span>
+            {% else %}
+              <span class="admin-badge inactive">Unassigned role</span>
+            {% endif %}
           </td>
           <td style="text-align: left;">
             <span class="cell-secondary">{{ user.branch.name|default:"—" }}</span>

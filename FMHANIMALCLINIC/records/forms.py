@@ -37,6 +37,7 @@ class MedicalRecordForm(FormControlMixin, forms.ModelForm):
         # Get the base queryset for vets
         vet_queryset = StaffMember.objects.filter(
             is_active=True,
+            user__is_active=True,
             position__in=['VETERINARIAN', 'BRANCH_ADMIN', 'ADMIN']
         )
 
@@ -44,11 +45,17 @@ class MedicalRecordForm(FormControlMixin, forms.ModelForm):
         # even if they don't match the current filter (preserves historical data)
         if self.instance and self.instance.pk and self.instance.vet:
             current_vet = self.instance.vet
-            if current_vet not in vet_queryset:
+            if current_vet in vet_queryset:
+                pass
+            elif current_vet.is_active and current_vet.user and current_vet.user.is_active:
                 # Include the current vet in the queryset
                 vet_queryset = StaffMember.objects.filter(
                     Q(id=current_vet.id) |
-                    Q(is_active=True, position__in=['VETERINARIAN', 'BRANCH_ADMIN', 'ADMIN'])
+                    Q(
+                        is_active=True,
+                        user__is_active=True,
+                        position__in=['VETERINARIAN', 'BRANCH_ADMIN', 'ADMIN'],
+                    )
                 )
 
         self.fields['vet'].queryset = vet_queryset
@@ -83,6 +90,7 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
         # Get the base queryset for vets
         vet_queryset = StaffMember.objects.filter(
             is_active=True,
+            user__is_active=True,
             position__in=['VETERINARIAN', 'BRANCH_ADMIN', 'ADMIN']
         )
 
@@ -90,11 +98,17 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
         # even if they don't match the current filter (preserves historical data)
         if self.instance and self.instance.pk and self.instance.vet:
             current_vet = self.instance.vet
-            if current_vet not in vet_queryset:
+            if current_vet in vet_queryset:
+                pass
+            elif current_vet.is_active and current_vet.user and current_vet.user.is_active:
                 # Include the current vet in the queryset
                 vet_queryset = StaffMember.objects.filter(
                     Q(id=current_vet.id) |
-                    Q(is_active=True, position__in=['VETERINARIAN', 'BRANCH_ADMIN', 'ADMIN'])
+                    Q(
+                        is_active=True,
+                        user__is_active=True,
+                        position__in=['VETERINARIAN', 'BRANCH_ADMIN', 'ADMIN'],
+                    )
                 )
 
         self.fields['vet'].queryset = vet_queryset

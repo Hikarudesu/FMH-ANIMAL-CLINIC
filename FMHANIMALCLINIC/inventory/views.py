@@ -51,6 +51,14 @@ def _get_user_branch(user):
     return None
 
 
+def _inventory_branch_restricted(user):
+    """Only superadmin-level users can manage inventory across branches."""
+    return not (
+        user.is_superuser
+        or getattr(getattr(user, 'assigned_role', None), 'code', None) == 'superadmin'
+    )
+
+
 def _can_manage_stock_transfers(user):
     """Return True for users allowed to approve or reject transfers."""
     return (
@@ -157,9 +165,8 @@ def inventory_management_view(request):
     auto_cancel_expired_reservations()
 
     # Check if user is branch-restricted
-    is_branch_restricted = request.user.is_module_branch_restricted(
-        'inventory')
-    user_branch = getattr(request.user, 'branch', None)
+    is_branch_restricted = _inventory_branch_restricted(request.user)
+    user_branch = _get_user_branch(request.user)
 
     # pylint: disable=no-member
     adjustments = StockAdjustment.objects.all().select_related(
@@ -175,10 +182,17 @@ def inventory_management_view(request):
     products = Product.objects.all().select_related('branch')
 
     # Apply branch restriction first if user is restricted
-    if is_branch_restricted and user_branch:
-        adjustments = adjustments.filter(branch=user_branch)
-        products = products.filter(branch=user_branch)
-        selected_branch_id = str(user_branch.id)
+    if is_branch_restricted:
+        if user_branch:
+            adjustments = adjustments.filter(branch=user_branch)
+            products = products.filter(branch=user_branch)
+            branches = branches.filter(pk=user_branch.pk)
+            selected_branch_id = str(user_branch.id)
+        else:
+            adjustments = adjustments.none()
+            products = products.none()
+            branches = branches.none()
+            selected_branch_id = ''
     elif selected_branch_id:
         adjustments = adjustments.filter(branch_id=selected_branch_id)
         products = products.filter(branch_id=selected_branch_id)
@@ -375,7 +389,7 @@ def inventory_management_view(request):
 def product_create_view(request):
     """View to create a new inventory item."""
     if request.method == 'POST':
-        form = ProductForm(request.POST)
+        form = ProductForm(request.POST, user=request.user)
         if form.is_valid():
             initial_stock = form.cleaned_data['stock_quantity']
             available_for_sale = form.cleaned_data['is_available']
@@ -404,7 +418,7 @@ def product_create_view(request):
             messages.success(request, "Item created successfully.")
             return redirect('inventory:management')
     else:
-        form = ProductForm()
+        form = ProductForm(user=request.user)
 
     return render(request, 'inventory/product_form.html', {'form': form})
 
@@ -413,16 +427,23 @@ def product_create_view(request):
 @module_permission_required('inventory', 'EDIT')
 def product_edit_view(request, pk):
     """View to edit an existing inventory item."""
-    product = get_object_or_404(Product, pk=pk)
+    product_queryset = Product.objects.all()
+    if _inventory_branch_restricted(request.user):
+        user_branch = _get_user_branch(request.user)
+        if not user_branch:
+            messages.error(request, 'Your account has no assigned branch.')
+            return redirect('inventory:management')
+        product_queryset = product_queryset.filter(branch=user_branch)
+    product = get_object_or_404(product_queryset, pk=pk)
 
     if request.method == 'POST':
-        form = ProductForm(request.POST, instance=product)
+        form = ProductForm(request.POST, instance=product, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, "Item updated successfully.")
             return redirect('inventory:management')
     else:
-        form = ProductForm(instance=product)
+        form = ProductForm(instance=product, user=request.user)
 
     return render(request, 'inventory/product_form.html', {
         'form': form, 'product': product
@@ -444,7 +465,14 @@ def product_delete_view(request, pk):
         messages.warning(request, 'Invalid request method.')
         return redirect('inventory:management')
 
-    product = get_object_or_404(Product, pk=pk)
+    products = Product.objects.all()
+    if _inventory_branch_restricted(request.user):
+        user_branch = _get_user_branch(request.user)
+        if not user_branch:
+            messages.error(request, 'Your account has no assigned branch.')
+            return redirect('inventory:management')
+        products = products.filter(branch=user_branch)
+    product = get_object_or_404(products, pk=pk)
     product_name = product.name
     product.delete()  # Soft delete via SoftDeleteModel
     messages.success(request, f'Item "{product_name}" deleted successfully.')
@@ -456,7 +484,7 @@ def product_delete_view(request, pk):
 def stock_adjustment_create_view(request):
     """Admin view to create a new stock adjustment."""
     if request.method == 'POST':
-        form = StockAdjustmentForm(request.POST)
+        form = StockAdjustmentForm(request.POST, user=request.user)
         if form.is_valid():
             with transaction.atomic():
                 product = Product.objects.select_for_update().get(
@@ -491,7 +519,7 @@ def stock_adjustment_create_view(request):
                     "Failed to record adjustment. Please check the form errors."
                 )
     else:
-        form = StockAdjustmentForm()
+        form = StockAdjustmentForm(user=request.user)
 
     return render(request, 'inventory/adjustment_form.html', {
         'form': form
@@ -1386,6 +1414,10 @@ def get_branch_products(request, branch_id):
     Returns JSON with list of products in the branch.
     """
     branch = get_object_or_404(Branch, pk=branch_id, is_active=True)
+    if _inventory_branch_restricted(request.user):
+        user_branch = _get_user_branch(request.user)
+        if not user_branch or user_branch.pk != branch.pk:
+            return JsonResponse({'error': 'Branch access denied.'}, status=403)
 
     products = Product.objects.filter(
         branch=branch,

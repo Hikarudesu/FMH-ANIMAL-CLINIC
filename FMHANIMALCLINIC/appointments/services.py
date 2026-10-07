@@ -57,6 +57,8 @@ class AppointmentService:
         filters = {
             'date': target_date,
             'is_available': True,
+            'staff__is_active': True,
+            'staff__user__is_active': True,
             'staff__user__assigned_role__code__in': schedulable_roles,
         }
         if vet_id:
@@ -164,6 +166,8 @@ class AppointmentService:
         filters = {
             'branch_id': branch_id,
             'is_available': True,
+            'staff__is_active': True,
+            'staff__user__is_active': True,
             'date__gte': today,
             'date__lte': end_date,
             'staff__user__assigned_role__code__in': schedulable_roles,
@@ -200,12 +204,14 @@ class AppointmentService:
             return StaffMember.objects.filter(
                 id__in=scheduled_staff_ids,
                 user__assigned_role__code='veterinarian',
+                user__is_active=True,
                 is_active=True,
             ).select_related('user', 'user__assigned_role')
         else:
             # Return all vets assigned to this branch
             return StaffMember.objects.filter(
                 user__assigned_role__code='veterinarian',
+                user__is_active=True,
                 is_active=True,
                 branch_id=branch_id,
             ).select_related('user', 'user__assigned_role')

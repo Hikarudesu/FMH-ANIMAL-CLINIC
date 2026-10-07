@@ -92,7 +92,7 @@ def get_veterinarians_for_json():
             staff_profile.save(update_fields=update_fields)
 
     vets = StaffMember.objects.filter(
-        position='VETERINARIAN', is_active=True
+        position='VETERINARIAN', is_active=True, user__is_active=True
     ).select_related('branch').order_by('last_name', 'first_name')
     
     vets_for_json = [

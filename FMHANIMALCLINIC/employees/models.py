@@ -33,6 +33,7 @@ class StaffMemberManager(SoftDeleteManager):
         queryset = self.filter(
             user__assigned_role__is_staff_role=True,
             user__assigned_role__code__in=roles,
+            user__is_active=True,
             is_active=True,
         ).select_related('user', 'user__assigned_role')
 

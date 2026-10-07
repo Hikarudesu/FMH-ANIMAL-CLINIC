@@ -86,6 +86,9 @@
                 style="display: flex; gap: 8px; justify-content: center; align-items: center;">
             {% csrf_token %}
             <select name="role_id" class="filter-select" style="min-width: 140px;" data-current="{{ u.assigned_role_id|default:'' }}">
+              {% if not u.assigned_role %}
+              <option value="" selected>Choose role to assign</option>
+              {% endif %}
               {% for role in roles %}
               <option value="{{ role.id }}" {% if u.assigned_role_id == role.id %}selected{% endif %}>
                 {{ role.name }}

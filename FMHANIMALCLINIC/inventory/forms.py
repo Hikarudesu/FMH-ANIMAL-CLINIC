@@ -5,6 +5,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from FMHANIMALCLINIC.form_mixins import FormControlMixin
+from branches.models import Branch
 from .models import StockAdjustment, Product, StockTransfer
 from settings.utils import (
     get_inventory_unit_choices,
@@ -16,11 +17,38 @@ from settings.utils import (
 from settings.utils import get_inventory_item_type_choices
 
 
+def _user_branch(user):
+    branch = getattr(user, 'branch', None)
+    if branch:
+        return branch
+    staff_profile = getattr(user, 'staff_profile', None)
+    return getattr(staff_profile, 'branch', None) if staff_profile else None
+
+
 class ProductForm(FormControlMixin, forms.ModelForm):
     """Form for managing Product / Medication details."""
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        is_superadmin = bool(
+            user and (
+                user.is_superuser
+                or getattr(getattr(user, 'assigned_role', None), 'code', None) == 'superadmin'
+            )
+        )
+        if user and not is_superadmin:
+            branch = _user_branch(user)
+            self.fields['branch'].queryset = (
+                Branch.objects.filter(pk=branch.pk)
+                if branch else Branch.objects.none()
+            )
+            if branch:
+                self.fields['branch'].initial = branch
+                self.fields['branch'].disabled = True
+        else:
+            self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
+
         self.fields['unit_of_measurement'].choices = get_inventory_unit_choices()
         self.fields['item_type'].choices = get_inventory_item_type_choices()
         self.fields['sale_type'].choices = get_inventory_sale_type_choices()
@@ -94,16 +122,44 @@ class StockAdjustmentForm(FormControlMixin, forms.ModelForm):
     """
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        is_superadmin = bool(
+            user and (
+                user.is_superuser
+                or getattr(getattr(user, 'assigned_role', None), 'code', None) == 'superadmin'
+            )
+        )
+        branch_restricted = bool(user and not is_superadmin)
+        user_branch = _user_branch(user) if branch_restricted else None
+        if branch_restricted:
+            self.fields['branch'].queryset = (
+                Branch.objects.filter(pk=user_branch.pk)
+                if user_branch else Branch.objects.none()
+            )
+            if user_branch:
+                self.fields['branch'].initial = user_branch
+                self.fields['branch'].disabled = True
+        else:
+            self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
 
         # Set today's date as default
         if not self.instance.pk:
             self.initial['date'] = timezone.now().date()
 
-        # Filter products by branch if branch is selected
-        if self.instance.pk and self.instance.branch:
+        if branch_restricted:
+            selected_branch_id = user_branch.pk if user_branch else None
+        else:
+            selected_branch_id = self.data.get('branch')
+        if not self.is_bound and self.instance.pk and self.instance.branch:
+            selected_branch_id = self.instance.branch_id
+
+        if branch_restricted and not user_branch:
+            self.fields['product'].queryset = Product.objects.none()
+        elif selected_branch_id:
             self.fields['product'].queryset = Product.objects.filter(
-                branch=self.instance.branch,
+                branch_id=selected_branch_id,
                 is_deleted=False
             ).order_by('name')
         else:
@@ -140,6 +196,8 @@ class StockAdjustmentForm(FormControlMixin, forms.ModelForm):
                 f'Cannot remove {quantity}; only {product.stock_quantity} '
                 f'{product.unit_label} currently in stock.',
             )
+        if product and cleaned_data.get('branch') and product.branch_id != cleaned_data['branch'].pk:
+            self.add_error('product', 'The selected item does not belong to this branch.')
 
         return cleaned_data
 

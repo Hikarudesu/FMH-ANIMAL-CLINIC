@@ -28,9 +28,10 @@ def staff_list(request):
     position = request.GET.get('position', '')
     status = 'inactive' if request.GET.get('status') == 'inactive' else 'active'
 
-    # Get all users with staff roles assigned, excluding superadmin (owner)
+    # Include orphaned staff profiles so accounts remain recoverable if their
+    # role was cleared, while excluding users with no staff profile or role.
     staff_users = User.objects.filter(
-        assigned_role__is_staff_role=True
+        Q(assigned_role__is_staff_role=True) | Q(staff_profile__isnull=False)
     ).exclude(
         Q(assigned_role__code='superadmin') | Q(is_superuser=True)
     ).select_related('assigned_role', 'branch', 'staff_profile').order_by(
@@ -121,7 +122,11 @@ def staff_edit(request, user_id):
     from accounts.models import User
 
     user = get_object_or_404(
-        User, pk=user_id, assigned_role__is_staff_role=True, is_superuser=False
+        User.objects.filter(
+            Q(assigned_role__is_staff_role=True) | Q(staff_profile__isnull=False)
+        ),
+        pk=user_id,
+        is_superuser=False,
     )
 
     # Include soft-deleted profiles so inactive staff can still be edited
@@ -201,6 +206,7 @@ def staff_delete(request, pk):
     reassign_vets = StaffMember.objects.filter(
         position=StaffMember.Position.VETERINARIAN,
         is_active=True,
+        user__is_active=True,
         branch=member.branch,
     ).exclude(pk=pk) if member.is_vet else StaffMember.objects.none()
 
@@ -456,6 +462,7 @@ def available_staff_api(request):
         staff = StaffMember.objects.filter(
             pk=user_staff.pk,
             is_active=True,
+            user__is_active=True,
         ).select_related('user', 'user__assigned_role')
 
     staff_list = []

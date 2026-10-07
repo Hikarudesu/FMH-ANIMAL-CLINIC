@@ -582,5 +582,6 @@ class AttendanceFilterForm(forms.Form):
         super().__init__(*args, **kwargs)
         from employees.models import StaffMember
         self.fields['staff'].queryset = StaffMember.objects.filter(
-            is_active=True
+            is_active=True,
+            user__is_active=True,
         ).order_by('first_name', 'last_name')

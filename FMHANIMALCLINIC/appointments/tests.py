@@ -4,8 +4,12 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
+from accounts.models import User
+from accounts.rbac_models import Role
 from appointments.models import Appointment
+from appointments.forms import AdminQuickCreateForm
 from branches.models import Branch
+from employees.models import StaffMember
 
 
 class ExpiredAppointmentCleanupTests(TestCase):
@@ -68,3 +72,37 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertFalse(future.auto_cancel_countdown_active)
         self.assertFalse(expired.auto_cancel_countdown_active)
         self.assertFalse(confirmed.auto_cancel_countdown_active)
+
+
+class InactiveStaffAppointmentOptionsTests(TestCase):
+    def test_inactive_veterinarian_is_not_available_for_quick_appointment(self):
+        branch = Branch.objects.create(name='Inactive Vet Test Branch')
+        role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 5,
+                'is_staff_role': True,
+            },
+        )
+        user = User.objects.create_user(
+            username='inactive-vet-option',
+            email='inactive-vet-option@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            is_active=False,
+        )
+        staff = StaffMember.objects.create(
+            user=user,
+            first_name='Inactive',
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=branch,
+            is_active=False,
+        )
+
+        form = AdminQuickCreateForm(data={'branch': str(branch.pk)})
+
+        self.assertFalse(
+            form.fields['preferred_vet'].queryset.filter(pk=staff.pk).exists()
+        )

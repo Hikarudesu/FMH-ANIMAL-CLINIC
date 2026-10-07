@@ -246,12 +246,14 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
                     self.fields['preferred_vet'].queryset = StaffMember.objects.filter(
                         id__in=scheduled_staff_ids,
                         user__assigned_role__code__in=schedulable_roles,
+                        user__is_active=True,
                         is_active=True,
                     ).select_related('user', 'user__assigned_role')
                 else:
                     # No date - return vets/vet assistants assigned to this branch
                     self.fields['preferred_vet'].queryset = StaffMember.objects.filter(
                         user__assigned_role__code__in=schedulable_roles,
+                        user__is_active=True,
                         is_active=True,
                         branch_id=branch_id,
                     ).select_related('user', 'user__assigned_role')
@@ -454,12 +456,14 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
                     self.fields['preferred_vet'].queryset = StaffMember.objects.filter(
                         id__in=scheduled_staff_ids,
                         user__assigned_role__code__in=schedulable_roles,
+                        user__is_active=True,
                         is_active=True,
                     ).select_related('user', 'user__assigned_role')
                 else:
                     # No date - return vets/vet assistants assigned to this branch
                     self.fields['preferred_vet'].queryset = StaffMember.objects.filter(
                         user__assigned_role__code__in=schedulable_roles,
+                        user__is_active=True,
                         is_active=True,
                         branch_id=branch_id,
                     ).select_related('user', 'user__assigned_role')
@@ -639,6 +643,7 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         # Filter vets based on user's branch restriction
         vets_query = StaffMember.objects.filter(
             user__assigned_role__code__in=['veterinarian', 'assistant_veterinarian'],
+            user__is_active=True,
             is_active=True,
         )
         
@@ -857,6 +862,7 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
         # Filter vets based on user's branch restriction
         vets_query = StaffMember.objects.filter(
             user__assigned_role__code__in=['veterinarian', 'assistant_veterinarian'],
+            user__is_active=True,
             is_active=True,
         )
         
