@@ -120,11 +120,11 @@
               {% if form.pet_name.errors %}<span class="form-error">{{ form.pet_name.errors.0 }}</span>{% endif %}
             </div>
             <div class="form-group-book">
-              <label for="{{ form.pet_species.id_for_label }}">Species</label>
+              <label for="{{ form.pet_species.id_for_label }}">Species *</label>
               {{ form.pet_species }}
             </div>
             <div class="form-group-book">
-              <label for="{{ form.pet_breed.id_for_label }}">Breed</label>
+              <label for="{{ form.pet_breed.id_for_label }}">Breed *</label>
               {{ form.pet_breed }}
             </div>
             <div class="form-group-book">
@@ -132,7 +132,7 @@
               {{ form.pet_dob }}
             </div>
             <div class="form-group-book">
-              <label for="{{ form.pet_sex.id_for_label }}">Sex</label>
+              <label for="{{ form.pet_sex.id_for_label }}">Sex *</label>
               {{ form.pet_sex }}
             </div>
             <div class="form-group-book">

@@ -50,8 +50,8 @@
       <div class="book-section-head">
         <div class="book-section-icon"><i class='bx bx-user'></i></div>
         <div>
-          <h3>Owner & Pet Details</h3>
-          <p>Tell us about you and your pet</p>
+          <h3>Owner Details</h3>
+          <p>Tell us about yourself</p>
         </div>
       </div>
 
@@ -79,6 +79,16 @@
           {{ form.owner_address }}
           <label for="{{ form.owner_address.id_for_label }}">Address</label>
           {% if form.owner_address.errors %}<span class="book-field-error">{{ form.owner_address.errors.0 }}</span>{% endif %}
+        </div>
+
+        <div class="book-divider"></div>
+
+        <div class="book-section-head">
+          <div class="book-section-icon"><i class='bx bx-paw'></i></div>
+          <div>
+            <h3>Pet Details</h3>
+            <p>Tell us about your pet</p>
+          </div>
         </div>
 
         <!-- Pet Selector -->
@@ -109,25 +119,28 @@
           <label for="{{ form.pet_name.id_for_label }}">Pet Name *</label>
           {% if form.pet_name.errors %}<span class="book-field-error">{{ form.pet_name.errors.0 }}</span>{% endif %}
         </div>
-        <div class="book-field">
+        <div class="book-field {% if form.pet_species.errors %}has-error{% endif %}">
           <div class="book-field-icon"><i class='bx bx-category-alt'></i></div>
           {{ form.pet_species }}
-          <label for="{{ form.pet_species.id_for_label }}">Species</label>
+          <label for="{{ form.pet_species.id_for_label }}">Species *</label>
+          {% if form.pet_species.errors %}<span class="book-field-error">{{ form.pet_species.errors.0 }}</span>{% endif %}
         </div>
-        <div class="book-field">
+        <div class="book-field {% if form.pet_breed.errors %}has-error{% endif %}">
           <div class="book-field-icon"><i class='bx bx-category'></i></div>
           {{ form.pet_breed }}
-          <label for="{{ form.pet_breed.id_for_label }}">Breed</label>
+          <label for="{{ form.pet_breed.id_for_label }}">Breed *</label>
+          {% if form.pet_breed.errors %}<span class="book-field-error">{{ form.pet_breed.errors.0 }}</span>{% endif %}
         </div>
         <div class="book-field">
           <div class="book-field-icon"><i class='bx bx-calendar'></i></div>
           {{ form.pet_dob }}
           <label for="{{ form.pet_dob.id_for_label }}">Date of Birth</label>
         </div>
-        <div class="book-field">
+        <div class="book-field {% if form.pet_sex.errors %}has-error{% endif %}">
           <div class="book-field-icon"><i class='bx bxs-dog'></i></div>
           {{ form.pet_sex }}
-          <label for="{{ form.pet_sex.id_for_label }}">Sex</label>
+          <label for="{{ form.pet_sex.id_for_label }}">Sex *</label>
+          {% if form.pet_sex.errors %}<span class="book-field-error">{{ form.pet_sex.errors.0 }}</span>{% endif %}
         </div>
         <div class="book-field">
           <div class="book-field-icon"><i class='bx bx-palette'></i></div>

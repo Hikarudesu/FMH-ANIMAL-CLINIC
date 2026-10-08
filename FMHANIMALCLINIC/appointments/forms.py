@@ -210,10 +210,10 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
         self.fields['preferred_vet'].queryset = StaffMember.objects.none()
         self.fields['preferred_vet'].required = False
         self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
-        self.fields['pet_species'].required = False
-        self.fields['pet_breed'].required = False
+        self.fields['pet_species'].required = True
+        self.fields['pet_breed'].required = True
         self.fields['pet_dob'].required = False
-        self.fields['pet_sex'].required = False
+        self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False
         self.fields['pet_symptoms'].required = False
         self.fields['owner_email'].required = False
@@ -397,10 +397,10 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         self.fields['preferred_vet'].queryset = StaffMember.objects.none()
         self.fields['preferred_vet'].required = False
         self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
-        self.fields['pet_species'].required = False
-        self.fields['pet_breed'].required = False
+        self.fields['pet_species'].required = True
+        self.fields['pet_breed'].required = True
         self.fields['pet_dob'].required = False
-        self.fields['pet_sex'].required = False
+        self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False
         self.fields['pet_symptoms'].required = False
         self.fields['owner_email'].required = False
@@ -657,10 +657,10 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         self.fields['owner_email'].required = False
         self.fields['owner_phone'].required = False
         self.fields['owner_address'].required = False
-        self.fields['pet_species'].required = False
-        self.fields['pet_breed'].required = False
+        self.fields['pet_species'].required = True
+        self.fields['pet_breed'].required = True
         self.fields['pet_dob'].required = False
-        self.fields['pet_sex'].required = False
+        self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False
         self.fields['notes'].required = False
         
@@ -877,10 +877,10 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
         self.fields['owner_email'].required = False
         self.fields['owner_phone'].required = False
         self.fields['owner_address'].required = False
-        self.fields['pet_species'].required = False
-        self.fields['pet_breed'].required = False
+        self.fields['pet_species'].required = True
+        self.fields['pet_breed'].required = True
         self.fields['pet_dob'].required = False
-        self.fields['pet_sex'].required = False
+        self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False
         self.fields['pet_symptoms'].required = False
         self.fields['notes'].required = False
