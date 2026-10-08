@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from unittest.mock import patch
 
 from accounts.rbac_models import Module, ModulePermission, Role
 from branches.models import Branch
@@ -228,3 +229,42 @@ class InventoryWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         product = Product.objects.get(name='Hierarchy Restricted Item')
         self.assertEqual(product.branch_id, self.branch.pk)
+
+    @patch(
+        'inventory.forms.get_inventory_unit_choices',
+        return_value=[('1 piece', '1 piece'), ('1 tablet', '1 tablet')],
+    )
+    def test_legacy_piece_unit_does_not_add_a_phantom_choice(self, _choices):
+        form = ProductForm(instance=Product(unit_of_measurement='Piece'))
+
+        self.assertEqual(
+            list(form.fields['unit_of_measurement'].choices),
+            [('1 piece', '1 piece'), ('1 tablet', '1 tablet')],
+        )
+        self.assertEqual(form.initial['unit_of_measurement'], '1 piece')
+
+    @patch(
+        'inventory.forms.get_inventory_unit_choices',
+        return_value=[('1 piece', '1 piece'), ('1 tablet', '1 tablet')],
+    )
+    def test_removed_unit_is_not_reintroduced_when_editing_product(self, _choices):
+        form = ProductForm(instance=Product(unit_of_measurement='1 old pack'))
+
+        self.assertEqual(
+            list(form.fields['unit_of_measurement'].choices),
+            [('1 piece', '1 piece'), ('1 tablet', '1 tablet')],
+        )
+        self.assertEqual(form.initial['unit_of_measurement'], '1 piece')
+
+    @patch(
+        'inventory.forms.get_inventory_unit_choices',
+        return_value=[('1 piece', '1 piece'), ('1 tablet', '1 tablet')],
+    )
+    def test_legacy_piece_value_uses_configured_unit_without_extra_option(self, _choices):
+        form = ProductForm(instance=Product(unit_of_measurement='Piece'))
+
+        self.assertEqual(
+            list(form.fields['unit_of_measurement'].choices),
+            [('1 piece', '1 piece'), ('1 tablet', '1 tablet')],
+        )
+        self.assertEqual(form.initial['unit_of_measurement'], '1 piece')

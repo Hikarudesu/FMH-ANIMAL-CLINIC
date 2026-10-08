@@ -53,14 +53,19 @@ class ProductForm(FormControlMixin, forms.ModelForm):
         self.fields['item_type'].choices = get_inventory_item_type_choices()
         self.fields['sale_type'].choices = get_inventory_sale_type_choices()
 
-        # Keep the current value visible when editing old records whose values
-        # may no longer exist in settings.
+        # Map legacy unit spellings to the configured choice without exposing
+        # units that Superadmin has removed from inventory settings.
         current_unit = getattr(self.instance, 'unit_of_measurement', '') or ''
-        if current_unit and current_unit not in dict(self.fields['unit_of_measurement'].choices):
-            self.fields['unit_of_measurement'].choices = [
-                *self.fields['unit_of_measurement'].choices,
-                (current_unit, current_unit.replace('_', ' ').title()),
-            ]
+        current_unit_key = current_unit.strip().casefold()
+        legacy_unit_key = '1 piece' if current_unit_key in {'piece', 'per piece'} else current_unit_key
+        matching_unit = next((
+            value for value, _label in self.fields['unit_of_measurement'].choices
+            if value.strip().casefold() in {current_unit_key, legacy_unit_key}
+        ), None)
+        if matching_unit:
+            self.initial['unit_of_measurement'] = matching_unit
+        elif current_unit and self.fields['unit_of_measurement'].choices:
+            self.initial['unit_of_measurement'] = self.fields['unit_of_measurement'].choices[0][0]
 
         current_sale_type = getattr(self.instance, 'sale_type', '') or ''
         sale_type_choices = dict(self.fields['sale_type'].choices)
