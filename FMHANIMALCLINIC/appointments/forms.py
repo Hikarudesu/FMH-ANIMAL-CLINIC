@@ -651,15 +651,48 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         if self.user and self.user.is_module_branch_restricted('appointments') and self.user.branch:
             vets_query = vets_query.filter(branch=self.user.branch)
 
-        # Preserve the currently assigned vet when editing an appointment.
-        # Historical appointments must remain editable even if the vet is no
-        # longer active, scheduled, or assigned to the current branch filter.
-        if self.instance and self.instance.pk and self.instance.preferred_vet_id:
-            current_vet = StaffMember.objects.filter(
-                pk=self.instance.preferred_vet_id,
+        selected_vet_id = self.data.get('preferred_vet')
+        selected_branch_id = self.data.get('branch')
+        selected_date = self.data.get('appointment_date')
+        if selected_vet_id:
+            selected_vet = StaffMember.objects.filter(
+                pk=selected_vet_id,
+                user__assigned_role__code__in=[
+                    'veterinarian', 'assistant_veterinarian'
+                ],
+                user__is_active=True,
+                is_active=True,
             ).first()
-            if current_vet and not vets_query.filter(pk=current_vet.pk).exists():
-                vets_query = vets_query | StaffMember.objects.filter(pk=current_vet.pk)
+            scheduled_for_selection = bool(
+                selected_vet
+                and selected_branch_id
+                and selected_date
+                and VetSchedule.objects.filter(
+                    staff=selected_vet,
+                    branch_id=selected_branch_id,
+                    date=selected_date,
+                    is_available=True,
+                ).exists()
+            )
+            branch_allowed = bool(
+                selected_vet
+                and (
+                    not self.user
+                    or not self.user.is_module_branch_restricted('appointments')
+                    or not self.user.branch
+                    or selected_vet.branch_id == self.user.branch_id
+                    or (
+                        selected_branch_id == str(self.user.branch_id)
+                        and scheduled_for_selection
+                    )
+                )
+            )
+            if selected_vet and branch_allowed and not vets_query.filter(
+                pk=selected_vet.pk
+            ).exists():
+                vets_query = vets_query | StaffMember.objects.filter(
+                    pk=selected_vet.pk
+                )
         
         self.fields['preferred_vet'].queryset = vets_query.select_related('user', 'user__assigned_role')
         self.fields['preferred_vet'].required = False
@@ -879,7 +912,62 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
         # If user is branch-restricted, only show vets from their branch
         if self.user and self.user.is_module_branch_restricted('appointments') and self.user.branch:
             vets_query = vets_query.filter(branch=self.user.branch)
+
+        # Keep the existing veterinarian valid when editing a historical
+        # appointment, even if the vet is no longer in the active queryset.
+        if self.instance and self.instance.pk and self.instance.preferred_vet_id:
+            current_vet = StaffMember.objects.filter(
+                pk=self.instance.preferred_vet_id,
+            ).first()
+            if current_vet and not vets_query.filter(pk=current_vet.pk).exists():
+                vets_query = vets_query | StaffMember.objects.filter(pk=current_vet.pk)
         
+        # The availability API can return a vet scheduled at the selected
+        # branch even when that vet is assigned to another home branch. Keep
+        # that submitted scheduled vet valid for this booking.
+        selected_vet_id = self.data.get('preferred_vet')
+        selected_branch_id = self.data.get('branch')
+        selected_date = self.data.get('appointment_date')
+        if selected_vet_id:
+            selected_vet = StaffMember.objects.filter(
+                pk=selected_vet_id,
+                user__assigned_role__code__in=[
+                    'veterinarian', 'assistant_veterinarian'
+                ],
+                user__is_active=True,
+                is_active=True,
+            ).first()
+            scheduled_for_selection = bool(
+                selected_vet
+                and selected_branch_id
+                and selected_date
+                and VetSchedule.objects.filter(
+                    staff=selected_vet,
+                    branch_id=selected_branch_id,
+                    date=selected_date,
+                    is_available=True,
+                ).exists()
+            )
+            branch_allowed = bool(
+                selected_vet
+                and (
+                    not self.user
+                    or not self.user.is_module_branch_restricted('appointments')
+                    or not self.user.branch
+                    or selected_vet.branch_id == self.user.branch_id
+                    or (
+                        selected_branch_id == str(self.user.branch_id)
+                        and scheduled_for_selection
+                    )
+                )
+            )
+            if selected_vet and branch_allowed and not vets_query.filter(
+                pk=selected_vet.pk
+            ).exists():
+                vets_query = vets_query | StaffMember.objects.filter(
+                    pk=selected_vet.pk
+                )
+
         self.fields['preferred_vet'].queryset = vets_query.select_related('user', 'user__assigned_role')
         
         self.fields['preferred_vet'].required = False
