@@ -552,6 +552,13 @@ try:
         if not user:
             return
 
+        if instance.appointment_id:
+            branch = instance.appointment.branch
+        elif instance.medical_record_id:
+            branch = instance.medical_record.branch or instance.medical_record.pet.branch
+        else:
+            branch = None
+
         action = 'Follow-up scheduled' if created else 'Follow-up updated'
         log_activity(
             user=user,
@@ -561,7 +568,7 @@ try:
                 ActivityLog.ActionType.CREATE if created
                 else ActivityLog.ActionType.UPDATE
             ),
-            branch=instance.appointment.branch,
+            branch=branch,
             details=f'Date: {instance.follow_up_date} | Completed: {instance.is_completed}',
             object_type='FollowUp',
             object_id=instance.id,
@@ -573,12 +580,19 @@ try:
         if not user:
             return
 
+        if instance.appointment_id:
+            branch = instance.appointment.branch
+        elif instance.medical_record_id:
+            branch = instance.medical_record.branch or instance.medical_record.pet.branch
+        else:
+            branch = None
+
         log_activity(
             user=user,
             action=f'Follow-up deleted: {instance.pet_name}',
             category=ActivityLog.Category.APPOINTMENT,
             action_type=ActivityLog.ActionType.DELETE,
-            branch=instance.appointment.branch,
+            branch=branch,
             object_type='FollowUp',
             object_id=instance.id,
         )
