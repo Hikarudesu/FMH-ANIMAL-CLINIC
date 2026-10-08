@@ -35,6 +35,7 @@ from .models import (
     get_laboratory_type_options,
 )
 from .forms import MedicalRecordForm, RecordEntryForm
+from notifications.utils import notify_medical_record_follow_up
 
 User = get_user_model()
 
@@ -371,6 +372,7 @@ def admin_record_create(request):
                         if not entry.vet and selected_vet:
                             entry.vet = selected_vet
                         entry.save()
+                        notify_medical_record_follow_up(record, request.user)
 
                         messages.success(
                             request,
@@ -541,6 +543,8 @@ def admin_record_edit(request, pk):
                     if getattr(updated_record, 'vet', None):
                         latest_entry.vet = updated_record.vet
                     latest_entry.save()
+
+                notify_medical_record_follow_up(updated_record, request.user)
                 
                 messages.success(
                     request, f'Record for {record.pet.name} has been updated!')
@@ -769,6 +773,7 @@ def admin_add_entry(request, pk):
             record.ff_up = entry.ff_up
             # Touch the parent record so updated_at changes (also saves branch/vet update)
             record.save()
+            notify_medical_record_follow_up(record, request.user)
 
             messages.success(
                 request, f'New visit entry added to {record.pet.name}\'s record.')
@@ -833,6 +838,7 @@ def admin_entry_edit(request, entry_pk):
                 record.pet.save(update_fields=['branch'])
             # Touch the parent record so updated_at changes
             record.save()
+            notify_medical_record_follow_up(record, request.user)
 
             messages.success(request, 'Visit entry updated.')
             return redirect('records:admin_detail', pk=record.pk)

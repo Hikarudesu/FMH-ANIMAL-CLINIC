@@ -546,6 +546,64 @@ def notify_follow_up_scheduled(appointment, followup, follow_up_reason=''):
     transaction.on_commit(lambda: send_follow_up_email(followup))
 
 
+def notify_medical_record_follow_up(record, actor=None):
+    """Synchronize and notify a follow-up date saved on a medical record."""
+    from notifications.models import FollowUp
+    from notifications.followup_email_service import send_follow_up_email
+
+    if not record.ff_up:
+        FollowUp.objects.filter(medical_record=record).delete()
+        return None
+
+    followup, created = FollowUp.objects.get_or_create(
+        medical_record=record,
+        defaults={
+            'pet_name': record.pet.name,
+            'follow_up_date': record.ff_up,
+            'reason': 'Medical record follow-up',
+            'created_by': actor,
+        },
+    )
+    date_changed = followup.follow_up_date != record.ff_up
+    update_fields = []
+    if followup.pet_name != record.pet.name:
+        followup.pet_name = record.pet.name
+        update_fields.append('pet_name')
+    if date_changed:
+        followup.follow_up_date = record.ff_up
+        followup.email_sent_at = None
+        followup.reminder_email_sent_at = None
+        followup.email_attempts = 0
+        followup.email_last_error = ''
+        update_fields.extend([
+            'follow_up_date', 'email_sent_at', 'reminder_email_sent_at',
+            'email_attempts', 'email_last_error',
+        ])
+    if created:
+        update_fields = []
+    elif update_fields:
+        followup.save(update_fields=update_fields)
+
+    owner = record.pet.owner
+    if owner:
+        date_text = record.ff_up.strftime('%B %d, %Y')
+        create_notification(
+            user=owner,
+            title=f'Follow-up Scheduled for {record.pet.name}',
+            message=(
+                f'A follow-up visit for {record.pet.name} has been scheduled for '
+                f'{date_text}.'
+            ),
+            notification_type=Notification.NotificationType.FOLLOW_UP,
+            module_context=Notification.ModuleContext.MEDICAL_RECORDS,
+            related_object_id=record.id,
+            related_follow_up=followup,
+        )
+
+    transaction.on_commit(lambda: send_follow_up_email(followup))
+    return followup
+
+
 def notify_reservation_approved(reservation, actor=None):
     """Create a notification when a product reservation is approved."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'staff')

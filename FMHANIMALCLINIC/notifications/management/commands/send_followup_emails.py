@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from notifications.followup_email_service import send_follow_up_email
+from notifications.followup_email_service import send_follow_up_reminder_email
 from notifications.models import FollowUp
 
 
@@ -12,15 +12,15 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         today = timezone.localdate()
+        reminder_date = today + timedelta(days=3)
         followups = FollowUp.objects.filter(
             is_completed=False,
-            email_sent_at__isnull=True,
-            follow_up_date__gte=today,
-            follow_up_date__lte=today + timedelta(days=1),
-        ).select_related('appointment')
+            reminder_email_sent_at__isnull=True,
+            follow_up_date=reminder_date,
+        ).select_related('appointment', 'medical_record__pet__owner')
         sent = failed = 0
         for follow_up in followups:
-            ok, reason = send_follow_up_email(follow_up)
+            ok, reason = send_follow_up_reminder_email(follow_up)
             if ok:
                 sent += 1
             else:

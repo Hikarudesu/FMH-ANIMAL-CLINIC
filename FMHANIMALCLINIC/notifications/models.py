@@ -9,6 +9,15 @@ class FollowUp(models.Model):
         'appointments.Appointment',
         on_delete=models.CASCADE,
         related_name='follow_ups',
+        null=True,
+        blank=True,
+    )
+    medical_record = models.OneToOneField(
+        'records.MedicalRecord',
+        on_delete=models.CASCADE,
+        related_name='follow_up_schedule',
+        null=True,
+        blank=True,
     )
     pet_name = models.CharField(
         max_length=150, help_text='Denormalized for easy display')
@@ -27,6 +36,7 @@ class FollowUp(models.Model):
     )
     is_completed = models.BooleanField(default=False)
     email_sent_at = models.DateTimeField(null=True, blank=True)
+    reminder_email_sent_at = models.DateTimeField(null=True, blank=True)
     email_attempts = models.PositiveIntegerField(default=0)
     email_last_error = models.TextField(blank=True)
 
