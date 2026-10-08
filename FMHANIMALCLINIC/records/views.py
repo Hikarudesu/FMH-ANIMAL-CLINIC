@@ -867,10 +867,7 @@ def admin_entry_delete(request, entry_pk):
         messages.success(request, 'Visit entry deleted.')
         return redirect('records:admin_detail', pk=record.pk)
 
-    return render(request, 'records/admin_entry_confirm_delete.html', {
-        'entry': entry,
-        'record': record,
-    })
+    return redirect('records:admin_detail', pk=record.pk)
 
 
 def get_record_missing_fields(record, entries):

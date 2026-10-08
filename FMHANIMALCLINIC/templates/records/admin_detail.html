@@ -1414,10 +1414,10 @@
                             </button>
                             {% endif %}
                             {% if user|has_module_permission:'medical_records:DELETE' %}
-                            <a href="{% url 'records:admin_entry_delete' entry.pk %}" class="rv-btn-delete" title="Delete entry"
-                                onclick="return confirm('Delete this visit entry? This cannot be undone.')">
+                            <button type="button" class="rv-btn-delete" title="Delete entry"
+                                onclick="openEntryDeleteModal('{% url 'records:admin_entry_delete' entry.pk %}', '{{ entry.date_recorded|date:"F j, Y"|escapejs }}', '{{ record.pet.name|escapejs }}')">
                                 <i class='bx bx-trash'></i>
-                            </a>
+                            </button>
                             {% endif %}
                         </div>
                         {% else %}
@@ -1850,6 +1850,7 @@
             <div class="entry-modal-head-title">
                 <div class="entry-modal-icon"><i class='bx bx-edit-alt'></i></div>
                 <div>
+
                     <h3>Edit Visit Entry</h3>
                     <p>Update visit from <span id="emDateLabel"></span></p>
                 </div>
@@ -2016,5 +2017,128 @@ document.addEventListener('keydown', function(e) {
 });
 </script>
 {% endif %}
+
+<!-- Visit entry delete confirmation modal -->
+<div class="entry-delete-modal-overlay" id="entryDeleteModal" aria-hidden="true">
+    <div class="entry-delete-modal" role="dialog" aria-modal="true" aria-labelledby="entryDeleteTitle">
+        <div class="entry-delete-modal-icon"><i class='bx bx-trash'></i></div>
+        <h3 id="entryDeleteTitle">Delete visit entry?</h3>
+        <p id="entryDeleteMessage">This action cannot be undone.</p>
+        <form method="post" id="entryDeleteForm">
+            {% csrf_token %}
+            <div class="entry-delete-modal-actions">
+                <button type="button" class="em-btn-cancel" onclick="closeEntryDeleteModal()">Cancel</button>
+                <button type="submit" class="em-btn-delete">Yes, delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .entry-delete-modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(15, 23, 42, 0.58);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+
+    .entry-delete-modal-overlay.open {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .entry-delete-modal {
+        width: min(420px, 100%);
+        padding: 28px;
+        text-align: center;
+        background: var(--surface);
+        color: var(--text-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 16px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .entry-delete-modal-icon {
+        width: 52px;
+        height: 52px;
+        margin: 0 auto 14px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: #b91c1c;
+        background: #fee2e2;
+        font-size: 1.5rem;
+    }
+
+    .entry-delete-modal h3 {
+        margin: 0 0 8px;
+        font-size: 1.1rem;
+    }
+
+    .entry-delete-modal p {
+        margin: 0 0 22px;
+        color: var(--text-2);
+        line-height: 1.5;
+    }
+
+    .entry-delete-modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .entry-delete-modal-actions button {
+        min-width: 112px;
+        min-height: 42px;
+        padding: 10px 16px;
+        border-radius: var(--radius-sm, 8px);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .entry-delete-modal-actions .em-btn-delete {
+        border: 1px solid #dc2626;
+        color: #fff;
+        background: #dc2626;
+    }
+</style>
+
+<script>
+function openEntryDeleteModal(action, dateText, petName) {
+    const modal = document.getElementById('entryDeleteModal');
+    const form = document.getElementById('entryDeleteForm');
+    const message = document.getElementById('entryDeleteMessage');
+    if (!modal || !form) return;
+    form.action = action;
+    message.textContent = `Delete the visit entry for ${petName} dated ${dateText}? This action cannot be undone.`;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEntryDeleteModal() {
+    const modal = document.getElementById('entryDeleteModal');
+    if (!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+}
+
+document.getElementById('entryDeleteModal').addEventListener('click', function(event) {
+    if (event.target === this) closeEntryDeleteModal();
+});
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') closeEntryDeleteModal();
+});
+</script>
 
 {% endblock %}
