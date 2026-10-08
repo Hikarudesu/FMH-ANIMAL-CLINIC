@@ -647,13 +647,31 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
             is_active=True,
         )
         
-        # If user is branch-restricted, only show vets from their branch
-        if self.user and self.user.is_module_branch_restricted('appointments') and self.user.branch:
+        # For an unselected branch, keep branch-restricted users scoped to
+        # their home branch. When a branch is explicitly selected, the
+        # schedule query below determines which vets may be selected there.
+        if (
+            self.user
+            and self.user.is_module_branch_restricted('appointments')
+            and self.user.branch
+            and not self.data.get('branch')
+        ):
             vets_query = vets_query.filter(branch=self.user.branch)
 
-        selected_vet_id = self.data.get('preferred_vet')
         selected_branch_id = self.data.get('branch')
         selected_date = self.data.get('appointment_date')
+        if selected_branch_id and selected_date:
+            scheduled_staff_ids = VetSchedule.objects.filter(
+                branch_id=selected_branch_id,
+                date=selected_date,
+                is_available=True,
+                staff__user__assigned_role__code__in=[
+                    'veterinarian', 'assistant_veterinarian'
+                ],
+            ).values_list('staff_id', flat=True).distinct()
+            vets_query = vets_query.filter(id__in=scheduled_staff_ids)
+
+        selected_vet_id = self.data.get('preferred_vet')
         if selected_vet_id:
             selected_vet = StaffMember.objects.filter(
                 pk=selected_vet_id,
@@ -681,10 +699,7 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                     or not self.user.is_module_branch_restricted('appointments')
                     or not self.user.branch
                     or selected_vet.branch_id == self.user.branch_id
-                    or (
-                        selected_branch_id == str(self.user.branch_id)
-                        and scheduled_for_selection
-                    )
+                    or scheduled_for_selection
                 )
             )
             if selected_vet and branch_allowed and not vets_query.filter(
