@@ -529,6 +529,17 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
 def notify_follow_up_scheduled(appointment, followup, follow_up_reason=''):
     """Notify the portal owner and email the appointment address."""
 
+    days_until = (followup.follow_up_date - timezone.localdate()).days
+    if days_until > 1:
+        countdown = f'in {days_until} days'
+    elif days_until == 1:
+        countdown = 'tomorrow'
+    elif days_until == 0:
+        countdown = 'today'
+    else:
+        elapsed = abs(days_until)
+        countdown = f'{elapsed} day ago' if elapsed == 1 else f'{elapsed} days ago'
+
     date_str = str(followup.follow_up_date)
     if followup.follow_up_end_date and followup.follow_up_end_date != followup.follow_up_date:
         date_str = f"{followup.follow_up_date} to {followup.follow_up_end_date}"
@@ -539,7 +550,8 @@ def notify_follow_up_scheduled(appointment, followup, follow_up_reason=''):
             title=f'Follow-up Scheduled for {appointment.pet_name}',
             message=(
                 f'A follow-up visit has been scheduled for {appointment.pet_name} '
-                f'from {date_str}. Reason: {follow_up_reason or "Routine follow-up"}'
+                f'for {date_str}, which is {countdown}. '
+                f'Reason: {follow_up_reason or "Routine follow-up"}'
             ),
             notification_type=Notification.NotificationType.FOLLOW_UP,
             module_context=Notification.ModuleContext.APPOINTMENTS,

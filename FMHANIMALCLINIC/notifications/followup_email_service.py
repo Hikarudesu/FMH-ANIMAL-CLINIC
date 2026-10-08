@@ -21,14 +21,25 @@ def send_follow_up_email(follow_up):
         return False, follow_up.email_last_error
 
     date_text = str(follow_up.follow_up_date)
+    days_until = (follow_up.follow_up_date - timezone.localdate()).days
+    if days_until > 1:
+        countdown = f'in {days_until} days'
+    elif days_until == 1:
+        countdown = 'tomorrow'
+    elif days_until == 0:
+        countdown = 'today'
+    else:
+        elapsed = abs(days_until)
+        countdown = f'{elapsed} day ago' if elapsed == 1 else f'{elapsed} days ago'
     if follow_up.follow_up_end_date and follow_up.follow_up_end_date != follow_up.follow_up_date:
         date_text = f'{follow_up.follow_up_date} to {follow_up.follow_up_end_date}'
     try:
         sent = send_notification_email(
-            subject=f'Follow-up Reminder - FMH Animal Clinic ({follow_up.pet_name})',
+            subject=f'Upcoming Follow-up - FMH Animal Clinic ({follow_up.pet_name})',
             message=(
                 f'Dear {(appointment.owner_name if appointment else owner.get_full_name() if owner else "Pet Owner")},\n\n'
-                f'Your follow-up visit for {follow_up.pet_name} is scheduled for {date_text}.\n'
+                f'Your follow-up visit for {follow_up.pet_name} is scheduled for {date_text} '
+                f'({countdown}).\n'
                 f'Reason: {follow_up.reason or "Routine follow-up"}.\n\n'
                 'Please contact FMH Animal Clinic if you need to reschedule.\n'
             ),
@@ -65,6 +76,7 @@ def send_follow_up_reminder_email(follow_up):
         return False, 'Pet owner has no email address.'
 
     date_text = str(follow_up.follow_up_date)
+    days_until = (follow_up.follow_up_date - timezone.localdate()).days
     if follow_up.follow_up_end_date and follow_up.follow_up_end_date != follow_up.follow_up_date:
         date_text = f'{follow_up.follow_up_date} to {follow_up.follow_up_end_date}'
     try:
@@ -72,7 +84,8 @@ def send_follow_up_reminder_email(follow_up):
             subject=f'Follow-up Reminder in 3 Days - FMH Animal Clinic ({follow_up.pet_name})',
             message=(
                 f'Dear {(appointment.owner_name if appointment else owner.get_full_name() if owner else "Pet Owner")},\n\n'
-                f'This is a reminder that {follow_up.pet_name} has a follow-up visit scheduled for {date_text}.\n'
+                f'This is your 3-day reminder: {follow_up.pet_name} has a follow-up visit '
+                f'scheduled for {date_text} (in {days_until} days).\n'
                 f'Reason: {follow_up.reason or "Routine follow-up"}.\n\n'
                 'Please contact FMH Animal Clinic if you need to reschedule.\n'
             ),
