@@ -142,10 +142,16 @@ def users_with_module_access(module_code, branch=None):
     from accounts.models import User
     from django.db.models import Q
 
-    users = User.objects.filter(is_active=True).filter(
-        Q(is_superuser=True)
-        | Q(assigned_role__module_permissions__module__code=module_code)
-    )
+    if module_code == 'reservations':
+        users = User.objects.filter(
+            is_active=True,
+            assigned_role__module_permissions__module__code=module_code,
+        )
+    else:
+        users = User.objects.filter(is_active=True).filter(
+            Q(is_superuser=True)
+            | Q(assigned_role__module_permissions__module__code=module_code)
+        )
     if branch is not None:
         users = users.filter(Q(is_superuser=True) | Q(branch=branch))
     return users.distinct()
@@ -638,7 +644,7 @@ def notify_reservation_status(
         )
     if notify_staff:
         notify_module_users(
-            module_code='inventory',
+            module_code='reservations',
             branch=reservation.product.branch,
             title=title,
             message=message,

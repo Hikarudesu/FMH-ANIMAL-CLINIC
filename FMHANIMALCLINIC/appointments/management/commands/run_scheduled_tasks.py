@@ -25,6 +25,7 @@ class Command(BaseCommand):
             for command_name in (
                 'send_reminders',
                 'send_followup_emails',
+                'cancel_expired_reservations',
                 'check_inventory_expiry_alerts',
                 'expire_pet_owner_accounts',
             ):

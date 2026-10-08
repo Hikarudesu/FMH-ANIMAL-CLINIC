@@ -26,6 +26,7 @@ from notifications.utils import (
     notify_stock_transfer_requested,
 )
 from .models import Product, StockAdjustment, Reservation, StockTransfer
+from .services import auto_cancel_expired_reservations
 from .forms import (
     ProductForm,
     StockAdjustmentForm,
@@ -59,6 +60,14 @@ def _inventory_branch_restricted(user):
     )
 
 
+def _is_superadmin_user(user):
+    """Return True for platform superadmins excluded from reservations."""
+    return bool(
+        user.is_superuser
+        or getattr(getattr(user, 'assigned_role', None), 'code', None) == 'superadmin'
+    )
+
+
 def _can_manage_stock_transfers(user):
     """Return True for users allowed to approve or reject transfers."""
     return (
@@ -75,46 +84,6 @@ def _can_mark_transfer_received(user, transfer):
         and user_branch == transfer.destination_branch
         and not user.is_admin_role()
     )
-
-
-def auto_cancel_expired_reservations():
-    """Cancel reservations 24 hours after pickup day, or 24 hours after creation if undated."""
-    expiration_threshold = timezone.now() - timedelta(hours=24)
-    pickup_date_threshold = timezone.localdate() - timedelta(days=2)
-    # pylint: disable=no-member
-    expired_reservations = Reservation.objects.filter(
-        status=Reservation.Status.PENDING,
-    ).filter(
-        Q(pickup_date__isnull=True, created_at__lte=expiration_threshold) |
-        Q(pickup_date__isnull=False, pickup_date__lte=pickup_date_threshold)
-    ).select_related('product', 'product__branch', 'user')
-
-    for res in expired_reservations:
-        res.status = Reservation.Status.CANCELLED
-        res.save()
-
-        # Restore stock (using ADD since we're restocking cancelled items)
-        StockAdjustment.objects.create(
-            branch=res.product.branch,
-            product=res.product,
-            adjustment_type='ADD',
-            reference=f"RSV-{res.pk}-AUTO-EXP",
-            date=timezone.now().date(),
-            quantity=res.quantity,
-            cost_per_unit=res.product.unit_cost,
-            reason="Automatically cancelled due to 24-hour expiration.",
-        )
-
-        notify_reservation_status(
-            res,
-            title="Reservation Expired",
-            message=(
-                f"Your reservation for {res.quantity}x {res.product.name} "
-                f"({res.product.sale_type_label}, {res.product.unit_display}) "
-                f"has expired and was cancelled."
-            ),
-            notification_type=Notification.NotificationType.PRODUCT_RESERVATION,
-        )
 
 
 @login_required
@@ -344,8 +313,17 @@ def inventory_management_view(request):
     can_edit = request.user.has_module_permission('inventory', 'EDIT')
     can_delete = request.user.is_admin_role() or request.user.has_module_permission('inventory', 'DELETE')
     # Reservations is a separate module: only show if user has reservations module access AND inventory access
-    can_view_reservations = request.user.has_module_permission('reservations', 'VIEW')
-    can_manage_reservations = request.user.has_module_permission('reservations', 'EDIT') or request.user.has_module_permission('reservations', 'DELETE')
+    can_view_reservations = (
+        not _is_superadmin_user(request.user)
+        and request.user.has_module_permission('reservations', 'VIEW')
+    )
+    can_manage_reservations = (
+        can_view_reservations
+        and (
+            request.user.has_module_permission('reservations', 'EDIT')
+            or request.user.has_module_permission('reservations', 'DELETE')
+        )
+    )
 
     # Pagination for 20 items per page across all 3 lists
     page_number = request.GET.get('page', 1)
@@ -585,7 +563,7 @@ def reserve_product_view(request, pk):
 
     try:
         notify_module_users(
-            module_code='inventory',
+            module_code='reservations',
             branch=product.branch,
             title="New Product Reservation",
             message=(
@@ -639,7 +617,7 @@ def confirm_reservation_view(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk)
 
     # Permission check: must have reservations module access with EDIT permission
-    if not request.user.has_module_permission('reservations', 'EDIT'):
+    if _is_superadmin_user(request.user) or not request.user.has_module_permission('reservations', 'EDIT'):
         messages.warning(request, 'You do not have permission to confirm reservations.')
         return redirect('inventory:management')
 
@@ -674,7 +652,7 @@ def cancel_reservation_view(request, pk):
     reservation = get_object_or_404(Reservation, pk=pk)
 
     # Permission check: must have reservations module access with DELETE permission
-    if not request.user.has_module_permission('reservations', 'DELETE'):
+    if _is_superadmin_user(request.user) or not request.user.has_module_permission('reservations', 'DELETE'):
         messages.warning(request, 'You do not have permission to cancel reservations.')
         return redirect('inventory:management')
 
