@@ -650,6 +650,16 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         # If user is branch-restricted, only show vets from their branch
         if self.user and self.user.is_module_branch_restricted('appointments') and self.user.branch:
             vets_query = vets_query.filter(branch=self.user.branch)
+
+        # Preserve the currently assigned vet when editing an appointment.
+        # Historical appointments must remain editable even if the vet is no
+        # longer active, scheduled, or assigned to the current branch filter.
+        if self.instance and self.instance.pk and self.instance.preferred_vet_id:
+            current_vet = StaffMember.objects.filter(
+                pk=self.instance.preferred_vet_id,
+            ).first()
+            if current_vet and not vets_query.filter(pk=current_vet.pk).exists():
+                vets_query = vets_query | StaffMember.objects.filter(pk=current_vet.pk)
         
         self.fields['preferred_vet'].queryset = vets_query.select_related('user', 'user__assigned_role')
         self.fields['preferred_vet'].required = False
