@@ -489,6 +489,8 @@
   .drag-handle {
     cursor: grab;
     transition: color 0.2s ease;
+    touch-action: none;
+    user-select: none;
   }
   
   .drag-handle:hover {
@@ -708,6 +710,37 @@ function setupDragAndDrop(listId, type) {
         item.draggable = true;
         // Small visual feedback on press
         handle.classList.add('active-drag-handle');
+      });
+
+      handle.addEventListener('touchstart', (ev) => {
+        ev.preventDefault();
+        draggedElement = item;
+        item.classList.add('dragging');
+        document.body.classList.add('dragging');
+        handle.classList.add('active-drag-handle');
+      }, { passive: false });
+
+      handle.addEventListener('touchmove', (ev) => {
+        if (!draggedElement || !ev.touches.length) return;
+        ev.preventDefault();
+        const touch = ev.touches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.sortable-item');
+        if (!target || target.parentNode !== list || target === draggedElement) return;
+        const rect = target.getBoundingClientRect();
+        if (touch.clientY < rect.top + rect.height / 2) {
+          list.insertBefore(draggedElement, target);
+        } else {
+          list.insertBefore(draggedElement, target.nextSibling);
+        }
+      }, { passive: false });
+
+      handle.addEventListener('touchend', () => {
+        if (!draggedElement) return;
+        draggedElement.classList.remove('dragging');
+        document.body.classList.remove('dragging');
+        handle.classList.remove('active-drag-handle');
+        saveOrder();
+        draggedElement = null;
       });
     }
 

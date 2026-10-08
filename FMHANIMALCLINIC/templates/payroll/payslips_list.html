@@ -161,8 +161,23 @@
   .payslips-header > div:last-child > .btn { align-self: flex-end; }
   .payslips-header > div:last-child > .status-badge { align-self: flex-start; width: fit-content; white-space: nowrap; }
   @media (max-width: 1100px) { .payslips-header { grid-template-columns: 1fr; gap: 18px; } }
-  @media (max-width: 720px) { .period-reload-form { grid-template-columns: repeat(2, minmax(130px, 1fr)); } .period-reload-form .btn { width: 100%; } }
-  @media (max-width: 420px) { .period-reload-form { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) {
+    .payslips-header { padding: 16px; margin-bottom: 16px; }
+    .payslips-header > div:last-child { width: 100%; }
+    .payslips-header > div:last-child > .btn,
+    .payslips-header > div:last-child > form,
+    .payslips-header > div:last-child > form > .btn { width: 100%; }
+    .payslips-header > div:last-child > .btn { align-self: stretch; justify-content: center; }
+    .period-reload-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .period-reload-form .btn { grid-column: 1 / -1; width: 100%; justify-content: center; }
+    .payslips-table { overflow-x: auto; }
+    .payslips-table table { min-width: 680px; }
+    .payslips-header h2 { font-size: 1.05rem; line-height: 1.35; }
+  }
+  @media (max-width: 420px) {
+    .period-reload-form { grid-template-columns: 1fr; }
+    .period-reload-form .btn { grid-column: auto; }
+  }
 </style>
 
 <div class="payslips-header">

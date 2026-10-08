@@ -394,7 +394,7 @@
             {% if user|has_nav_module:'inventory' and not user|has_nav_module:'clinic_services' and not user|has_nav_module:'stock_monitor' and not user|has_inventory_nav_item:'stock_transfers' %}
               <a
                 href="{% url 'inventory:management' %}"
-                class="sidebar-link {% if 'inventory' in request.path and 'logs' not in request.path or request.resolver_match.app_name == 'billing' or 'transfers' in request.path or request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
+                class="sidebar-link {% if 'settings' not in request.path %}{% if 'inventory' in request.path and 'logs' not in request.path or request.resolver_match.app_name == 'billing' or 'transfers' in request.path or request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}{% endif %}"
               >
                 <i class="bx bx-package"></i><span>Inventory Management</span>
                 {% if unread_inventory_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_inventory_notifications_count }}</span>{% endif %}
@@ -403,7 +403,7 @@
             <div class="sidebar-item has-submenu">
               <a
                 href="#"
-                class="sidebar-link {% if 'inventory' in request.path and 'logs' not in request.path or request.resolver_match.app_name == 'billing' or 'transfers' in request.path or request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}"
+                class="sidebar-link {% if 'settings' not in request.path %}{% if 'inventory' in request.path and 'logs' not in request.path or request.resolver_match.app_name == 'billing' or 'transfers' in request.path or request.resolver_match.url_name == 'super_admin_stock_monitoring' %}active{% endif %}{% endif %}"
                 id="inventoryDropdownToggle"
               >
                 <i class="bx bx-package"></i><span>Inventory Management</span>

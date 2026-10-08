@@ -1404,8 +1404,15 @@
     position: fixed;
     left: 10px;
     right: 10px;
+    top: calc(var(--topbar-h) + 8px);
     width: auto;
     max-width: none;
+  }
+
+  .topbar-notif-container .notif-dropdown {
+    max-height: min(70vh, 420px);
+    overflow: hidden;
+    z-index: 1200;
   }
   
   .topbar-dropdown::before {

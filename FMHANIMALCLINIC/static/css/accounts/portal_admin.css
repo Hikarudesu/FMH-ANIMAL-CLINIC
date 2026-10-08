@@ -2037,6 +2037,28 @@ textarea.form-control {
     display: none;
   }
 
+  .staff-management-table,
+  .branch-management-table {
+    min-width: 620px;
+  }
+
+  .staff-management-table th:last-child,
+  .staff-management-table td:last-child,
+  .branch-management-table th:last-child,
+  .branch-management-table td:last-child {
+    display: table-cell !important;
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: var(--surface);
+    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08);
+  }
+
+  .branch-management-table th:nth-child(4),
+  .branch-management-table td:nth-child(4) {
+    display: none;
+  }
+
   .cal-day {
     min-height: 60px;
     padding: 4px;
