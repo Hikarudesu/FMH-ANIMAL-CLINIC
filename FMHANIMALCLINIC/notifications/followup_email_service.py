@@ -1,5 +1,6 @@
 """Idempotent email delivery for scheduled follow-up visits."""
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from .delivery import send_notification_email
 
@@ -21,7 +22,13 @@ def send_follow_up_email(follow_up):
         return False, follow_up.email_last_error
 
     date_text = str(follow_up.follow_up_date)
-    days_until = (follow_up.follow_up_date - timezone.localdate()).days
+    follow_up_date = follow_up.follow_up_date
+    if isinstance(follow_up_date, str):
+        follow_up_date = parse_date(follow_up_date)
+    days_until = (
+        (follow_up_date - timezone.localdate()).days
+        if follow_up_date else 0
+    )
     if days_until > 1:
         countdown = f'in {days_until} days'
     elif days_until == 1:
@@ -76,7 +83,13 @@ def send_follow_up_reminder_email(follow_up):
         return False, 'Pet owner has no email address.'
 
     date_text = str(follow_up.follow_up_date)
-    days_until = (follow_up.follow_up_date - timezone.localdate()).days
+    follow_up_date = follow_up.follow_up_date
+    if isinstance(follow_up_date, str):
+        follow_up_date = parse_date(follow_up_date)
+    days_until = (
+        (follow_up_date - timezone.localdate()).days
+        if follow_up_date else 0
+    )
     if follow_up.follow_up_end_date and follow_up.follow_up_end_date != follow_up.follow_up_date:
         date_text = f'{follow_up.follow_up_date} to {follow_up.follow_up_end_date}'
     try:

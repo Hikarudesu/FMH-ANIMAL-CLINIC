@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from notifications.models import Notification
 from notifications.delivery import send_notification_email
@@ -529,7 +530,13 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
 def notify_follow_up_scheduled(appointment, followup, follow_up_reason=''):
     """Notify the portal owner and email the appointment address."""
 
-    days_until = (followup.follow_up_date - timezone.localdate()).days
+    follow_up_date = followup.follow_up_date
+    if isinstance(follow_up_date, str):
+        follow_up_date = parse_date(follow_up_date)
+    days_until = (
+        (follow_up_date - timezone.localdate()).days
+        if follow_up_date else 0
+    )
     if days_until > 1:
         countdown = f'in {days_until} days'
     elif days_until == 1:
