@@ -5,7 +5,7 @@ from django.utils.dateparse import parse_date
 from .delivery import send_notification_email
 
 
-def send_follow_up_email(follow_up):
+def send_follow_up_email(follow_up, event='scheduled'):
     appointment = follow_up.appointment
     pet = follow_up.medical_record.pet if follow_up.medical_record_id else None
     owner = pet.owner if pet and pet.owner_id else None
@@ -42,10 +42,14 @@ def send_follow_up_email(follow_up):
         date_text = f'{follow_up.follow_up_date} to {follow_up.follow_up_end_date}'
     try:
         sent = send_notification_email(
-            subject=f'Upcoming Follow-up - FMH Animal Clinic ({follow_up.pet_name})',
+            subject=(
+                f'Follow-up {"Updated" if event == "updated" else "Scheduled"} '
+                f'- FMH Animal Clinic ({follow_up.pet_name})'
+            ),
             message=(
                 f'Dear {(appointment.owner_name if appointment else owner.get_full_name() if owner else "Pet Owner")},\n\n'
-                f'Your follow-up visit for {follow_up.pet_name} is scheduled for {date_text} '
+                f'Your follow-up visit for {follow_up.pet_name} has been '
+                f'{"updated" if event == "updated" else "scheduled"} for {date_text} '
                 f'({countdown}).\n'
                 f'Reason: {follow_up.reason or "Routine follow-up"}.\n\n'
                 'Please contact FMH Animal Clinic if you need to reschedule.\n'

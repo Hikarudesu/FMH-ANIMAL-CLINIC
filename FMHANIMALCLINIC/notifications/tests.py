@@ -252,7 +252,7 @@ class NotificationRoutingTests(TestCase):
             notification_type=Notification.NotificationType.FOLLOW_UP,
             related_follow_up=follow_up,
         ).exists())
-        send_email.assert_called_once_with(follow_up)
+        send_email.assert_called_once_with(follow_up, event='scheduled')
 
     @patch('notifications.signals.notify_inquiry_received')
     def test_inquiry_reaches_branch_admin_and_receptionist_alias(self, signal_notifier):

@@ -616,19 +616,35 @@ def admin_edit(request, pk):
                 follow_up_end_date = request.POST.get('follow_up_end_date')
                 follow_up_reason = request.POST.get('follow_up_reason', '')
                 if follow_up_date:
-                    followup = FollowUp.objects.create(
+                    followup = FollowUp.objects.filter(
                         appointment=updated_appointment,
-                        pet_name=updated_appointment.pet_name,
-                        follow_up_date=follow_up_date,
-                        follow_up_end_date=follow_up_end_date if follow_up_end_date else None,
-                        reason=follow_up_reason,
-                        created_by=request.user,
-                    )
+                    ).order_by('-created_at').first()
+                    event = 'updated' if followup else 'scheduled'
+                    if followup:
+                        followup.pet_name = updated_appointment.pet_name
+                        followup.follow_up_date = follow_up_date
+                        followup.follow_up_end_date = follow_up_end_date or None
+                        followup.reason = follow_up_reason
+                        followup.email_sent_at = None
+                        followup.reminder_email_sent_at = None
+                        followup.email_attempts = 0
+                        followup.email_last_error = ''
+                        followup.save()
+                    else:
+                        followup = FollowUp.objects.create(
+                            appointment=updated_appointment,
+                            pet_name=updated_appointment.pet_name,
+                            follow_up_date=follow_up_date,
+                            follow_up_end_date=follow_up_end_date if follow_up_end_date else None,
+                            reason=follow_up_reason,
+                            created_by=request.user,
+                        )
 
                     notify_follow_up_scheduled(
                         appointment=updated_appointment,
                         followup=followup,
                         follow_up_reason=follow_up_reason,
+                        event=event,
                     )
 
                     date_str = str(follow_up_date)

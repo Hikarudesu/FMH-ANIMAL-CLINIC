@@ -527,8 +527,10 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
         notified_user_ids.add(veterinarian.id)
 
 
-def notify_follow_up_scheduled(appointment, followup, follow_up_reason=''):
-    """Notify the portal owner and email the appointment address."""
+def notify_follow_up_scheduled(
+    appointment, followup, follow_up_reason='', event='scheduled'
+):
+    """Notify the owner about a scheduled or updated follow-up."""
 
     follow_up_date = followup.follow_up_date
     if isinstance(follow_up_date, str):
@@ -552,11 +554,12 @@ def notify_follow_up_scheduled(appointment, followup, follow_up_reason=''):
         date_str = f"{followup.follow_up_date} to {followup.follow_up_end_date}"
 
     if appointment.user:
+        action_text = 'updated' if event == 'updated' else 'scheduled'
         create_notification(
             user=appointment.user,
-            title=f'Follow-up Scheduled for {appointment.pet_name}',
+            title=f'Follow-up {action_text.title()} for {appointment.pet_name}',
             message=(
-                f'A follow-up visit has been scheduled for {appointment.pet_name} '
+                f'A follow-up visit has been {action_text} for {appointment.pet_name} '
                 f'for {date_str}, which is {countdown}. '
                 f'Reason: {follow_up_reason or "Routine follow-up"}'
             ),
@@ -568,7 +571,7 @@ def notify_follow_up_scheduled(appointment, followup, follow_up_reason=''):
 
     from notifications.followup_email_service import send_follow_up_email
 
-    transaction.on_commit(lambda: send_follow_up_email(followup))
+    transaction.on_commit(lambda: send_follow_up_email(followup, event=event))
 
 
 def notify_medical_record_follow_up(record, actor=None):
@@ -625,7 +628,8 @@ def notify_medical_record_follow_up(record, actor=None):
             related_follow_up=followup,
         )
 
-    transaction.on_commit(lambda: send_follow_up_email(followup))
+    event = 'updated' if date_changed else 'scheduled'
+    transaction.on_commit(lambda: send_follow_up_email(followup, event=event))
     return followup
 
 
