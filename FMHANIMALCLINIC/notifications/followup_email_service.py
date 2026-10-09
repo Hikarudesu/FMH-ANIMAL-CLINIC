@@ -1,6 +1,7 @@
 """Idempotent email delivery for scheduled follow-up visits."""
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.conf import settings
 
 from .delivery import send_notification_email
 from .utils import get_follow_up_owner
@@ -70,6 +71,8 @@ def send_follow_up_email(follow_up, event='scheduled'):
             ),
             recipient_list=[recipient],
             fail_silently=False,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            force=True,
         )
     except Exception as exc:
         sent = False
@@ -119,6 +122,8 @@ def send_follow_up_reminder_email(follow_up):
             ),
             recipient_list=[recipient],
             fail_silently=False,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            force=True,
         )
     except Exception as exc:
         follow_up.email_last_error = str(exc)

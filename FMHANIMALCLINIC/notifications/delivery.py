@@ -32,12 +32,13 @@ def send_notification_email(
     superuser_only=False,
     from_email=None,
     attachments=None,
+    force=False,
 ):
     """Send notification email if enabled in settings.
 
     If ``superuser_only`` is true, recipients are restricted to active superusers.
     """
-    if not _email_enabled():
+    if not force and not _email_enabled():
         logger.info("Notification email skipped: email notifications are disabled.")
         return False
 
