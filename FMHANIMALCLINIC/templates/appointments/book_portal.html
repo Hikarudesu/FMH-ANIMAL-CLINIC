@@ -128,7 +128,7 @@
         <div class="book-field {% if form.pet_breed.errors %}has-error{% endif %}">
           <div class="book-field-icon"><i class='bx bx-category'></i></div>
           {{ form.pet_breed }}
-          <label for="{{ form.pet_breed.id_for_label }}">Breed *</label>
+          <label for="{{ form.pet_breed.id_for_label }}">Breed</label>
           {% if form.pet_breed.errors %}<span class="book-field-error">{{ form.pet_breed.errors.0 }}</span>{% endif %}
         </div>
         <div class="book-field">

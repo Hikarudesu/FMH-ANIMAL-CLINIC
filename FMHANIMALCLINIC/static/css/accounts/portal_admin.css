@@ -5812,6 +5812,11 @@ textarea.form-control {
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
   box-sizing: border-box;
 }
+
+.qc-group input[name="appointment_date"]::placeholder {
+  color: var(--text-3);
+  opacity: 1;
+}
 .qc-group input:not([type="checkbox"]):not([type="radio"]):focus, .qc-group select:focus, .qc-group textarea:focus, .qc-input:focus {
   outline: none;
   background: var(--surface);

@@ -124,7 +124,7 @@
               {{ form.pet_species }}
             </div>
             <div class="form-group-book">
-              <label for="{{ form.pet_breed.id_for_label }}">Breed *</label>
+              <label for="{{ form.pet_breed.id_for_label }}">Breed</label>
               {{ form.pet_breed }}
             </div>
             <div class="form-group-book">
@@ -202,6 +202,7 @@
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <style>
+  input[name="appointment_date"]::placeholder { color: #8f96ad; opacity: 1; }
   .flatpickr-day { position: relative; padding-bottom: 5px; }
   .schedule-day-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
   .flatpickr-day .schedule-day-dot { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); }
