@@ -109,6 +109,23 @@ class AIDiagnosis(models.Model):
     def __str__(self):
         return f"{self.pet.name} - {self.primary_condition} ({self.created_at.date()})"
 
+    @property
+    def has_insufficient_data(self):
+        """Return True when the AI could not provide a reliable diagnosis."""
+        text = ' '.join((
+            self.primary_condition or '',
+            self.primary_reasoning or '',
+            self.summary or '',
+        )).casefold()
+        return any(phrase in text for phrase in (
+            'unable to determine',
+            'unable to provide',
+            'insufficient data',
+            'not enough data',
+            'could not provide',
+            'could not determine',
+        ))
+
     def get_all_conditions(self):
         """Return all selectable conditions (primary + differentials)."""
         conditions = [
