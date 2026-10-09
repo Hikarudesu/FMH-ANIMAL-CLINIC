@@ -37,6 +37,17 @@
   <form method="POST" id="bookingForm" class="book-form">
     {% csrf_token %}
 
+    <div class="book-guide">
+      <div class="book-guide-icon"><i class='bx bx-notepad'></i></div>
+      <div class="book-guide-copy">
+        <strong>Book your pet's visit in 3 simple steps</strong>
+        <span>Complete the details below. Fields marked with <b>*</b> are required.</span>
+      </div>
+      <div class="book-progress" aria-label="Booking steps">
+        <span class="active">1</span><i></i><span>2</span><i></i><span>3</span>
+      </div>
+    </div>
+
     {% if form.non_field_errors %}
     <div class="book-form-error">
       {% for error in form.non_field_errors %}
@@ -50,6 +61,7 @@
       <div class="book-section-head">
         <div class="book-section-icon"><i class='bx bx-user'></i></div>
         <div>
+          <span class="book-section-kicker">Step 1 of 3</span>
           <h3>Owner Details</h3>
           <p>Tell us about yourself</p>
         </div>
@@ -87,6 +99,7 @@
         <div class="book-section-head full-width">
           <div class="book-section-icon"><i class='bx bxs-dog'></i></div>
           <div>
+            <span class="book-section-kicker">Step 2 of 3</span>
             <h3>Pet Details</h3>
             <p>Tell us about your pet</p>
           </div>
@@ -171,12 +184,13 @@
       <div class="book-section-head">
         <div class="book-section-icon"><i class='bx bx-calendar'></i></div>
         <div>
+          <span class="book-section-kicker">Step 3 of 3</span>
           <h3>Schedule</h3>
           <p>Choose when and where to visit</p>
         </div>
       </div>
 
-      <div class="book-grid">
+      <div class="book-grid schedule-grid">
         <div class="book-field-wrap">
           <div class="book-field {% if form.branch.errors %}has-error{% endif %}">
             <div class="book-field-icon"><i class='bx bx-building-house'></i></div>
