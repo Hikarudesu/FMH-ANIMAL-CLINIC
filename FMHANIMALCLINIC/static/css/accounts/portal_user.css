@@ -4941,6 +4941,59 @@ textarea:focus {
   padding: 28px 32px 32px;
 }
 
+/* Booking form guidance and progression */
+.book-form-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 30px;
+  background: linear-gradient(135deg, rgba(0, 150, 136, 0.08), rgba(0, 150, 136, 0.02));
+  border: 1px solid rgba(0, 150, 136, 0.14);
+  border-radius: 14px;
+  color: var(--text-1);
+}
+.book-form-intro-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1.1rem;
+}
+.book-form-intro strong,
+.book-form-intro span {
+  display: block;
+}
+.book-form-intro strong {
+  font-size: 0.84rem;
+  margin-bottom: 2px;
+}
+.book-form-intro span {
+  color: var(--text-3);
+  font-size: 0.74rem;
+}
+.book-form-intro b {
+  color: var(--accent);
+}
+.book-form-secure {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.book-form-secure i {
+  font-size: 1rem;
+}
+
 /* Form error */
 .book-form-error {
   background: #fef2f2;
@@ -4991,6 +5044,16 @@ textarea:focus {
   color: var(--text-1);
   margin: 0 0 2px;
 }
+.book-step {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--primary);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
 .book-section-head p {
   font-size: 0.8rem;
   color: var(--text-3);
@@ -5002,6 +5065,10 @@ textarea:focus {
   height: 1px;
   background: var(--border);
   margin: 24px 0;
+}
+
+.book-section + .book-section {
+  padding-top: 2px;
 }
 
 /* ── Grid ── */
@@ -5169,6 +5236,13 @@ textarea.book-input {
   border-top: 1px solid var(--border);
   margin-top: 28px;
 }
+.book-actions::before {
+  content: 'Review your details before submitting';
+  margin-right: auto;
+  color: var(--text-3);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
 .book-submit-btn {
   display: inline-flex;
   align-items: center;
@@ -5217,6 +5291,33 @@ textarea.book-input {
 }
 .book-cancel-btn:active {
   transform: scale(0.98);
+}
+
+@media (max-width: 640px) {
+  .book-form {
+    padding: 22px 18px 24px;
+  }
+  .book-form-intro {
+    align-items: flex-start;
+    padding: 12px;
+    margin-bottom: 24px;
+  }
+  .book-form-secure {
+    display: none;
+  }
+  .book-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .book-actions::before {
+    margin: 0 0 4px;
+    text-align: center;
+  }
+  .book-submit-btn,
+  .book-cancel-btn {
+    justify-content: center;
+    width: 100%;
+  }
 }
 
 /* ---------- Time Slots Grid ---------- */

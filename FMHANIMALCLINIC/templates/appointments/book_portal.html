@@ -37,6 +37,15 @@
   <form method="POST" id="bookingForm" class="book-form">
     {% csrf_token %}
 
+    <div class="book-form-intro">
+      <div class="book-form-intro-icon"><i class='bx bx-notepad'></i></div>
+      <div>
+        <strong>Complete your booking details</strong>
+        <span>Fields marked with <b>*</b> are required.</span>
+      </div>
+      <div class="book-form-secure"><i class='bx bx-check-shield'></i> Secure booking</div>
+    </div>
+
     {% if form.non_field_errors %}
     <div class="book-form-error">
       {% for error in form.non_field_errors %}
@@ -50,6 +59,7 @@
       <div class="book-section-head">
         <div class="book-section-icon"><i class='bx bx-user'></i></div>
         <div>
+          <span class="book-step">Step 1</span>
           <h3>Owner Details</h3>
           <p>Tell us about yourself</p>
         </div>
@@ -87,6 +97,7 @@
         <div class="book-section-head full-width">
           <div class="book-section-icon"><i class='bx bxs-dog'></i></div>
           <div>
+            <span class="book-step">Step 2</span>
             <h3>Pet Details</h3>
             <p>Tell us about your pet</p>
           </div>
@@ -171,6 +182,7 @@
       <div class="book-section-head">
         <div class="book-section-icon"><i class='bx bx-calendar'></i></div>
         <div>
+          <span class="book-step">Step 3</span>
           <h3>Schedule</h3>
           <p>Choose when and where to visit</p>
         </div>
