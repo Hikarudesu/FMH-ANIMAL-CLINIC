@@ -8,9 +8,11 @@ from calendar import monthrange
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Avg, F, Q, DecimalField, ExpressionWrapper, Value
-from django.db.models.functions import TruncDate, ExtractHour, Round
+from django.db.models.functions import TruncDate, TruncMonth, ExtractHour, Round
 from django.utils import timezone
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET
 
 from accounts.decorators import module_permission_required
 from accounts.models import User
@@ -225,6 +227,136 @@ def analytics_dashboard(request):
         'months_data': json.dumps(months_data),
     }
     return render(request, 'reports/analytics_dashboard.html', context)
+
+
+@login_required
+@module_permission_required('reports', 'VIEW')
+@require_GET
+@never_cache
+def analytics_live_data(request):
+    """Return fresh sales metrics for the analytics dashboard poller."""
+    today = timezone.localdate()
+    period = request.GET.get('period', 'monthly')
+    if period == 'daily':
+        date_from = date_to = today
+    elif period == 'weekly':
+        date_from = today - timedelta(days=today.weekday())
+        date_to = date_from + timedelta(days=6)
+    else:
+        period = 'monthly'
+        date_from = today.replace(day=1)
+        date_to = today.replace(day=monthrange(today.year, today.month)[1])
+
+    branch = request.user.branch
+    branch_restricted = request.user.is_module_branch_restricted('reports')
+    filter_branch = None
+    branch_id = request.GET.get('branch', '')
+    if branch_restricted:
+        filter_branch = branch
+    elif branch_id:
+        try:
+            filter_branch = Branch.objects.get(id=branch_id, is_active=True)
+        except (Branch.DoesNotExist, ValueError):
+            filter_branch = None
+    branch_scope_empty = branch_restricted and filter_branch is None
+
+    def apply_branch_filter(queryset, field='branch'):
+        if branch_scope_empty:
+            return queryset.none()
+        if filter_branch:
+            return queryset.filter(**{field: filter_branch})
+        return queryset
+
+    sales = Sale.objects.filter(
+        status__in=[Sale.Status.COMPLETED, Sale.Status.REFUNDED],
+        created_at__date__gte=date_from,
+        created_at__date__lte=date_to,
+    )
+    sales = apply_branch_filter(sales)
+    discount_expression = Round(
+        ExpressionWrapper(
+            F('subtotal') * F('discount_percent') / Value(Decimal('100')),
+            output_field=DecimalField(max_digits=16, decimal_places=4),
+        ),
+        precision=2,
+    )
+    sales_totals = sales.aggregate(
+        gross=Sum('subtotal'),
+        net=Sum('total'),
+        discounts=Sum(discount_expression),
+        transactions=Count('id'),
+    )
+
+    refunds = Refund.objects.filter(
+        status=Refund.Status.COMPLETED,
+        created_at__date__gte=date_from,
+        created_at__date__lte=date_to,
+    )
+    refunds = apply_branch_filter(refunds, 'sale__branch')
+    refund_total = refunds.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    gross_sales = sales_totals['gross'] or Decimal('0')
+    net_sales = (sales_totals['net'] or Decimal('0')) - refund_total
+    transaction_count = sales_totals['transactions'] or 0
+
+    month_start = today.replace(day=1)
+    for _ in range(11):
+        month_start = (month_start - timedelta(days=1)).replace(day=1)
+
+    chart_sales = Sale.objects.filter(
+        status__in=[Sale.Status.COMPLETED, Sale.Status.REFUNDED],
+        created_at__date__gte=month_start,
+        created_at__date__lte=today,
+    )
+    chart_sales = apply_branch_filter(chart_sales)
+    chart_sales = chart_sales.annotate(
+        month=TruncMonth('created_at')
+    ).values('month').annotate(
+        gross=Sum('subtotal'),
+        net=Sum('total'),
+    )
+
+    chart_refunds = Refund.objects.filter(
+        status=Refund.Status.COMPLETED,
+        created_at__date__gte=month_start,
+        created_at__date__lte=today,
+    )
+    chart_refunds = apply_branch_filter(chart_refunds, 'sale__branch')
+    chart_refunds = chart_refunds.annotate(
+        month=TruncMonth('created_at')
+    ).values('month').annotate(total=Sum('amount'))
+
+    sales_by_month = {
+        (row['month'].year, row['month'].month): row for row in chart_sales
+    }
+    refunds_by_month = {
+        (row['month'].year, row['month'].month): row['total'] or Decimal('0')
+        for row in chart_refunds
+    }
+    months = []
+    cursor = month_start
+    while cursor <= today.replace(day=1):
+        key = (cursor.year, cursor.month)
+        monthly = sales_by_month.get(key, {})
+        months.append({
+            'month': cursor.strftime('%b'),
+            'year': cursor.year,
+            'gross': float(monthly.get('gross') or 0),
+            'net': float(
+                (monthly.get('net') or Decimal('0')) - refunds_by_month.get(key, Decimal('0'))
+            ),
+        })
+        cursor = (cursor.replace(day=monthrange(cursor.year, cursor.month)[1])
+                  + timedelta(days=1)).replace(day=1)
+
+    return JsonResponse({
+        'gross_sales': float(gross_sales),
+        'net_sales': float(net_sales),
+        'total_discount': float(sales_totals['discounts'] or Decimal('0')),
+        'transaction_count': transaction_count,
+        'avg_transaction': float(net_sales) / transaction_count if transaction_count else 0,
+        'months': months,
+        'updated_at': timezone.now().isoformat(),
+    })
 
 
 # =============================================================================

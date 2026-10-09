@@ -8,6 +8,7 @@ app_name = 'reports'
 urlpatterns = [
     # Main Analytics Dashboard
     path('analytics/', views.analytics_dashboard, name='analytics_dashboard'),
+    path('analytics/live-data/', views.analytics_live_data, name='analytics_live_data'),
 
     # Excel Exports
     path('export/analytics/', views.export_analytics_excel, name='export_analytics_excel'),

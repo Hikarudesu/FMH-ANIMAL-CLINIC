@@ -80,3 +80,36 @@ class AnalyticsDashboardTests(TestCase):
         self.assertEqual(response.context['transaction_count'], 1)
         self.assertEqual(response.context['new_clients'], 1)
         self.assertEqual(response.context['returning_clients'], 0)
+
+    def test_live_analytics_includes_sale_immediately_after_completion(self):
+        sale = Sale.objects.create(
+            branch=self.branch_a,
+            subtotal=Decimal('125.00'),
+            discount_percent=Decimal('10.00'),
+            total=Decimal('112.50'),
+            status=Sale.Status.PENDING,
+        )
+        url = reverse('reports:analytics_live_data')
+        query = {'period': 'daily', 'branch': str(self.branch_a.pk)}
+
+        before_completion = self.client.get(url, query)
+        self.assertEqual(before_completion.status_code, 200)
+        self.assertEqual(before_completion.json()['transaction_count'], 0)
+
+        sale.complete_sale()
+
+        after_completion = self.client.get(url, query)
+        self.assertEqual(after_completion.status_code, 200)
+        self.assertEqual(after_completion['Cache-Control'], 'max-age=0, no-cache, no-store, must-revalidate, private')
+        self.assertEqual(after_completion.json()['transaction_count'], 1)
+        self.assertEqual(after_completion.json()['gross_sales'], 125.0)
+        self.assertEqual(after_completion.json()['net_sales'], 112.5)
+        self.assertEqual(after_completion.json()['total_discount'], 12.5)
+        current_month = timezone.localdate()
+        month_data = next(
+            month for month in after_completion.json()['months']
+            if month['month'] == current_month.strftime('%b')
+            and month['year'] == current_month.year
+        )
+        self.assertEqual(month_data['gross'], 125.0)
+        self.assertEqual(month_data['net'], 112.5)
