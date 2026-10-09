@@ -1,0 +1,151 @@
+/* Final portal theme layer. Loaded after page-specific portal styles. */
+
+body.admin-portal,
+body.user-portal {
+  color-scheme: light;
+}
+
+body.admin-portal[data-theme="dark"],
+body.user-portal[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --control-bg: #101827;
+  --control-border: #334155;
+  --control-text: #e2e8f0;
+}
+
+body.admin-portal:not([data-theme="dark"]),
+body.user-portal:not([data-theme="dark"]) {
+  --surface-hover: rgba(15, 23, 42, 0.04);
+  --control-bg: #ffffff;
+  --control-border: #cbd5e1;
+  --control-text: #1e293b;
+}
+
+/* Native controls retain the active theme on mobile and tablet browsers. */
+body.admin-portal select,
+body.admin-portal option,
+body.admin-portal input,
+body.admin-portal textarea,
+body.user-portal select,
+body.user-portal option,
+body.user-portal input,
+body.user-portal textarea {
+  color: var(--control-text);
+  background-color: var(--control-bg);
+  border-color: var(--control-border);
+}
+
+body.admin-portal[data-theme="dark"] select,
+body.admin-portal[data-theme="dark"] option,
+body.admin-portal[data-theme="dark"] input,
+body.admin-portal[data-theme="dark"] textarea,
+body.user-portal[data-theme="dark"] select,
+body.user-portal[data-theme="dark"] option,
+body.user-portal[data-theme="dark"] input,
+body.user-portal[data-theme="dark"] textarea {
+  color-scheme: dark;
+}
+
+body.admin-portal[data-theme="dark"] input::placeholder,
+body.admin-portal[data-theme="dark"] textarea::placeholder,
+body.user-portal[data-theme="dark"] input::placeholder,
+body.user-portal[data-theme="dark"] textarea::placeholder {
+  color: var(--text-3);
+}
+
+/* Shared surfaces that were previously hard-coded white or black. */
+body.admin-portal[data-theme="dark"] .dashboard-card,
+body.admin-portal[data-theme="dark"] .detail-card,
+body.admin-portal[data-theme="dark"] .calendar-card,
+body.admin-portal[data-theme="dark"] .filter-bar,
+body.admin-portal[data-theme="dark"] .c-filter-bar,
+body.admin-portal[data-theme="dark"] .c-tab-bar,
+body.admin-portal[data-theme="dark"] .modal-content,
+body.admin-portal[data-theme="dark"] .topbar-dropdown,
+body.admin-portal[data-theme="dark"] .notif-dropdown,
+body.admin-portal[data-theme="dark"] .sd-dropdown,
+body.user-portal[data-theme="dark"] .dashboard-card,
+body.user-portal[data-theme="dark"] .detail-card,
+body.user-portal[data-theme="dark"] .calendar-card,
+body.user-portal[data-theme="dark"] .filter-bar,
+body.user-portal[data-theme="dark"] .c-filter-bar,
+body.user-portal[data-theme="dark"] .c-tab-bar,
+body.user-portal[data-theme="dark"] .modal-content,
+body.user-portal[data-theme="dark"] .topbar-dropdown,
+body.user-portal[data-theme="dark"] .notif-dropdown,
+body.user-portal[data-theme="dark"] .sd-dropdown {
+  background-color: var(--surface) !important;
+  color: var(--text-1);
+  border-color: var(--border) !important;
+}
+
+body.admin-portal[data-theme="dark"] .c-filter-bar__search,
+body.admin-portal[data-theme="dark"] .c-filter-dropdown__trigger,
+body.admin-portal[data-theme="dark"] .sd-search,
+body.user-portal[data-theme="dark"] .c-filter-bar__search,
+body.user-portal[data-theme="dark"] .c-filter-dropdown__trigger,
+body.user-portal[data-theme="dark"] .sd-search {
+  background-color: var(--control-bg) !important;
+  color: var(--control-text) !important;
+  border-color: var(--control-border) !important;
+}
+
+body.admin-portal[data-theme="dark"] .notif-item:hover,
+body.user-portal[data-theme="dark"] .notif-item:hover,
+body.admin-portal[data-theme="dark"] .dropdown-item:hover,
+body.user-portal[data-theme="dark"] .dropdown-item:hover,
+body.admin-portal[data-theme="dark"] .search-dropdown-item:hover,
+body.user-portal[data-theme="dark"] .search-dropdown-item:hover {
+  background-color: var(--surface-hover) !important;
+  color: var(--text-1);
+}
+
+body.admin-portal[data-theme="dark"] .pet-manual-toggle-wrapper,
+body.user-portal[data-theme="dark"] .pet-manual-toggle-wrapper,
+body.admin-portal[data-theme="dark"] .toggle-icon-circle,
+body.user-portal[data-theme="dark"] .toggle-icon-circle {
+  background: var(--surface-light) !important;
+  border-color: var(--border) !important;
+  color: var(--text-1) !important;
+}
+
+body.admin-portal[data-theme="dark"] .toggle-main-text,
+body.user-portal[data-theme="dark"] .toggle-main-text {
+  color: var(--text-1) !important;
+}
+
+body.admin-portal[data-theme="dark"] .toggle-sub-text,
+body.user-portal[data-theme="dark"] .toggle-sub-text {
+  color: var(--text-3) !important;
+}
+
+/* Keep white text only on controls whose background is intentionally colored. */
+body.admin-portal[data-theme="dark"] .c-tab-btn.active,
+body.user-portal[data-theme="dark"] .c-tab-btn.active,
+body.admin-portal[data-theme="dark"] .btn-primary,
+body.user-portal[data-theme="dark"] .btn-primary {
+  color: #ffffff !important;
+}
+
+/* Small screens often expose native select menus and card overrides most clearly. */
+@media (max-width: 1024px) {
+  body.admin-portal[data-theme="dark"] .filter-select,
+  body.user-portal[data-theme="dark"] .filter-select,
+  body.admin-portal[data-theme="dark"] .form-control,
+  body.user-portal[data-theme="dark"] .form-control {
+    background-color: var(--control-bg) !important;
+    color: var(--control-text) !important;
+    border-color: var(--control-border) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  body.admin-portal[data-theme="dark"] .topbar-dropdown,
+  body.admin-portal[data-theme="dark"] .notif-dropdown,
+  body.user-portal[data-theme="dark"] .topbar-dropdown,
+  body.user-portal[data-theme="dark"] .notif-dropdown {
+    background-color: var(--surface) !important;
+    box-shadow: var(--shadow-lg) !important;
+  }
+}
