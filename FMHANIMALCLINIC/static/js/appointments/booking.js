@@ -55,7 +55,7 @@ function initScheduleDropdowns() {
    };
 
    menu.addEventListener("click", (event) => {
-     const option = event.target.closest(".book-custom-select__option");
+     const option = event.target.closest("button.book-custom-select__option");
      if (!option || option.disabled) return;
 
      select.value = option.dataset.value || "";
@@ -66,8 +66,8 @@ function initScheduleDropdowns() {
    select.addEventListener("change", scheduleRender);
    const observer = new MutationObserver(scheduleRender);
    observer.observe(select, { childList: true });
-   wrapper.addEventListener("click", (event) => {
-     if (event.target.closest(".book-custom-select__option")) return;
+   trigger.addEventListener("click", (event) => {
+     event.preventDefault();
      document.querySelectorAll(".book-custom-select.is-open").forEach((open) => {
        if (open !== wrapper) open.classList.remove("is-open");
      });
