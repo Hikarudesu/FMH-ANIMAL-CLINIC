@@ -310,9 +310,8 @@ def delete_all_notifications(request):
 
 
 @login_required
-@module_permission_required('notifications', 'VIEW')
 def admin_notification_list(request):
-    """List all notifications for the current admin user."""
+    """List all notifications for the current staff user's account."""
     notifications = Notification.scoped_for_user(request.user).order_by('-created_at')
     unread_count = notifications.filter(is_read=False).count()
 

@@ -1,0 +1,44 @@
+<a href="{% url 'notifications:open_notification' notif.pk %}" class="notif-item" style="text-decoration: none; color: inherit;">
+  <div class="notif-icon">
+    {% if notif.notification_type == 'APPOINTMENT' %}
+    <i class="bx bx-calendar-event" style="color: var(--primary)"></i>
+    {% elif notif.notification_type == 'LOW_INVENTORY' %}
+    <i class="bx bx-error" style="color: var(--danger)"></i>
+    {% elif notif.notification_type == 'INVENTORY_RESTOCK' %}
+    <i class="bx bx-check-shield" style="color: var(--success)"></i>
+    {% elif notif.notification_type == 'FOLLOW_UP' %}
+    <i class="bx bx-plus-medical" style="color: var(--warning)"></i>
+    {% elif notif.notification_type == 'INQUIRY_NEW' %}
+    <i class="bx bx-message-square-detail" style="color: var(--primary)"></i>
+    {% elif notif.notification_type == 'INQUIRY_RESPONDED' %}
+    <i class="bx bx-reply" style="color: var(--success)"></i>
+    {% elif notif.notification_type == 'INQUIRY_ARCHIVED' %}
+    <i class="bx bx-archive" style="color: var(--text-3)"></i>
+    {% elif notif.notification_type == 'STATEMENT_RELEASED' %}
+    <i class="bx bx-receipt" style="color: var(--primary)"></i>
+    {% elif notif.notification_type == 'MEDICAL_RECORD_UPDATE' %}
+    <i class="bx bx-file" style="color: var(--primary)"></i>
+    {% elif notif.notification_type == 'STOCK_TRANSFER_REQUESTED' %}
+    <i class="bx bx-transfer" style="color: var(--primary)"></i>
+    {% elif notif.notification_type == 'STOCK_TRANSFER_APPROVED' %}
+    <i class="bx bx-check-circle" style="color: var(--success)"></i>
+    {% elif notif.notification_type == 'STOCK_TRANSFER_REJECTED' %}
+    <i class="bx bx-x-circle" style="color: var(--danger)"></i>
+    {% elif notif.notification_type == 'STOCK_TRANSFER_COMPLETED' %}
+    <i class="bx bx-package" style="color: var(--primary)"></i>
+    {% elif notif.notification_type == 'PAYROLL_GENERATED' %}
+    <i class="bx bx-money" style="color: var(--warning)"></i>
+    {% elif notif.notification_type == 'PAYROLL_RELEASED' %}
+    <i class="bx bx-wallet" style="color: var(--success)"></i>
+    {% else %}
+    <i class="bx bx-info-circle"></i>
+    {% endif %}
+  </div>
+  <div class="notif-content">
+    <div class="notif-title-row">
+      <span class="notif-title">{{ notif.title }}</span>
+      <span class="notif-time">{{ notif.created_at|timesince }} ago</span>
+    </div>
+    <span class="notif-msg">{{ notif.message|truncatechars:50 }}</span>
+  </div>
+</a>

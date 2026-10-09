@@ -78,18 +78,7 @@
           <div class="notif-list">
             {% if recent_notifications %}
               {% for notif in recent_notifications %}
-              <a href="{% url 'notifications:open_notification' notif.pk %}" class="notif-item" style="text-decoration: none; color: inherit;">
-                <div class="notif-icon">
-                  <i class='bx bx-info-circle'></i>
-                </div>
-                <div class="notif-content">
-                  <div class="notif-title-row">
-                    <span class="notif-title">{{ notif.title }}</span>
-                    <span class="notif-time">{{ notif.created_at|timesince }} ago</span>
-                  </div>
-                  <span class="notif-msg">{{ notif.message|truncatechars:50 }}</span>
-                </div>
-              </a>
+              {% include "components/notification_item.html" with notif=notif %}
               {% endfor %}
             {% else %}
               <div class="notif-empty">No unread notifications</div>
