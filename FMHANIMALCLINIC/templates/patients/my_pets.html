@@ -730,14 +730,14 @@ border-color: var(--primary);
          data-breed="{{ pet.breed|default:'' }}"
          style="animation-delay: {{ forloop.counter0|add:1|stringformat:"d"|add:"00" }}ms;">
       <div class="card-top-accent">
-        {% if pet.has_missing_details or pet.status and pet.status != "HEALTHY" %}
+        {% if pet.has_missing_details or pet.status %}
           <div class="premium-status-badges">
             {% if pet.has_missing_details %}
               <div class="premium-status-badge" style="background: rgba(255, 152, 0, 0.95); color: #e65100;">
                 <i class='bx bx-info-circle'></i> Incomplete Profile
               </div>
             {% endif %}
-            {% if pet.status and pet.status != "HEALTHY" %}
+            {% if pet.status %}
               <div class="premium-status-badge {{ pet.status|lower }}">
                 <i class='bx {% if pet.status == "SURGERY" %}bx-plus-medical{% elif pet.status == "MONITOR" %}bx-show{% elif pet.status == "CRITICAL" %}bx-error{% elif pet.status == "DIAGNOSTICS" %}bx-test-tube{% elif pet.status == "TREATMENT" %}bx-capsule{% else %}bx-heart{% endif %}'></i>
                 {{ pet.get_status_display|truncatewords:2 }}

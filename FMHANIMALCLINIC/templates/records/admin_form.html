@@ -6,10 +6,10 @@
 <!-- Page Hero -->
 {% if from_patients and selected_pet %}
     {% url 'patients:admin_detail' selected_pet.id as back_url %}
-    {% include "components/page_hero.html" with title="Add Visit Entry" subtitle="Adds a new visit entry to the pet's existing record card (or creates a new card if none exists)." icon="bxs-file-doc" action_url=back_url action_label="Back to Patient" action_icon="bx-arrow-back" %}
+    {% include "components/page_hero.html" with title="Create Medical Record" subtitle="Create a medical record and add the pet's first visit entry." icon="bxs-file-doc" action_url=back_url action_label="Back to Patient" action_icon="bx-arrow-back" %}
 {% else %}
     {% url 'records:admin_list' as back_url %}
-    {% include "components/page_hero.html" with title="Add Visit Entry" subtitle="Adds a new visit entry to the pet's existing record card (or creates a new card if none exists)." icon="bxs-file-doc" action_url=back_url action_label="Back to List" action_icon="bx-arrow-back" %}
+    {% include "components/page_hero.html" with title="Create Medical Record" subtitle="Create a medical record and add the pet's first visit entry." icon="bxs-file-doc" action_url=back_url action_label="Back to List" action_icon="bx-arrow-back" %}
 {% endif %}
 
 <div class="dashboard-card" style="padding: 32px; max-width: 900px; margin: 0 auto; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);">
