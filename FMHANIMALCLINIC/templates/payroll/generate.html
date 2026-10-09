@@ -28,6 +28,46 @@
   .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
   .badge-exists { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
   .badge-pending { background: rgba(158, 158, 158, 0.15); color: #9E9E9E; }
+  @media (max-width: 720px) {
+    .selector-group { grid-template-columns: 1fr; gap: 12px; }
+    .period-selector { padding: 16px; }
+    .employees-list { overflow: visible; border: 0; background: transparent; }
+    .employees-list table,
+    .employees-list tbody,
+    .employees-list tr,
+    .employees-list td { display: block; width: 100%; }
+    .employees-list thead { display: none; }
+    .employees-list tbody tr {
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-card);
+    }
+    .employees-list td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 38px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      text-align: right;
+    }
+    .employees-list td::before {
+      content: attr(data-label);
+      color: var(--text-3);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    .employees-list td:first-child { text-align: left; }
+    .employees-list td:first-child::before { display: none; }
+    .employees-list td:last-child { border-bottom: 0; }
+    .employees-list td:last-child .action-btn { margin-left: auto; }
+  }
   
   /* Modal Styles */
   .generate-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
@@ -128,7 +168,7 @@
     <tbody>
       {% for emp in employees %}
       <tr>
-        <td>
+        <td data-label="Employee">
           <div style="display: flex; align-items: center; gap: 12px;">
             <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #0097a7); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
               {% if emp.user and emp.user.profile_picture %}
@@ -143,16 +183,16 @@
             </div>
           </div>
         </td>
-        <td>{% if emp.user and emp.user.assigned_role %}{{ emp.user.assigned_role.name }}{% else %}{{ emp.get_position_display|default:"-" }}{% endif %}</td>
-        <td style="font-weight: 600;">₱{{ emp.salary|peso }}</td>
-        <td>
+        <td data-label="Position">{% if emp.user and emp.user.assigned_role %}{{ emp.user.assigned_role.name }}{% else %}{{ emp.get_position_display|default:"-" }}{% endif %}</td>
+        <td data-label="Base Salary" style="font-weight: 600;">₱{{ emp.salary|peso }}</td>
+        <td data-label="Status">
           {% if emp.id in existing_payslips.keys %}
           <span class="badge badge-exists"><i class='bx bx-check'></i> Has Payslip</span>
           {% else %}
           <span class="badge badge-pending">Pending</span>
           {% endif %}
         </td>
-        <td>
+        <td data-label="Actions">
           {% for payslip in existing_payslip_records %}
           {% if payslip.employee_id == emp.id %}
           <a href="{% url 'payroll:payslip_edit' payslip.id %}?branch={% if all_branches %}ALL{% else %}{{ selected_branch.id }}{% endif %}" class="action-btn" title="Edit Payslip"><i class='bx bx-pencil'></i></a>
