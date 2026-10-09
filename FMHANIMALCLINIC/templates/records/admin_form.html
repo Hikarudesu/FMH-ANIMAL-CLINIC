@@ -590,8 +590,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.checked) {
                 // Show manual input, hide dropdown
                 walkinSelect.style.display = 'none';
+                walkinSelect.disabled = true;
                 walkinSelect.removeAttribute('name');
                 ownerNameWalkin.style.display = '';
+                ownerNameWalkin.disabled = false;
                 ownerNameWalkin.setAttribute('name', 'owner_name');
                 ownerNameWalkin.required = true;
                 ownerNameWalkin.value = '';
@@ -601,8 +603,10 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Show dropdown
                 walkinSelect.style.display = '';
+                walkinSelect.disabled = false;
                 walkinSelect.setAttribute('name', 'owner_name');
                 ownerNameWalkin.style.display = 'none';
+                ownerNameWalkin.disabled = true;
                 ownerNameWalkin.removeAttribute('name');
                 ownerNameWalkin.required = false;
                 walkinSelect.value = '';
@@ -689,7 +693,10 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerWalkinGroup.style.display = 'none';
             ownerWalkinToggleGroup.style.display = 'none';
             ownerSelect.required = true;
+            ownerSelect.disabled = false;
             walkinSelect.required = false;
+            walkinSelect.disabled = true;
+            ownerNameWalkin.disabled = true;
             ownerNameWalkin.removeAttribute('name');
             ownerNameHidden.setAttribute('name', 'owner_name');
             selectedUserIdField.setAttribute('name', 'selected_user_id');
@@ -700,6 +707,11 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             ownerPortalGroup.style.display = 'none';
             ownerWalkinGroup.style.display = '';
+            ownerSelect.required = false;
+            ownerSelect.disabled = true;
+            ownerNameHidden.removeAttribute('name');
+            selectedUserIdField.removeAttribute('name');
+            selectedUserIdField.value = '';
             
             // Show toggle if there are existing walkin guests, else just show manual input
             if (walkinSelect.options.length > 1) {
@@ -708,23 +720,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     walkinSelect.style.display = '';
                     ownerNameWalkin.style.display = 'none';
                     walkinSelect.required = true;
+                    walkinSelect.disabled = false;
                     ownerNameWalkin.required = false;
+                    ownerNameWalkin.disabled = true;
                     ownerNameWalkin.removeAttribute('name');
                     walkinSelect.setAttribute('name', 'owner_name');
                 } else {
                     walkinSelect.style.display = 'none';
                     ownerNameWalkin.style.display = '';
                     walkinSelect.required = false;
+                    walkinSelect.disabled = true;
                     ownerNameWalkin.required = true;
+                    ownerNameWalkin.disabled = false;
                     ownerNameWalkin.setAttribute('name', 'owner_name');
                     walkinSelect.removeAttribute('name');
                 }
             } else {
                 ownerWalkinToggleGroup.style.display = 'none';
                 walkinSelect.style.display = 'none';
+                walkinSelect.disabled = true;
                 ownerNameWalkin.style.display = '';
                 walkinSelect.required = false;
                 ownerNameWalkin.required = true;
+                ownerNameWalkin.disabled = false;
                 ownerNameWalkin.setAttribute('name', 'owner_name');
             }
 
