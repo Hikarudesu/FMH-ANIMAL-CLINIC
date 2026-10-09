@@ -29,6 +29,7 @@ function initScheduleDropdowns() {
    menu.setAttribute("role", "listbox");
    wrapper.appendChild(menu);
 
+   let renderFrame = null;
    const render = () => {
      trigger.textContent = select.selectedOptions[0]?.textContent || "";
      trigger.setAttribute("aria-label", select.getAttribute("aria-label") || "Select an option");
@@ -39,22 +40,32 @@ function initScheduleDropdowns() {
        item.className = "book-custom-select__option";
        item.textContent = option.textContent;
        item.disabled = option.disabled;
+       item.dataset.value = option.value;
        item.setAttribute("role", "option");
        item.classList.toggle("is-selected", option.selected);
-       item.addEventListener("click", () => {
-         select.value = option.value;
-         select.dispatchEvent(new Event("change", { bubbles: true }));
-         wrapper.classList.remove("is-open");
-         trigger.setAttribute("aria-expanded", "false");
-         render();
-       });
        menu.appendChild(item);
      });
    };
+   const scheduleRender = () => {
+     if (renderFrame !== null) cancelAnimationFrame(renderFrame);
+     renderFrame = requestAnimationFrame(() => {
+       renderFrame = null;
+       render();
+     });
+   };
 
-   select.addEventListener("change", render);
-   const observer = new MutationObserver(render);
-   observer.observe(select, { childList: true, subtree: true });
+   menu.addEventListener("click", (event) => {
+     const option = event.target.closest(".book-custom-select__option");
+     if (!option || option.disabled) return;
+
+     select.value = option.dataset.value || "";
+     wrapper.classList.remove("is-open");
+     trigger.setAttribute("aria-expanded", "false");
+     select.dispatchEvent(new Event("change", { bubbles: true }));
+   });
+   select.addEventListener("change", scheduleRender);
+   const observer = new MutationObserver(scheduleRender);
+   observer.observe(select, { childList: true });
    wrapper.addEventListener("click", (event) => {
      if (event.target.closest(".book-custom-select__option")) return;
      document.querySelectorAll(".book-custom-select.is-open").forEach((open) => {
