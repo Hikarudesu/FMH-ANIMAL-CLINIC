@@ -207,6 +207,32 @@ def admin_record_create(request):
             owner_contact = request.POST.get('owner_contact', '').strip()
             owner_address = request.POST.get('owner_address', '').strip()
             selected_user_id = request.POST.get('selected_user_id', '').strip()
+            required_values = {
+                'pet_name': request.POST.get('pet_name', '').strip(),
+                'branch': request.POST.get('branch', '').strip(),
+                'pet_species': request.POST.get('pet_species', '').strip(),
+                'pet_sex': request.POST.get('pet_sex', '').strip(),
+                'pet_color': request.POST.get('pet_color', '').strip(),
+            }
+            missing_fields = [
+                label for field, label in (
+                    ('pet_name', 'Name of Pet'),
+                    ('branch', 'Branch / Location'),
+                    ('pet_species', 'Species'),
+                    ('pet_sex', 'Sex'),
+                    ('pet_color', 'Color'),
+                ) if not required_values[field]
+            ]
+            if client_source == 'PORTAL' and not selected_user_id:
+                missing_fields.append('Select Owner')
+            if client_source == 'WALKIN' and not owner_name_str:
+                missing_fields.append('Name of Owner')
+            if missing_fields:
+                entry_form.add_error(
+                    None,
+                    'Please complete the required fields: '
+                    + ', '.join(missing_fields) + '.',
+                )
 
             # Validate phone number using centralized function
             if owner_contact:
@@ -470,6 +496,29 @@ def admin_record_edit(request, pk):
     if request.method == 'POST':
         form = MedicalRecordForm(request.POST, instance=record)
         if form.is_valid():
+            required_values = {
+                'owner_name': request.POST.get('owner_name', '').strip(),
+                'pet_name': request.POST.get('pet_name', '').strip(),
+                'pet_species': request.POST.get('pet_species', '').strip(),
+                'pet_sex': request.POST.get('pet_sex', '').strip(),
+                'pet_color': request.POST.get('pet_color', '').strip(),
+            }
+            missing_fields = [
+                label for field, label in (
+                    ('owner_name', 'Select Owner'),
+                    ('pet_name', 'Name of Pet'),
+                    ('pet_species', 'Species'),
+                    ('pet_sex', 'Sex'),
+                    ('pet_color', 'Color'),
+                ) if not required_values[field]
+            ]
+            if missing_fields:
+                form.add_error(
+                    None,
+                    'Please complete the required fields: '
+                    + ', '.join(missing_fields) + '.',
+                )
+
             # Validate phone number using centralized function
             owner_contact_val = request.POST.get('owner_contact', '').strip()
             if owner_contact_val:
@@ -540,6 +589,9 @@ def admin_record_edit(request, pk):
                     latest_entry.treatment = form.cleaned_data.get('treatment') or ''
                     latest_entry.rx = form.cleaned_data.get('rx') or ''
                     latest_entry.ff_up = form.cleaned_data.get('ff_up')
+                    latest_entry.action_required = form.cleaned_data.get(
+                        'action_required'
+                    )
                     if getattr(updated_record, 'vet', None):
                         latest_entry.vet = updated_record.vet
                     latest_entry.save()
