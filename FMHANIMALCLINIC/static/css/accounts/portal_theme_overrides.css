@@ -54,6 +54,29 @@ body.user-portal[data-theme="dark"] textarea::placeholder {
   color: var(--text-3);
 }
 
+/* Appointment fields use the surrounding field as their visual surface. */
+body.user-portal .book-field .book-input,
+body.user-portal .book-field .book-input:focus {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--text-1) !important;
+  box-shadow: none !important;
+}
+
+body.user-portal .book-field select.book-input option {
+  background-color: var(--surface) !important;
+  color: var(--text-1) !important;
+}
+
+body.user-portal .book-field select.book-input option:checked {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+}
+
+body.user-portal[data-theme="dark"] .book-field select.book-input {
+  color-scheme: dark;
+}
+
 /* Shared surfaces that were previously hard-coded white or black. */
 body.admin-portal[data-theme="dark"] .dashboard-card,
 body.admin-portal[data-theme="dark"] .detail-card,

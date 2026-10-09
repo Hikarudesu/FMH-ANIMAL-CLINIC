@@ -3,7 +3,102 @@
  * Consistent with admin portal scheduling logic
  * Uses dropdown-based time selection populated dynamically
  */
+function initScheduleDropdowns() {
+ const selects = document.querySelectorAll(
+   ".book-schedule-grid select.book-input"
+ );
+ if (!selects.length) return;
+
+ selects.forEach((select) => {
+   if (select.closest(".book-custom-select")) return;
+
+   const wrapper = document.createElement("div");
+   wrapper.className = "book-custom-select";
+   select.parentNode.insertBefore(wrapper, select);
+   wrapper.appendChild(select);
+
+   const trigger = document.createElement("button");
+   trigger.type = "button";
+   trigger.className = "book-custom-select__trigger";
+   trigger.setAttribute("aria-haspopup", "listbox");
+   trigger.setAttribute("aria-expanded", "false");
+   wrapper.appendChild(trigger);
+
+   const menu = document.createElement("div");
+   menu.className = "book-custom-select__menu";
+   menu.setAttribute("role", "listbox");
+   wrapper.appendChild(menu);
+
+   let renderFrame = null;
+   const render = () => {
+     trigger.textContent = select.selectedOptions[0]?.textContent || "";
+     trigger.setAttribute("aria-label", select.getAttribute("aria-label") || "Select an option");
+     menu.replaceChildren();
+     Array.from(select.options).forEach((option) => {
+       const item = document.createElement("button");
+       item.type = "button";
+       item.className = "book-custom-select__option";
+       item.textContent = option.textContent;
+       item.disabled = option.disabled;
+       item.dataset.value = option.value;
+       item.setAttribute("role", "option");
+       item.classList.toggle("is-selected", option.selected);
+       menu.appendChild(item);
+     });
+   };
+   const scheduleRender = () => {
+     if (renderFrame !== null) cancelAnimationFrame(renderFrame);
+     renderFrame = requestAnimationFrame(() => {
+       renderFrame = null;
+       render();
+     });
+   };
+
+   const selectOption = (event) => {
+     const option = event.target.closest("button.book-custom-select__option");
+     if (!option || option.disabled) return;
+
+     event.preventDefault();
+     event.stopPropagation();
+     select.value = option.dataset.value || "";
+     wrapper.classList.remove("is-open");
+     trigger.setAttribute("aria-expanded", "false");
+     select.dispatchEvent(new Event("change", { bubbles: true }));
+   };
+   menu.addEventListener("pointerdown", selectOption);
+   menu.addEventListener("click", (event) => {
+     if (event.target.closest("button.book-custom-select__option")) {
+       event.preventDefault();
+       event.stopPropagation();
+     }
+   });
+   select.addEventListener("change", scheduleRender);
+   const observer = new MutationObserver(scheduleRender);
+   observer.observe(select, { childList: true });
+   trigger.addEventListener("click", (event) => {
+     event.preventDefault();
+     document.querySelectorAll(".book-custom-select.is-open").forEach((open) => {
+       if (open !== wrapper) open.classList.remove("is-open");
+     });
+     const isOpen = wrapper.classList.toggle("is-open");
+     trigger.setAttribute("aria-expanded", String(isOpen));
+   });
+   render();
+ });
+
+ document.addEventListener("click", (event) => {
+   if (!event.target.closest(".book-custom-select")) {
+     document.querySelectorAll(".book-custom-select.is-open").forEach((open) => {
+       open.classList.remove("is-open");
+       open.querySelector(".book-custom-select__trigger")?.setAttribute("aria-expanded", "false");
+     });
+   }
+ });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
+  initScheduleDropdowns();
+
   const branchSelect = document.querySelector('[name="branch"]');
   const dateInput = document.querySelector('[name="appointment_date"]');
   const vetSelect = document.querySelector('[name="preferred_vet"]');
@@ -60,6 +155,7 @@ document.addEventListener("DOMContentLoaded", function () {
         dayElement.appendChild(indicator);
       },
     });
+
   }
 
   function fetchScheduleDays(year, month) {
