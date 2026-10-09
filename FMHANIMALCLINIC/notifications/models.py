@@ -174,6 +174,8 @@ class Notification(models.Model):
             visible_module_codes = set(
                 user.assigned_role.module_permissions.values_list('module__code', flat=True)
             )
+            if user.has_special_permission('can_request_stock_transfer'):
+                visible_module_codes.add(cls.ModuleContext.INVENTORY)
             # Cashiers handle appointment intake and must see appointment
             # notifications even for databases with older role permissions.
             if user.assigned_role.code in ('cashier', 'receptionist'):

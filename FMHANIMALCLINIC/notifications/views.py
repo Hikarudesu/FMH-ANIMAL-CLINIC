@@ -20,7 +20,6 @@ def get_notification_type_to_module_mapping():
     This ensures users only see notification types relevant to their accessible modules.
     
     IMPORTANT NOTES:
-    - STOCK_TRANSFER_* notifications use module_context=INVENTORY but are only sent to superadmins
     - RESERVATION_* notifications are for the reservations module
     """
     return {
@@ -47,12 +46,10 @@ def get_notification_type_to_module_mapping():
         # to the INVENTORY module here to keep filters consistent.
         Notification.NotificationType.PRODUCT_RESERVATION: Notification.ModuleContext.INVENTORY,
         
-        # Stock Transfer notifications are only sent to superadmins, mapped to non-existent module
-        # to prevent them appearing in staff notification filters
-        Notification.NotificationType.STOCK_TRANSFER_REQUESTED: '_superadmin_only',
-        Notification.NotificationType.STOCK_TRANSFER_APPROVED: '_superadmin_only',
-        Notification.NotificationType.STOCK_TRANSFER_REJECTED: '_superadmin_only',
-        Notification.NotificationType.STOCK_TRANSFER_COMPLETED: '_superadmin_only',
+        Notification.NotificationType.STOCK_TRANSFER_REQUESTED: Notification.ModuleContext.INVENTORY,
+        Notification.NotificationType.STOCK_TRANSFER_APPROVED: Notification.ModuleContext.INVENTORY,
+        Notification.NotificationType.STOCK_TRANSFER_REJECTED: Notification.ModuleContext.INVENTORY,
+        Notification.NotificationType.STOCK_TRANSFER_COMPLETED: Notification.ModuleContext.INVENTORY,
         
         # Reservations module - now available for receptionists
         Notification.NotificationType.RESERVATION_APPROVED: Notification.ModuleContext.INVENTORY,

@@ -294,48 +294,89 @@ def notify_stock_transfer_requested(transfer):
     )
 
 
+def _notify_stock_transfer_requester(transfer, *, title, message, notification_type):
+    requester = transfer.requested_by
+    if requester is None or requester.is_superuser:
+        return
+    create_notification(
+        user=requester,
+        title=title,
+        message=message,
+        notification_type=notification_type,
+        module_context=Notification.ModuleContext.INVENTORY,
+        related_object_id=transfer.id,
+    )
+
+
 def notify_stock_transfer_approved(transfer, actor=None):
     """Create a notification when a stock transfer is approved."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    title = 'Stock Transfer Approved'
+    message = (
+        f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
+        f"was approved by {actor_name}."
+    )
+    notification_type = Notification.NotificationType.STOCK_TRANSFER_APPROVED
     _notify_superadmins(
-        title='Stock Transfer Approved',
-        message=(
-            f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
-            f"was approved by {actor_name}."
-        ),
-        notification_type=Notification.NotificationType.STOCK_TRANSFER_APPROVED,
+        title=title,
+        message=message,
+        notification_type=notification_type,
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=transfer.id,
+    )
+    _notify_stock_transfer_requester(
+        transfer,
+        title=title,
+        message=message,
+        notification_type=notification_type,
     )
 
 
 def notify_stock_transfer_rejected(transfer, actor=None):
     """Create a notification when a stock transfer is rejected."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    title = 'Stock Transfer Rejected'
+    message = (
+        f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
+        f"was rejected by {actor_name}."
+    )
+    notification_type = Notification.NotificationType.STOCK_TRANSFER_REJECTED
     _notify_superadmins(
-        title='Stock Transfer Rejected',
-        message=(
-            f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
-            f"was rejected by {actor_name}."
-        ),
-        notification_type=Notification.NotificationType.STOCK_TRANSFER_REJECTED,
+        title=title,
+        message=message,
+        notification_type=notification_type,
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=transfer.id,
+    )
+    _notify_stock_transfer_requester(
+        transfer,
+        title=title,
+        message=message,
+        notification_type=notification_type,
     )
 
 
 def notify_stock_transfer_completed(transfer, actor=None):
     """Create a notification when a stock transfer is completed."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
+    title = 'Stock Transfer Completed'
+    message = (
+        f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
+        f"was completed by {actor_name}."
+    )
+    notification_type = Notification.NotificationType.STOCK_TRANSFER_COMPLETED
     _notify_superadmins(
-        title='Stock Transfer Completed',
-        message=(
-            f"Transfer #{transfer.pk} for {transfer.quantity}x {transfer.source_product.name} "
-            f"was completed by {actor_name}."
-        ),
-        notification_type=Notification.NotificationType.STOCK_TRANSFER_COMPLETED,
+        title=title,
+        message=message,
+        notification_type=notification_type,
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=transfer.id,
+    )
+    _notify_stock_transfer_requester(
+        transfer,
+        title=title,
+        message=message,
+        notification_type=notification_type,
     )
 
 

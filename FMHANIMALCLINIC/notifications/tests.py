@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from accounts.activity_context import reset_current_actor, set_current_actor
 from accounts.models import ActivityLog, User
-from accounts.rbac_models import Role
+from accounts.rbac_models import Role, SpecialPermission
 from appointments.models import Appointment
 from branches.models import Branch
 from employees.models import StaffMember
@@ -24,6 +24,7 @@ from notifications.utils import (
     mark_module_notifications_read,
     notify_follow_up_scheduled,
     notify_inquiry_received,
+    notify_stock_transfer_approved,
 )
 from notifications.views import get_allowed_notification_types_for_user
 
@@ -386,3 +387,45 @@ class NotificationRoutingTests(TestCase):
         self.assertNotIn(Notification.NotificationType.PAYROLL_RELEASED, vet_types)
         self.assertIn(Notification.NotificationType.INQUIRY_NEW, superadmin_types)
         self.assertIn(Notification.NotificationType.PAYROLL_RELEASED, superadmin_types)
+
+    def test_stock_transfer_approval_notifies_requester_and_is_visible(self):
+        transfer_role, _ = Role.objects.get_or_create(
+            code='transfer-requester',
+            defaults={'name': 'Transfer Requester', 'hierarchy_level': 4},
+        )
+        special_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_request_stock_transfer',
+            defaults={
+                'name': 'Request Stock Transfer',
+                'description': 'Can request stock from another branch.',
+            },
+        )
+        transfer_role.special_permissions.get_or_create(permission=special_permission)
+        requester = User.objects.create_user(
+            username='transfer-requester',
+            assigned_role=transfer_role,
+            branch=self.branch,
+        )
+        transfer = SimpleNamespace(
+            pk=23,
+            id=23,
+            quantity=4,
+            source_product=SimpleNamespace(
+                name='Pet Medication', branch=self.branch,
+            ),
+            requested_by=requester,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_stock_transfer_approved(transfer)
+
+        notification = Notification.scoped_for_user(requester).get(
+            related_object_id=transfer.pk,
+            notification_type=Notification.NotificationType.STOCK_TRANSFER_APPROVED,
+        )
+        allowed_types = {
+            code for code, _ in get_allowed_notification_types_for_user(requester)
+        }
+        self.assertIn(Notification.NotificationType.STOCK_TRANSFER_APPROVED, allowed_types)
+        self.assertIn('was approved', notification.message)
+        self.assertFalse(notification.is_read)
