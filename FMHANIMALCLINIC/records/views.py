@@ -210,6 +210,7 @@ def admin_record_create(request):
             required_values = {
                 'pet_name': request.POST.get('pet_name', '').strip(),
                 'branch': request.POST.get('branch', '').strip(),
+                'owner_contact': request.POST.get('owner_contact', '').strip(),
                 'pet_species': request.POST.get('pet_species', '').strip(),
                 'pet_sex': request.POST.get('pet_sex', '').strip(),
                 'pet_color': request.POST.get('pet_color', '').strip(),
@@ -218,6 +219,7 @@ def admin_record_create(request):
                 label for field, label in (
                     ('pet_name', 'Name of Pet'),
                     ('branch', 'Branch / Location'),
+                    ('owner_contact', 'Contact #'),
                     ('pet_species', 'Species'),
                     ('pet_sex', 'Sex'),
                     ('pet_color', 'Color'),
@@ -498,6 +500,7 @@ def admin_record_edit(request, pk):
         if form.is_valid():
             required_values = {
                 'owner_name': request.POST.get('owner_name', '').strip(),
+                'owner_contact': request.POST.get('owner_contact', '').strip(),
                 'pet_name': request.POST.get('pet_name', '').strip(),
                 'pet_species': request.POST.get('pet_species', '').strip(),
                 'pet_sex': request.POST.get('pet_sex', '').strip(),
@@ -506,6 +509,7 @@ def admin_record_edit(request, pk):
             missing_fields = [
                 label for field, label in (
                     ('owner_name', 'Select Owner'),
+                    ('owner_contact', 'Contact #'),
                     ('pet_name', 'Name of Pet'),
                     ('pet_species', 'Species'),
                     ('pet_sex', 'Sex'),
@@ -552,6 +556,8 @@ def admin_record_edit(request, pk):
 
                 # --- Update Pet details if provided ---
                 pet = record.pet
+                if pet.source == Pet.Source.WALKIN:
+                    pet.guest_owner_phone = owner_contact_val
                 if 'pet_color' in request.POST:
                     pet.color = request.POST.get('pet_color')
                 if 'pet_breed' in request.POST:

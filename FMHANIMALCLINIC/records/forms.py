@@ -69,6 +69,8 @@ class MedicalRecordForm(FormControlMixin, forms.ModelForm):
         self.fields['vet'].empty_label = '— Select Vet —'
         self.fields['vet'].required = True
         self.fields['branch'].required = True
+        for field_name in ('date_recorded', 'history_clinical_signs', 'treatment', 'rx'):
+            self.fields[field_name].required = True
 
         action_queryset = ClinicalStatus.objects.filter(is_active=True)
         latest_entry = self.instance.latest_entry if self.instance and self.instance.pk else None
@@ -132,6 +134,8 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
         self.fields['vet'].queryset = vet_queryset
         self.fields['vet'].empty_label = '— Select Vet —'
         self.fields['vet'].required = True
+        for field_name in ('date_recorded', 'history_clinical_signs', 'treatment', 'rx'):
+            self.fields[field_name].required = True
 
         from settings.models import ClinicalStatus
 

@@ -101,11 +101,11 @@
                            value="{% if record.pet.owner %}{{ record.pet.owner.get_full_name }}{% else %}{{ record.pet.guest_owner_name|default:'' }}{% endif %}" required />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Contact #</label>
+                    <label class="form-label">Contact # *</label>
                     <input type="text" id="ro-owner-contact" name="owner_contact" class="form-control-custom"
                            inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11"
                            oninput="this.value=this.value.replace(/\D/g,'')"
-                           value="{% if record.pet.owner %}{{ record.pet.owner.phone_number|default:'' }}{% else %}{{ record.pet.guest_owner_phone|default:'' }}{% endif %}" />
+                           value="{% if record.pet.owner %}{{ record.pet.owner.phone_number|default:'' }}{% else %}{{ record.pet.guest_owner_phone|default:'' }}{% endif %}" required />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Address</label>
@@ -207,7 +207,7 @@
             <h3 class="section-title">Clinical Tracking</h3>
             <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                  <div class="form-group">
-                    <label class="form-label">Date</label>
+                    <label class="form-label">Date *</label>
                     {{ form.date_recorded }}
                     {% if form.date_recorded.errors %}
                         <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.date_recorded.errors }}</div>
@@ -235,7 +235,7 @@
                 </div>
                 
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label class="form-label">History / Clinical Signs</label>
+                    <label class="form-label">History / Clinical Signs *</label>
                     {{ form.history_clinical_signs }}
                     {% if form.history_clinical_signs.errors %}
                         <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.history_clinical_signs.errors }}</div>
@@ -243,7 +243,7 @@
                 </div>
 
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label class="form-label">TX (Treatment)</label>
+                    <label class="form-label">TX (Treatment) *</label>
                     {{ form.treatment }}
                     {% if form.treatment.errors %}
                         <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.treatment.errors }}</div>
@@ -251,7 +251,7 @@
                 </div>
 
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label class="form-label">RX (Prescription)</label>
+                    <label class="form-label">RX (Prescription) *</label>
                     {{ form.rx }}
                 </div>
             </div>
