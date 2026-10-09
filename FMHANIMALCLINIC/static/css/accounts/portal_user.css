@@ -5010,6 +5010,16 @@ textarea:focus {
   grid-template-columns: repeat(2, 1fr);
   gap: 18px;
 }
+.book-schedule-grid {
+  align-items: start;
+}
+.book-schedule-grid > .book-field-wrap,
+.book-schedule-notes > .book-field {
+  min-width: 0;
+}
+.book-schedule-notes {
+  margin-top: 16px;
+}
 .book-grid .full-width {
   grid-column: 1 / -1;
 }
