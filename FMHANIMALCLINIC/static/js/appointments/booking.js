@@ -3,7 +3,82 @@
  * Consistent with admin portal scheduling logic
  * Uses dropdown-based time selection populated dynamically
  */
+function initScheduleDropdowns() {
+ const selects = document.querySelectorAll(
+   ".book-schedule-grid select.book-input"
+ );
+ if (!selects.length) return;
+
+ selects.forEach((select) => {
+   if (select.closest(".book-custom-select")) return;
+
+   const wrapper = document.createElement("div");
+   wrapper.className = "book-custom-select";
+   select.parentNode.insertBefore(wrapper, select);
+   wrapper.appendChild(select);
+
+   const trigger = document.createElement("button");
+   trigger.type = "button";
+   trigger.className = "book-custom-select__trigger";
+   trigger.setAttribute("aria-haspopup", "listbox");
+   trigger.setAttribute("aria-expanded", "false");
+   wrapper.appendChild(trigger);
+
+   const menu = document.createElement("div");
+   menu.className = "book-custom-select__menu";
+   menu.setAttribute("role", "listbox");
+   wrapper.appendChild(menu);
+
+   const render = () => {
+     trigger.textContent = select.selectedOptions[0]?.textContent || "";
+     trigger.setAttribute("aria-label", select.getAttribute("aria-label") || "Select an option");
+     menu.replaceChildren();
+     Array.from(select.options).forEach((option) => {
+       const item = document.createElement("button");
+       item.type = "button";
+       item.className = "book-custom-select__option";
+       item.textContent = option.textContent;
+       item.disabled = option.disabled;
+       item.setAttribute("role", "option");
+       item.classList.toggle("is-selected", option.selected);
+       item.addEventListener("click", () => {
+         select.value = option.value;
+         select.dispatchEvent(new Event("change", { bubbles: true }));
+         wrapper.classList.remove("is-open");
+         trigger.setAttribute("aria-expanded", "false");
+         render();
+       });
+       menu.appendChild(item);
+     });
+   };
+
+   select.addEventListener("change", render);
+   const observer = new MutationObserver(render);
+   observer.observe(select, { childList: true, subtree: true });
+   wrapper.addEventListener("click", (event) => {
+     if (event.target.closest(".book-custom-select__option")) return;
+     document.querySelectorAll(".book-custom-select.is-open").forEach((open) => {
+       if (open !== wrapper) open.classList.remove("is-open");
+     });
+     const isOpen = wrapper.classList.toggle("is-open");
+     trigger.setAttribute("aria-expanded", String(isOpen));
+   });
+   render();
+ });
+
+ document.addEventListener("click", (event) => {
+   if (!event.target.closest(".book-custom-select")) {
+     document.querySelectorAll(".book-custom-select.is-open").forEach((open) => {
+       open.classList.remove("is-open");
+       open.querySelector(".book-custom-select__trigger")?.setAttribute("aria-expanded", "false");
+     });
+   }
+ });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
+  initScheduleDropdowns();
+
   const branchSelect = document.querySelector('[name="branch"]');
   const dateInput = document.querySelector('[name="appointment_date"]');
   const vetSelect = document.querySelector('[name="preferred_vet"]');
@@ -60,6 +135,7 @@ document.addEventListener("DOMContentLoaded", function () {
         dayElement.appendChild(indicator);
       },
     });
+
   }
 
   function fetchScheduleDays(year, month) {

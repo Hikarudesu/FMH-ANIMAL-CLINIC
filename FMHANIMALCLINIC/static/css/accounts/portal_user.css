@@ -5128,6 +5128,81 @@ textarea:focus {
   background: var(--primary);
   color: #ffffff;
 }
+.book-custom-select {
+  position: relative;
+}
+.book-custom-select > select.book-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  z-index: 0;
+}
+.book-custom-select__trigger {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  min-height: 68px;
+  padding: 26px 44px 10px 46px;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+  pointer-events: auto;
+}
+.book-custom-select__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: none;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+}
+.book-custom-select.is-open .book-custom-select__menu {
+  display: grid;
+  gap: 2px;
+}
+.book-custom-select__option {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.book-custom-select__option:hover,
+.book-custom-select__option.is-selected {
+  color: #ffffff;
+  background: var(--primary);
+}
+.book-custom-select__option:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+body.user-portal[data-theme="dark"] .book-custom-select__menu {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
 .book-input::placeholder {
   color: transparent;
 }
@@ -5154,6 +5229,15 @@ textarea.book-input {
 .book-field:has(textarea) label {
   top: 20px;
   transform: none;
+}
+.book-field:has(.book-custom-select) label {
+  top: 8px;
+  transform: translateY(0);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 /* Label floats up */
