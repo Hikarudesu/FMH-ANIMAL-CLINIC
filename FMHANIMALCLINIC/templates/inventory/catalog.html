@@ -109,7 +109,7 @@ Catalog{% endblock %} {% block content %}
         </div>
         <div class="cat-card-meta">
           <span class="cat-meta-branch"><i class="bx bx-building-house"></i> {{ product.branch.name }}</span>
-          <span class="cat-meta-branch"><i class="bx bx-receipt"></i> {{ product.sale_type_label }}</span>
+          <span class="cat-meta-branch"><i class="bx bx-package"></i> {{ product.unit_label }} · {{ product.sale_type_label }}</span>
           {% if product.is_available %}
           <span class="cat-meta-stock"><i class="bx bx-box"></i> {{ product.stock_quantity }} in stock</span>
           {% endif %}

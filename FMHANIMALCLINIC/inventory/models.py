@@ -120,8 +120,8 @@ class Product(SoftDeleteModel):
 
     @property
     def unit_display(self):
-        """Return the stock quantity with its unit of measurement."""
-        return f"{self.stock_quantity} {self.unit_label}"
+        """Return an unambiguous stock and package-unit label."""
+        return f"{self.stock_quantity} in stock · {self.unit_label}"
 
     @property
     def sale_type_label(self):
