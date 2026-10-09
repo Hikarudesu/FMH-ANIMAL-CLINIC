@@ -32,7 +32,12 @@ from accounts.decorators import module_permission_required, special_permission_r
 from employees.models import StaffMember
 from branches.models import Branch
 from payroll.models import PayrollPeriod, Payslip
-from notifications.utils import notify_payroll_generated, notify_payroll_released
+from notifications.models import Notification
+from notifications.utils import (
+    create_notification,
+    notify_payroll_generated,
+    notify_payroll_released,
+)
 from attendance.services import AttendanceProcessor
 from settings.utils import get_setting
 
@@ -1192,8 +1197,9 @@ def release_payroll(request, period_id):
             payslip_ids = []
             try:
                 payslip_ids = list(period.payslips.filter(
-                    employee__email__isnull=False
-                ).exclude(employee__email='').values_list('id', flat=True))
+                    Q(employee__email__isnull=False) & ~Q(employee__email='')
+                    | Q(employee__user__email__isnull=False) & ~Q(employee__user__email='')
+                ).values_list('id', flat=True))
             except Exception as e:
                 logger.warning(f"Error fetching payslip IDs for email: {e}")
                 payslip_ids = []

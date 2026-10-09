@@ -336,7 +336,7 @@ def notify_payroll_generated(period, actor=None, created_count=0, updated_count=
 
 
 def notify_payroll_released(period, actor=None, payslip_count=0, emails_sent=0):
-    """Create a notification when payroll is released."""
+    """Notify superadmins and staff when payroll is released."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
     _notify_superadmins(
         title='Payroll Released',
@@ -348,6 +348,22 @@ def notify_payroll_released(period, actor=None, payslip_count=0, emails_sent=0):
         module_context=Notification.ModuleContext.PAYROLL,
         related_object_id=period.id,
     )
+
+    for payslip in period.payslips.select_related('employee__user'):
+        staff_user = payslip.employee.user if payslip.employee.user_id else None
+        if not staff_user:
+            continue
+        create_notification(
+            user=staff_user,
+            title=f'Payslip Released - {period.period_display}',
+            message=(
+                f'Your payslip for {period.period_display} has been released. '
+                'Your payslip has been sent to your registered email address.'
+            ),
+            notification_type=Notification.NotificationType.PAYROLL_RELEASED,
+            module_context=Notification.ModuleContext.PAYROLL,
+            related_object_id=payslip.id,
+        )
 
 
 def notify_statement_released(statement):
