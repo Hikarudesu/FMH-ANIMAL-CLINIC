@@ -5080,10 +5080,6 @@ textarea:focus {
   color: transparent;
 }
 
-.book-field input[name="appointment_date"]::placeholder {
-  color: var(--text-3);
-  opacity: 1;
-}
 textarea.book-input {
   padding-top: 28px;
   resize: vertical;

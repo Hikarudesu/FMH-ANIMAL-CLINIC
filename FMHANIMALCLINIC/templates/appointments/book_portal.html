@@ -66,13 +66,14 @@
         <div class="book-field {% if form.owner_email.errors %}has-error{% endif %}">
           <div class="book-field-icon"><i class='bx bx-envelope'></i></div>
           {{ form.owner_email }}
-          <label for="{{ form.owner_email.id_for_label }}">Email</label>
+          <label for="{{ form.owner_email.id_for_label }}">Email *</label>
           {% if form.owner_email.errors %}<span class="book-field-error">{{ form.owner_email.errors.0 }}</span>{% endif %}
         </div>
         <div class="book-field {% if form.owner_phone.errors %}has-error{% endif %}">
           <div class="book-field-icon"><i class='bx bx-phone'></i></div>
           {{ form.owner_phone }}
-          <label for="{{ form.owner_phone.id_for_label }}">Phone</label>
+          <label for="{{ form.owner_phone.id_for_label }}">Phone *</label>
+          {% if form.owner_phone.errors %}<span class="book-field-error">{{ form.owner_phone.errors.0 }}</span>{% endif %}
         </div>
         <div class="book-field full-width {% if form.owner_address.errors %}has-error{% endif %}">
           <div class="book-field-icon textarea-icon"><i class='bx bx-map'></i></div>
@@ -188,7 +189,7 @@
           <div class="book-field {% if form.appointment_date.errors %}has-error{% endif %}">
             <div class="book-field-icon"><i class='bx bx-calendar-event'></i></div>
             {{ form.appointment_date }}
-            <label for="{{ form.appointment_date.id_for_label }}">Select Appointment Date *</label>
+            <label for="{{ form.appointment_date.id_for_label }}">Appointment Date *</label>
             {% if form.appointment_date.errors %}<span class="book-field-error">{{ form.appointment_date.errors.0 }}</span>{% endif %}
           </div>
           <span class="book-field-helper"><i class='bx bx-info-circle'></i> Select an available date for your appointment</span>

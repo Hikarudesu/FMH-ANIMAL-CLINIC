@@ -391,7 +391,7 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
             'preferred_vet': forms.Select(),
             'appointment_date': forms.DateInput(attrs={
                 'type': 'date',
-                'placeholder': 'Select appointment date',
+                'placeholder': ' ',
                 'title': 'Select an appointment date',
                 'aria-label': 'Select an appointment date',
             }),
@@ -413,8 +413,8 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False
         self.fields['pet_symptoms'].required = False
-        self.fields['owner_email'].required = False
-        self.fields['owner_phone'].required = False
+        self.fields['owner_email'].required = True
+        self.fields['owner_phone'].required = True
         self.fields['owner_address'].required = False
         self.fields['notes'].required = False
 
