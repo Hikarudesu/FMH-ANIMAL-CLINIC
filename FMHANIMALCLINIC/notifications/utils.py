@@ -569,10 +569,14 @@ def notify_follow_up_scheduled(
     if followup.follow_up_end_date and followup.follow_up_end_date != followup.follow_up_date:
         date_str = f"{followup.follow_up_date} to {followup.follow_up_end_date}"
 
-    if appointment.user:
+    notification_user = appointment.user
+    if not notification_user and appointment.pet_id and appointment.pet.owner_id:
+        notification_user = appointment.pet.owner
+
+    if notification_user:
         action_text = 'updated' if event == 'updated' else 'scheduled'
         create_notification(
-            user=appointment.user,
+            user=notification_user,
             title=f'Follow-up {action_text.title()} for {appointment.pet_name}',
             message=(
                 f'A follow-up visit has been {action_text} for {appointment.pet_name} '
