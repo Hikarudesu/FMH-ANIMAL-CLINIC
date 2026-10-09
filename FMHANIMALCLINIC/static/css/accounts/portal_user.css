@@ -5086,6 +5086,48 @@ textarea:focus {
   border-radius: 14px;
   transition: all 0.25s var(--ease);
 }
+.book-field .book-input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.book-field .book-input:focus {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.book-field select.book-input {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 44px;
+  color-scheme: light;
+}
+.book-field:has(select.book-input)::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--text-2);
+  border-bottom: 1.5px solid var(--text-2);
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+  transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.book-field:has(select.book-input):focus-within::after {
+  border-color: var(--primary);
+  transform: translateY(-30%) rotate(225deg);
+}
+.book-field select.book-input option {
+  background: #ffffff;
+  color: #1e293b;
+}
+.book-field select.book-input option:checked {
+  background: var(--primary);
+  color: #ffffff;
+}
 .book-input::placeholder {
   color: transparent;
 }
