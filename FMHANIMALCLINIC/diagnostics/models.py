@@ -124,6 +124,9 @@ class AIDiagnosis(models.Model):
             'not enough data',
             'could not provide',
             'could not determine',
+            'no disease identified',
+            'no clinical signs',
+            'no medical history',
         ))
 
     def get_all_conditions(self):

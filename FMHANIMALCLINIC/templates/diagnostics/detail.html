@@ -221,6 +221,17 @@
     color: #991b1b;
   }
 
+  .condition-card--warning {
+    background: #fff1f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+  }
+
+  .condition-card--warning .condition-card-name,
+  .condition-card--warning .condition-card-reasoning {
+    color: #991b1b;
+  }
+
   .condition-card {
     display: flex;
     align-items: flex-start;
@@ -611,7 +622,7 @@
         </div>
 
         {% for cond in all_conditions %}
-        <div class="condition-card {% if cond.is_primary %}primary-condition{% endif %} {% if diagnosis.is_reviewed and diagnosis.selected_condition == cond.condition %}selected{% endif %}"
+        <div class="condition-card {% if cond.is_primary %}primary-condition{% endif %} {% if diagnosis.has_insufficient_data and cond.is_primary %}condition-card--warning{% endif %} {% if diagnosis.is_reviewed and diagnosis.selected_condition == cond.condition %}selected{% endif %}"
              {% if not diagnosis.is_reviewed %}onclick="selectCondition(this, '{{ cond.condition|escapejs }}')"{% endif %}>
           {% if not diagnosis.is_reviewed %}
           <input type="radio" name="selected_condition" value="{{ cond.condition }}" id="cond_{{ forloop.counter }}" {% if forloop.first %}checked{% endif %}>
