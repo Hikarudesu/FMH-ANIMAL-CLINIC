@@ -2108,8 +2108,8 @@
     position: fixed;
     left: 10px;
     right: 10px;
-    top: auto;
-    margin-top: 8px;
+    top: calc(var(--topbar-h) + 8px);
+    margin-top: 0;
     width: auto;
     max-width: none;
   }

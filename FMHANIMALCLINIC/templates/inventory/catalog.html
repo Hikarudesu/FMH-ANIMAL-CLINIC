@@ -998,6 +998,7 @@ Catalog{% endblock %} {% block content %}
         <div
           class="my-rsv-countdown"
           data-expires="{{ rsv.expires_at|date:'c' }}"
+          data-pickup-date="{{ rsv.pickup_date|date:'Y-m-d' }}"
           hidden
         >
           <i class="bx bx-time-five"></i>
@@ -1060,8 +1061,15 @@ Catalog{% endblock %} {% block content %}
         const now = new Date();
         const diff = expireDate - now;
         const finalDayWindow = 24 * 60 * 60 * 1000;
+        const pickupDate = el.getAttribute("data-pickup-date");
+        const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
 
         const timeSpan = el.querySelector(".time-left");
+
+        if (pickupDate && today <= pickupDate) {
+          el.hidden = true;
+          return;
+        }
 
         if (diff <= 0) {
           el.hidden = false;

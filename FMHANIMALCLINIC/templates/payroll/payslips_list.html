@@ -170,8 +170,21 @@
     .payslips-header > div:last-child > .btn { align-self: stretch; justify-content: center; }
     .period-reload-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .period-reload-form .btn { grid-column: 1 / -1; width: 100%; justify-content: center; }
-    .payslips-table { overflow-x: auto; }
+    .payslips-table {
+      position: relative;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
     .payslips-table table { min-width: 680px; }
+    .payslips-table th:last-child,
+    .payslips-table td:last-child {
+      position: sticky;
+      right: 0;
+      z-index: 2;
+      min-width: 78px;
+      background: var(--surface);
+      box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08);
+    }
     .payslips-header h2 { font-size: 1.05rem; line-height: 1.35; }
   }
   @media (max-width: 420px) {
