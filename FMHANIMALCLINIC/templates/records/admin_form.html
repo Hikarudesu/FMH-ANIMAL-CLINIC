@@ -146,22 +146,22 @@
                 <!-- Left Column: Owner Selection -->
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <div class="form-group">
-                        <label class="form-label">Client Source</label>
-                        <select name="client_source" id="id_client_source" class="form-control-custom">
+                        <label class="form-label">Client Source *</label>
+                        <select name="client_source" id="id_client_source" class="form-control-custom" required>
                             <option value="PORTAL">Portal (Registered User)</option>
                             <option value="WALKIN">Walk-in (Guest)</option>
                         </select>
                     </div>
                     <div class="form-group" id="owner-portal-group">
-                        <label class="form-label">Select Owner</label>
-                        <select id="ro-owner-select" class="form-control-custom">
+                        <label class="form-label">Select Owner *</label>
+                        <select id="ro-owner-select" class="form-control-custom" required>
                             <option value="">— Search & Select Owner —</option>
                         </select>
                         <input type="hidden" id="selected_user_id" name="selected_user_id" value="" />
                         <input type="hidden" id="ro-owner-name" name="owner_name" value="" />
                     </div>
                     <div class="form-group" id="owner-walkin-group" style="display: none;">
-                        <label class="form-label">Name of Owner</label>
+                        <label class="form-label">Name of Owner *</label>
                         <select id="ro-walkin-select" class="form-control-custom">
                             <option value="">— Select Guest Owner —</option>
                         </select>
@@ -183,7 +183,7 @@
                 <!-- Right Column: Pet Selection -->
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <div class="form-group" id="pet-select-group">
-                        <label class="form-label">Name of Pet</label>
+                        <label class="form-label">Name of Pet *</label>
                         <select id="ro-pet-select" class="form-control-custom" style="display: none;">
                             <option value="">— Select Pet —</option>
                         </select>
@@ -227,8 +227,8 @@
             <h3 class="section-title">Branch & Veterinarian</h3>
             <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="form-group">
-                    <label class="form-label">Branch / Location</label>
-                    <select name="branch" id="id_branch" class="form-control-custom">
+                    <label class="form-label">Branch / Location *</label>
+                    <select name="branch" id="id_branch" class="form-control-custom" required>
                         <option value="">— Select Branch —</option>
                         {% for branch in branches %}
                         <option value="{{ branch.id }}">{{ branch.name }}</option>
@@ -236,8 +236,8 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Attending Veterinarian</label>
-                    <select name="vet" id="id_vet" class="form-control-custom">
+                    <label class="form-label">Attending Veterinarian *</label>
+                    <select name="vet" id="id_vet" class="form-control-custom" required>
                         <option value="">— Select Veterinarian —</option>
                         {% for vet in vets %}
                         <option value="{{ vet.id }}" data-branch="{{ vet.branch_id }}">Dr. {{ vet.first_name }} {{ vet.last_name }}{% if vet.license_number %} (PRC {{ vet.license_number }}){% endif %}</option>
@@ -260,20 +260,20 @@
                     <input type="date" id="ro-pet-age" name="pet_age" class="form-control-custom" />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Species</label>
-                    <input type="text" id="ro-pet-species" name="pet_species" class="form-control-custom" placeholder="e.g. Canine" />
+                    <label class="form-label">Species *</label>
+                    <input type="text" id="ro-pet-species" name="pet_species" class="form-control-custom" placeholder="e.g. Canine" required />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Breed</label>
                     <input type="text" id="ro-pet-breed" name="pet_breed" class="form-control-custom" placeholder="e.g. Labrador" />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Sex</label>
-                    <input type="text" id="ro-pet-sex" name="pet_sex" class="form-control-custom" placeholder="e.g. Male" />
+                    <label class="form-label">Sex *</label>
+                    <input type="text" id="ro-pet-sex" name="pet_sex" class="form-control-custom" placeholder="e.g. Male" required />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Color</label>
-                    <input type="text" id="ro-pet-color" name="pet_color" class="form-control-custom" placeholder="e.g. Brown" />
+                    <label class="form-label">Color *</label>
+                    <input type="text" id="ro-pet-color" name="pet_color" class="form-control-custom" placeholder="e.g. Brown" required />
                 </div>
             </div>
         </div>
@@ -303,7 +303,7 @@
                 </div>
                 
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label class="form-label">Required Clinical Action</label>
+                    <label class="form-label">Required Clinical Action *</label>
                     {{ form.action_required }}
                     {% if form.action_required.errors %}
                         <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.action_required.errors }}</div>
@@ -676,6 +676,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerPortalGroup.style.display = '';
             ownerWalkinGroup.style.display = 'none';
             ownerWalkinToggleGroup.style.display = 'none';
+            ownerSelect.required = true;
+            walkinSelect.required = false;
             ownerNameWalkin.removeAttribute('name');
             ownerNameHidden.setAttribute('name', 'owner_name');
             selectedUserIdField.setAttribute('name', 'selected_user_id');
@@ -693,11 +695,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!walkinManualToggle.checked) {
                     walkinSelect.style.display = '';
                     ownerNameWalkin.style.display = 'none';
+                    walkinSelect.required = true;
+                    ownerNameWalkin.required = false;
                     ownerNameWalkin.removeAttribute('name');
                     walkinSelect.setAttribute('name', 'owner_name');
                 } else {
                     walkinSelect.style.display = 'none';
                     ownerNameWalkin.style.display = '';
+                    walkinSelect.required = false;
+                    ownerNameWalkin.required = true;
                     ownerNameWalkin.setAttribute('name', 'owner_name');
                     walkinSelect.removeAttribute('name');
                 }
@@ -705,6 +711,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 ownerWalkinToggleGroup.style.display = 'none';
                 walkinSelect.style.display = 'none';
                 ownerNameWalkin.style.display = '';
+                walkinSelect.required = false;
+                ownerNameWalkin.required = true;
                 ownerNameWalkin.setAttribute('name', 'owner_name');
             }
 

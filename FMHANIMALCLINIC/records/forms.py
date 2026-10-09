@@ -6,9 +6,16 @@ from django.db.models import Q
 from FMHANIMALCLINIC.form_mixins import FormControlMixin
 from .models import MedicalRecord, RecordEntry, MedicalFile
 from branches.models import Branch
+from settings.models import ClinicalStatus
 
 
 class MedicalRecordForm(FormControlMixin, forms.ModelForm):
+    action_required = forms.ModelChoiceField(
+        queryset=ClinicalStatus.objects.none(),
+        required=True,
+        empty_label='— Select Clinical Action —',
+    )
+
     class Meta:
         model = MedicalRecord
         fields = [
@@ -60,7 +67,18 @@ class MedicalRecordForm(FormControlMixin, forms.ModelForm):
 
         self.fields['vet'].queryset = vet_queryset
         self.fields['vet'].empty_label = '— Select Vet —'
-        self.fields['vet'].required = False
+        self.fields['vet'].required = True
+        self.fields['branch'].required = True
+
+        action_queryset = ClinicalStatus.objects.filter(is_active=True)
+        latest_entry = self.instance.latest_entry if self.instance and self.instance.pk else None
+        if latest_entry and latest_entry.action_required_id:
+            action_queryset = ClinicalStatus.objects.filter(
+                Q(is_active=True) | Q(pk=latest_entry.action_required_id)
+            )
+        self.fields['action_required'].queryset = action_queryset.order_by('order', 'name')
+        if latest_entry and latest_entry.action_required_id:
+            self.initial['action_required'] = latest_entry.action_required_id
 
 
 class RecordEntryForm(FormControlMixin, forms.ModelForm):
@@ -113,7 +131,7 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
 
         self.fields['vet'].queryset = vet_queryset
         self.fields['vet'].empty_label = '— Select Vet —'
-        self.fields['vet'].required = False
+        self.fields['vet'].required = True
 
         from settings.models import ClinicalStatus
 
@@ -123,6 +141,6 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
                 Q(is_active=True) | Q(pk=self.instance.action_required_id)
             )
         self.fields['action_required'].queryset = action_queryset.order_by('order', 'name')
-        self.fields['action_required'].required = False
+        self.fields['action_required'].required = True
         if not self.instance.pk and not self.initial.get('action_required'):
             self.initial['action_required'] = ClinicalStatus.get_default().pk
