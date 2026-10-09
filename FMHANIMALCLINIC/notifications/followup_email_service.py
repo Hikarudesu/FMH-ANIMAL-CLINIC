@@ -11,13 +11,14 @@ def send_follow_up_email(follow_up, event='scheduled'):
     owner = pet.owner if pet and pet.owner_id else None
     recipient = (
         (appointment.owner_email if appointment else '')
+        or (appointment.user.email if appointment and appointment.user_id else '')
         or (owner.email if owner else '')
     ).strip().lower()
     if follow_up.email_sent_at:
         return True, 'Already sent.'
     if not recipient:
         follow_up.email_attempts += 1
-        follow_up.email_last_error = 'Appointment owner has no email address.'
+        follow_up.email_last_error = 'Appointment or registered pet owner has no email address.'
         follow_up.save(update_fields=['email_attempts', 'email_last_error'])
         return False, follow_up.email_last_error
 
@@ -79,6 +80,7 @@ def send_follow_up_reminder_email(follow_up):
     owner = pet.owner if pet and pet.owner_id else None
     recipient = (
         (appointment.owner_email if appointment else '')
+        or (appointment.user.email if appointment and appointment.user_id else '')
         or (owner.email if owner else '')
     ).strip().lower()
     if follow_up.reminder_email_sent_at:
