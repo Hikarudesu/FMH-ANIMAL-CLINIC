@@ -155,10 +155,13 @@
             <thead>
               <tr>
                 <th style="text-align: center;">Date</th>
+                <th style="text-align: center;">Recorded At</th>
+                <th style="text-align: center;">Branch</th>
                 <th style="text-align: center;">Product</th>
                 <th style="text-align: center;">Type</th>
                 <th style="text-align: center;">Reference</th>
                 <th style="text-align: center;">Qty</th>
+                <th style="text-align: center;">Unit</th>
                 <th style="text-align: center;">Cost / Unit</th>
                 <th style="text-align: center;">Reason</th>
               </tr>
@@ -167,15 +170,15 @@
               {% for adj in adjustments %}
               <tr>
                 <td style="text-align: center; white-space: nowrap;" class="cell-secondary">{{ adj.date|date:"M j, Y" }}</td>
+                <td style="text-align: center; white-space: nowrap;" class="cell-secondary">{{ adj.created_at|date:"M j, Y g:i A" }}</td>
+                <td style="text-align: center;">{{ adj.branch.name }}</td>
                 <td style="text-align: center; font-weight: 600; color: var(--text-1);">{{ adj.product.name }}</td>
                 <td style="text-align: center;">
                     <span style="
                         padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;
-                        {% if adj.adjustment_type == 'Purchase' %}background: #e8f5e9; color: #2e7d32;
-                        {% elif adj.adjustment_type == 'Sale' %}background: #e3f2fd; color: #1565c0;
-                        {% elif adj.adjustment_type == 'Return' %}background: #fff3e0; color: #e65100;
-                        {% elif adj.adjustment_type == 'Damage' %}background: #ffebee; color: #c62828;
-                        {% elif adj.adjustment_type == 'Expiration' %}background: #fce4ec; color: #ad1457;
+                    {% if adj.adjustment_type == 'ADD' or adj.adjustment_type == 'TRANSFER_IN' %}background: #e8f5e9; color: #2e7d32;
+                    {% elif adj.adjustment_type == 'SALE' or adj.adjustment_type == 'TRANSFER_OUT' %}background: #e3f2fd; color: #1565c0;
+                    {% elif adj.adjustment_type == 'REMOVE' %}background: #ffebee; color: #c62828;
                         {% else %}background: var(--bg); color: var(--text-2);
                         {% endif %}
                     ">{{ adj.get_adjustment_type_display }}</span>
@@ -188,12 +191,13 @@
                     <span style="color: #c62828; font-weight: 700;">{{ adj.quantity }}</span>
                   {% endif %}
                 </td>
+                <td style="text-align: center;">{{ adj.quantity_unit }}</td>
                 <td style="text-align: center;" class="cell-secondary">₱{{ adj.cost_per_unit|peso }}</td>
                 <td style="text-align: center; font-size: 0.85rem; color: var(--text-2);">{{ adj.reason|default:"-" }}</td>
               </tr>
               {% empty %}
               <tr>
-                <td colspan="7" style="text-align: center; padding: 50px; color: var(--text-3);">
+                <td colspan="10" style="text-align: center; padding: 50px; color: var(--text-3);">
                     <i class='bx bx-history' style="font-size: 2.5rem; display: block; margin-bottom: 10px; opacity: 0.5;"></i>
                     No stock movements recorded yet.<br>
                     <span style="font-size: 0.8rem;">Movements are logged automatically from purchases, sales, and manual adjustments.</span>

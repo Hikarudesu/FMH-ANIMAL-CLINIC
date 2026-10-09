@@ -8,7 +8,12 @@ from django.contrib import messages
 from django.utils import timezone
 
 from .utils import get_setting
-from accounts.activity_context import reset_current_actor, set_current_actor
+from accounts.activity_context import (
+    reset_current_actor,
+    reset_current_ip_address,
+    set_current_actor,
+    set_current_ip_address,
+)
 
 
 class ActivityActorMiddleware:
@@ -20,9 +25,11 @@ class ActivityActorMiddleware:
     def __call__(self, request):
         actor = request.user if request.user.is_authenticated else None
         token = set_current_actor(actor)
+        ip_token = set_current_ip_address(request.META.get('REMOTE_ADDR'))
         try:
             return self.get_response(request)
         finally:
+            reset_current_ip_address(ip_token)
             reset_current_actor(token)
 
 

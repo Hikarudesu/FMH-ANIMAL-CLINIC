@@ -126,6 +126,9 @@ def has_inventory_nav_item(user, item_code):
         if not has_transfer_access:
             return False
 
+        if user.is_admin_role():
+            return True
+
         # Main/source branches should not see transfer requests in sidebar.
         user_branch = getattr(user, 'branch', None)
         if user_branch and getattr(user_branch, 'is_main_source', False):

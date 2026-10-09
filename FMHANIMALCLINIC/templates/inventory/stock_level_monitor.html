@@ -189,7 +189,7 @@
   <div class="card-header">
     <h3 style="display: flex; align-items: center; gap: 8px;">
       <i class='bx bx-error-alt' style="color: #ff9800;"></i>
-      Low Stock Items ({{ low_stock_count }})
+      Low Stock Items ({{ low_stock|length }})
     </h3>
   </div>
 
@@ -219,7 +219,7 @@
           <td style="font-weight: 600; font-size: 1.1rem;">{{ item.stock_quantity }}</td>
           <td style="color: var(--text-2);">{{ item.min_stock_level }}</td>
           <td style="color: #d32f2f; font-weight: 600;">
-            -{{ item.min_stock_level|add:"-"|add:item.stock_quantity }} units
+            -{{ item.stock_shortfall }} {{ item.unit_label }}
           </td>
           <td>
             <span style="
@@ -253,12 +253,50 @@
   {% endif %}
 </div>
 
+{% if selected_status == 'In Stock' %}
+<div class="dashboard-card full-width" style="margin-bottom: 30px; overflow-x: auto; width: 100%;">
+  <div class="card-header">
+    <h3><i class='bx bx-check-circle' style="color: #2e7d32;"></i> In Stock Items ({{ in_stock|length }})</h3>
+  </div>
+  {% if in_stock %}
+  <div class="table-responsive" style="overflow-x: auto; width: 100%;">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Product Name</th>
+          <th>Branch</th>
+          <th>Current Stock</th>
+          <th>Min. Threshold</th>
+          <th>Type</th>
+          <th>Last Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in in_stock %}
+        <tr>
+          <td style="font-weight: 600;">{{ item.name }}</td>
+          <td>{{ item.branch.name }}</td>
+          <td>{{ item.stock_quantity }} {{ item.unit_label }}</td>
+          <td>{{ item.min_stock_level }} {{ item.unit_label }}</td>
+          <td>{{ item.item_type }}</td>
+          <td>{{ item.updated_at|date:"M j, Y g:i A" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding: 32px; text-align: center; color: var(--text-2);">No in-stock items match these filters.</div>
+  {% endif %}
+</div>
+{% endif %}
+
 <!-- Out of Stock Items Section -->
 <div class="dashboard-card full-width" style="overflow-x: auto; width: 100%;">
   <div class="card-header">
     <h3 style="display: flex; align-items: center; gap: 8px;">
       <i class='bx bx-info-circle' style="color: #d32f2f;"></i>
-      Out of Stock Items ({{ out_of_stock_count }})
+      Out of Stock Items ({{ out_of_stock|length }})
     </h3>
   </div>
 

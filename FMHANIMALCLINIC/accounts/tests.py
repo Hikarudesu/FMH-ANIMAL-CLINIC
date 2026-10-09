@@ -9,12 +9,128 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.activity_context import reset_current_actor, set_current_actor
+from accounts.models import ActivityLog
+from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermission
+from branches.models import Branch
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
     resolve_owner_deactivation_on_login,
     schedule_owner_deactivation,
 )
+
+
+class RolePermissionManagementTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username='rbac-test-admin',
+            email='rbac-test-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.role = Role.objects.create(
+            name='RBAC Editable Role',
+            code='rbac-editable-role',
+            hierarchy_level=4,
+        )
+        self.inventory, _ = Module.objects.get_or_create(
+            code='inventory', defaults={'name': 'Inventory'},
+        )
+        self.transfers, _ = Module.objects.get_or_create(
+            code='stock_transfers', defaults={'name': 'Stock Transfers'},
+        )
+        self.stock_monitor, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_stock_monitor',
+            defaults={'name': 'Access Stock Monitor'},
+        )
+
+    def test_manage_grants_each_module_action(self):
+        ModulePermission.objects.create(
+            role=self.role,
+            module=self.inventory,
+            permission_type=ModulePermission.PermissionType.MANAGE,
+        )
+
+        for permission in ('VIEW', 'CREATE', 'EDIT', 'DELETE', 'MANAGE'):
+            with self.subTest(permission=permission):
+                self.assertTrue(
+                    self.role.has_module_permission('inventory', permission)
+                )
+
+    def test_role_edit_exposes_manage_and_preserves_hidden_permissions(self):
+        ModulePermission.objects.create(
+            role=self.role,
+            module=self.transfers,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        self.client.force_login(self.admin)
+
+        edit_url = reverse('accounts:role_edit', args=[self.role.pk])
+        self.assertContains(self.client.get(edit_url), 'perm_inventory_MANAGE')
+
+        response = self.client.post(edit_url, {
+            'name': self.role.name,
+            'description': self.role.description,
+            'perm_inventory_MANAGE': 'on',
+            'special_can_access_stock_monitor': 'on',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.role.refresh_from_db()
+        self.assertTrue(self.role.has_module_permission('stock_transfers', 'VIEW'))
+        self.assertTrue(self.role.has_module_permission('inventory', 'CREATE'))
+        self.assertTrue(
+            self.role.special_permissions.filter(permission=self.stock_monitor).exists()
+        )
+
+    def test_generic_audit_records_changed_fields_without_values(self):
+        branch = Branch.objects.create(
+            name='Audit Before',
+            phone_number='09123456789',
+            address='1 Audit Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        token = set_current_actor(self.admin)
+        try:
+            branch.name = 'Audit After'
+            branch.save(update_fields=['name'])
+        finally:
+            reset_current_actor(token)
+
+        update_log = ActivityLog.objects.get(
+            object_type='Branch',
+            object_id=branch.pk,
+            action_type=ActivityLog.ActionType.UPDATE,
+        )
+        self.assertIn('Changed fields: name', update_log.details)
+        self.assertNotIn('Audit Before', update_log.details)
+        self.assertNotIn('Audit After', update_log.details)
+
+    def test_module_permission_creation_and_deletion_are_audited(self):
+        token = set_current_actor(self.admin)
+        try:
+            permission = ModulePermission.objects.create(
+                role=self.role,
+                module=self.inventory,
+                permission_type=ModulePermission.PermissionType.VIEW,
+            )
+            permission_id = permission.pk
+            permission.delete()
+        finally:
+            reset_current_actor(token)
+
+        permission_logs = ActivityLog.objects.filter(
+            object_type='ModulePermission',
+            object_id=permission_id,
+        )
+        self.assertTrue(permission_logs.filter(
+            action_type=ActivityLog.ActionType.CREATE,
+        ).exists())
+        self.assertTrue(permission_logs.filter(
+            action_type=ActivityLog.ActionType.DELETE,
+        ).exists())
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')

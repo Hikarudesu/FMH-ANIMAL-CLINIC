@@ -133,34 +133,60 @@ def handle_reservation_notifications_and_logging(sender, instance, created, **kw
             notify_reservation_rejected(instance)
 
 
+@receiver(pre_save, sender=StockTransfer)
+def capture_stock_transfer_status(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._previous_status = None
+        return
+    instance._previous_status = StockTransfer.objects.filter(
+        pk=instance.pk
+    ).values_list('status', flat=True).first()
+
+
 @receiver(post_save, sender=StockTransfer)
 def log_stock_transfer(sender, instance, created, **kwargs):
-    """
-    Log a stock transfer activity.
-    """
+    """Log transfer requests and meaningful status transitions."""
+    previous_status = getattr(instance, '_previous_status', None)
+    if not created and previous_status == instance.status:
+        return
+
+    status_events = {
+        StockTransfer.Status.APPROVED: (
+            'Stock transfer approved', ActivityLog.ActionType.APPROVE,
+        ),
+        StockTransfer.Status.REJECTED: (
+            'Stock transfer rejected', ActivityLog.ActionType.REJECT,
+        ),
+        StockTransfer.Status.COMPLETED: (
+            'Stock transfer completed', ActivityLog.ActionType.UPDATE,
+        ),
+    }
     if created:
-        action = f'Stock transfer requested: {instance.quantity}x {instance.source_product.name}'
+        action, action_type = 'Stock transfer requested', ActivityLog.ActionType.CREATE
     else:
-        action = f'Stock transfer {instance.status.lower()}: {instance.quantity}x {instance.source_product.name}'
+        action, action_type = status_events.get(
+            instance.status,
+            ('Stock transfer updated', ActivityLog.ActionType.UPDATE),
+        )
 
     details = (
         f"From: {instance.source_product.branch.name} | "
         f"To: {instance.destination_branch.name} | "
         f"Product: {instance.source_product.name} | "
-        f"Quantity: {instance.quantity}"
+        f"Quantity: {instance.quantity} | "
+        f"Status: {previous_status or 'New'} -> {instance.status}"
     )
+    if instance.notes:
+        details += f" | Notes: {instance.notes}"
 
     log_activity(
         user=(
             get_current_actor()
             or (instance.requested_by if created else (instance.processed_by or instance.requested_by))
         ),
-        action=action,
+        action=f'{action}: {instance.quantity}x {instance.source_product.name}',
         category=ActivityLog.Category.STOCK,
-        action_type=(
-            ActivityLog.ActionType.CREATE if created
-            else ActivityLog.ActionType.UPDATE
-        ),
+        action_type=action_type,
         branch=instance.destination_branch,
         details=details,
         object_type='StockTransfer',

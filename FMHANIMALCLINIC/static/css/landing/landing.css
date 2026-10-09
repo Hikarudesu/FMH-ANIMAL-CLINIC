@@ -3444,6 +3444,17 @@ p {
     margin: 0;
   }
 
+  .vet-carousel-track {
+    width: max-content;
+    padding-right: 1rem;
+  }
+
+  .vet-carousel-card {
+    flex: 0 0 70vw;
+    max-width: 260px;
+    scroll-snap-align: center;
+  }
+
   /* Fix Satisfied Customers Header Overflow */
   .satisfied-customers .container {
     overflow-x: hidden;

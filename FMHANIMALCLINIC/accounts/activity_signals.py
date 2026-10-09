@@ -321,6 +321,22 @@ except ImportError:
 try:
     from inventory.models import Product
 
+    @receiver(pre_save, sender=Product)
+    def capture_product_deleted_state(sender, instance, **kwargs):
+        audit_fields = (
+            'is_deleted', 'name', 'sku', 'stock_quantity', 'min_stock_level',
+            'unit_cost', 'price',
+        )
+        if not instance.pk:
+            instance._previous_is_deleted = None
+            instance._previous_product_values = None
+            return
+        previous = Product.all_objects.filter(pk=instance.pk).values(
+            *audit_fields
+        ).first()
+        instance._previous_product_values = previous
+        instance._previous_is_deleted = previous['is_deleted'] if previous else None
+
     @receiver(post_save, sender=Product)
     def log_product_changes(sender, instance, created, **kwargs):
         """Log product creation and updates."""
@@ -342,14 +358,56 @@ try:
                 object_id=instance.id,
                 ip_address=ip_address
             )
+        elif instance._previous_is_deleted is False and instance.is_deleted:
+            log_activity(
+                user=user,
+                action=f"Product deleted: {instance.name}",
+                category=ActivityLog.Category.STOCK,
+                action_type=ActivityLog.ActionType.DELETE,
+                branch=instance.branch,
+                details=(
+                    f"SKU: {instance.sku} | Stock: {instance.stock_quantity} | "
+                    f"Unit cost: {instance.unit_cost}"
+                ),
+                object_type='Product',
+                object_id=instance.id,
+                ip_address=ip_address,
+            )
+        elif instance._previous_is_deleted is True and not instance.is_deleted:
+            log_activity(
+                user=user,
+                action=f"Product restored: {instance.name}",
+                category=ActivityLog.Category.STOCK,
+                action_type=ActivityLog.ActionType.UPDATE,
+                branch=instance.branch,
+                details=f"SKU: {instance.sku} | Stock: {instance.stock_quantity}",
+                object_type='Product',
+                object_id=instance.id,
+                ip_address=ip_address,
+            )
         else:
+            previous = instance._previous_product_values or {}
+            tracked_fields = (
+                ('name', 'Name'),
+                ('sku', 'SKU'),
+                ('stock_quantity', 'Stock'),
+                ('min_stock_level', 'Minimum stock'),
+                ('unit_cost', 'Unit cost'),
+                ('price', 'Price'),
+            )
+            changes = [
+                f'{label}: {previous[field_name]} -> {getattr(instance, field_name)}'
+                for field_name, label in tracked_fields
+                if field_name in previous
+                and previous[field_name] != getattr(instance, field_name)
+            ]
             log_activity(
                 user=user,
                 action=f"Product updated: {instance.name}",
                 category=ActivityLog.Category.STOCK,
                 action_type=ActivityLog.ActionType.UPDATE,
                 branch=instance.branch,
-                details=f"Stock: {instance.stock_quantity}",
+                details=' | '.join(changes) or 'Product details updated.',
                 object_type='Product',
                 object_id=instance.id,
                 ip_address=ip_address
@@ -666,12 +724,44 @@ def _register_generic_audit(model, category):
         object_id = instance.pk
         return object_id if isinstance(object_id, int) else None
 
+    @receiver(pre_save, sender=model, dispatch_uid=f'activity_capture_{label}')
+    def capture_generic_previous_values(sender, instance, **kwargs):
+        if not instance.pk:
+            instance._audit_previous_values = None
+            return
+        field_names = [
+            field.attname for field in sender._meta.concrete_fields
+            if not field.primary_key
+        ]
+        instance._audit_previous_values = sender._base_manager.filter(
+            pk=instance.pk
+        ).values(*field_names).first()
+
     @receiver(post_save, sender=model, dispatch_uid=f'activity_create_update_{label}')
     def log_generic_save(sender, instance, created, **kwargs):
         actor = _resolve_actor(instance)
         if not actor:
             return
         object_name = str(instance)[:120]
+        if created:
+            details = 'Record created.'
+        else:
+            previous = instance._audit_previous_values or {}
+            update_fields = kwargs.get('update_fields')
+            changed_fields = [
+                str(field.verbose_name)
+                for field in sender._meta.concrete_fields
+                if not field.primary_key
+                and not getattr(field, 'auto_now', False)
+                and not getattr(field, 'auto_now_add', False)
+                and (update_fields is None or field.name in update_fields or field.attname in update_fields)
+                and field.attname in previous
+                and previous[field.attname] != getattr(instance, field.attname)
+            ]
+            details = (
+                f"Changed fields: {', '.join(changed_fields)}"
+                if changed_fields else 'Record saved; no field differences captured.'
+            )
         log_activity(
             user=actor,
             action=f'{sender._meta.verbose_name.title()} '
@@ -682,6 +772,7 @@ def _register_generic_audit(model, category):
                 else ActivityLog.ActionType.UPDATE
             ),
             branch=_audit_branch(instance),
+            details=details,
             object_type=sender.__name__,
             object_id=numeric_object_id(instance),
         )
@@ -703,6 +794,7 @@ def _register_generic_audit(model, category):
 
 
 try:
+    from accounts.rbac_models import ModulePermission, Role, RoleSpecialPermission
     from attendance.models import AttendanceUpload, DailyAttendance, MonthlyAttendanceSummary
     from branches.models import Branch
     from diagnostics.models import AIDiagnosis
@@ -714,6 +806,9 @@ try:
     )
 
     for audited_model, audited_category in (
+        (Role, ActivityLog.Category.SYSTEM),
+        (ModulePermission, ActivityLog.Category.SYSTEM),
+        (RoleSpecialPermission, ActivityLog.Category.SYSTEM),
         (AttendanceUpload, ActivityLog.Category.SYSTEM),
         (DailyAttendance, ActivityLog.Category.STAFF),
         (MonthlyAttendanceSummary, ActivityLog.Category.STAFF),

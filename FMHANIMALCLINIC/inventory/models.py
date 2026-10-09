@@ -276,6 +276,10 @@ class StockAdjustment(models.Model):
                 Product.objects.filter(pk=self.product.pk, stock_quantity__lt=0).update(
                     stock_quantity=0
                 )
+                Product.objects.filter(
+                    pk=self.product.pk,
+                    stock_quantity__lte=0,
+                ).update(is_available=False)
 
 
 class Reservation(models.Model):

@@ -13,7 +13,7 @@
     </div>
     <div class="page-hero-actions">
       {% comment %}Hide Request Transfer for admin roles and for main/source branch (Pilar){% endcomment %}
-      {% if not request.user.assigned_role or request.user.assigned_role.hierarchy_level < 10 %}
+      {% if not is_admin_user %}
         {% if not user_branch %}
           <a href="{% url 'inventory:transfer_request' %}" class="page-hero-btn">
             <i class='bx bx-git-pull-request'></i> Request Transfer

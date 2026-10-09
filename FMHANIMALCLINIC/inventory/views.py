@@ -175,6 +175,13 @@ def inventory_management_view(request):
 
     if selected_sale_type:
         products = products.filter(sale_type=selected_sale_type)
+        adjustments = adjustments.filter(product__sale_type=selected_sale_type)
+
+    if selected_type:
+        adjustments = adjustments.filter(product__item_type=selected_type)
+
+    if selected_uom:
+        adjustments = adjustments.filter(product__unit_of_measurement=selected_uom)
 
     # Apply search filter
     if search_query:
@@ -182,6 +189,11 @@ def inventory_management_view(request):
             Q(name__icontains=search_query) |
             Q(sku__icontains=search_query) |
             Q(description__icontains=search_query)
+        )
+        adjustments = adjustments.filter(
+            Q(product__name__icontains=search_query) |
+            Q(product__sku__icontains=search_query) |
+            Q(product__description__icontains=search_query)
         )
 
     # Apply status filter
@@ -191,6 +203,17 @@ def inventory_management_view(request):
             if p.status == selected_status:
                 filtered_products.append(p)
         products = filtered_products
+        if selected_status == 'In Stock':
+            adjustments = adjustments.filter(
+                product__stock_quantity__gt=F('product__min_stock_level')
+            )
+        elif selected_status == 'Low Stock':
+            adjustments = adjustments.filter(
+                product__stock_quantity__gt=0,
+                product__stock_quantity__lte=F('product__min_stock_level'),
+            )
+        elif selected_status == 'Out of Stock':
+            adjustments = adjustments.filter(product__stock_quantity=0)
     else:
         products = list(products)
 
@@ -708,7 +731,7 @@ def stock_transfer_list_view(request):
     """List all stock transfers for the user's branch with filtering and search."""
     is_admin_user = request.user.is_admin_role()
     user_branch = _get_user_branch(request.user)
-    can_filter_by_branch = request.user.is_superuser
+    can_filter_by_branch = _is_superadmin_user(request.user)
     can_view_transfer_list = (
         request.user.has_module_permission('stock_transfers', 'VIEW')
         or request.user.has_special_permission('can_request_stock_transfer')
@@ -861,21 +884,17 @@ def stock_transfer_request_view(request):
         )
         return redirect('admin_dashboard')
 
-    if not hasattr(request.user, 'staff_profile') or not request.user.staff_profile.branch:
-        messages.error(
-            request, "You must be assigned to a branch to request transfers.")
-        return redirect('inventory:management')
-
-    # Prevent admin users from creating transfer requests
-    # They can only approve requests made by other branches
-    if (hasattr(request.user, 'assigned_role') and
-        request.user.assigned_role and
-            request.user.assigned_role.hierarchy_level >= 10):
+    if request.user.is_admin_role():
         messages.warning(
             request,
             "Admin users cannot create transfer requests. You can only approve transfer requests made by other branches."
         )
         return redirect('inventory:transfer_list')
+
+    if not hasattr(request.user, 'staff_profile') or not request.user.staff_profile.branch:
+        messages.error(
+            request, "You must be assigned to a branch to request transfers.")
+        return redirect('inventory:management')
 
     branch = request.user.staff_profile.branch
 
@@ -1014,9 +1033,9 @@ def super_admin_stock_view(request):
     # - Superadmin can see all branches
     # - Any non-superadmin user is restricted to their own branch
     #   (this view is special-permission based, not module-permission based)
-    is_branch_restricted = not request.user.is_superuser
+    is_branch_restricted = not _is_superadmin_user(request.user)
 
-    user_branch = request.user.branch
+    user_branch = _get_user_branch(request.user)
     selected_branch = None
     selected_branch_id = request.GET.get('branch_id', '').strip()
     selected_status = request.GET.get('status', '')
@@ -1053,24 +1072,33 @@ def super_admin_stock_view(request):
         stock_quantity__lte=F('min_stock_level')
     ).exclude(
         stock_quantity=0  # Exclude out of stock to show separately
+    ).annotate(
+        stock_shortfall=F('min_stock_level') - F('stock_quantity')
     ).order_by('stock_quantity')
 
     # Out of Stock: quantity = 0
     out_of_stock = products.filter(stock_quantity=0).order_by('name')
+    in_stock = products.filter(
+        stock_quantity__gt=F('min_stock_level')
+    ).order_by('name')
 
     # Apply status filter
     if selected_status == 'Low Stock':
         low_stock_list = list(low_stock)
         out_of_stock_list = []
+        in_stock_list = []
     elif selected_status == 'Out of Stock':
         low_stock_list = []
         out_of_stock_list = list(out_of_stock)
+        in_stock_list = []
     elif selected_status == 'In Stock':
         low_stock_list = []
         out_of_stock_list = []
+        in_stock_list = list(in_stock)
     else:
         low_stock_list = list(low_stock)
         out_of_stock_list = list(out_of_stock)
+        in_stock_list = list(in_stock)
 
     # Calculate stats
     low_stock_count = low_stock.count()
@@ -1164,8 +1192,10 @@ def super_admin_stock_view(request):
         'selected_branch': selected_branch,
         'low_stock': low_stock_list,
         'out_of_stock': out_of_stock_list,
+        'in_stock': in_stock_list,
         'low_stock_count': low_stock_count,
         'out_of_stock_count': out_of_stock_count,
+        'in_stock_count': in_stock.count(),
         'total_critical': total_critical,
         'total_products': total_products,
         'total_inventory_value': total_inventory_value,

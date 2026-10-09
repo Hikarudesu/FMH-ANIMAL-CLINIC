@@ -290,7 +290,10 @@ class Role(models.Model):
 
         query = self.module_permissions.filter(module__code=module_code)
         if permission_type:
-            query = query.filter(permission_type=permission_type)
+            query = query.filter(
+                models.Q(permission_type=permission_type)
+                | models.Q(permission_type=ModulePermission.PermissionType.MANAGE)
+            )
         return query.exists()
 
     def get_module_permissions(self, module_code):

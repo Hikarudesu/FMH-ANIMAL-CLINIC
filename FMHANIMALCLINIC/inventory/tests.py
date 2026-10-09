@@ -4,9 +4,10 @@ from django.urls import reverse
 from unittest.mock import patch
 
 from accounts.rbac_models import Module, ModulePermission, Role
+from accounts.models import ActivityLog
 from branches.models import Branch
 from inventory.forms import ProductForm, StockAdjustmentForm
-from inventory.models import Product, StockAdjustment
+from inventory.models import Product, StockAdjustment, StockTransfer
 
 
 class InventoryWorkflowTests(TestCase):
@@ -255,6 +256,174 @@ class InventoryWorkflowTests(TestCase):
             [('1 piece', '1 piece'), ('1 tablet', '1 tablet')],
         )
         self.assertEqual(form.initial['unit_of_measurement'], '1 piece')
+
+    def test_stock_monitor_in_stock_filter_returns_matching_products(self):
+        in_stock = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Adequately Stocked Item',
+            price=20,
+            stock_quantity=10,
+            min_stock_level=5,
+        )
+        Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Low Stock Item',
+            price=20,
+            stock_quantity=2,
+            min_stock_level=5,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('inventory:super_admin_stock_monitoring'),
+            {'status': 'In Stock'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context['in_stock']), [in_stock])
+        self.assertEqual(response.context['low_stock'], [])
+        self.assertContains(response, 'Adequately Stocked Item')
+        self.assertNotContains(response, '>Low Stock Item</td>')
+
+    def test_soft_deleted_product_is_logged_as_delete_with_snapshot(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Deleted Stock Item',
+            sku='DEL-001',
+            price=20,
+            stock_quantity=4,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('inventory:product_delete', args=[product.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        deletion_log = ActivityLog.objects.get(
+            action_type=ActivityLog.ActionType.DELETE,
+            object_type='Product',
+            object_id=product.pk,
+        )
+        self.assertIn('Deleted Stock Item', deletion_log.action)
+        self.assertIn('DEL-001', deletion_log.details)
+        self.assertIn('Stock: 4', deletion_log.details)
+        self.assertEqual(deletion_log.ip_address, '127.0.0.1')
+
+    def test_stock_adjustment_reaching_zero_marks_item_unavailable(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Last Stock Item',
+            price=20,
+            stock_quantity=3,
+            is_available=True,
+        )
+
+        StockAdjustment.objects.create(
+            branch=self.branch,
+            product=product,
+            adjustment_type='REMOVE',
+            date='2026-10-08',
+            quantity=3,
+            reason='Sold out',
+        )
+
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 0)
+        self.assertFalse(product.is_available)
+
+    def test_superadmin_can_open_and_approve_transfer_from_source_branch(self):
+        self.branch.is_main_source = True
+        self.branch.save(update_fields=['is_main_source'])
+        self.admin.branch = self.branch
+        self.admin.save(update_fields=['branch'])
+        destination = Branch.objects.create(
+            name='Transfer Destination Branch',
+            phone_number='09123456789',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Transfer Item',
+            price=20,
+            stock_quantity=8,
+        )
+        transfer = StockTransfer.objects.create(
+            source_product=product,
+            destination_branch=destination,
+            requested_by=self.admin,
+            quantity=2,
+            notes='Branch restock request',
+        )
+        self.client.force_login(self.admin)
+
+        listing = self.client.get(reverse('inventory:transfer_list'))
+        self.assertEqual(listing.status_code, 200)
+        self.assertContains(listing, 'Approve')
+        self.assertContains(listing, 'Stock Transfer')
+        self.assertNotContains(listing, '>Request Transfer<')
+
+        response = self.client.post(
+            reverse('inventory:transfer_update_status', args=[transfer.pk]),
+            {'action': 'approve'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        transfer.refresh_from_db()
+        self.assertEqual(transfer.status, StockTransfer.Status.APPROVED)
+        approval_log = ActivityLog.objects.get(
+            object_type='StockTransfer',
+            object_id=transfer.pk,
+            action_type=ActivityLog.ActionType.APPROVE,
+        )
+        self.assertIn('Branch restock request', approval_log.details)
+
+    def test_superadmin_cannot_create_a_stock_transfer_request(self):
+        self.admin.branch = self.branch
+        self.admin.save(update_fields=['branch'])
+        self.client.force_login(self.admin)
+
+        listing = self.client.get(reverse('inventory:transfer_list'))
+        response = self.client.get(reverse('inventory:transfer_request'))
+
+        self.assertNotContains(listing, '>Request Transfer<')
+        self.assertRedirects(response, reverse('inventory:transfer_list'))
+        self.assertEqual(StockTransfer.objects.count(), 0)
+
+    def test_stock_movement_table_shows_branch_unit_and_timestamps(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Movement Detail Item',
+            price=20,
+            stock_quantity=0,
+        )
+        StockAdjustment.objects.create(
+            branch=self.branch,
+            product=product,
+            adjustment_type='ADD',
+            reference='PO-1001',
+            date='2026-10-08',
+            quantity=5,
+            reason='New shipment received',
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('inventory:management'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Recorded At')
+        self.assertContains(response, 'Movement Detail Item')
+        self.assertContains(response, 'PO-1001')
+        self.assertContains(response, 'Inventory Test Branch')
 
     @patch(
         'inventory.forms.get_inventory_unit_choices',

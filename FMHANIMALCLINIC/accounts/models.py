@@ -356,6 +356,10 @@ def log_activity(user, action, category, action_type=ActivityLog.ActionType.OTHE
                  branch=None, details='', object_type='', object_id=None, ip_address=None):
     """Utility function to log activity."""
     try:
+        if ip_address is None:
+            from accounts.activity_context import get_current_ip_address
+
+            ip_address = get_current_ip_address()
         ActivityLog.objects.create(
             user=user,
             action=action,

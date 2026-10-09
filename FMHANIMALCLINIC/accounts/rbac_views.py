@@ -58,7 +58,6 @@ def _module_permission_selected(post_data, module_code, permission_types):
     return any(
         post_data.get(f'perm_{module_code}_{perm_type}')
         for perm_type, _ in permission_types
-        if perm_type != 'MANAGE'
     )
 
 
@@ -405,6 +404,7 @@ def role_edit(request, role_id):
                 'role_presets_json': json.dumps(_get_role_hierarchy_presets()),
             })
 
+        editable_module_ids = list(modules.values_list('pk', flat=True))
         with transaction.atomic():
             role.name = name
             role.code = code
@@ -415,7 +415,7 @@ def role_edit(request, role_id):
             role.save()
 
             # Update module permissions
-            role.module_permissions.all().delete()
+            role.module_permissions.filter(module_id__in=editable_module_ids).delete()
             for module in modules:
                 branch_restrict = request.POST.get(f'branch_restrict_{module.code}') == 'on'
                 for perm_type, _ in permission_types:

@@ -81,6 +81,7 @@
         <span><strong>C</strong> Create</span>
         <span><strong>E</strong> Edit</span>
         <span><strong>D</strong> Delete</span>
+        <span><strong>M</strong> Full Management</span>
         <span><strong>All</strong> Select All for module</span>
         <span><strong><i class='bx bx-building-house' style="font-size: 13px; vertical-align: middle;"></i></strong> Restrict to Own Branch</span>
       </div>
@@ -94,6 +95,7 @@
               <th>C</th>
               <th>E</th>
               <th>D</th>
+              <th>M</th>
               <th>All</th>
               <th title="Restrict data to own branch"><i class='bx bx-building-house'></i></th>
             </tr>
@@ -110,7 +112,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -143,7 +145,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -176,7 +178,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -209,7 +211,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -242,7 +244,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -275,7 +277,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -308,7 +310,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -341,7 +343,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -374,7 +376,7 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type != 'MANAGE' %}
+              {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
@@ -408,7 +410,7 @@
                   </div>
                 </td>
                 {% for perm_type, perm_label in permission_types %}
-                {% if perm_type != 'MANAGE' %}
+                {% if perm_type %}
                 <td>
                   <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                          class="perm-cb module-perm perm-{{ perm_type }}"
@@ -595,10 +597,14 @@
   .perm-table-wrap {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    overflow: hidden;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
   .perm-table {
     width: 100%;
+    min-width: 760px;
     border-collapse: collapse;
   }
   .perm-table th,
