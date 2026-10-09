@@ -190,7 +190,6 @@
         {% if pending_appointments_count > 0 %}
         <span class="badge">{{ pending_appointments_count }}</span>
         {% endif %}
-        {% if unread_notifications_by_module.appointments > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.appointments }}</span>{% endif %}
       </a>
       <a href="{% url 'inventory:catalog' %}" class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}">
         <i class='bx bx-cart'></i><span>Digital Catalog</span>

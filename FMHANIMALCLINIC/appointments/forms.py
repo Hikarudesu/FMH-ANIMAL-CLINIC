@@ -200,7 +200,11 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
             }),
             'branch': forms.Select(),
             'preferred_vet': forms.Select(),
-            'appointment_date': forms.DateInput(attrs={'type': 'date'}),
+            'appointment_date': forms.DateInput(attrs={
+                'type': 'date',
+                'title': 'Select an appointment date',
+                'aria-label': 'Select an appointment date',
+            }),
             'appointment_time': forms.Select(choices=[('', '-- Select a time slot --')]),
         }
 
@@ -211,7 +215,7 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
         self.fields['preferred_vet'].required = False
         self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
         self.fields['pet_species'].required = True
-        self.fields['pet_breed'].required = True
+        self.fields['pet_breed'].required = False
         self.fields['pet_dob'].required = False
         self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False
@@ -384,7 +388,11 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
             # reason widget is defined in the field declaration above
             'branch': forms.Select(),
             'preferred_vet': forms.Select(),
-            'appointment_date': forms.DateInput(attrs={'type': 'date'}),
+            'appointment_date': forms.DateInput(attrs={
+                'type': 'date',
+                'title': 'Select an appointment date',
+                'aria-label': 'Select an appointment date',
+            }),
             'appointment_time': forms.Select(choices=[('', '-- Select a time slot --')]),
             'notes': forms.Textarea(attrs={'rows': 2, 'placeholder': ' ', 'oninput': 'if(this.value.length === 1) this.value = this.value.toUpperCase(); else if(this.value.length > 0) this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);'}),
         }
@@ -398,7 +406,7 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         self.fields['preferred_vet'].required = False
         self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
         self.fields['pet_species'].required = True
-        self.fields['pet_breed'].required = True
+        self.fields['pet_breed'].required = False
         self.fields['pet_dob'].required = False
         self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False
@@ -607,7 +615,11 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
             # reason widget is defined in the field declaration above
             'branch': forms.Select(),
             'preferred_vet': forms.Select(),
-            'appointment_date': forms.DateInput(attrs={'type': 'date'}),
+            'appointment_date': forms.DateInput(attrs={
+                'type': 'date',
+                'title': 'Select an appointment date',
+                'aria-label': 'Select an appointment date',
+            }),
             'status': forms.Select(),
             'source': forms.Select(),
             'notes': forms.Textarea(attrs={
@@ -716,7 +728,7 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         self.fields['owner_phone'].required = False
         self.fields['owner_address'].required = False
         self.fields['pet_species'].required = True
-        self.fields['pet_breed'].required = True
+        self.fields['pet_breed'].required = False
         self.fields['pet_dob'].required = False
         self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False
@@ -855,7 +867,11 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
             # reason widget is defined in the field declaration above
             'branch': forms.Select(),
             'preferred_vet': forms.Select(),
-            'appointment_date': forms.DateInput(attrs={'type': 'date'}),
+            'appointment_date': forms.DateInput(attrs={
+                'type': 'date',
+                'title': 'Select an appointment date',
+                'aria-label': 'Select an appointment date',
+            }),
             'status': forms.Select(),
             'source': forms.Select(),
             'notes': forms.Textarea(attrs={
@@ -991,7 +1007,7 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
         self.fields['owner_phone'].required = False
         self.fields['owner_address'].required = False
         self.fields['pet_species'].required = True
-        self.fields['pet_breed'].required = True
+        self.fields['pet_breed'].required = False
         self.fields['pet_dob'].required = False
         self.fields['pet_sex'].required = True
         self.fields['pet_color'].required = False

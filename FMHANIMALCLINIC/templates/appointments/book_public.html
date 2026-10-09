@@ -161,8 +161,9 @@
               {% if form.branch.errors %}<span class="form-error">{{ form.branch.errors.0 }}</span>{% endif %}
             </div>
             <div class="form-group-book">
-              <label for="{{ form.appointment_date.id_for_label }}">Preferred Date *</label>
+              <label for="{{ form.appointment_date.id_for_label }}">Select Appointment Date *</label>
               {{ form.appointment_date }}
+              <span class="form-hint"><i class='bx bx-info-circle'></i> Select an available date for your appointment</span>
               <span class="form-hint schedule-legend"><span><i class="schedule-day-dot has-schedule"></i> Scheduled</span><span><i class="schedule-day-dot no-schedule"></i> No schedule</span></span>
               {% if form.appointment_date.errors %}<span class="form-error">{{ form.appointment_date.errors.0 }}</span>{% endif %}
             </div>

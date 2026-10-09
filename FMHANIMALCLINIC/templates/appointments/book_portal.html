@@ -188,9 +188,10 @@
           <div class="book-field {% if form.appointment_date.errors %}has-error{% endif %}">
             <div class="book-field-icon"><i class='bx bx-calendar-event'></i></div>
             {{ form.appointment_date }}
-            <label for="{{ form.appointment_date.id_for_label }}">Date *</label>
+            <label for="{{ form.appointment_date.id_for_label }}">Select Appointment Date *</label>
             {% if form.appointment_date.errors %}<span class="book-field-error">{{ form.appointment_date.errors.0 }}</span>{% endif %}
           </div>
+          <span class="book-field-helper"><i class='bx bx-info-circle'></i> Select an available date for your appointment</span>
           <span class="book-field-helper schedule-legend"><span><i class="schedule-day-dot has-schedule"></i> Scheduled</span><span><i class="schedule-day-dot no-schedule"></i> No schedule</span></span>
         </div>
         <div class="book-field-wrap">
