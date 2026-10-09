@@ -103,6 +103,25 @@ def create_notification(
     return created['obj']
 
 
+def get_follow_up_owner(appointment):
+    """Resolve the registered owner for an appointment, including legacy records."""
+    if appointment is None:
+        return None
+    if appointment.user_id:
+        return appointment.user
+    if appointment.pet_id and appointment.pet and appointment.pet.owner_id:
+        return appointment.pet.owner
+
+    if appointment.owner_email:
+        from accounts.models import User
+
+        return User.objects.filter(
+            email__iexact=appointment.owner_email.strip(),
+            is_active=True,
+        ).first()
+    return None
+
+
 def notify_role_users(
     *,
     role_code,
@@ -569,9 +588,7 @@ def notify_follow_up_scheduled(
     if followup.follow_up_end_date and followup.follow_up_end_date != followup.follow_up_date:
         date_str = f"{followup.follow_up_date} to {followup.follow_up_end_date}"
 
-    notification_user = appointment.user
-    if not notification_user and appointment.pet_id and appointment.pet.owner_id:
-        notification_user = appointment.pet.owner
+    notification_user = get_follow_up_owner(appointment)
 
     if notification_user:
         action_text = 'updated' if event == 'updated' else 'scheduled'

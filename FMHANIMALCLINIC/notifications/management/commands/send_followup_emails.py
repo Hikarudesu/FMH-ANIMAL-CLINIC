@@ -5,6 +5,8 @@ from django.utils import timezone
 
 from notifications.followup_email_service import send_follow_up_reminder_email
 from notifications.models import FollowUp
+from notifications.models import Notification
+from notifications.utils import create_notification, get_follow_up_owner
 
 
 class Command(BaseCommand):
@@ -22,6 +24,21 @@ class Command(BaseCommand):
         for follow_up in followups:
             ok, reason = send_follow_up_reminder_email(follow_up)
             if ok:
+                owner = get_follow_up_owner(follow_up.appointment)
+                if owner:
+                    create_notification(
+                        user=owner,
+                        title=f'Follow-up Reminder for {follow_up.pet_name}',
+                        message=(
+                            f'{follow_up.pet_name} has a follow-up visit in 3 days '
+                            f'on {follow_up.follow_up_date}. '
+                            f'Reason: {follow_up.reason or "Routine follow-up"}.'
+                        ),
+                        notification_type=Notification.NotificationType.FOLLOW_UP,
+                        module_context=Notification.ModuleContext.APPOINTMENTS,
+                        related_object_id=follow_up.appointment_id,
+                        related_follow_up=follow_up,
+                    )
                 sent += 1
             else:
                 failed += 1

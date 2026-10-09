@@ -3,17 +3,30 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from .delivery import send_notification_email
+from .utils import get_follow_up_owner
+
+
+def _follow_up_recipient(follow_up):
+    """Return the best available email for a registered or guest owner."""
+    appointment = follow_up.appointment
+    owner = get_follow_up_owner(appointment)
+    return (
+        (owner.email if owner else '')
+        or (appointment.owner_email if appointment else '')
+        or (
+            follow_up.medical_record.pet.owner.email
+            if follow_up.medical_record_id
+            and follow_up.medical_record.pet.owner_id
+            else ''
+        )
+    ).strip().lower()
 
 
 def send_follow_up_email(follow_up, event='scheduled'):
     appointment = follow_up.appointment
     pet = follow_up.medical_record.pet if follow_up.medical_record_id else None
-    owner = pet.owner if pet and pet.owner_id else None
-    recipient = (
-        (appointment.owner_email if appointment else '')
-        or (appointment.user.email if appointment and appointment.user_id else '')
-        or (owner.email if owner else '')
-    ).strip().lower()
+    owner = get_follow_up_owner(appointment) or (pet.owner if pet and pet.owner_id else None)
+    recipient = _follow_up_recipient(follow_up)
     if follow_up.email_sent_at:
         return True, 'Already sent.'
     if not recipient:
@@ -77,12 +90,8 @@ def send_follow_up_reminder_email(follow_up):
     """Send the separate reminder email scheduled three days before a visit."""
     appointment = follow_up.appointment
     pet = follow_up.medical_record.pet if follow_up.medical_record_id else None
-    owner = pet.owner if pet and pet.owner_id else None
-    recipient = (
-        (appointment.owner_email if appointment else '')
-        or (appointment.user.email if appointment and appointment.user_id else '')
-        or (owner.email if owner else '')
-    ).strip().lower()
+    owner = get_follow_up_owner(appointment) or (pet.owner if pet and pet.owner_id else None)
+    recipient = _follow_up_recipient(follow_up)
     if follow_up.reminder_email_sent_at:
         return True, 'Already sent.'
     if not recipient:

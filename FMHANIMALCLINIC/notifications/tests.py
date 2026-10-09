@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import Client, RequestFactory, TestCase
+from django.core.management import call_command
 from django.urls import resolve, reverse
 from django.utils import timezone
 
@@ -253,6 +254,67 @@ class NotificationRoutingTests(TestCase):
             related_follow_up=follow_up,
         ).exists())
         send_email.assert_called_once_with(follow_up, event='scheduled')
+
+    @patch('notifications.followup_email_service.send_follow_up_email')
+    def test_updated_follow_up_notifies_owner_and_sends_updated_email(self, send_email):
+        appointment = Appointment.objects.create(
+            owner_name='Pet Owner',
+            owner_email='owner@example.com',
+            pet_name='Milo',
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=timezone.localtime().time().replace(microsecond=0),
+            user=self.pet_owner,
+        )
+        follow_up = FollowUp.objects.create(
+            appointment=appointment,
+            pet_name='Milo',
+            follow_up_date=timezone.localdate() + timezone.timedelta(days=7),
+        )
+        send_email.return_value = (True, 'Sent.')
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_follow_up_scheduled(
+                appointment,
+                follow_up,
+                follow_up_reason='Medication review',
+                event='updated',
+            )
+
+        notification = Notification.objects.get(related_follow_up=follow_up)
+        self.assertEqual(notification.user, self.pet_owner)
+        self.assertIn('updated', notification.message)
+        self.assertIn('Medication review', notification.message)
+        send_email.assert_called_once_with(follow_up, event='updated')
+
+    @patch(
+        'notifications.management.commands.send_followup_emails.'
+        'send_follow_up_reminder_email',
+        return_value=(True, 'Sent.'),
+    )
+    def test_three_day_follow_up_reminder_creates_owner_notification(self, send_email):
+        appointment = Appointment.objects.create(
+            owner_name='Pet Owner',
+            owner_email='owner@example.com',
+            pet_name='Milo',
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=timezone.localtime().time().replace(microsecond=0),
+            user=self.pet_owner,
+        )
+        follow_up = FollowUp.objects.create(
+            appointment=appointment,
+            pet_name='Milo',
+            follow_up_date=timezone.localdate() + timezone.timedelta(days=3),
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command('send_followup_emails')
+
+        send_email.assert_called_once_with(follow_up)
+        notification = Notification.objects.get(related_follow_up=follow_up)
+        self.assertEqual(notification.user, self.pet_owner)
+        self.assertIn('in 3 days', notification.message)
 
     @patch('notifications.signals.notify_inquiry_received')
     def test_inquiry_reaches_branch_admin_and_receptionist_alias(self, signal_notifier):
