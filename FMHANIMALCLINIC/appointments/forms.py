@@ -202,6 +202,7 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
             'preferred_vet': forms.Select(),
             'appointment_date': forms.DateInput(attrs={
                 'type': 'date',
+                'placeholder': 'Select appointment date',
                 'title': 'Select an appointment date',
                 'aria-label': 'Select an appointment date',
             }),
@@ -390,6 +391,7 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
             'preferred_vet': forms.Select(),
             'appointment_date': forms.DateInput(attrs={
                 'type': 'date',
+                'placeholder': 'Select appointment date',
                 'title': 'Select an appointment date',
                 'aria-label': 'Select an appointment date',
             }),
@@ -617,6 +619,7 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
             'preferred_vet': forms.Select(),
             'appointment_date': forms.DateInput(attrs={
                 'type': 'date',
+                'placeholder': 'Select appointment date',
                 'title': 'Select an appointment date',
                 'aria-label': 'Select an appointment date',
             }),
@@ -869,6 +872,7 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
             'preferred_vet': forms.Select(),
             'appointment_date': forms.DateInput(attrs={
                 'type': 'date',
+                'placeholder': 'Select appointment date',
                 'title': 'Select an appointment date',
                 'aria-label': 'Select an appointment date',
             }),

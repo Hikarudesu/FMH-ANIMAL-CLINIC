@@ -5079,6 +5079,11 @@ textarea:focus {
 .book-input::placeholder {
   color: transparent;
 }
+
+.book-field input[name="appointment_date"]::placeholder {
+  color: var(--text-3);
+  opacity: 1;
+}
 textarea.book-input {
   padding-top: 28px;
   resize: vertical;
@@ -5395,4 +5400,3 @@ textarea.book-input {
   .book-grid { gap: 12px; }
   .book-submit-btn, .book-cancel-btn { padding: 12px 16px; font-size: 0.85rem; }
 }
-
