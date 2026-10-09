@@ -54,14 +54,23 @@ function initScheduleDropdowns() {
      });
    };
 
-   menu.addEventListener("click", (event) => {
+   const selectOption = (event) => {
      const option = event.target.closest("button.book-custom-select__option");
      if (!option || option.disabled) return;
 
+     event.preventDefault();
+     event.stopPropagation();
      select.value = option.dataset.value || "";
      wrapper.classList.remove("is-open");
      trigger.setAttribute("aria-expanded", "false");
      select.dispatchEvent(new Event("change", { bubbles: true }));
+   };
+   menu.addEventListener("pointerdown", selectOption);
+   menu.addEventListener("click", (event) => {
+     if (event.target.closest("button.book-custom-select__option")) {
+       event.preventDefault();
+       event.stopPropagation();
+     }
    });
    select.addEventListener("change", scheduleRender);
    const observer = new MutationObserver(scheduleRender);

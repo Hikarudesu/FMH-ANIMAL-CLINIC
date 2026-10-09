@@ -5161,7 +5161,7 @@ textarea:focus {
 }
 .book-custom-select__menu {
   position: absolute;
-  z-index: 20;
+  z-index: 100;
   top: calc(100% + 6px);
   left: 0;
   right: 0;
@@ -5173,6 +5173,7 @@ textarea:focus {
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+  pointer-events: auto;
 }
 .book-custom-select.is-open .book-custom-select__menu {
   display: grid;
