@@ -131,10 +131,10 @@ def portal_book(request):
 @login_required
 def my_appointments(request):
     """Show the logged-in user's appointments and follow-ups with tabbed data."""
-    # Base query for appointments - filter out appointments where pet was deleted
-    # FIX: Added pet and pet__owner to select_related to prevent N+1 queries
+    # Include pending portal bookings even before a Pet record is created.
+    # Pending appointments intentionally keep pet_id empty until staff confirms them.
     base_appts = Appointment.objects.filter(
-        user=request.user, pet__isnull=False).select_related('branch', 'preferred_vet', 'pet', 'pet__owner')
+        user=request.user).select_related('branch', 'preferred_vet', 'pet', 'pet__owner')
 
     # Categorized queries
     pending_appts = base_appts.filter(status=Appointment.Status.PENDING)
