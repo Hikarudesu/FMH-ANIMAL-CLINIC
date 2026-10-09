@@ -463,6 +463,7 @@ def admin_add_pet_view(request):
         'form': form,
         'action': 'Register',
         'owner_filter_branches': form.fields['branch'].queryset,
+        'owner_branch_restricted': request.user.is_module_branch_restricted('patients'),
     })
 
 

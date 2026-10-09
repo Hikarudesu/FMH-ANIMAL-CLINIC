@@ -415,6 +415,11 @@ def admin_record_create(request):
                             "Could not resolve or create patient profile. "
                             "Ensure Owner and Pet names are provided.",
                         )
+        else:
+            messages.error(
+                request,
+                'The visit entry was not saved. Please correct the highlighted fields below.',
+            )
     else:
         initial_data = {'date_recorded': timezone.now().date()}
         entry_form = RecordEntryForm(initial=initial_data)

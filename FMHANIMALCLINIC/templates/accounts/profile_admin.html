@@ -177,6 +177,7 @@
               <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
               <input type="password" id="currentPassword" name="current_password" placeholder="Enter current password" required
                      style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+              <button type="button" class="password-visibility-toggle" data-password-target="currentPassword" aria-label="Show password"><i class='bx bx-hide'></i></button>
             </div>
             <div style="margin-top: 6px; text-align: right;">
               <a href="#" id="toggleOtpFlow" style="font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 500;">Forgot current password?</a>
@@ -188,6 +189,7 @@
               <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
               <input type="password" id="newPassword1" name="new_password1" placeholder="Enter new password" required minlength="8"
                      style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+              <button type="button" class="password-visibility-toggle" data-password-target="newPassword1" aria-label="Show password"><i class='bx bx-hide'></i></button>
             </div>
           </div>
           <div class="auth-form-group">
@@ -196,6 +198,7 @@
               <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
               <input type="password" id="newPassword2" name="new_password2" placeholder="Confirm new password" required minlength="8"
                      style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+              <button type="button" class="password-visibility-toggle" data-password-target="newPassword2" aria-label="Show password"><i class='bx bx-hide'></i></button>
             </div>
           </div>
           <div style="display: flex; gap: 12px; margin-top: 8px;">
@@ -251,6 +254,7 @@
             <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
             <input type="password" id="inlineNewPass1" placeholder="Enter new password" minlength="8"
                    style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+                 <button type="button" class="password-visibility-toggle" data-password-target="inlineNewPass1" aria-label="Show password"><i class='bx bx-hide'></i></button>
           </div>
         </div>
         <div class="auth-form-group">
@@ -259,6 +263,7 @@
             <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
             <input type="password" id="inlineNewPass2" placeholder="Confirm new password" minlength="8"
                    style="flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text-1); outline: none;">
+                 <button type="button" class="password-visibility-toggle" data-password-target="inlineNewPass2" aria-label="Show password"><i class='bx bx-hide'></i></button>
           </div>
         </div>
         <div id="resetStatusMsg" style="font-size:13px; color:var(--error); display:none;"></div>
@@ -409,6 +414,19 @@
         cpForm.style.display = cpForm.style.display === 'none' ? 'block' : 'none';
       });
     }
+
+    document.querySelectorAll('[data-password-target]').forEach((toggle) => {
+      toggle.addEventListener('click', () => {
+        const input = document.getElementById(toggle.dataset.passwordTarget);
+        const icon = toggle.querySelector('i');
+        if (!input) return;
+        const visible = input.type === 'text';
+        input.type = visible ? 'password' : 'text';
+        toggle.setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
+        icon.classList.toggle('bx-hide', visible);
+        icon.classList.toggle('bx-show', !visible);
+      });
+    });
 
     /* ═════════════════════════════════════════════════════════════════════════
        INLINE OTP FORGOT PASSWORD FLOW

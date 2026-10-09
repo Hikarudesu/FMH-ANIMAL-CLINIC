@@ -492,14 +492,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (cardCount > 0) {
-      // Only clone cards for desktop (transform-based scroll)
-      if (!isMobile()) {
-        const cards = Array.from(carouselTrack.children);
-        cards.forEach((card) => {
-          const clone = card.cloneNode(true);
-          carouselTrack.appendChild(clone);
-        });
-      }
+      // Clone cards for every viewport so veterinarians loop continuously on
+      // touch devices as well as desktop transform-based scrolling.
+      const cards = Array.from(carouselTrack.children);
+      cards.forEach((card) => {
+        const clone = card.cloneNode(true);
+        carouselTrack.appendChild(clone);
+      });
 
       let currentScroll = 0;
       let isTransitioning = false;

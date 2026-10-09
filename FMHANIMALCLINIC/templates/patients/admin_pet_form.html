@@ -690,12 +690,14 @@
             <label for="ownerSearch">Find portal account <span class="req">*</span></label>
             <div class="apf-owner-picker" id="ownerPicker" data-search-url="{% url 'patients:api_owner_search' %}" data-initial-owner-id="{{ form.owner.value|default:'' }}">
               <div class="apf-owner-picker-filters">
+                {% if not owner_branch_restricted %}
                 <select id="ownerBranchFilter" class="pf-input" aria-label="Filter owners by branch">
                   <option value="">All branches</option>
                   {% for branch in owner_filter_branches %}
                   <option value="{{ branch.pk }}">{{ branch.name }}</option>
                   {% endfor %}
                 </select>
+                {% endif %}
                 <input type="search" id="ownerSearch" class="pf-input" placeholder="Search owner name or username" autocomplete="off" aria-controls="ownerSearchResults" aria-autocomplete="list">
               </div>
               <div class="apf-owner-selected" id="ownerSelected" hidden>
@@ -1326,7 +1328,8 @@
 
       if (activeRequest) activeRequest.abort();
       activeRequest = new AbortController();
-      const params = new URLSearchParams({ branch: branchFilter.value });
+      const params = new URLSearchParams();
+      if (branchFilter && branchFilter.value) params.set('branch', branchFilter.value);
       if (ownerId) params.set('owner_id', ownerId);
       else params.set('q', query);
 
@@ -1372,11 +1375,13 @@
       ownerField.value = '';
       debounceTimer = window.setTimeout(() => searchOwners(), 250);
     });
-    branchFilter.addEventListener('change', () => {
-      selected.hidden = true;
-      ownerField.value = '';
-      searchOwners();
-    });
+    if (branchFilter) {
+      branchFilter.addEventListener('change', () => {
+        selected.hidden = true;
+        ownerField.value = '';
+        searchOwners();
+      });
+    }
     changeButton.addEventListener('click', () => {
       selected.hidden = true;
       ownerField.value = '';
