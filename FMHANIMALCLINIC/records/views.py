@@ -883,16 +883,22 @@ def admin_add_entry(request, pk):
     if request.method == 'POST':
         form = RecordEntryForm(request.POST)
         if form.is_valid():
+            branch_id_post = request.POST.get('branch_id', '').strip()
+            selected_branch = (
+                Branch.objects.filter(pk=branch_id_post, is_active=True).first()
+                if branch_id_post else None
+            )
+            if not selected_branch:
+                form.add_error(
+                    None,
+                    'Branch / Location is required. Please select an active branch.',
+                )
+
+        if form.is_valid():
             entry = form.save(commit=False)
             entry.record = record
             entry.appointment = linked_appointment
-            # Update record branch if a different branch was selected
-            branch_id_post = request.POST.get('branch_id', '').strip()
-            if branch_id_post:
-                try:
-                    record.branch = Branch.objects.get(pk=branch_id_post)
-                except Branch.DoesNotExist:
-                    pass
+            record.branch = selected_branch
 
             # Get vet from form, fall back to logged-in user if not set
             selected_vet = entry.vet
