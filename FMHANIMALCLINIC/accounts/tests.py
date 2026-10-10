@@ -16,6 +16,7 @@ from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermissi
 from branches.models import Branch
 from appointments.models import Appointment
 from billing.models import CustomerStatement
+from employees.models import StaffMember
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
@@ -137,6 +138,97 @@ class RolePermissionManagementTests(TestCase):
         self.assertEqual(appointment.owner_phone, '09987654321')
         self.assertEqual(appointment.owner_address, 'New Address')
         self.assertEqual(statement.owner_name, 'After Updated')
+
+    def test_staff_account_profile_updates_sync_linked_staff_records(self):
+        branch = Branch.objects.create(
+            name='Staff Sync Branch',
+            phone_number='09123456789',
+            address='1 Staff Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        staff_roles = (
+            ('veterinarian', StaffMember.Position.VETERINARIAN),
+            ('assistant_veterinarian', StaffMember.Position.VET_ASSISTANT),
+            ('cashier', StaffMember.Position.RECEPTIONIST),
+        )
+
+        for role_code, position in staff_roles:
+            with self.subTest(role_code=role_code):
+                role, _ = Role.objects.get_or_create(
+                    code=role_code,
+                    defaults={
+                        'name': role_code.replace('_', ' ').title(),
+                        'hierarchy_level': 5,
+                        'is_staff_role': True,
+                    },
+                )
+                user = get_user_model().objects.create_user(
+                    username=f'{role_code}-profile-sync',
+                    first_name='Before',
+                    last_name='Staff',
+                    email=f'{role_code}@example.com',
+                    phone_number='09123456789',
+                    password='A-secure-test-password-923!',
+                    assigned_role=role,
+                    branch=branch,
+                )
+                staff = StaffMember.objects.create(
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    email=user.email,
+                    phone=user.phone_number,
+                    branch=branch,
+                    position=position,
+                    user=user,
+                )
+
+                user.first_name = 'After'
+                user.last_name = 'Updated'
+                user.email = f'updated-{role_code}@example.com'
+                user.phone_number = '09987654321'
+                user.branch = branch
+                user.save()
+
+                staff.refresh_from_db()
+                self.assertEqual(staff.first_name, 'After')
+                self.assertEqual(staff.last_name, 'Updated')
+                self.assertEqual(staff.email, f'updated-{role_code}@example.com')
+                self.assertEqual(staff.phone, '09987654321')
+                self.assertEqual(staff.branch_id, branch.pk)
+
+        admin = get_user_model().objects.create_superuser(
+            username='admin-profile-sync',
+            first_name='Before',
+            last_name='Admin',
+            email='admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        admin.branch = branch
+        admin.save()
+        admin_staff = StaffMember.objects.create(
+            first_name=admin.first_name,
+            last_name=admin.last_name,
+            email=admin.email,
+            phone='',
+            branch=branch,
+            position=StaffMember.Position.ADMIN,
+            user=admin,
+        )
+
+        admin.first_name = 'After'
+        admin.last_name = 'Updated'
+        admin.email = 'updated-admin@example.com'
+        admin.phone_number = '09987654321'
+        admin.save()
+
+        admin_staff.refresh_from_db()
+        self.assertEqual(admin_staff.first_name, 'After')
+        self.assertEqual(admin_staff.last_name, 'Updated')
+        self.assertEqual(admin_staff.email, 'updated-admin@example.com')
+        self.assertEqual(admin_staff.phone, '09987654321')
+        self.assertEqual(admin_staff.branch_id, branch.pk)
 
     def test_generic_audit_records_changed_fields_without_values(self):
         branch = Branch.objects.create(
