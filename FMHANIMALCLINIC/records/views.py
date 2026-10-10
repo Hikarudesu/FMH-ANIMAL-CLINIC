@@ -205,7 +205,17 @@ def admin_record_create(request):
         linked_appointment = Appointment.objects.filter(
             pk=appointment_id,
             status=Appointment.Status.COMPLETED,
-        ).select_related('preferred_vet').first()
+        ).select_related('preferred_vet', 'pet', 'branch').first()
+        if linked_appointment and linked_appointment.pet_id:
+            pet_id = str(linked_appointment.pet_id)
+            existing_record = MedicalRecord.objects.filter(
+                pet_id=linked_appointment.pet_id,
+            ).order_by('-created_at').first()
+            if request.method == 'GET' and existing_record:
+                return redirect(
+                    f"{reverse('records:admin_add_entry', args=[existing_record.pk])}"
+                    f"?appointment={linked_appointment.pk}"
+                )
 
     if request.method == 'POST':
         entry_form = RecordEntryForm(request.POST)
@@ -510,6 +520,7 @@ def admin_record_create(request):
         'pet_id': pet_id,
         'selected_pet': selected_pet,
         'prefill_pet_name': prefill_pet_name,
+        'linked_appointment': linked_appointment,
     }
     return render(request, 'records/admin_form.html', context)
 
@@ -822,6 +833,14 @@ def admin_add_entry(request, pk):
 
     record = get_object_or_404(MedicalRecord, pk=pk)
     from_patients = request.GET.get('from_patients', '0') == '1'
+    appointment_id = request.GET.get('appointment') or request.POST.get('appointment', '')
+    linked_appointment = None
+    if appointment_id:
+        from appointments.models import Appointment
+        linked_appointment = Appointment.objects.filter(
+            pk=appointment_id,
+            status=Appointment.Status.COMPLETED,
+        ).select_related('preferred_vet', 'branch').first()
 
     if request.method == 'POST':
         form = RecordEntryForm(request.POST)
@@ -858,6 +877,13 @@ def admin_add_entry(request, pk):
             # Touch the parent record so updated_at changes (also saves branch/vet update)
             record.save()
             notify_medical_record_follow_up(record, request.user)
+            if linked_appointment:
+                Notification.objects.filter(
+                    user=request.user,
+                    notification_type=Notification.NotificationType.APPOINTMENT,
+                    related_object_id=linked_appointment.id,
+                    is_read=False,
+                ).update(is_read=True)
 
             messages.success(
                 request, f'New visit entry added to {record.pet.name}\'s record.')
@@ -869,8 +895,12 @@ def admin_add_entry(request, pk):
         initial_data = {
             'date_recorded': timezone.now().date(),
         }
+        if linked_appointment:
+            initial_data['date_recorded'] = linked_appointment.appointment_date
+            if linked_appointment.preferred_vet_id:
+                initial_data['vet'] = linked_appointment.preferred_vet_id
         if record.vet:
-            initial_data['vet'] = record.vet
+            initial_data.setdefault('vet', record.vet)
         form = RecordEntryForm(initial=initial_data)
 
     vets, vets_for_json = get_veterinarians_for_json()
@@ -883,6 +913,7 @@ def admin_add_entry(request, pk):
         'branches': branches,
         'vets_json': json.dumps(vets_for_json),
         'from_patients': from_patients,
+        'linked_appointment': linked_appointment,
     })
 
 

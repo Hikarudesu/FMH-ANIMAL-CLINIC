@@ -48,6 +48,9 @@
 
     <form method="post">
         {% csrf_token %}
+        {% if request.GET.appointment %}
+        <input type="hidden" name="appointment" value="{{ request.GET.appointment }}">
+        {% endif %}
 
         <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
             <div class="form-group">
