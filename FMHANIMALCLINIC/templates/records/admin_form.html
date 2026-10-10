@@ -172,7 +172,14 @@
                     </div>
                     <div class="form-group" id="owner-portal-group">
                         <label class="form-label">Select Owner *</label>
-                        <select id="ro-owner-select" class="form-control-custom" required>
+                        <input type="search" id="ro-owner-search" class="form-control-custom"
+                               placeholder="Search owner by name or phone" autocomplete="off"
+                               role="combobox" aria-autocomplete="list" aria-expanded="false" required />
+                        <div id="ro-owner-results" role="listbox"
+                             style="display: none; position: relative; z-index: 5; max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-sm);">
+                        </div>
+                        <select id="ro-owner-select" class="form-control-custom" required
+                                style="display: none;" aria-hidden="true" tabindex="-1">
                             <option value="">— Search & Select Owner —</option>
                         </select>
                         <input type="hidden" id="selected_user_id" name="selected_user_id" value="" />
@@ -397,6 +404,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ====== Owner Select / Source Toggle Setup ======
     const ownerSelect = document.getElementById('ro-owner-select');
+    const ownerSearch = document.getElementById('ro-owner-search');
+    const ownerResults = document.getElementById('ro-owner-results');
     const ownerNameHidden = document.getElementById('ro-owner-name');
     const selectedUserIdField = document.getElementById('selected_user_id');
     const ownerNameWalkin = document.getElementById('ro-owner-name-walkin');
@@ -455,17 +464,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     buildOwnerPetsMap();
 
-    // Load all registered owners into the select dropdown
-    function loadPortalOwners() {
-        fetch("{% url 'records:api_search_owners' %}?q=__all__")
-            .then(response => response.json())
-            .then(data => {
-                allOwners = data.owners || [];
-                populateOwnerSelect(allOwners);
-            })
-            .catch(err => console.error('Error loading owners:', err));
-    }
-
     function populateOwnerSelect(owners) {
         ownerSelect.innerHTML = '<option value="">— Select Owner —</option>';
         owners.forEach(function(owner) {
@@ -478,6 +476,84 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerSelect.appendChild(opt);
         });
     }
+
+    function selectPortalOwner(owner) {
+        populateOwnerSelect([owner]);
+        ownerSelect.value = String(owner.id);
+        ownerSearch.value = owner.full_name + (owner.phone_number ? ' (' + owner.phone_number + ')' : '');
+        ownerSearch.setCustomValidity('');
+        ownerResults.innerHTML = '';
+        ownerResults.style.display = 'none';
+        ownerSearch.setAttribute('aria-expanded', 'false');
+        ownerSelect.dispatchEvent(new Event('change'));
+    }
+
+    let ownerSearchTimer;
+    function searchPortalOwners(query) {
+        clearTimeout(ownerSearchTimer);
+        const normalizedQuery = query.trim();
+        ownerSelect.value = '';
+        selectedUserIdField.value = '';
+        ownerNameHidden.value = '';
+        if (!normalizedQuery) {
+            ownerResults.innerHTML = '';
+            ownerResults.style.display = 'none';
+            ownerSearch.setAttribute('aria-expanded', 'false');
+            ownerSearch.setCustomValidity('Select a registered owner.');
+            resetPetToManual();
+            return;
+        }
+
+        ownerSearchTimer = setTimeout(function() {
+            fetch("{% url 'records:api_search_owners' %}?q=" + encodeURIComponent(normalizedQuery))
+                .then(response => response.json())
+                .then(data => {
+                    const owners = data.owners || [];
+                    ownerResults.innerHTML = '';
+                    if (!owners.length) {
+                        ownerResults.innerHTML = '<div style="padding: 10px 12px; color: var(--text-secondary);">No registered owners found.</div>';
+                    } else {
+                        owners.forEach(function(owner) {
+                            const result = document.createElement('button');
+                            result.type = 'button';
+                            result.role = 'option';
+                            result.style.cssText = 'display:block; width:100%; padding:10px 12px; border:0; border-bottom:1px solid var(--border); background:transparent; text-align:left; cursor:pointer; color:var(--text-primary);';
+                            const ownerName = document.createElement('strong');
+                            ownerName.textContent = owner.full_name;
+                            result.appendChild(ownerName);
+                            if (owner.phone_number) {
+                                result.appendChild(document.createElement('br'));
+                                const ownerPhone = document.createElement('small');
+                                ownerPhone.textContent = owner.phone_number;
+                                result.appendChild(ownerPhone);
+                            }
+                            result.addEventListener('click', function() {
+                                selectPortalOwner(owner);
+                            });
+                            ownerResults.appendChild(result);
+                        });
+                    }
+                    ownerResults.style.display = 'block';
+                    ownerSearch.setAttribute('aria-expanded', 'true');
+                })
+                .catch(function(error) {
+                    console.error('Error searching owners:', error);
+                    ownerResults.innerHTML = '<div style="padding: 10px 12px; color: var(--accent);">Unable to search owners.</div>';
+                    ownerResults.style.display = 'block';
+                    ownerSearch.setAttribute('aria-expanded', 'true');
+                });
+        }, 250);
+    }
+
+    ownerSearch.addEventListener('input', function() {
+        searchPortalOwners(this.value);
+    });
+    ownerSearch.addEventListener('blur', function() {
+        setTimeout(function() {
+            ownerResults.style.display = 'none';
+            ownerSearch.setAttribute('aria-expanded', 'false');
+        }, 180);
+    });
 
     // Populate pet dropdown based on selected owner/guest
     function populatePetDropdown(ownerKey, source) {
@@ -555,11 +631,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (this.value) {
             selectedUserIdField.value = this.value;
             ownerNameHidden.value = selectedOpt.dataset.name || '';
+            ownerSearch.value = selectedOpt.textContent;
+            ownerSearch.setCustomValidity('');
             ownerContactInput.value = selectedOpt.dataset.phone || '';
             ownerAddressInput.value = selectedOpt.dataset.address || '';
             // Populate pet dropdown for this owner
             populatePetDropdown(this.value, 'PORTAL');
         } else {
+            ownerSearch.value = '';
+            ownerSearch.setCustomValidity('Select a registered owner.');
             selectedUserIdField.value = '';
             ownerNameHidden.value = '';
             ownerContactInput.value = '';
@@ -697,6 +777,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerWalkinToggleGroup.style.display = 'none';
             ownerSelect.required = true;
             ownerSelect.disabled = false;
+            ownerSearch.required = true;
+            ownerSearch.disabled = false;
             walkinSelect.required = false;
             walkinSelect.disabled = true;
             ownerNameWalkin.disabled = true;
@@ -712,6 +794,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerWalkinGroup.style.display = '';
             ownerSelect.required = false;
             ownerSelect.disabled = true;
+            ownerSearch.required = false;
+            ownerSearch.disabled = true;
             ownerNameHidden.removeAttribute('name');
             selectedUserIdField.removeAttribute('name');
             selectedUserIdField.value = '';
@@ -754,6 +838,8 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedUserIdField.value = '';
             // Clear portal selection
             ownerSelect.value = '';
+            ownerSearch.value = '';
+            ownerSearch.setCustomValidity('Select a registered owner.');
             ownerNameHidden.value = '';
             // Reset pet selection
             if (!walkinSelect.value || walkinManualToggle.checked) {
@@ -770,6 +856,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear fields when switching source
         ownerContactInput.value = '';
         ownerAddressInput.value = '';
+        ownerSearch.value = '';
         petInput.value = '';
         if (ownerNameWalkin) ownerNameWalkin.value = '';
         if (walkinSelect) walkinSelect.value = '';
@@ -777,7 +864,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     toggleOwnerFields(); // Set initial state
-    loadPortalOwners(); // Load owners on page load
+    ownerSearch.setCustomValidity('Select a registered owner.');
 
     // ====== Auto-Prefill from ?pet=<pk> ======
     {% if prefill_pet_name %}
@@ -813,18 +900,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (prefillData.source === 'PORTAL' && prefillData.owner_id) {
             ownerNameHidden.value = prefillData.owner_name || '';
             selectedUserIdField.value = String(prefillData.owner_id);
-
-            const waitForOwners = setInterval(function() {
-                if (ownerSelect.options.length > 1) {
-                    clearInterval(waitForOwners);
-                    ownerSelect.value = String(prefillData.owner_id);
+            fetch("{% url 'records:api_search_owners' %}?q=" + encodeURIComponent(prefillData.owner_name || prefillName))
+                .then(response => response.json())
+                .then(data => {
+                    const owner = (data.owners || []).find(
+                        item => String(item.id) === String(prefillData.owner_id)
+                    );
+                    if (owner) {
+                        selectPortalOwner(owner);
+                    }
                     restorePetFields();
-                }
-            }, 100);
-            setTimeout(function() {
-                clearInterval(waitForOwners);
-                restorePetFields();
-            }, 3000);
+                })
+                .catch(function(error) {
+                    console.error('Error loading prefilled owner:', error);
+                    restorePetFields();
+                });
         } else {
             restorePetFields();
         }
