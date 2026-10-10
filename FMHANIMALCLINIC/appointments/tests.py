@@ -7,7 +7,7 @@ from django.utils import timezone
 from accounts.models import User
 from accounts.rbac_models import Role
 from appointments.models import Appointment
-from appointments.forms import AdminQuickCreateForm
+from appointments.forms import AdminQuickCreateForm, AppointmentEditForm
 from branches.models import Branch
 from employees.models import StaffMember
 
@@ -105,4 +105,32 @@ class InactiveStaffAppointmentOptionsTests(TestCase):
 
         self.assertFalse(
             form.fields['preferred_vet'].queryset.filter(pk=staff.pk).exists()
+        )
+
+
+class AdminQuickCreateOwnerValidationTests(TestCase):
+    def test_walkin_owner_name_is_required(self):
+        form = AdminQuickCreateForm(data={'source': Appointment.Source.WALKIN})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('owner_name', form.errors)
+        self.assertEqual(
+            form.errors['owner_name'][0],
+            'Owner name is required for walk-in appointments.',
+        )
+
+    def test_owner_name_field_is_not_required_for_portal_form_rendering(self):
+        form = AdminQuickCreateForm()
+
+        self.assertFalse(form.fields['owner_name'].required)
+
+
+class AppointmentEditVeterinarianOptionalTests(TestCase):
+    def test_veterinarian_is_optional_when_editing_appointment(self):
+        form = AppointmentEditForm()
+
+        self.assertFalse(form.fields['preferred_vet'].required)
+        self.assertEqual(
+            form.fields['preferred_vet'].empty_label,
+            '-- Any Available Vet --',
         )

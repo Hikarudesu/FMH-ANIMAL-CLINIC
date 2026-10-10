@@ -1014,6 +1014,7 @@ function getLocalYMD(d) {
     if (sourceHiddenField) sourceHiddenField.value = isPortal ? "PORTAL" : "WALKIN";
     if (clientSourceSelect) clientSourceSelect.required = true;
     if (ownerSelect) ownerSelect.required = isPortal;
+    if (ownerNameField) ownerNameField.required = !isPortal;
     if (petSelect) petSelect.required = isPortal && !petManualToggle?.checked;
     if (petNameField) petNameField.required = !isPortal || Boolean(petManualToggle?.checked);
 

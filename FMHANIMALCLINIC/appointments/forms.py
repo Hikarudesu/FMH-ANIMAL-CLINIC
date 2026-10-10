@@ -729,6 +729,8 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
         self.fields['owner_email'].required = True
         self.fields['owner_phone'].required = True
+        # Portal appointments receive the owner name from the selected account.
+        self.fields['owner_name'].required = False
         self.fields['owner_address'].required = False
         self.fields['source'].required = True
         self.fields['pet_species'].required = True
@@ -770,6 +772,12 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+
+        if (
+            self.data.get('source') == Appointment.Source.WALKIN
+            and not (cleaned_data.get('owner_name') or '').strip()
+        ):
+            self.add_error('owner_name', 'Owner name is required for walk-in appointments.')
         
         # Handle MORNING/AFTERNOON markers for "any available vet" mode
         time_str = self.data.get('appointment_time')
@@ -1006,8 +1014,8 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
 
         self.fields['preferred_vet'].queryset = vets_query.select_related('user', 'user__assigned_role')
         
-        self.fields['preferred_vet'].required = True
-        self.fields['preferred_vet'].empty_label = '-- Select Veterinarian --'
+        self.fields['preferred_vet'].required = False
+        self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
         self.fields['owner_email'].required = True
         self.fields['owner_phone'].required = True
         self.fields['owner_address'].required = False
