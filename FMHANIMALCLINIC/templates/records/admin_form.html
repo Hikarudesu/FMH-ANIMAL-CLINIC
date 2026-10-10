@@ -3,6 +3,9 @@
 {% block title %}Add Medical Record Entry{% endblock %}
 
 {% block content %}
+{% if appointment_prefill %}
+{{ appointment_prefill|json_script:"appointment-prefill-data" }}
+{% endif %}
 <!-- Page Hero -->
 {% if from_patients and selected_pet %}
     {% url 'patients:admin_detail' selected_pet.id as back_url %}
@@ -782,56 +785,51 @@ document.addEventListener('DOMContentLoaded', function() {
     // ====== Auto-Prefill from ?pet=<pk> ======
     {% if prefill_pet_name %}
     (function autoFillPet() {
-        const prefillName = '{{ prefill_pet_name|escapejs }}';
-        const prefillData = petsData[prefillName] || {};
-        {% if linked_appointment %}
-        prefillData.owner_name = '{{ linked_appointment.owner_name|escapejs }}';
-        prefillData.owner_contact = '{{ linked_appointment.owner_phone|escapejs }}';
-        prefillData.owner_address = '{{ linked_appointment.owner_address|escapejs }}';
-        prefillData.pet_color = '{{ linked_appointment.pet_color|escapejs }}';
-        prefillData.pet_species = '{{ linked_appointment.pet_species|escapejs }}';
-        prefillData.pet_breed = '{{ linked_appointment.pet_breed|escapejs }}';
-        prefillData.pet_sex = '{{ linked_appointment.pet_sex|escapejs }}';
-        prefillData.source = '{{ linked_appointment.source|escapejs }}';
-        {% endif %}
+        const appointmentData = document.getElementById('appointment-prefill-data');
+        const prefillData = appointmentData
+            ? JSON.parse(appointmentData.textContent)
+            : petsData['{{ prefill_pet_name|escapejs }}'];
         if (!prefillData) return;
 
-        // Set the pet name in the input field
-        petInput.value = prefillName;
-        petInput.style.display = '';
-        petSelect.style.display = 'none';
-        petInput.required = true;
+        const prefillName = prefillData.pet_name || '{{ prefill_pet_name|escapejs }}';
 
-        // Fill pet detail fields
-        fillPetDetails(prefillData);
-
-        // Set client source
         if (sourceSelect && prefillData.source) {
             sourceSelect.value = prefillData.source;
             toggleOwnerFields();
         }
 
-        // Fill owner contact info
         if (ownerAddressInput) ownerAddressInput.value = prefillData.owner_address || '';
         if (ownerContactInput) ownerContactInput.value = prefillData.owner_contact || '';
 
         if (prefillData.source === 'WALKIN') {
-            // Walk-in: fill guest owner name
             if (ownerNameWalkin) ownerNameWalkin.value = prefillData.owner_name || '';
-        } else if (prefillData.source === 'PORTAL' && prefillData.owner_id) {
-            // Portal: select the owner after the async owner load completes
+        }
+
+        function restorePetFields() {
+            petInput.value = prefillName;
+            petInput.style.display = '';
+            petSelect.style.display = 'none';
+            petInput.required = true;
+            fillPetDetails(prefillData);
+        }
+
+        if (prefillData.source === 'PORTAL' && prefillData.owner_id) {
             ownerNameHidden.value = prefillData.owner_name || '';
             selectedUserIdField.value = String(prefillData.owner_id);
 
-            // Wait for loadPortalOwners to finish, then set the dropdown value
             const waitForOwners = setInterval(function() {
                 if (ownerSelect.options.length > 1) {
                     clearInterval(waitForOwners);
                     ownerSelect.value = String(prefillData.owner_id);
-                    // Don't repopulate pet dropdown — keep manual input with prefilled name
+                    restorePetFields();
                 }
             }, 100);
-            setTimeout(function() { clearInterval(waitForOwners); }, 5000);
+            setTimeout(function() {
+                clearInterval(waitForOwners);
+                restorePetFields();
+            }, 3000);
+        } else {
+            restorePetFields();
         }
     })();
     {% endif %}

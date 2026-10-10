@@ -625,6 +625,12 @@
             <div class="list-meta">
               {{ appt.reason_display }} · {{ appt.branch.name|default:"—" }}
               <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+              {% if appt.status == 'COMPLETED' and can_create_medical_record %}
+              <a href="{% url 'records:admin_create' %}?pet={{ pet.pk }}&appointment={{ appt.pk }}&from_patients=1"
+                 class="admin-btn secondary" style="margin-left: 8px; padding: 4px 10px; font-size: 11px;">
+                <i class='bx bx-file-plus'></i> Create Record
+              </a>
+              {% endif %}
             </div>
           </div>
         </div>

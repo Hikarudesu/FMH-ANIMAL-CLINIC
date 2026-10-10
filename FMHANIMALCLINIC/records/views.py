@@ -212,9 +212,10 @@ def admin_record_create(request):
                 pet_id=linked_appointment.pet_id,
             ).order_by('-created_at').first()
             if request.method == 'GET' and existing_record:
+                from_patients_query = '&from_patients=1' if from_patients else ''
                 return redirect(
                     f"{reverse('records:admin_add_entry', args=[existing_record.pk])}"
-                    f"?appointment={linked_appointment.pk}"
+                    f"?appointment={linked_appointment.pk}{from_patients_query}"
                 )
 
     if request.method == 'POST':
@@ -509,6 +510,40 @@ def admin_record_create(request):
         except (Pet.DoesNotExist, ValueError):
             pass
 
+    appointment_prefill = None
+    if linked_appointment:
+        appointment_pet = linked_appointment.pet or selected_pet
+        if appointment_pet:
+            appointment_owner = appointment_pet.owner
+            appointment_prefill = {
+                'pet_name': appointment_pet.name or linked_appointment.pet_name,
+                'owner_id': appointment_owner.pk if appointment_owner else '',
+                'owner_name': (
+                    appointment_owner.get_full_name() or appointment_owner.username
+                    if appointment_owner else linked_appointment.owner_name
+                ),
+                'owner_address': (
+                    appointment_owner.address
+                    if appointment_owner else linked_appointment.owner_address
+                ) or '',
+                'owner_contact': (
+                    appointment_owner.phone_number
+                    if appointment_owner else linked_appointment.owner_phone
+                ) or '',
+                'date_of_birth': (
+                    appointment_pet.date_of_birth.isoformat()
+                    if appointment_pet.date_of_birth
+                    else linked_appointment.pet_dob.isoformat()
+                    if linked_appointment.pet_dob else ''
+                ),
+                'pet_color': appointment_pet.color or linked_appointment.pet_color or '',
+                'pet_species': appointment_pet.species or linked_appointment.pet_species or '',
+                'pet_breed': appointment_pet.breed or linked_appointment.pet_breed or '',
+                'pet_sex': appointment_pet.get_sex_display() or linked_appointment.pet_sex or '',
+                'branch_id': linked_appointment.branch_id or '',
+                'source': linked_appointment.source,
+            }
+
     context = {
         'form': entry_form,
         'pets_data': pets_data,
@@ -521,6 +556,7 @@ def admin_record_create(request):
         'selected_pet': selected_pet,
         'prefill_pet_name': prefill_pet_name,
         'linked_appointment': linked_appointment,
+        'appointment_prefill': appointment_prefill,
     }
     return render(request, 'records/admin_form.html', context)
 
