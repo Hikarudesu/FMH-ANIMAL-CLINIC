@@ -24,6 +24,7 @@ from notifications.utils import (
     notify_appointment_status_change,
     notify_follow_up_scheduled,
     notify_staff_appointment_status_change,
+    notify_veterinarian_medical_record_required,
 )
 
 
@@ -544,6 +545,8 @@ def admin_quick_create(request):
             
             # Also notify vet assistants about the appointment status
             notify_staff_appointment_status_change(appointment, appointment.status, actor=request.user)
+            if appointment.status == Appointment.Status.COMPLETED:
+                notify_veterinarian_medical_record_required(appointment, actor=request.user)
 
             # Handle follow-up creation
             follow_up_enabled = request.POST.get('follow_up_enabled')
@@ -608,6 +611,11 @@ def admin_edit(request, pk):
                     updated_appointment.status,
                     actor=request.user,
                 )
+                if updated_appointment.status == Appointment.Status.COMPLETED:
+                    notify_veterinarian_medical_record_required(
+                        updated_appointment,
+                        actor=request.user,
+                    )
 
             # Handle follow-up creation
             follow_up_enabled = request.POST.get('follow_up_enabled')

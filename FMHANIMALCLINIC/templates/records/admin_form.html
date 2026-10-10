@@ -23,6 +23,9 @@
 
     <form method="post" action="{% url 'records:admin_create' %}" style="display: flex; flex-direction: column; gap: 24px;">
         {% csrf_token %}
+        {% if request.GET.appointment %}
+        <input type="hidden" name="appointment" value="{{ request.GET.appointment }}">
+        {% endif %}
 
                 {% if form.non_field_errors or form.errors %}
                 <div role="alert" style="padding: 12px 16px; border: 1px solid #e57373; border-radius: 8px; background: #fff5f5; color: #b71c1c;">

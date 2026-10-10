@@ -1428,6 +1428,29 @@ def vet_dashboard_view(request):
     else:
         medical_records_count = 0
 
+    # Completed appointments assigned to this veterinarian remain actionable
+    # until a matching medical-record entry is saved for the visit date.
+    pending_medical_records = []
+    if staff_profile and not appt_restricted_no_branch:
+        completed_appointments = Appointment.objects.filter(
+            status='COMPLETED',
+            preferred_vet=staff_profile,
+            pet__isnull=False,
+            **appt_filter,
+        ).select_related('pet', 'branch', 'preferred_vet').order_by(
+            '-appointment_date', '-appointment_time'
+        )
+        for appointment in completed_appointments:
+            has_record_entry = RecordEntry.objects.filter(
+                record__pet_id=appointment.pet_id,
+                date_recorded=appointment.appointment_date,
+                vet=staff_profile,
+            ).exists()
+            if not has_record_entry:
+                pending_medical_records.append(appointment)
+            if len(pending_medical_records) >= 10:
+                break
+
     # ═══════════════════════════════════════════════════════════════════════
     # SCHEDULE, UPCOMING & FOLLOW-UPS
     # ═══════════════════════════════════════════════════════════════════════
@@ -1687,6 +1710,7 @@ def vet_dashboard_view(request):
         'assigned_patients': assigned_patients,
         'completed_consultations': completed_consultations,
         'medical_records_count': medical_records_count,
+        'pending_medical_records': pending_medical_records,
         # Schedule & lists
         'todays_appointments': todays_appointments[:10],
         'all_branch_appointments_today': all_branch_appointments_today[:10],

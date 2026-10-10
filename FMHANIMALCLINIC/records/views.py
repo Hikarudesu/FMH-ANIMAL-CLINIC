@@ -36,6 +36,7 @@ from .models import (
 )
 from .forms import MedicalRecordForm, RecordEntryForm
 from notifications.utils import notify_medical_record_follow_up
+from notifications.models import Notification
 
 User = get_user_model()
 
@@ -197,6 +198,14 @@ def admin_record_create(request):
 
     from_patients = request.GET.get('from_patients', '0') == '1'
     pet_id = request.GET.get('pet', '')
+    appointment_id = request.GET.get('appointment') or request.POST.get('appointment', '')
+    linked_appointment = None
+    if appointment_id:
+        from appointments.models import Appointment
+        linked_appointment = Appointment.objects.filter(
+            pk=appointment_id,
+            status=Appointment.Status.COMPLETED,
+        ).select_related('preferred_vet').first()
 
     if request.method == 'POST':
         entry_form = RecordEntryForm(request.POST)
@@ -401,6 +410,13 @@ def admin_record_create(request):
                             entry.vet = selected_vet
                         entry.save()
                         notify_medical_record_follow_up(record, request.user)
+                        if linked_appointment:
+                            Notification.objects.filter(
+                                user=request.user,
+                                notification_type=Notification.NotificationType.APPOINTMENT,
+                                related_object_id=linked_appointment.id,
+                                is_read=False,
+                            ).update(is_read=True)
 
                         messages.success(
                             request,
@@ -422,6 +438,11 @@ def admin_record_create(request):
             )
     else:
         initial_data = {'date_recorded': timezone.now().date()}
+        if linked_appointment:
+            initial_data.update({
+                'date_recorded': linked_appointment.appointment_date,
+                'vet': linked_appointment.preferred_vet_id,
+            })
         entry_form = RecordEntryForm(initial=initial_data)
 
     # Build pet details JSON for dynamic form population

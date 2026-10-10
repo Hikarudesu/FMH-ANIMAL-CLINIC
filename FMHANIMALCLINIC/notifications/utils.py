@@ -603,6 +603,34 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
         notified_user_ids.add(veterinarian.id)
 
 
+def notify_veterinarian_medical_record_required(appointment, actor=None):
+    """Notify the assigned veterinarian that a completed visit needs a record."""
+    if not appointment or not appointment.preferred_vet_id:
+        return
+
+    veterinarian = getattr(appointment.preferred_vet, 'user', None)
+    if not veterinarian or not veterinarian.is_active:
+        return
+
+    actor_label = 'clinic staff'
+    if actor is not None:
+        actor_label = actor.get_full_name() or actor.username
+
+    create_notification(
+        user=veterinarian,
+        title=f'Medical Record Required: {appointment.pet_name}',
+        message=(
+            f'Appointment for {appointment.pet_name} on '
+            f'{appointment.appointment_date.strftime("%B %d, %Y")} was marked completed '
+            f'by {actor_label}. Please create the medical record.'
+        ),
+        notification_type=Notification.NotificationType.APPOINTMENT,
+        module_context=Notification.ModuleContext.APPOINTMENTS,
+        related_object_id=appointment.id,
+        dedupe_window_minutes=60 * 24,
+    )
+
+
 def notify_follow_up_scheduled(
     appointment, followup, follow_up_reason='', event='scheduled'
 ):

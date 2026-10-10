@@ -89,6 +89,47 @@
 </div>
 {% endif %}
 
+{% if pending_medical_records %}
+<div class="alert-banner-modern" style="border-left-color: #f59e0b; margin-bottom: 24px;">
+  <div class="alert-icon" style="color: #f59e0b;">
+    <i class='bx bx-file-blank bx-tada'></i>
+  </div>
+  <div class="alert-content" style="width: 100%;">
+    <h4>Medical Records Pending</h4>
+    <p style="margin: 4px 0 12px;">Completed visits still needing your medical record.</p>
+    <div class="schedule-table-wrapper" style="background: transparent;">
+      <table class="schedule-table">
+        <thead>
+          <tr>
+            <th>Visit Date</th>
+            <th>Patient</th>
+            <th>Owner</th>
+            <th>Reason</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for appt in pending_medical_records %}
+          <tr>
+            <td>{{ appt.appointment_date|date:"M d, Y" }}</td>
+            <td><strong>{{ appt.pet_name }}</strong></td>
+            <td>{{ appt.owner_name }}</td>
+            <td>{{ appt.reason_display }}</td>
+            <td>
+              <a href="{% url 'records:admin_create' %}?pet={{ appt.pet_id }}&vet={{ appt.preferred_vet_id }}&appointment={{ appt.id }}"
+                 class="section-link" style="white-space: nowrap;">
+                Create Record <i class='bx bx-right-arrow-alt'></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- MAIN CHARTS GRID -->
 <div class="charts-section">
   
