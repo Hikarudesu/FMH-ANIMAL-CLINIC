@@ -772,8 +772,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 ownerAddressInput.value = '';
                 resetPetToManual();
             } else {
-                // Show dropdown
-                walkinSelect.style.display = '';
+                // Keep the legacy select hidden; the search bar is the visible control.
+                walkinSelect.style.display = 'none';
                 walkinSelect.disabled = false;
                 walkinSelect.setAttribute('name', 'owner_name');
                 walkinSearch.style.display = '';
@@ -895,7 +895,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (walkinSelect.options.length > 1) {
                 ownerWalkinToggleGroup.style.display = 'flex';
                 if (!walkinManualToggle.checked) {
-                    walkinSelect.style.display = '';
+                    walkinSelect.style.display = 'none';
                     ownerNameWalkin.style.display = 'none';
                     walkinSearch.style.display = '';
                     walkinSearch.required = true;
