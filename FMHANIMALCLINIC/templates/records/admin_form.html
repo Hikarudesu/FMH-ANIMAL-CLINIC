@@ -479,11 +479,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Load all registered owners into the select dropdown.
-    function loadPortalOwners() {
-        return;
-    }
-
     function selectPortalOwner(owner) {
         populateOwnerSelect([owner]);
         ownerSelect.value = String(owner.id);
@@ -638,11 +633,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (this.value) {
             selectedUserIdField.value = this.value;
             ownerNameHidden.value = selectedOpt.dataset.name || '';
+            ownerSearch.value = selectedOpt.textContent;
+            ownerSearch.setCustomValidity('');
             ownerContactInput.value = selectedOpt.dataset.phone || '';
             ownerAddressInput.value = selectedOpt.dataset.address || '';
             // Populate pet dropdown for this owner
             populatePetDropdown(this.value, 'PORTAL');
         } else {
+            ownerSearch.value = '';
+            ownerSearch.setCustomValidity('Select a registered owner.');
             selectedUserIdField.value = '';
             ownerNameHidden.value = '';
             ownerContactInput.value = '';
@@ -780,6 +779,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerWalkinToggleGroup.style.display = 'none';
             ownerSelect.required = true;
             ownerSelect.disabled = false;
+            ownerSearch.required = true;
+            ownerSearch.disabled = false;
             walkinSelect.required = false;
             walkinSelect.disabled = true;
             ownerNameWalkin.disabled = true;
@@ -795,6 +796,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerWalkinGroup.style.display = '';
             ownerSelect.required = false;
             ownerSelect.disabled = true;
+            ownerSearch.required = false;
+            ownerSearch.disabled = true;
             ownerNameHidden.removeAttribute('name');
             selectedUserIdField.removeAttribute('name');
             selectedUserIdField.value = '';
@@ -837,6 +840,8 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedUserIdField.value = '';
             // Clear portal selection
             ownerSelect.value = '';
+            ownerSearch.value = '';
+            ownerSearch.setCustomValidity('Select a registered owner.');
             ownerNameHidden.value = '';
             // Reset pet selection
             if (!walkinSelect.value || walkinManualToggle.checked) {
@@ -853,6 +858,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear fields when switching source
         ownerContactInput.value = '';
         ownerAddressInput.value = '';
+        ownerSearch.value = '';
         petInput.value = '';
         if (ownerNameWalkin) ownerNameWalkin.value = '';
         if (walkinSelect) walkinSelect.value = '';
@@ -860,7 +866,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     toggleOwnerFields(); // Set initial state
-    loadPortalOwners(); // Load owners on page load
+    ownerSearch.setCustomValidity('Select a registered owner.');
 
     // ====== Auto-Prefill from ?pet=<pk> ======
     {% if prefill_pet_name %}
@@ -896,17 +902,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (prefillData.source === 'PORTAL' && prefillData.owner_id) {
             ownerNameHidden.value = prefillData.owner_name || '';
             selectedUserIdField.value = String(prefillData.owner_id);
-            const waitForOwners = setInterval(function() {
-                if (ownerSelect.options.length > 1) {
-                    clearInterval(waitForOwners);
-                    ownerSelect.value = String(prefillData.owner_id);
+            fetch("{% url 'records:api_search_owners' %}?q=" + encodeURIComponent(prefillData.owner_name || prefillName))
+                .then(response => response.json())
+                .then(data => {
+                    const owner = (data.owners || []).find(
+                        item => String(item.id) === String(prefillData.owner_id)
+                    );
+                    if (owner) {
+                        selectPortalOwner(owner);
+                    }
                     restorePetFields();
-                }
-            }, 100);
-            setTimeout(function() {
-                clearInterval(waitForOwners);
-                restorePetFields();
-            }, 3000);
+                })
+                .catch(function(error) {
+                    console.error('Error loading prefilled owner:', error);
+                    restorePetFields();
+                });
         } else {
             restorePetFields();
         }
