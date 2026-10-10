@@ -1391,11 +1391,10 @@ function getLocalYMD(d) {
     walkinManualToggle.addEventListener('change', function() {
       const searchInner = document.getElementById("qc-walkin-search-inner");
       if (this.checked) {
-        // Show all owner input fields for fresh manual entry
+        // New guest: use the manual owner-name field instead of returning-guest search.
         if (ownerNameGroup) ownerNameGroup.style.display = "";
-        // Hide only the search bar
         if (searchInner) searchInner.style.display = "none";
-        // Clear any previously filled data
+        if (ownerNameField) ownerNameField.required = true;
         if (ownerNameField) ownerNameField.value = "";
         if (ownerPhoneField) ownerPhoneField.value = "";
         if (ownerEmailField) ownerEmailField.value = "";
@@ -1403,15 +1402,21 @@ function getLocalYMD(d) {
         // Clear search input since we're entering manually
         if (walkinSearchInput) walkinSearchInput.value = "";
         if (walkinDropdown) walkinDropdown.style.display = "none";
-        // Hide pet select group — new guest means new pet
         resetWalkinPetGroup();
+        if (ownerNameField) ownerNameField.focus();
       } else {
-        // Show the search bar again
+        // Returning guest: show search and hide manual owner-name entry.
         if (searchInner) searchInner.style.display = "";
-        // Hide manual fields if no guest selected yet
-        if (ownerNameGroup && !(ownerNameField && ownerNameField.value)) {
-          ownerNameGroup.style.display = "none";
+        if (ownerNameGroup) ownerNameGroup.style.display = "none";
+        if (ownerNameField) {
+          ownerNameField.required = false;
+          ownerNameField.value = "";
         }
+        if (ownerPhoneField) ownerPhoneField.value = "";
+        if (ownerEmailField) ownerEmailField.value = "";
+        if (ownerAddressField) ownerAddressField.value = "";
+        resetWalkinPetGroup();
+        if (walkinSearchInput) walkinSearchInput.focus();
       }
     });
   }
