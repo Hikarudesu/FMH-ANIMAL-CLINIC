@@ -621,8 +621,8 @@ document.querySelectorAll('.accordion-row').forEach(row => {
         <div class="qc-section-title">Client Source</div>
         <div class="qc-grid">
           <div class="qc-group qc-full">
-            <label>Client Type</label>
-            <select id="qc-client-source" class="qc-input">
+            <label>Client Type *</label>
+            <select id="qc-client-source" class="qc-input" required>
               <option value="PORTAL">Portal (Registered User)</option>
               <option value="WALKIN">Walk-in (Guest User)</option>
             </select>
@@ -671,11 +671,11 @@ document.querySelectorAll('.accordion-row').forEach(row => {
             {{ quick_form.owner_name }}
           </div>
           <div class="qc-group">
-            <label>Phone</label>
+            <label>Phone *</label>
             {{ quick_form.owner_phone }}
           </div>
           <div class="qc-group">
-            <label>Email</label>
+            <label>Email *</label>
             {{ quick_form.owner_email }}
           </div>
           <div class="qc-group qc-full">
@@ -688,7 +688,7 @@ document.querySelectorAll('.accordion-row').forEach(row => {
         <div class="qc-grid">
           <!-- Portal Mode: Pet Select Dropdown -->
           <div class="qc-group qc-full" id="qc-pet-portal-group">
-            <label>Select Pet</label>
+            <label>Select Pet *</label>
             <select id="petSelect" class="qc-input" disabled>
               <option value="">— Select owner first —</option>
             </select>
@@ -732,7 +732,7 @@ document.querySelectorAll('.accordion-row').forEach(row => {
           </div>
           <!-- Pet Name Field (shown for walk-in OR when manual toggle is checked) -->
           <div class="qc-group" id="qc-pet-name-group">
-            <label>Pet Name</label>
+            <label>Pet Name * <span style="font-weight:400;color:var(--text-3);font-size:0.78rem;">(for walk-ins)</span></label>
             {{ quick_form.pet_name }}
           </div>
           <div class="qc-group">
@@ -756,7 +756,7 @@ document.querySelectorAll('.accordion-row').forEach(row => {
             {{ quick_form.pet_color }}
           </div>
           <div class="qc-group qc-full">
-            <label>Reason for Visit</label>
+            <label>Reason for Visit *</label>
             {{ quick_form.reason }}
           </div>
         </div>
@@ -764,15 +764,15 @@ document.querySelectorAll('.accordion-row').forEach(row => {
         <div class="qc-section-title mt-3">Schedule</div>
         <div class="qc-grid">
           <div class="qc-group">
-            <label>Branch</label>
+            <label>Branch *</label>
             {{ quick_form.branch }}
           </div>
           <div class="qc-group">
-            <label>Select Appointment Date</label>
+            <label>Select Appointment Date *</label>
             {{ quick_form.appointment_date }}
           </div>
           <div class="qc-group">
-            <label>Veterinarian</label>
+            <label>Veterinarian *</label>
             {{ quick_form.preferred_vet }}
           </div>
           <div class="qc-group">
@@ -783,7 +783,7 @@ document.querySelectorAll('.accordion-row').forEach(row => {
             <span class="form-hint" id="quickTimeHint" style="font-size: 0.72rem; color: var(--text-3); margin-top: 4px; display: block;"></span>
           </div>
           <div class="qc-group qc-full">
-            <label>Status</label>
+            <label>Status *</label>
             {{ quick_form.status }}
           </div>
           <div class="qc-group qc-full">

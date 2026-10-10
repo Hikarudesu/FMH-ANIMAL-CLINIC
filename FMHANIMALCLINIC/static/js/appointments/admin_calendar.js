@@ -1012,6 +1012,10 @@ function getLocalYMD(d) {
 
     // Update hidden source field
     if (sourceHiddenField) sourceHiddenField.value = isPortal ? "PORTAL" : "WALKIN";
+    if (clientSourceSelect) clientSourceSelect.required = true;
+    if (ownerSelect) ownerSelect.required = isPortal;
+    if (petSelect) petSelect.required = isPortal && !petManualToggle?.checked;
+    if (petNameField) petNameField.required = !isPortal || Boolean(petManualToggle?.checked);
 
     if (isPortal) {
       // Portal Mode: Show owner dropdown, hide walk-in search, hide manual owner name input
@@ -1125,6 +1129,8 @@ function getLocalYMD(d) {
                 // Show manual pet input for new pet
                 if (petManualToggleLabel) petManualToggleLabel.style.display = "";
                 if (petNameGroup) petNameGroup.style.display = "";
+                petSelect.required = false;
+                if (petNameField) petNameField.required = true;
               } else {
                 petsCache.forEach((pet) => {
                   const opt = document.createElement("option");
@@ -1207,6 +1213,8 @@ function getLocalYMD(d) {
         if (petSelect) petSelect.style.display = "";
         if (petNameGroup && petsCache.length > 0) petNameGroup.style.display = "none";
       }
+      if (petSelect) petSelect.required = !this.checked;
+      if (petNameField) petNameField.required = this.checked;
     });
   }
 
@@ -1546,4 +1554,3 @@ function getLocalYMD(d) {
   }
 
 });
-
