@@ -78,6 +78,13 @@ class RecordEntry(models.Model):
     """
     record = models.ForeignKey(
         MedicalRecord, on_delete=models.CASCADE, related_name='entries')
+    appointment = models.ForeignKey(
+        'appointments.Appointment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='record_entries',
+    )
     vet = models.ForeignKey(
         StaffMember, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='record_entries')
@@ -338,4 +345,3 @@ def sync_pet_clinical_status(sender, instance, **kwargs):
             module_context=Notification.ModuleContext.MEDICAL_RECORDS,
             related_object_id=instance.record.id,
         )
-

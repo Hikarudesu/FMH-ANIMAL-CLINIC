@@ -168,9 +168,9 @@
               {% if form.appointment_date.errors %}<span class="form-error">{{ form.appointment_date.errors.0 }}</span>{% endif %}
             </div>
             <div class="form-group-book">
-              <label for="{{ form.preferred_vet.id_for_label }}">Preferred Veterinarian</label>
+              <label for="{{ form.preferred_vet.id_for_label }}">Preferred Veterinarian *</label>
               {{ form.preferred_vet }}
-              <span class="form-hint">Leave blank for any available vet (time will show AM/PM options)</span>
+              <span class="form-hint">Select the veterinarian assigned to this appointment.</span>
             </div>
             <div class="form-group-book">
               <label for="{{ form.appointment_time.id_for_label }}">Preferred Time *</label>

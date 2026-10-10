@@ -1442,9 +1442,7 @@ def vet_dashboard_view(request):
         )
         for appointment in completed_appointments:
             has_record_entry = RecordEntry.objects.filter(
-                record__pet_id=appointment.pet_id,
-                date_recorded=appointment.appointment_date,
-                vet=staff_profile,
+                appointment=appointment,
             ).exists()
             if not has_record_entry:
                 pending_medical_records.append(appointment)

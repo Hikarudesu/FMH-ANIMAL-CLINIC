@@ -213,8 +213,8 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
         self.fields['preferred_vet'].queryset = StaffMember.objects.none()
-        self.fields['preferred_vet'].required = False
-        self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
+        self.fields['preferred_vet'].required = True
+        self.fields['preferred_vet'].empty_label = '-- Select Veterinarian --'
         self.fields['pet_species'].required = True
         self.fields['pet_breed'].required = False
         self.fields['pet_dob'].required = False
@@ -405,8 +405,8 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
         self.fields['preferred_vet'].queryset = StaffMember.objects.none()
-        self.fields['preferred_vet'].required = False
-        self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
+        self.fields['preferred_vet'].required = True
+        self.fields['preferred_vet'].empty_label = '-- Select Veterinarian --'
         self.fields['pet_species'].required = True
         self.fields['pet_breed'].required = False
         self.fields['pet_dob'].required = False

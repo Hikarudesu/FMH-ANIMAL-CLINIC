@@ -391,27 +391,18 @@ def admin_list(request):
     # is saved for its pet, date, and assigned veterinarian.
     from records.models import RecordEntry
     completed_page_appointments = list(page_obj.object_list)
-    record_keys = set(
+    record_appointment_ids = set(
         RecordEntry.objects.filter(
-            record__pet_id__in=[
-                appointment.pet_id for appointment in completed_page_appointments
-                if appointment.status == Appointment.Status.COMPLETED and appointment.pet_id
+            appointment_id__in=[
+                appointment.pk for appointment in completed_page_appointments
+                if appointment.status == Appointment.Status.COMPLETED
             ],
-            date_recorded__in=[
-                appointment.appointment_date for appointment in completed_page_appointments
-                if appointment.status == Appointment.Status.COMPLETED and appointment.pet_id
-            ],
-        ).values_list('record__pet_id', 'date_recorded', 'vet_id')
+        ).values_list('appointment_id', flat=True)
     )
     for appointment in completed_page_appointments:
         appointment.medical_record_added = (
             appointment.status == Appointment.Status.COMPLETED
-            and appointment.pet_id
-            and (
-                appointment.pet_id,
-                appointment.appointment_date,
-                appointment.preferred_vet_id,
-            ) in record_keys
+            and appointment.pk in record_appointment_ids
         )
 
     # Check permissions for CRUD buttons

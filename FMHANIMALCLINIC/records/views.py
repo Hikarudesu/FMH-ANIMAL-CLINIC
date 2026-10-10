@@ -416,6 +416,7 @@ def admin_record_create(request):
                         # Always create a new entry (visit row) on the record card
                         entry = entry_form.save(commit=False)
                         entry.record = record
+                        entry.appointment = linked_appointment
                         # The vet is already set from the form
                         # But if the form had no vet and we have selected_vet fallback, use it
                         if not entry.vet and selected_vet:
@@ -884,6 +885,7 @@ def admin_add_entry(request, pk):
         if form.is_valid():
             entry = form.save(commit=False)
             entry.record = record
+            entry.appointment = linked_appointment
             # Update record branch if a different branch was selected
             branch_id_post = request.POST.get('branch_id', '').strip()
             if branch_id_post:
