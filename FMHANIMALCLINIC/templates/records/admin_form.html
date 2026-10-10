@@ -160,7 +160,7 @@
         <!-- Owner & Pet Selection (Parallel) -->
         <div>
             <h3 class="section-title">Owner & Pet Selection</h3>
-            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-grid" style="grid-template-columns: 1fr;">
                 <!-- Left Column: Owner Selection -->
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <div class="form-group">
@@ -198,28 +198,6 @@
                     </div>
                 </div>
 
-                <!-- Right Column: Pet Selection -->
-                <div style="display: flex; flex-direction: column; gap: 16px;">
-                    <div class="form-group" id="pet-select-group">
-                        <label class="form-label">Name of Pet *</label>
-                        <select id="ro-pet-select" class="form-control-custom" style="display: none;">
-                            <option value="">— Select Pet —</option>
-                        </select>
-                        <input type="text" id="ro-pet-name" name="pet_name" class="form-control-custom" placeholder="Select owner first or type pet name" required autocomplete="off" />
-                        <input type="hidden" id="selected_pet_id" value="" />
-                    </div>
-                    <div class="form-group" id="pet-input-toggle-group" style="display: none; margin-top: -8px;">
-                        <div style="background-color: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px;">
-                            <label id="pet-input-toggle-label" style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; color: var(--primary); cursor: pointer; margin-bottom: 4px;">
-                                <input type="checkbox" id="pet-input-manual" class="custom-checkbox" />
-                                <span>Register New Pet</span>
-                            </label>
-                            <div style="font-size: 11.5px; color: var(--text-secondary); margin-left: 28px; line-height: 1.4;">
-                                Check this box to bypass the dropdown and manually enter a new pet for this owner.
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -273,6 +251,25 @@
         <div>
             <h3 class="section-title">Pet Details</h3>
             <div class="form-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="form-group" id="pet-select-group" style="grid-column: span 2;">
+                    <label class="form-label">Name of Pet *</label>
+                    <select id="ro-pet-select" class="form-control-custom" style="display: none;">
+                        <option value="">— Select Pet —</option>
+                    </select>
+                    <input type="text" id="ro-pet-name" name="pet_name" class="form-control-custom" placeholder="Select owner first or type pet name" required autocomplete="off" />
+                    <input type="hidden" id="selected_pet_id" value="" />
+                </div>
+                <div class="form-group" id="pet-input-toggle-group" style="display: none; grid-column: span 2; margin-top: -8px;">
+                    <div style="background-color: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px;">
+                        <label id="pet-input-toggle-label" style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; color: var(--primary); cursor: pointer; margin-bottom: 4px;">
+                            <input type="checkbox" id="pet-input-manual" class="custom-checkbox" />
+                            <span>Register New Pet</span>
+                        </label>
+                        <div style="font-size: 11.5px; color: var(--text-secondary); margin-left: 28px; line-height: 1.4;">
+                            Check this box to bypass the dropdown and manually enter a new pet for this owner.
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Date of Birth</label>
                     <input type="date" id="ro-pet-age" name="pet_age" class="form-control-custom" />
