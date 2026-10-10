@@ -387,10 +387,40 @@ def admin_list(request):
     paginator = Paginator(appointments, 10)
     page_obj = paginator.get_page(page_number)
 
+    # A completed appointment remains actionable until a matching visit entry
+    # is saved for its pet, date, and assigned veterinarian.
+    from records.models import RecordEntry
+    completed_page_appointments = list(page_obj.object_list)
+    record_keys = set(
+        RecordEntry.objects.filter(
+            record__pet_id__in=[
+                appointment.pet_id for appointment in completed_page_appointments
+                if appointment.status == Appointment.Status.COMPLETED and appointment.pet_id
+            ],
+            date_recorded__in=[
+                appointment.appointment_date for appointment in completed_page_appointments
+                if appointment.status == Appointment.Status.COMPLETED and appointment.pet_id
+            ],
+        ).values_list('record__pet_id', 'date_recorded', 'vet_id')
+    )
+    for appointment in completed_page_appointments:
+        appointment.medical_record_added = (
+            appointment.status == Appointment.Status.COMPLETED
+            and appointment.pet_id
+            and (
+                appointment.pet_id,
+                appointment.appointment_date,
+                appointment.preferred_vet_id,
+            ) in record_keys
+        )
+
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('appointments', 'CREATE')
     can_edit = request.user.has_module_permission('appointments', 'EDIT')
     can_delete = request.user.has_module_permission('appointments', 'DELETE')
+    can_create_medical_record = request.user.has_module_permission(
+        'medical_records', 'CREATE'
+    )
 
     return render(request, 'appointments/admin_list.html', {
         'appointments': page_obj,
@@ -411,6 +441,7 @@ def admin_list(request):
         'can_create': can_create,
         'can_edit': can_edit,
         'can_delete': can_delete,
+        'can_create_medical_record': can_create_medical_record,
     })
 
 

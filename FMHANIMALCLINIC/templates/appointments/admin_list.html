@@ -479,6 +479,22 @@
                 <i class='bx bx-hourglass'></i> <time data-countdown-value>24:00:00</time>
               </span>
             {% endif %}
+            {% if appt.status == 'COMPLETED' %}
+              {% if appt.medical_record_added %}
+                <span class="admin-badge" style="background: #ecfdf5; color: #047857;">
+                  <i class='bx bx-check-circle'></i> Medical Record Added
+                </span>
+              {% elif can_create_medical_record and appt.pet_id %}
+                <a href="{% url 'records:admin_create' %}?pet={{ appt.pet_id }}&appointment={{ appt.pk }}"
+                   class="admin-badge" style="background: #fff7ed; color: #c2410c; text-decoration: none;">
+                  <i class='bx bx-file-plus'></i> Medical Record Pending
+                </a>
+              {% else %}
+                <span class="admin-badge" style="background: #fff7ed; color: #c2410c;">
+                  <i class='bx bx-file'></i> Medical Record Pending
+                </span>
+              {% endif %}
+            {% endif %}
           </div>
         </td>
         {% if can_edit or can_delete %}
@@ -519,6 +535,20 @@
               <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Created:</strong> {{ appt.created_at|date:"M d, Y, g:i A" }}</p>
               <p style="margin-bottom: 8px; font-size: 0.875rem;"><strong>Reason:</strong> {{ appt.reason_display|default:"-" }}</p>
               <p style="margin-bottom: 0; font-size: 0.875rem;"><strong>Source:</strong> {{ appt.get_source_display }}</p>
+              {% if appt.status == 'COMPLETED' %}
+              <div style="margin-top: 12px;">
+                {% if appt.medical_record_added %}
+                <span class="admin-badge" style="background: #ecfdf5; color: #047857;">
+                  <i class='bx bx-check-circle'></i> Medical Record Added
+                </span>
+                {% elif can_create_medical_record and appt.pet_id %}
+                <a href="{% url 'records:admin_create' %}?pet={{ appt.pet_id }}&appointment={{ appt.pk }}"
+                   class="admin-badge" style="background: #fff7ed; color: #c2410c; text-decoration: none;">
+                  <i class='bx bx-file-plus'></i> Create Medical Record
+                </a>
+                {% endif %}
+              </div>
+              {% endif %}
               {% if appt.pet_symptoms %}
               <div style="margin-top: 12px; background: var(--surface); padding: 12px; border-radius: 8px; border-left: 3px solid var(--accent);">
                 <strong style="font-size: 0.8rem;">Symptoms:</strong>

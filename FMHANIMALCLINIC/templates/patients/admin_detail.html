@@ -625,11 +625,19 @@
             <div class="list-meta">
               {{ appt.reason_display }} · {{ appt.branch.name|default:"—" }}
               <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
-              {% if appt.status == 'COMPLETED' and can_create_medical_record %}
+              {% if appt.status == 'COMPLETED' and appt.medical_record_added %}
+              <span class="admin-badge" style="background: #ecfdf5; color: #047857;">
+                <i class='bx bx-check-circle'></i> Medical Record Added
+              </span>
+              {% elif appt.status == 'COMPLETED' and can_create_medical_record %}
               <a href="{% url 'records:admin_create' %}?pet={{ pet.pk }}&appointment={{ appt.pk }}&from_patients=1"
                  class="admin-btn secondary" style="margin-left: 8px; padding: 4px 10px; font-size: 11px;">
                 <i class='bx bx-file-plus'></i> Create Record
               </a>
+              {% elif appt.status == 'COMPLETED' %}
+              <span class="admin-badge" style="background: #fff7ed; color: #c2410c;">
+                <i class='bx bx-file'></i> Medical Record Pending
+              </span>
               {% endif %}
             </div>
           </div>
