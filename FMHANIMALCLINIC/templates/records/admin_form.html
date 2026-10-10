@@ -6,6 +6,9 @@
 {% if appointment_prefill %}
 {{ appointment_prefill|json_script:"appointment-prefill-data" }}
 {% endif %}
+{% if selected_pet_prefill %}
+{{ selected_pet_prefill|json_script:"selected-pet-prefill-data" }}
+{% endif %}
 <!-- Page Hero -->
 {% if from_patients and selected_pet %}
     {% url 'patients:admin_detail' selected_pet.id as back_url %}
@@ -986,9 +989,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // ====== Auto-Prefill from ?pet=<pk> ======
     {% if prefill_pet_name %}
     (function autoFillPet() {
-        const appointmentData = document.getElementById('appointment-prefill-data');
-        const prefillData = appointmentData
-            ? JSON.parse(appointmentData.textContent)
+        const prefillElement = document.getElementById('appointment-prefill-data')
+            || document.getElementById('selected-pet-prefill-data');
+        const prefillData = prefillElement
+            ? JSON.parse(prefillElement.textContent)
             : petsData['{{ prefill_pet_name|escapejs }}'];
         if (!prefillData) return;
 
@@ -1003,11 +1007,30 @@ document.addEventListener('DOMContentLoaded', function() {
         if (ownerContactInput) ownerContactInput.value = prefillData.owner_contact || '';
 
         if (prefillData.source === 'WALKIN') {
-            if (ownerNameWalkin) ownerNameWalkin.value = prefillData.owner_name || '';
+            if (walkinSearch && prefillData.owner_name) {
+                walkinSearch.value = prefillData.owner_name;
+            }
+            if (walkinSelect && prefillData.owner_name) {
+                const matchingGuest = Array.from(walkinSelect.options).some(function(option) {
+                    return option.value === prefillData.owner_name;
+                });
+                if (matchingGuest && !walkinManualToggle.checked) {
+                    selectWalkinOwner(prefillData.owner_name);
+                } else if (ownerNameWalkin) {
+                    walkinManualToggle.checked = true;
+                    walkinManualToggle.dispatchEvent(new Event('change'));
+                    ownerNameWalkin.value = prefillData.owner_name;
+                }
+            } else if (ownerNameWalkin) {
+                ownerNameWalkin.value = prefillData.owner_name || '';
+            }
         }
 
         function restorePetFields() {
             petInput.value = prefillName;
+            if (selectedPetIdField && prefillData.pet_id) {
+                selectedPetIdField.value = String(prefillData.pet_id);
+            }
             petInput.style.display = '';
             petSelect.style.display = 'none';
             petInput.required = true;
@@ -1017,21 +1040,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (prefillData.source === 'PORTAL' && prefillData.owner_id) {
             ownerNameHidden.value = prefillData.owner_name || '';
             selectedUserIdField.value = String(prefillData.owner_id);
-            fetch("{% url 'records:api_search_owners' %}?q=" + encodeURIComponent(prefillData.owner_name || prefillName))
-                .then(response => response.json())
-                .then(data => {
-                    const owner = (data.owners || []).find(
-                        item => String(item.id) === String(prefillData.owner_id)
-                    );
-                    if (owner) {
-                        selectPortalOwner(owner);
-                    }
-                    restorePetFields();
-                })
-                .catch(function(error) {
-                    console.error('Error loading prefilled owner:', error);
-                    restorePetFields();
-                });
+            selectPortalOwner({
+                id: prefillData.owner_id,
+                full_name: prefillData.owner_name || '',
+                phone_number: prefillData.owner_contact || '',
+                address: prefillData.owner_address || ''
+            });
+            restorePetFields();
         } else {
             restorePetFields();
         }

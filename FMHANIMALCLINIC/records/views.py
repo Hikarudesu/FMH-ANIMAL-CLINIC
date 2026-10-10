@@ -518,6 +518,7 @@ def admin_record_create(request):
         if appointment_pet:
             appointment_owner = appointment_pet.owner
             appointment_prefill = {
+                'pet_id': appointment_pet.pk,
                 'pet_name': appointment_pet.name or linked_appointment.pet_name,
                 'owner_id': appointment_owner.pk if appointment_owner else '',
                 'owner_name': (
@@ -546,6 +547,37 @@ def admin_record_create(request):
                 'source': linked_appointment.source,
             }
 
+    selected_pet_prefill = None
+    if selected_pet and not appointment_prefill:
+        selected_pet_owner = selected_pet.owner
+        selected_pet_prefill = {
+            'pet_id': selected_pet.pk,
+            'pet_name': selected_pet.name,
+            'owner_id': selected_pet_owner.pk if selected_pet_owner else '',
+            'owner_name': (
+                selected_pet_owner.get_full_name() or selected_pet_owner.username
+                if selected_pet_owner else selected_pet.guest_owner_name
+            ) or '',
+            'owner_address': (
+                selected_pet_owner.address
+                if selected_pet_owner else selected_pet.guest_owner_address
+            ) or '',
+            'owner_contact': (
+                selected_pet_owner.phone_number
+                if selected_pet_owner else selected_pet.guest_owner_phone
+            ) or '',
+            'date_of_birth': (
+                selected_pet.date_of_birth.isoformat()
+                if selected_pet.date_of_birth else ''
+            ),
+            'pet_color': selected_pet.color or '',
+            'pet_species': selected_pet.species or '',
+            'pet_breed': selected_pet.breed or '',
+            'pet_sex': selected_pet.get_sex_display() or '',
+            'branch_id': '',
+            'source': selected_pet.source,
+        }
+
     context = {
         'form': entry_form,
         'pets_data': pets_data,
@@ -559,6 +591,7 @@ def admin_record_create(request):
         'prefill_pet_name': prefill_pet_name,
         'linked_appointment': linked_appointment,
         'appointment_prefill': appointment_prefill,
+        'selected_pet_prefill': selected_pet_prefill,
     }
     return render(request, 'records/admin_form.html', context)
 
