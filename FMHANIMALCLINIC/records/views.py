@@ -1115,11 +1115,7 @@ def api_search_owners(request):
         owners = User.objects.filter(
             Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
         ).filter(
-            Q(first_name__icontains=query)
-            | Q(last_name__icontains=query)
-            | Q(username__icontains=query)
-            | Q(email__icontains=query)
-            | Q(phone_number__icontains=query)
+            Q(first_name__icontains=query) | Q(last_name__icontains=query)
         ).order_by('first_name', 'last_name')[:20]  # Limit to 20 results
 
     data = [{
