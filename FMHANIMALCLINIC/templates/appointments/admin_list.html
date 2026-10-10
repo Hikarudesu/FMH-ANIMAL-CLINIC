@@ -290,6 +290,92 @@
     align-items: center;
     gap: 8px;
   }
+
+  /* ══════ PORTAL OWNER SEARCH ══════ */
+  .qc-owner-search-wrapper {
+    position: relative;
+  }
+
+  .qc-owner-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    color: var(--text-3, #9ca3af);
+    pointer-events: none;
+  }
+
+  #qc-owner-search-input {
+    padding-left: 36px !important;
+  }
+
+  .qc-owner-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+    z-index: 1000;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .qc-owner-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    cursor: pointer;
+    border: 0;
+    border-bottom: 1px solid var(--border, #f3f4f6);
+    background: transparent;
+    text-align: left;
+    color: var(--text-1, #111827);
+  }
+
+  .qc-owner-item:last-child {
+    border-bottom: 0;
+  }
+
+  .qc-owner-item:hover,
+  .qc-owner-item:focus {
+    background: var(--primary-light, #e0f2f1);
+    outline: none;
+  }
+
+  .qc-owner-item-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .qc-owner-item-name {
+    overflow: hidden;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .qc-owner-item-sub {
+    margin-top: 1px;
+    overflow: hidden;
+    color: var(--text-3, #9ca3af);
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .qc-owner-empty {
+    padding: 18px 14px;
+    color: var(--text-3, #9ca3af);
+    font-size: 0.85rem;
+    text-align: center;
+  }
 </style>
 
 <!-- ══════ APPOINTMENTS HERO ══════ -->
@@ -662,10 +748,17 @@ document.querySelectorAll('.accordion-row').forEach(row => {
 
         <div class="qc-section-title mt-3">Client Details</div>
         <div class="qc-grid">
-          <!-- Portal Mode: Owner Select Dropdown -->
+          <!-- Portal Mode: Owner Search -->
           <div class="qc-group qc-full" id="qc-owner-portal-group">
-            <label>Select Owner</label>
-            <select id="ownerSelect" class="qc-input">
+            <label>Select Owner *</label>
+            <div class="qc-owner-search-wrapper">
+              <i class='bx bx-search qc-owner-search-icon'></i>
+              <input type="text" id="qc-owner-search-input" class="qc-input"
+                     placeholder="Search by owner name, phone, or email..."
+                     autocomplete="off" required>
+              <div class="qc-owner-dropdown" id="qc-owner-dropdown" style="display:none;"></div>
+            </div>
+            <select id="ownerSelect" class="qc-input" style="display:none;" aria-hidden="true" tabindex="-1">
               <option value="">— Select Owner —</option>
             </select>
           </div>
@@ -1469,6 +1562,8 @@ const sourceHidden       = document.getElementById('qc-source-hidden');
 const ownerPortalGroup = document.getElementById('qc-owner-portal-group');
 const petPortalGroup   = document.getElementById('qc-pet-portal-group');
 const ownerSelect      = document.getElementById('ownerSelect');
+const ownerSearchInput = document.getElementById('qc-owner-search-input');
+const ownerDropdown     = document.getElementById('qc-owner-dropdown');
 const petSelect        = document.getElementById('petSelect');
 const petManualToggleLabel = document.getElementById('qc-pet-manual-toggle-label');
 const petManualToggle  = document.getElementById('qc-pet-manual-toggle');
@@ -1502,6 +1597,7 @@ function setPortalMode() {
   if (!ownerPortalGroup) return;
   sourceHidden.value = 'PORTAL';
   ownerPortalGroup.style.display = '';
+  if (ownerSearchInput) ownerSearchInput.required = true;
   ownerNameGroup.style.display = 'none';
   walkinSearchGroup.style.display = 'none';
   walkinPetGroup.style.display = 'none';
@@ -1517,6 +1613,10 @@ function setWalkinMode() {
   if (!ownerPortalGroup) return;
   sourceHidden.value = 'WALKIN';
   ownerPortalGroup.style.display = 'none';
+  if (ownerSearchInput) {
+    ownerSearchInput.required = false;
+    ownerSearchInput.value = '';
+  }
   petPortalGroup.style.display = 'none';
   walkinSearchGroup.style.display = '';
   ownerNameGroup.style.display = 'none';  // hidden until manual toggle
@@ -1574,15 +1674,85 @@ function loadPortalOwners() {
         opt.dataset.address = o.address;
         ownerSelect.appendChild(opt);
       });
+      renderOwnerResults('');
     })
     .catch(() => {});
 }
 loadPortalOwners();
 
+function renderOwnerResults(query) {
+  if (!ownerDropdown || !ownerSelect) return;
+  const normalizedQuery = query.trim().toLowerCase();
+  const options = Array.from(ownerSelect.options).filter(option => {
+    if (!option.value) return false;
+    const searchableText = [
+      option.dataset.name,
+      option.dataset.email,
+      option.dataset.phone
+    ].join(' ').toLowerCase();
+    return !normalizedQuery || searchableText.includes(normalizedQuery);
+  });
+
+  ownerDropdown.innerHTML = '';
+  if (!options.length) {
+    ownerDropdown.innerHTML = '<div class="qc-owner-empty">No owners found</div>';
+    ownerDropdown.style.display = 'block';
+    return;
+  }
+
+  options.slice(0, 30).forEach(option => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'qc-owner-item';
+    item.innerHTML = `
+      <i class="bx bx-user" aria-hidden="true"></i>
+      <span class="qc-owner-item-info">
+        <span class="qc-owner-item-name"></span>
+        <span class="qc-owner-item-sub"></span>
+      </span>
+    `;
+    item.querySelector('.qc-owner-item-name').textContent = option.dataset.name || '';
+    item.querySelector('.qc-owner-item-sub').textContent =
+      option.dataset.email || option.dataset.phone || '';
+    item.addEventListener('click', () => {
+      ownerSelect.value = option.value;
+      if (ownerSearchInput) ownerSearchInput.value = option.dataset.name || '';
+      ownerDropdown.style.display = 'none';
+      ownerSelect.dispatchEvent(new Event('change'));
+    });
+    ownerDropdown.appendChild(item);
+  });
+  ownerDropdown.style.display = 'block';
+}
+
+if (ownerSearchInput) {
+  ownerSearchInput.addEventListener('input', function() {
+    if (ownerSelect && ownerSelect.value) {
+      ownerSelect.value = '';
+      if (selectedUserIdField) selectedUserIdField.value = '';
+      clearOwnerFields();
+      if (petSelect) {
+        petSelect.innerHTML = '<option value="">— Select owner first —</option>';
+        petSelect.disabled = true;
+      }
+    }
+    renderOwnerResults(this.value);
+  });
+  ownerSearchInput.addEventListener('focus', function() {
+    renderOwnerResults(this.value);
+  });
+  ownerSearchInput.addEventListener('blur', function() {
+    setTimeout(() => {
+      if (ownerDropdown) ownerDropdown.style.display = 'none';
+    }, 180);
+  });
+}
+
 if (ownerSelect) {
   ownerSelect.addEventListener('change', function() {
     const opt = this.options[this.selectedIndex];
     if (!opt.value) {
+      if (ownerSearchInput) ownerSearchInput.value = '';
       clearOwnerFields();
       if (selectedUserIdField) selectedUserIdField.value = '';
       petSelect.innerHTML = '<option value="">— Select owner first —</option>';

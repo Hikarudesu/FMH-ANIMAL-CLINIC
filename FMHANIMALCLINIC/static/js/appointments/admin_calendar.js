@@ -977,6 +977,8 @@ function getLocalYMD(d) {
   const clientSourceSelect = document.getElementById("qc-client-source");
   const sourceHiddenField = document.getElementById("qc-source-hidden");
   const ownerSelect = document.getElementById("ownerSelect");
+  const ownerSearchInput = document.getElementById("qc-owner-search-input");
+  const ownerDropdown = document.getElementById("qc-owner-dropdown");
   const petSelect = document.getElementById("petSelect");
   const selectedUserIdField = document.querySelector('#quickCreateModal input[name="selected_user_id"]');
   const selectedPetIdField = document.querySelector('#quickCreateModal input[name="selected_pet_id"]');
@@ -1013,7 +1015,7 @@ function getLocalYMD(d) {
     // Update hidden source field
     if (sourceHiddenField) sourceHiddenField.value = isPortal ? "PORTAL" : "WALKIN";
     if (clientSourceSelect) clientSourceSelect.required = true;
-    if (ownerSelect) ownerSelect.required = isPortal;
+    if (ownerSearchInput) ownerSearchInput.required = isPortal;
     if (ownerNameField) ownerNameField.required = !isPortal;
     if (petSelect) petSelect.required = isPortal && !petManualToggle?.checked;
     if (petNameField) petNameField.required = !isPortal || Boolean(petManualToggle?.checked);
@@ -1091,10 +1093,79 @@ function getLocalYMD(d) {
             ownerSelect.appendChild(opt);
           });
         }
+        renderOwnerResults("");
       })
       .catch(() => {
         console.error("Failed to load owners");
       });
+  }
+
+  function renderOwnerResults(query) {
+    if (!ownerDropdown || !ownerSelect) return;
+    const normalizedQuery = query.trim().toLowerCase();
+    const options = Array.from(ownerSelect.options).filter((option) => {
+      if (!option.value) return false;
+      const searchableText = [
+        option.dataset.name,
+        option.dataset.email,
+        option.dataset.phone,
+      ].join(" ").toLowerCase();
+      return !normalizedQuery || searchableText.includes(normalizedQuery);
+    });
+
+    ownerDropdown.innerHTML = "";
+    if (!options.length) {
+      ownerDropdown.innerHTML = '<div class="qc-owner-empty">No owners found</div>';
+      ownerDropdown.style.display = "block";
+      return;
+    }
+
+    options.slice(0, 30).forEach((option) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "qc-owner-item";
+      item.innerHTML = `
+        <i class="bx bx-user" aria-hidden="true"></i>
+        <span class="qc-owner-item-info">
+          <span class="qc-owner-item-name"></span>
+          <span class="qc-owner-item-sub"></span>
+        </span>
+      `;
+      item.querySelector(".qc-owner-item-name").textContent = option.dataset.name || "";
+      item.querySelector(".qc-owner-item-sub").textContent =
+        option.dataset.email || option.dataset.phone || "";
+      item.addEventListener("click", () => {
+        ownerSelect.value = option.value;
+        if (ownerSearchInput) ownerSearchInput.value = option.dataset.name || "";
+        ownerDropdown.style.display = "none";
+        ownerSelect.dispatchEvent(new Event("change"));
+      });
+      ownerDropdown.appendChild(item);
+    });
+    ownerDropdown.style.display = "block";
+  }
+
+  if (ownerSearchInput) {
+    ownerSearchInput.addEventListener("input", function () {
+      if (ownerSelect && ownerSelect.value) {
+        ownerSelect.value = "";
+        if (selectedUserIdField) selectedUserIdField.value = "";
+        clearOwnerFields();
+        if (petSelect) {
+          petSelect.innerHTML = '<option value="">— Select owner first —</option>';
+          petSelect.disabled = true;
+        }
+      }
+      renderOwnerResults(this.value);
+    });
+    ownerSearchInput.addEventListener("focus", function () {
+      renderOwnerResults(this.value);
+    });
+    ownerSearchInput.addEventListener("blur", function () {
+      setTimeout(() => {
+        if (ownerDropdown) ownerDropdown.style.display = "none";
+      }, 180);
+    });
   }
 
   // When owner is selected (Portal mode), auto-fill owner fields and load pets
@@ -1102,6 +1173,7 @@ function getLocalYMD(d) {
     ownerSelect.addEventListener("change", function () {
       const ownerId = this.value;
       if (selectedUserIdField) selectedUserIdField.value = ownerId || "";
+      if (ownerSearchInput && !ownerId) ownerSearchInput.value = "";
 
       if (ownerId) {
         // Find owner data from dropdown option
@@ -1471,6 +1543,8 @@ function getLocalYMD(d) {
       loadOwners();
       // Reset to initial Portal state
       if (clientSourceSelect) clientSourceSelect.value = "PORTAL";
+      if (ownerSearchInput) ownerSearchInput.value = "";
+      if (ownerDropdown) ownerDropdown.style.display = "none";
       // Reset walk-in owner search
       if (walkinSearchInput) walkinSearchInput.value = "";
       if (walkinDropdown) walkinDropdown.style.display = "none";
@@ -1526,6 +1600,10 @@ function getLocalYMD(d) {
           clearInterval(interval);
           if (ownerId) {
              ownerSelect.value = ownerId;
+             const ownerOption = ownerSelect.options[ownerSelect.selectedIndex];
+             if (ownerSearchInput && ownerOption) {
+               ownerSearchInput.value = ownerOption.dataset.name || "";
+             }
              // Trigger change to load pets
              ownerSelect.dispatchEvent(new Event("change"));
              
