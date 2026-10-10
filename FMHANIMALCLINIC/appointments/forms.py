@@ -725,8 +725,8 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                 )
         
         self.fields['preferred_vet'].queryset = vets_query.select_related('user', 'user__assigned_role')
-        self.fields['preferred_vet'].required = True
-        self.fields['preferred_vet'].empty_label = '-- Select Veterinarian --'
+        self.fields['preferred_vet'].required = False
+        self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
         self.fields['owner_email'].required = True
         self.fields['owner_phone'].required = True
         self.fields['owner_address'].required = False
