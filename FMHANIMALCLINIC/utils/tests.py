@@ -47,6 +47,23 @@ class ImageRemovalWidgetTests(SimpleTestCase):
         self.assertIn('username', form.fields)
         self.assertEqual(form.fields['username'].widget.attrs.get('placeholder'), ' ')
 
+    def test_profile_form_requires_all_account_details(self):
+        form = UserProfileUpdateForm()
+        required_fields = (
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'phone_number',
+            'address',
+            'branch',
+        )
+
+        for field_name in required_fields:
+            self.assertTrue(form.fields[field_name].required, field_name)
+
+        self.assertFalse(form.fields['profile_picture'].required)
+
 
 class RailwayVolumePathTests(SimpleTestCase):
     def test_railway_media_root_falls_back_to_app_volume(self):

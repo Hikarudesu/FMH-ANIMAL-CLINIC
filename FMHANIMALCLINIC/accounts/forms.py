@@ -160,6 +160,16 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for field_name in (
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'phone_number',
+            'address',
+            'branch',
+        ):
+            self.fields[field_name].required = True
         self.fields['profile_picture'].widget.clear_checkbox_label = 'Remove current photo'
         self.fields['profile_picture'].widget.input_text = 'Choose photo'
 
