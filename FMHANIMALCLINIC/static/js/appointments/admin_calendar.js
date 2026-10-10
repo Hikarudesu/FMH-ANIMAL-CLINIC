@@ -1134,12 +1134,14 @@ function getLocalYMD(d) {
       item.querySelector(".qc-owner-item-name").textContent = option.dataset.name || "";
       item.querySelector(".qc-owner-item-sub").textContent =
         option.dataset.email || option.dataset.phone || "";
-      item.addEventListener("click", () => {
+      const selectOwner = (event) => {
+        event.preventDefault();
         ownerSelect.value = option.value;
         if (ownerSearchInput) ownerSearchInput.value = option.dataset.name || "";
         ownerDropdown.style.display = "none";
         ownerSelect.dispatchEvent(new Event("change"));
-      });
+      };
+      item.addEventListener("mousedown", selectOwner);
       ownerDropdown.appendChild(item);
     });
     ownerDropdown.style.display = "block";
@@ -1147,7 +1149,9 @@ function getLocalYMD(d) {
 
   if (ownerSearchInput) {
     ownerSearchInput.addEventListener("input", function () {
-      if (ownerSelect && ownerSelect.value) {
+      const selectedOption = ownerSelect && ownerSelect.options[ownerSelect.selectedIndex];
+      const selectedName = selectedOption?.dataset.name || "";
+      if (ownerSelect && ownerSelect.value && this.value.trim() !== selectedName) {
         ownerSelect.value = "";
         if (selectedUserIdField) selectedUserIdField.value = "";
         clearOwnerFields();

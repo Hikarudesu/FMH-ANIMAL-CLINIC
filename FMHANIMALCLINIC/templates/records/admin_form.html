@@ -189,7 +189,7 @@
                     </div>
                     <div class="form-group" id="owner-portal-group">
                         <label class="form-label">Search Registered Owner *</label>
-                        <div style="position: relative;">
+                        <div id="ro-walkin-search-wrapper" style="position: relative;">
                             <i class="bx bx-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;"></i>
                             <input type="search" id="ro-owner-search" class="form-control-custom" style="padding-left: 38px;" placeholder="Type owner name, phone, or email..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" required />
                         </div>
@@ -445,6 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Walk-in specific elements
     const walkinSelect = document.getElementById('ro-walkin-select');
     const walkinSearch = document.getElementById('ro-walkin-search');
+    const walkinSearchWrapper = document.getElementById('ro-walkin-search-wrapper');
     const walkinResults = document.getElementById('ro-walkin-results');
     const walkinManualToggle = document.getElementById('owner-walkin-manual');
     const ownerWalkinToggleGroup = document.getElementById('owner-walkin-toggle-group');
@@ -777,7 +778,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 walkinSelect.style.display = 'none';
                 walkinSelect.disabled = true;
                 walkinSelect.removeAttribute('name');
-                walkinSearch.style.display = 'none';
+                walkinSearchWrapper.style.display = 'none';
                 walkinSearch.required = false;
                 walkinSearch.value = '';
                 ownerNameWalkin.style.display = '';
@@ -793,7 +794,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 walkinSelect.style.display = 'none';
                 walkinSelect.disabled = false;
                 walkinSelect.setAttribute('name', 'owner_name');
-                walkinSearch.style.display = '';
+                walkinSearchWrapper.style.display = '';
                 walkinSearch.required = true;
                 walkinSearch.value = '';
                 ownerNameWalkin.style.display = 'none';
@@ -914,7 +915,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!walkinManualToggle.checked) {
                     walkinSelect.style.display = 'none';
                     ownerNameWalkin.style.display = 'none';
-                    walkinSearch.style.display = '';
+                    walkinSearchWrapper.style.display = '';
                     walkinSearch.required = true;
                     walkinSelect.required = true;
                     walkinSelect.disabled = false;
@@ -925,7 +926,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     walkinSelect.style.display = 'none';
                     ownerNameWalkin.style.display = '';
-                    walkinSearch.style.display = 'none';
+                    walkinSearchWrapper.style.display = 'none';
                     walkinSearch.required = false;
                     walkinSelect.required = false;
                     walkinSelect.disabled = true;
@@ -939,7 +940,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 walkinSelect.style.display = 'none';
                 walkinSelect.disabled = true;
                 ownerNameWalkin.style.display = '';
-                walkinSearch.style.display = 'none';
+                walkinSearchWrapper.style.display = 'none';
                 walkinSearch.required = false;
                 walkinSelect.required = false;
                 ownerNameWalkin.required = true;

@@ -376,6 +376,40 @@
     font-size: 0.85rem;
     text-align: center;
   }
+
+  .create-record-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid #fed7aa;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #c2410c;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease,
+      box-shadow 0.18s ease, transform 0.18s ease;
+  }
+
+  .create-record-action:hover {
+    border-color: #fb923c;
+    background: #ffedd5;
+    box-shadow: 0 4px 10px rgba(194, 65, 12, 0.16);
+    color: #9a3412;
+    transform: translateY(-1px);
+  }
+
+  .create-record-action:active {
+    box-shadow: none;
+    transform: translateY(0);
+  }
+
+  .create-record-action:focus-visible {
+    outline: 3px solid rgba(249, 115, 22, 0.28);
+    outline-offset: 2px;
+  }
 </style>
 
 <!-- ══════ APPOINTMENTS HERO ══════ -->
@@ -629,7 +663,8 @@
                 </span>
                 {% elif can_create_medical_record and appt.pet_id %}
                 <a href="{% url 'records:admin_create' %}?pet={{ appt.pet_id }}&appointment={{ appt.pk }}"
-                   class="admin-badge" style="background: #fff7ed; color: #c2410c; text-decoration: none;">
+                   class="admin-badge create-record-action"
+                   aria-label="Create medical record for {{ appt.pet_name }}">
                   <i class='bx bx-file-plus'></i> Create Medical Record
                 </a>
                 {% endif %}
@@ -1714,12 +1749,14 @@ function renderOwnerResults(query) {
     item.querySelector('.qc-owner-item-name').textContent = option.dataset.name || '';
     item.querySelector('.qc-owner-item-sub').textContent =
       option.dataset.email || option.dataset.phone || '';
-    item.addEventListener('click', () => {
+    const selectOwner = event => {
+      event.preventDefault();
       ownerSelect.value = option.value;
       if (ownerSearchInput) ownerSearchInput.value = option.dataset.name || '';
       ownerDropdown.style.display = 'none';
       ownerSelect.dispatchEvent(new Event('change'));
-    });
+    };
+    item.addEventListener('mousedown', selectOwner);
     ownerDropdown.appendChild(item);
   });
   ownerDropdown.style.display = 'block';
@@ -1727,7 +1764,9 @@ function renderOwnerResults(query) {
 
 if (ownerSearchInput) {
   ownerSearchInput.addEventListener('input', function() {
-    if (ownerSelect && ownerSelect.value) {
+    const selectedOption = ownerSelect && ownerSelect.options[ownerSelect.selectedIndex];
+    const selectedName = selectedOption?.dataset.name || '';
+    if (ownerSelect && ownerSelect.value && this.value.trim() !== selectedName) {
       ownerSelect.value = '';
       if (selectedUserIdField) selectedUserIdField.value = '';
       clearOwnerFields();
