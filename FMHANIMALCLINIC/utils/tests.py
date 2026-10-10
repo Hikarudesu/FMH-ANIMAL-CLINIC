@@ -55,13 +55,13 @@ class ImageRemovalWidgetTests(SimpleTestCase):
             'last_name',
             'email',
             'phone_number',
-            'address',
             'branch',
         )
 
         for field_name in required_fields:
             self.assertTrue(form.fields[field_name].required, field_name)
 
+        self.assertFalse(form.fields['address'].required)
         self.assertFalse(form.fields['profile_picture'].required)
 
 

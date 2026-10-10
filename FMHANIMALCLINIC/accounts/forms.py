@@ -166,10 +166,10 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
             'last_name',
             'email',
             'phone_number',
-            'address',
             'branch',
         ):
             self.fields[field_name].required = True
+        self.fields['address'].required = False
         self.fields['profile_picture'].widget.clear_checkbox_label = 'Remove current photo'
         self.fields['profile_picture'].widget.input_text = 'Choose photo'
 

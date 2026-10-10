@@ -350,37 +350,37 @@
           <div class="floating-field full-width">
             <div class="field-icon"><i class='bx bx-at'></i></div>
             {{ form.username }}
-            <label for="{{ form.username.id_for_label }}">Username</label>
+            <label for="{{ form.username.id_for_label }}">Username <span aria-hidden="true">*</span></label>
             {% if form.username.errors %}<small class="field-error">{{ form.username.errors.as_text }}</small>{% endif %}
           </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-user'></i></div>
             {{ form.first_name }}
-            <label for="{{ form.first_name.id_for_label }}">First Name</label>
+            <label for="{{ form.first_name.id_for_label }}">First Name <span aria-hidden="true">*</span></label>
             {% if form.first_name.errors %}<small class="field-error">{{ form.first_name.errors.as_text }}</small>{% endif %}
           </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-user'></i></div>
             {{ form.last_name }}
-            <label for="{{ form.last_name.id_for_label }}">Last Name</label>
+            <label for="{{ form.last_name.id_for_label }}">Last Name <span aria-hidden="true">*</span></label>
             {% if form.last_name.errors %}<small class="field-error">{{ form.last_name.errors.as_text }}</small>{% endif %}
           </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-envelope'></i></div>
             {{ form.email }}
-            <label for="{{ form.email.id_for_label }}">Email</label>
+            <label for="{{ form.email.id_for_label }}">Email <span aria-hidden="true">*</span></label>
             {% if form.email.errors %}<small class="field-error">{{ form.email.errors.as_text }}</small>{% endif %}
           </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-phone'></i></div>
             {{ form.phone_number }}
-            <label for="{{ form.phone_number.id_for_label }}">Phone Number</label>
+            <label for="{{ form.phone_number.id_for_label }}">Phone Number <span aria-hidden="true">*</span></label>
             {% if form.phone_number.errors %}<small class="field-error">{{ form.phone_number.errors.as_text }}</small>{% endif %}
           </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-building-house'></i></div>
             {{ form.branch }}
-            <label for="{{ form.branch.id_for_label }}">Clinic Branch</label>
+            <label for="{{ form.branch.id_for_label }}">Clinic Branch <span aria-hidden="true">*</span></label>
             {% if form.branch.errors %}<small class="field-error">{{ form.branch.errors.as_text }}</small>{% endif %}
           </div>
           <div class="floating-field full-width">
