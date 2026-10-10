@@ -1,4 +1,5 @@
 import re
+from datetime import time
 from urllib.parse import parse_qs, urlsplit
 
 from dateutil.relativedelta import relativedelta
@@ -13,6 +14,8 @@ from accounts.activity_context import reset_current_actor, set_current_actor
 from accounts.models import ActivityLog
 from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermission
 from branches.models import Branch
+from appointments.models import Appointment
+from billing.models import CustomerStatement
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
@@ -82,6 +85,58 @@ class RolePermissionManagementTests(TestCase):
         self.assertTrue(
             self.role.special_permissions.filter(permission=self.stock_monitor).exists()
         )
+
+    def test_profile_updates_sync_appointments_and_customer_statements(self):
+        branch = Branch.objects.create(
+            name='Profile Sync Branch',
+            phone_number='09123456789',
+            address='1 Profile Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        owner = get_user_model().objects.create_user(
+            username='profile-sync-owner',
+            first_name='Before',
+            last_name='Profile',
+            email='before@example.com',
+            phone_number='09123456789',
+            address='Old Address',
+            password='A-secure-test-password-923!',
+        )
+        appointment = Appointment.objects.create(
+            owner_name='Before Profile',
+            owner_email=owner.email,
+            owner_phone=owner.phone_number,
+            owner_address=owner.address,
+            pet_name='Profile Pet',
+            branch=branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(9, 0),
+            user=owner,
+            source=Appointment.Source.PORTAL,
+        )
+        statement = CustomerStatement.objects.create(
+            patient_name='Profile Pet',
+            owner_name='Before Profile',
+            customer=owner,
+            date=timezone.localdate(),
+        )
+
+        owner.first_name = 'After'
+        owner.last_name = 'Updated'
+        owner.email = 'after@example.com'
+        owner.phone_number = '09987654321'
+        owner.address = 'New Address'
+        owner.save()
+
+        appointment.refresh_from_db()
+        statement.refresh_from_db()
+        self.assertEqual(appointment.owner_name, 'After Updated')
+        self.assertEqual(appointment.owner_email, 'after@example.com')
+        self.assertEqual(appointment.owner_phone, '09987654321')
+        self.assertEqual(appointment.owner_address, 'New Address')
+        self.assertEqual(statement.owner_name, 'After Updated')
 
     def test_generic_audit_records_changed_fields_without_values(self):
         branch = Branch.objects.create(

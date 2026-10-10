@@ -70,9 +70,11 @@ def log_user_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=User)
 def sync_user_to_appointments(sender, instance, created, **kwargs):
     """
-    When a User profile is updated, sync the changes to all related Appointments
-    where the user is the pet owner. This ensures appointment owner contact info
-    stays current when users update their profile.
+    When a User profile is updated, sync related denormalized customer data.
+
+    Appointments retain owner contact fields for historical and walk-in
+    workflows, while customer statements retain a display-name snapshot.
+    Both remain linked to the account and must reflect portal profile edits.
     """
     # Skip for newly created users (no appointments yet)
     if created:
@@ -82,25 +84,21 @@ def sync_user_to_appointments(sender, instance, created, **kwargs):
     if not instance.is_pet_owner():
         return
 
-    # Import here to avoid circular import
+    # Import here to avoid circular imports during model loading.
     from appointments.models import Appointment
+    from billing.models import CustomerStatement
 
-    # Find all appointments for this user
-    appointments = Appointment.objects.filter(user=instance)
-
-    if not appointments.exists():
-        return
-
-    # Prepare owner info updates
-    updates = {
+    owner_updates = {
         'owner_name': instance.get_full_name() or instance.username,
         'owner_phone': instance.phone_number or '',
         'owner_email': instance.email or '',
         'owner_address': instance.address or '',
     }
 
-    # Bulk update all related appointments
-    appointments.update(**updates)
+    Appointment.objects.filter(user=instance).update(**owner_updates)
+    CustomerStatement.objects.filter(customer=instance).update(
+        owner_name=owner_updates['owner_name'],
+    )
 
 
 @receiver(post_save, sender=User)
