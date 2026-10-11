@@ -31,8 +31,9 @@ EMAIL_VERIFICATION_SALT = 'accounts.email-verification'
 EMAIL_VERIFICATION_MAX_AGE = 60 * 60 * 24
 LOGIN_FAILURES_SESSION_KEY = 'login_failed_attempts'
 LOGIN_LOCK_UNTIL_SESSION_KEY = 'login_locked_until'
-LOGIN_MAX_FAILED_ATTEMPTS = 3
-LOGIN_LOCKOUT_SECONDS = 60 * 60
+LOGIN_LOCKOUT_LEVEL_SESSION_KEY = 'login_lockout_level'
+LOGIN_MAX_FAILED_ATTEMPTS = 5
+LOGIN_LOCKOUT_DURATIONS = (60, 5 * 60, 15 * 60)
 
 
 def _send_email_verification(request, user):
@@ -102,10 +103,11 @@ def login_view(request):
         seconds_remaining = int(float(lock_until) - timezone.now().timestamp())
         if seconds_remaining > 0:
             minutes_remaining = max(1, (seconds_remaining + 59) // 60)
+            minute_label = 'minute' if minutes_remaining == 1 else 'minutes'
             messages.error(
                 request,
-                'This browser is temporarily locked after 3 unsuccessful attempts. '
-                f'Try again in about {minutes_remaining} minute(s).',
+                f'This browser is temporarily locked after {LOGIN_MAX_FAILED_ATTEMPTS} unsuccessful attempts. '
+                f'Try again in about {minutes_remaining} {minute_label}.',
             )
             return render(request, 'accounts/login.html', {
                 'show_maintenance_popup': show_maintenance_popup,
@@ -137,6 +139,7 @@ def login_view(request):
         if user is not None:
             request.session.pop(LOGIN_FAILURES_SESSION_KEY, None)
             request.session.pop(LOGIN_LOCK_UNTIL_SESSION_KEY, None)
+            request.session.pop(LOGIN_LOCKOUT_LEVEL_SESSION_KEY, None)
             from .lifecycle import resolve_owner_deactivation_on_login
 
             deactivation_result = resolve_owner_deactivation_on_login(user)
@@ -173,20 +176,33 @@ def login_view(request):
         else:
             failed_attempts = request.session.get(LOGIN_FAILURES_SESSION_KEY, 0) + 1
             request.session[LOGIN_FAILURES_SESSION_KEY] = failed_attempts
+            lockout_level = min(
+                request.session.get(LOGIN_LOCKOUT_LEVEL_SESSION_KEY, 0),
+                len(LOGIN_LOCKOUT_DURATIONS) - 1,
+            )
+            lockout_seconds = LOGIN_LOCKOUT_DURATIONS[lockout_level]
+            lockout_minutes = lockout_seconds // 60
+            minute_label = 'minute' if lockout_minutes == 1 else 'minutes'
             if failed_attempts >= LOGIN_MAX_FAILED_ATTEMPTS:
                 request.session[LOGIN_LOCK_UNTIL_SESSION_KEY] = (
-                    timezone.now().timestamp() + LOGIN_LOCKOUT_SECONDS
+                    timezone.now().timestamp() + lockout_seconds
+                )
+                request.session[LOGIN_LOCKOUT_LEVEL_SESSION_KEY] = min(
+                    lockout_level + 1,
+                    len(LOGIN_LOCKOUT_DURATIONS) - 1,
                 )
                 messages.error(
                     request,
-                    'Too many unsuccessful attempts. This browser is locked for 1 hour.',
+                    f'Too many unsuccessful attempts. This browser is locked for '
+                    f'{lockout_minutes} {minute_label}.',
                 )
             else:
                 attempts_left = LOGIN_MAX_FAILED_ATTEMPTS - failed_attempts
                 messages.error(
                     request,
                     f'Invalid username/email or password. '
-                    f'{attempts_left} attempt(s) remain before this browser is locked for 1 hour.',
+                    f'{attempts_left} attempt(s) remain before this browser is locked for '
+                    f'{lockout_minutes} {minute_label}.',
                 )
 
     return render(request, 'accounts/login.html', {

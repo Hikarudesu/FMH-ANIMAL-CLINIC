@@ -498,11 +498,11 @@ class BrowserLoginLockoutTests(TestCase):
             password='A-secure-test-password-923!',
         )
 
-    def test_three_failures_lock_only_the_current_browser(self):
+    def test_five_failures_lock_only_the_current_browser(self):
         browser = Client()
         login_url = reverse('accounts:login_page')
 
-        for attempt in range(3):
+        for attempt in range(5):
             response = browser.post(login_url, {
                 'username': f'wrong-user-{attempt}',
                 'password': 'wrong-password',
@@ -526,7 +526,7 @@ class BrowserLoginLockoutTests(TestCase):
             another_browser.session.get('_auth_user_id'), str(self.user.pk),
         )
 
-    def test_browser_lock_expires_after_one_hour(self):
+    def test_first_browser_lock_expires_after_one_minute(self):
         from datetime import timedelta
         from unittest.mock import patch
 
@@ -537,7 +537,7 @@ class BrowserLoginLockoutTests(TestCase):
         login_url = reverse('accounts:login_page')
 
         with patch('accounts.views.timezone.now', return_value=now):
-            for _ in range(3):
+            for _ in range(5):
                 browser.post(login_url, {
                     'username': self.user.username,
                     'password': 'wrong-password',
@@ -545,7 +545,7 @@ class BrowserLoginLockoutTests(TestCase):
 
         with patch(
             'accounts.views.timezone.now',
-            return_value=now + timedelta(hours=1, seconds=1),
+            return_value=now + timedelta(minutes=1, seconds=1),
         ):
             response = browser.post(login_url, {
                 'username': self.user.username,
@@ -554,3 +554,38 @@ class BrowserLoginLockoutTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(browser.session.get('_auth_user_id'), str(self.user.pk))
+
+    def test_lockout_increases_to_five_and_fifteen_minutes_then_caps(self):
+        from datetime import timedelta
+        from unittest.mock import patch
+
+        from django.utils import timezone
+
+        browser = Client()
+        login_url = reverse('accounts:login_page')
+        now = timezone.now()
+
+        for expected_seconds in (60, 5 * 60, 15 * 60, 15 * 60):
+            with patch('accounts.views.timezone.now', return_value=now):
+                for _ in range(5):
+                    response = browser.post(login_url, {
+                        'username': 'wrong-user',
+                        'password': 'wrong-password',
+                    })
+                    self.assertEqual(response.status_code, 200)
+
+            lock_until = browser.session['login_locked_until']
+            self.assertEqual(
+                int(float(lock_until) - now.timestamp()),
+                expected_seconds,
+            )
+            now += timedelta(seconds=expected_seconds + 1)
+
+        with patch('accounts.views.timezone.now', return_value=now):
+            response = browser.post(login_url, {
+                'username': self.user.username,
+                'password': 'A-secure-test-password-923!',
+            })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('login_lockout_level', browser.session)
