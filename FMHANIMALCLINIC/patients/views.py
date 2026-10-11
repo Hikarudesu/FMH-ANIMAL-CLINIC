@@ -526,7 +526,8 @@ def api_owner_search(request):
                 Q(first_name__icontains=term) |
                 Q(last_name__icontains=term) |
                 Q(username__icontains=term) |
-                Q(email__icontains=term)
+                Q(email__icontains=term) |
+                Q(phone_number__icontains=term)
             )
 
     matches = list(
@@ -538,6 +539,7 @@ def api_owner_search(request):
         'name': owner.get_full_name().strip() or owner.username,
         'username': owner.username,
         'email': owner.email or '',
+        'phone': owner.phone_number or '',
     } for owner in matches[:25]]
     return JsonResponse({'owners': data, 'has_more': len(matches) > 25})
 
