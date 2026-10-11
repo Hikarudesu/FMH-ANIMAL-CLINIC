@@ -680,31 +680,71 @@ def notify_follow_up_scheduled(
     transaction.on_commit(lambda: send_follow_up_email(followup, event=event))
 
 
+@transaction.atomic
 def notify_medical_record_follow_up(record, actor=None):
     """Synchronize and notify a follow-up date saved on a medical record."""
     from notifications.models import FollowUp
     from notifications.followup_email_service import send_follow_up_email
+    from records.models import RecordEntry
+
+    latest_entry = RecordEntry.objects.filter(
+        record=record,
+    ).select_related('appointment').order_by(
+        '-date_recorded', '-created_at',
+    ).first()
+    appointment = latest_entry.appointment if latest_entry else None
+    record_followup = FollowUp.objects.filter(medical_record=record).first()
+    appointment_followup = (
+        FollowUp.objects.filter(appointment=appointment).order_by(
+            '-created_at',
+        ).first()
+        if appointment else None
+    )
 
     if not record.ff_up:
-        FollowUp.objects.filter(medical_record=record).delete()
+        if record_followup:
+            record_followup.delete()
+        if appointment_followup and appointment_followup.medical_record_id in (
+            None, record.pk,
+        ) and (
+            not record_followup or appointment_followup.pk != record_followup.pk
+        ):
+            appointment_followup.delete()
         return None
 
-    followup, created = FollowUp.objects.get_or_create(
-        medical_record=record,
-        defaults={
-            'pet_name': record.pet.name,
-            'follow_up_date': record.ff_up,
-            'reason': 'Medical record follow-up',
-            'created_by': actor,
-        },
-    )
+    if appointment_followup and appointment_followup.medical_record_id not in (
+        None, record.pk,
+    ):
+        appointment_followup = None
+
+    followup = appointment_followup or record_followup
+    created = followup is None
+    if created:
+        followup = FollowUp(
+            pet_name=record.pet.name,
+            follow_up_date=record.ff_up,
+            reason='Medical record follow-up',
+            created_by=actor,
+        )
+
+    if record_followup and record_followup.pk != followup.pk:
+        record_followup.delete()
+
     date_changed = followup.follow_up_date != record.ff_up
     update_fields = []
     if followup.pet_name != record.pet.name:
         followup.pet_name = record.pet.name
         update_fields.append('pet_name')
+    if appointment and followup.appointment_id != appointment.pk:
+        followup.appointment = appointment
+        update_fields.append('appointment')
+    if followup.medical_record_id != record.pk:
+        followup.medical_record = record
+        update_fields.append('medical_record')
     if date_changed:
         followup.follow_up_date = record.ff_up
+        if followup.follow_up_end_date and followup.follow_up_end_date < record.ff_up:
+            followup.follow_up_end_date = None
         followup.email_sent_at = None
         followup.reminder_email_sent_at = None
         followup.email_attempts = 0
@@ -714,9 +754,13 @@ def notify_medical_record_follow_up(record, actor=None):
             'email_attempts', 'email_last_error',
         ])
     if created:
-        update_fields = []
+        followup.save()
     elif update_fields:
-        followup.save(update_fields=update_fields)
+        followup.save(update_fields=list(dict.fromkeys(update_fields)))
+
+    if latest_entry and latest_entry.ff_up != record.ff_up:
+        latest_entry.ff_up = record.ff_up
+        latest_entry.save(update_fields=['ff_up', 'updated_at'])
 
     owner = record.pet.owner
     if owner:
@@ -737,6 +781,103 @@ def notify_medical_record_follow_up(record, actor=None):
     event = 'updated' if date_changed else 'scheduled'
     transaction.on_commit(lambda: send_follow_up_email(followup, event=event))
     return followup
+
+
+@transaction.atomic
+def sync_medical_record_entry_follow_up(entry, actor=None):
+    """Sync a visit's follow-up to its appointment and the current record summary."""
+    from notifications.models import FollowUp
+    from records.models import RecordEntry
+
+    record = entry.record
+    latest_entry = RecordEntry.objects.filter(
+        record=record,
+    ).order_by('-date_recorded', '-created_at').first()
+    if latest_entry and latest_entry.pk == entry.pk:
+        record.ff_up = entry.ff_up
+        record.save(update_fields=['ff_up', 'updated_at'])
+        return notify_medical_record_follow_up(record, actor)
+
+    appointment = entry.appointment
+    if not appointment:
+        return None
+
+    followup = FollowUp.objects.filter(
+        appointment=appointment,
+    ).order_by('-created_at').first()
+    if followup and followup.medical_record_id == record.pk:
+        return followup
+    if not entry.ff_up:
+        if followup:
+            followup.delete()
+        return None
+
+    event = 'updated' if followup else 'scheduled'
+    if not followup:
+        followup = FollowUp.objects.create(
+            appointment=appointment,
+            pet_name=record.pet.name,
+            follow_up_date=entry.ff_up,
+            reason='Medical record follow-up',
+            created_by=actor,
+        )
+    else:
+        date_changed = followup.follow_up_date != entry.ff_up
+        followup.pet_name = record.pet.name
+        followup.follow_up_date = entry.ff_up
+        if date_changed:
+            followup.email_sent_at = None
+            followup.reminder_email_sent_at = None
+            followup.email_attempts = 0
+            followup.email_last_error = ''
+        followup.save()
+
+    notify_follow_up_scheduled(
+        appointment=appointment,
+        followup=followup,
+        follow_up_reason=followup.reason,
+        event=event,
+    )
+    return followup
+
+
+@transaction.atomic
+def sync_appointment_follow_up_to_medical_record(appointment, followup):
+    """Copy an appointment follow-up to its latest linked medical-record visit."""
+    from notifications.models import FollowUp
+    from records.models import RecordEntry
+
+    entry = RecordEntry.objects.filter(
+        appointment=appointment,
+    ).select_related('record').order_by(
+        '-date_recorded', '-created_at',
+    ).first()
+    if not entry:
+        return None
+
+    entry.ff_up = followup.follow_up_date
+    entry.save(update_fields=['ff_up', 'updated_at'])
+
+    record = entry.record
+    latest_entry = RecordEntry.objects.filter(
+        record=record,
+    ).order_by('-date_recorded', '-created_at').first()
+    if not latest_entry or latest_entry.pk != entry.pk:
+        return record
+
+    record.ff_up = followup.follow_up_date
+    record.save(update_fields=['ff_up', 'updated_at'])
+
+    if followup.medical_record_id not in (None, record.pk):
+        return record
+
+    FollowUp.objects.filter(medical_record=record).exclude(
+        pk=followup.pk,
+    ).delete()
+    if followup.medical_record_id != record.pk:
+        followup.medical_record = record
+        followup.save(update_fields=['medical_record'])
+    return record
 
 
 def notify_reservation_approved(reservation, actor=None):

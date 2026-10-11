@@ -25,6 +25,7 @@ from notifications.utils import (
     notify_follow_up_scheduled,
     notify_staff_appointment_status_change,
     notify_veterinarian_medical_record_required,
+    sync_appointment_follow_up_to_medical_record,
 )
 
 
@@ -670,6 +671,9 @@ def admin_edit(request, pk):
                             created_by=request.user,
                         )
 
+                    sync_appointment_follow_up_to_medical_record(
+                        updated_appointment, followup,
+                    )
                     notify_follow_up_scheduled(
                         appointment=updated_appointment,
                         followup=followup,

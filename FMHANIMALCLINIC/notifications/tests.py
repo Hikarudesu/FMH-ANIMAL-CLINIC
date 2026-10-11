@@ -14,17 +14,21 @@ from appointments.models import Appointment
 from branches.models import Branch
 from employees.models import StaffMember
 from inquiries.models import Inquiry
+from patients.models import Pet
 from payroll.email_service import send_payslip_email
 from payroll.models import Payslip, PayslipEmailLog, PayrollPeriod
 from notifications.models import FollowUp, Notification
+from records.models import MedicalRecord, RecordEntry
 from notifications.context_processors import unread_notifications
 from notifications.delivery import send_notification_email
 from notifications.middleware import NotificationModuleReadMiddleware
 from notifications.utils import (
     mark_module_notifications_read,
+    notify_medical_record_follow_up,
     notify_follow_up_scheduled,
     notify_inquiry_received,
     notify_stock_transfer_approved,
+    sync_appointment_follow_up_to_medical_record,
 )
 from notifications.views import get_allowed_notification_types_for_user
 
@@ -102,6 +106,38 @@ class NotificationRoutingTests(TestCase):
             code='executive_officer',
             defaults={'name': 'Branch Administrator', 'hierarchy_level': 8},
         )
+
+    def create_linked_record_and_appointment(self, ff_up):
+        today = timezone.localdate()
+        pet = Pet.objects.create(
+            owner=self.pet_owner,
+            source=Pet.Source.PORTAL,
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        appointment = Appointment.objects.create(
+            owner_name='Pet Owner',
+            owner_email='owner@example.com',
+            pet_name=pet.name,
+            pet=pet,
+            user=self.pet_owner,
+            branch=self.branch,
+            appointment_date=today,
+            appointment_time=timezone.localtime().time().replace(microsecond=0),
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            date_recorded=today,
+            ff_up=ff_up,
+        )
+        entry = RecordEntry.objects.create(
+            record=record,
+            appointment=appointment,
+            date_recorded=today,
+            ff_up=ff_up,
+        )
+        return appointment, record, entry
 
     def test_open_inventory_notification_marks_read_and_opens_catalog_for_pet_owner(self):
         notification = Notification.objects.create(
@@ -287,6 +323,55 @@ class NotificationRoutingTests(TestCase):
         self.assertIn('updated', notification.message)
         self.assertIn('Medication review', notification.message)
         send_email.assert_called_once_with(follow_up, event='updated')
+
+    @patch('notifications.followup_email_service.send_follow_up_email')
+    def test_medical_record_follow_up_updates_its_linked_appointment(self, send_email):
+        original_date = timezone.localdate() + timezone.timedelta(days=7)
+        updated_date = timezone.localdate() + timezone.timedelta(days=14)
+        appointment, record, entry = self.create_linked_record_and_appointment(
+            updated_date,
+        )
+        follow_up = FollowUp.objects.create(
+            appointment=appointment,
+            pet_name=record.pet.name,
+            follow_up_date=original_date,
+        )
+        send_email.return_value = (True, 'Sent.')
+
+        with self.captureOnCommitCallbacks(execute=True):
+            synchronized = notify_medical_record_follow_up(record, self.pet_owner)
+
+        follow_up.refresh_from_db()
+        entry.refresh_from_db()
+        self.assertEqual(synchronized.pk, follow_up.pk)
+        self.assertEqual(follow_up.follow_up_date, updated_date)
+        self.assertEqual(follow_up.medical_record_id, record.pk)
+        self.assertEqual(entry.ff_up, updated_date)
+        send_email.assert_called_once_with(follow_up, event='updated')
+
+    def test_appointment_follow_up_updates_its_linked_medical_record(self):
+        original_date = timezone.localdate() + timezone.timedelta(days=7)
+        updated_date = timezone.localdate() + timezone.timedelta(days=14)
+        appointment, record, entry = self.create_linked_record_and_appointment(
+            original_date,
+        )
+        follow_up = FollowUp.objects.create(
+            appointment=appointment,
+            pet_name=record.pet.name,
+            follow_up_date=updated_date,
+        )
+
+        synchronized_record = sync_appointment_follow_up_to_medical_record(
+            appointment, follow_up,
+        )
+
+        record.refresh_from_db()
+        entry.refresh_from_db()
+        follow_up.refresh_from_db()
+        self.assertEqual(synchronized_record.pk, record.pk)
+        self.assertEqual(record.ff_up, updated_date)
+        self.assertEqual(entry.ff_up, updated_date)
+        self.assertEqual(follow_up.medical_record_id, record.pk)
 
     @patch(
         'notifications.management.commands.send_followup_emails.'

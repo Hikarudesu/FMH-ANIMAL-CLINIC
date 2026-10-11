@@ -36,8 +36,11 @@ from .models import (
     get_laboratory_type_options,
 )
 from .forms import MedicalRecordForm, RecordEntryForm
-from notifications.utils import notify_medical_record_follow_up
-from notifications.models import Notification
+from notifications.utils import (
+    notify_medical_record_follow_up,
+    sync_medical_record_entry_follow_up,
+)
+from notifications.models import FollowUp, Notification
 
 User = get_user_model()
 
@@ -456,6 +459,11 @@ def admin_record_create(request):
                 'date_recorded': linked_appointment.appointment_date,
                 'vet': linked_appointment.preferred_vet_id,
             })
+            appointment_followup = FollowUp.objects.filter(
+                appointment=linked_appointment,
+            ).order_by('-created_at').first()
+            if appointment_followup:
+                initial_data['ff_up'] = appointment_followup.follow_up_date
         entry_form = RecordEntryForm(initial=initial_data)
 
     # Build pet details JSON for dynamic form population
@@ -977,6 +985,11 @@ def admin_add_entry(request, pk):
             initial_data['date_recorded'] = linked_appointment.appointment_date
             if linked_appointment.preferred_vet_id:
                 initial_data['vet'] = linked_appointment.preferred_vet_id
+            appointment_followup = FollowUp.objects.filter(
+                appointment=linked_appointment,
+            ).order_by('-created_at').first()
+            if appointment_followup:
+                initial_data['ff_up'] = appointment_followup.follow_up_date
         if record.vet:
             initial_data.setdefault('vet', record.vet)
         form = RecordEntryForm(initial=initial_data)
@@ -1031,7 +1044,7 @@ def admin_entry_edit(request, entry_pk):
                 record.pet.save(update_fields=['branch'])
             # Touch the parent record so updated_at changes
             record.save()
-            notify_medical_record_follow_up(record, request.user)
+            sync_medical_record_entry_follow_up(updated_entry, request.user)
 
             messages.success(request, 'Visit entry updated.')
             return redirect('records:admin_detail', pk=record.pk)
