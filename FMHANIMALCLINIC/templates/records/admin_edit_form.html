@@ -191,8 +191,11 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Sex *</label>
-                    <input type="text" id="ro-pet-sex" name="pet_sex" class="form-control-custom"
-                           value="{{ record.pet.get_sex_display }}" required />
+                    <select id="ro-pet-sex" name="pet_sex" class="form-control-custom" required>
+                        <option value="">— Select Sex —</option>
+                        <option value="MALE" {% if record.pet.sex == "MALE" %}selected{% endif %}>Male</option>
+                        <option value="FEMALE" {% if record.pet.sex == "FEMALE" %}selected{% endif %}>Female</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Species *</label>

@@ -324,7 +324,11 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Sex *</label>
-                    <input type="text" id="ro-pet-sex" name="pet_sex" class="form-control-custom" placeholder="e.g. Male" required />
+                    <select id="ro-pet-sex" name="pet_sex" class="form-control-custom" required>
+                        <option value="">— Select Sex —</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Color *</label>
@@ -723,7 +727,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('ro-pet-age').value = petData.date_of_birth || '';
         document.getElementById('ro-pet-color').value = petData.pet_color || '';
         document.getElementById('ro-pet-breed').value = petData.pet_breed || '';
-        document.getElementById('ro-pet-sex').value = petData.pet_sex || '';
+        document.getElementById('ro-pet-sex').value = (petData.pet_sex || '').toUpperCase();
         document.getElementById('ro-pet-species').value = petData.pet_species || '';
 
         // Auto-select branch from pet's last record
