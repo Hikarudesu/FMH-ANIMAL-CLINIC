@@ -986,6 +986,17 @@ function getLocalYMD(d) {
   // Owner groups
   const ownerPortalGroup = document.getElementById("qc-owner-portal-group");
   const ownerNameGroup = document.getElementById("qc-owner-name-group");
+  const ownerSearchWrapper = document.querySelector(".qc-owner-search-wrapper");
+  const walkinSearchWrapper = document.querySelector(".qc-walkin-search-wrapper");
+
+  document.addEventListener("pointerdown", function (event) {
+    if (ownerDropdown && ownerSearchWrapper && !ownerSearchWrapper.contains(event.target)) {
+      ownerDropdown.style.display = "none";
+    }
+    if (walkinDropdown && walkinSearchWrapper && !walkinSearchWrapper.contains(event.target)) {
+      walkinDropdown.style.display = "none";
+    }
+  }, true);
 
   // Pet groups
   const petPortalGroup = document.getElementById("qc-pet-portal-group");
