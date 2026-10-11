@@ -495,17 +495,29 @@ document.addEventListener("DOMContentLoaded", () => {
       // Keep the mobile list finite while retaining the seamless desktop loop.
       if (!isMobile()) {
         const cards = Array.from(carouselTrack.children);
-        cards.forEach((card) => {
-          carouselTrack.appendChild(card.cloneNode(true));
-        });
+        const viewportWidth = carouselContainer?.clientWidth || 0;
+        const appendCloneSet = () => {
+          cards.forEach((card) => {
+            const clone = card.cloneNode(true);
+            clone.classList.add("visible");
+            clone.setAttribute("aria-hidden", "true");
+            carouselTrack.appendChild(clone);
+          });
+        };
+
+        appendCloneSet();
         const cycleWidth =
           carouselTrack.children[cardCount].getBoundingClientRect().left -
           carouselTrack.children[0].getBoundingClientRect().left;
-        const viewportWidth = carouselContainer?.clientWidth || 0;
-        while (cycleWidth > 0 && carouselTrack.scrollWidth < cycleWidth + viewportWidth) {
-          cards.forEach((card) => {
-            carouselTrack.appendChild(card.cloneNode(true));
-          });
+        const getTrailingWidth = () => {
+          const lastCard = carouselTrack.lastElementChild;
+          const firstCard = carouselTrack.children[0];
+          return lastCard.getBoundingClientRect().right -
+            firstCard.getBoundingClientRect().left -
+            cycleWidth;
+        };
+        while (cycleWidth > 0 && getTrailingWidth() < viewportWidth) {
+          appendCloneSet();
         }
       }
 
