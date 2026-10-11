@@ -502,9 +502,9 @@ class BrowserLoginLockoutTests(TestCase):
         browser = Client()
         login_url = reverse('accounts:login_page')
 
-        for attempt in range(5):
+        for _ in range(5):
             response = browser.post(login_url, {
-                'username': f'wrong-user-{attempt}',
+                'username': self.user.username,
                 'password': 'wrong-password',
             })
             self.assertEqual(response.status_code, 200)
@@ -524,6 +524,31 @@ class BrowserLoginLockoutTests(TestCase):
         self.assertEqual(allowed_response.status_code, 302)
         self.assertEqual(
             another_browser.session.get('_auth_user_id'), str(self.user.pk),
+        )
+
+    def test_locking_one_account_does_not_block_another_in_same_browser(self):
+        second_user = get_user_model().objects.create_user(
+            username='anotherloginowner',
+            email='anotherloginowner@example.com',
+            password='Another-secure-test-password-924!',
+        )
+        browser = Client()
+        login_url = reverse('accounts:login_page')
+
+        for _ in range(5):
+            browser.post(login_url, {
+                'username': self.user.username,
+                'password': 'wrong-password',
+            })
+
+        response = browser.post(login_url, {
+            'username': second_user.username,
+            'password': 'Another-secure-test-password-924!',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            browser.session.get('_auth_user_id'), str(second_user.pk),
         )
 
     def test_first_browser_lock_expires_after_one_minute(self):
@@ -569,12 +594,13 @@ class BrowserLoginLockoutTests(TestCase):
             with patch('accounts.views.timezone.now', return_value=now):
                 for _ in range(5):
                     response = browser.post(login_url, {
-                        'username': 'wrong-user',
+                        'username': self.user.username,
                         'password': 'wrong-password',
                     })
                     self.assertEqual(response.status_code, 200)
 
-            lock_until = browser.session['login_locked_until']
+            lockout_state = next(iter(browser.session['login_lockouts'].values()))
+            lock_until = lockout_state['locked_until']
             self.assertEqual(
                 int(float(lock_until) - now.timestamp()),
                 expected_seconds,
@@ -588,4 +614,4 @@ class BrowserLoginLockoutTests(TestCase):
             })
 
         self.assertEqual(response.status_code, 302)
-        self.assertNotIn('login_lockout_level', browser.session)
+        self.assertEqual(browser.session.get('login_lockouts'), {})

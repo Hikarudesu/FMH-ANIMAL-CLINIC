@@ -20,6 +20,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 
 from branches.models import Branch
 from .models import User
@@ -29,9 +30,7 @@ from settings.utils import get_setting
 
 EMAIL_VERIFICATION_SALT = 'accounts.email-verification'
 EMAIL_VERIFICATION_MAX_AGE = 60 * 60 * 24
-LOGIN_FAILURES_SESSION_KEY = 'login_failed_attempts'
-LOGIN_LOCK_UNTIL_SESSION_KEY = 'login_locked_until'
-LOGIN_LOCKOUT_LEVEL_SESSION_KEY = 'login_lockout_level'
+LOGIN_LOCKOUTS_SESSION_KEY = 'login_lockouts'
 LOGIN_MAX_FAILED_ATTEMPTS = 5
 LOGIN_LOCKOUT_DURATIONS = (60, 5 * 60, 15 * 60)
 
@@ -98,23 +97,6 @@ def login_view(request):
                 return redirect('admin_dashboard')
         return redirect('user_dashboard')
 
-    lock_until = request.session.get(LOGIN_LOCK_UNTIL_SESSION_KEY)
-    if lock_until:
-        seconds_remaining = int(float(lock_until) - timezone.now().timestamp())
-        if seconds_remaining > 0:
-            minutes_remaining = max(1, (seconds_remaining + 59) // 60)
-            minute_label = 'minute' if minutes_remaining == 1 else 'minutes'
-            messages.error(
-                request,
-                f'This browser is temporarily locked after {LOGIN_MAX_FAILED_ATTEMPTS} unsuccessful attempts. '
-                f'Try again in about {minutes_remaining} {minute_label}.',
-            )
-            return render(request, 'accounts/login.html', {
-                'show_maintenance_popup': show_maintenance_popup,
-            })
-        request.session.pop(LOGIN_LOCK_UNTIL_SESSION_KEY, None)
-        request.session.pop(LOGIN_FAILURES_SESSION_KEY, None)
-
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password')
@@ -128,6 +110,31 @@ def login_view(request):
                 username = stored_user.username
             else:
                 pass  # Let authenticate() handle the invalid user
+        lockout_key = salted_hmac(
+            'accounts.login-lockout',
+            username.casefold(),
+        ).hexdigest()
+        lockouts = request.session.get(LOGIN_LOCKOUTS_SESSION_KEY, {})
+        login_state = lockouts.get(lockout_key, {})
+        lock_until = login_state.get('locked_until')
+        if lock_until:
+            seconds_remaining = int(float(lock_until) - timezone.now().timestamp())
+            if seconds_remaining > 0:
+                minutes_remaining = max(1, (seconds_remaining + 59) // 60)
+                minute_label = 'minute' if minutes_remaining == 1 else 'minutes'
+                messages.error(
+                    request,
+                    f'This account is temporarily locked after {LOGIN_MAX_FAILED_ATTEMPTS} unsuccessful attempts. '
+                    f'Try again in about {minutes_remaining} {minute_label}.',
+                )
+                return render(request, 'accounts/login.html', {
+                    'show_maintenance_popup': show_maintenance_popup,
+                })
+            login_state['locked_until'] = None
+            login_state['failed_attempts'] = 0
+            lockouts[lockout_key] = login_state
+            request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
+
         user = authenticate(request, username=username, password=password)
 
         maintenance_mode = get_setting('system_maintenance_mode', False)
@@ -137,9 +144,8 @@ def login_view(request):
         )
 
         if user is not None:
-            request.session.pop(LOGIN_FAILURES_SESSION_KEY, None)
-            request.session.pop(LOGIN_LOCK_UNTIL_SESSION_KEY, None)
-            request.session.pop(LOGIN_LOCKOUT_LEVEL_SESSION_KEY, None)
+            lockouts.pop(lockout_key, None)
+            request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
             from .lifecycle import resolve_owner_deactivation_on_login
 
             deactivation_result = resolve_owner_deactivation_on_login(user)
@@ -174,26 +180,26 @@ def login_view(request):
                     return redirect('admin_dashboard')
             return redirect('user_dashboard')
         else:
-            failed_attempts = request.session.get(LOGIN_FAILURES_SESSION_KEY, 0) + 1
-            request.session[LOGIN_FAILURES_SESSION_KEY] = failed_attempts
+            failed_attempts = login_state.get('failed_attempts', 0) + 1
+            login_state['failed_attempts'] = failed_attempts
             lockout_level = min(
-                request.session.get(LOGIN_LOCKOUT_LEVEL_SESSION_KEY, 0),
+                login_state.get('lockout_level', 0),
                 len(LOGIN_LOCKOUT_DURATIONS) - 1,
             )
             lockout_seconds = LOGIN_LOCKOUT_DURATIONS[lockout_level]
             lockout_minutes = lockout_seconds // 60
             minute_label = 'minute' if lockout_minutes == 1 else 'minutes'
             if failed_attempts >= LOGIN_MAX_FAILED_ATTEMPTS:
-                request.session[LOGIN_LOCK_UNTIL_SESSION_KEY] = (
+                login_state['locked_until'] = (
                     timezone.now().timestamp() + lockout_seconds
                 )
-                request.session[LOGIN_LOCKOUT_LEVEL_SESSION_KEY] = min(
+                login_state['lockout_level'] = min(
                     lockout_level + 1,
                     len(LOGIN_LOCKOUT_DURATIONS) - 1,
                 )
                 messages.error(
                     request,
-                    f'Too many unsuccessful attempts. This browser is locked for '
+                    f'Too many unsuccessful attempts. This account is locked for '
                     f'{lockout_minutes} {minute_label}.',
                 )
             else:
@@ -201,9 +207,11 @@ def login_view(request):
                 messages.error(
                     request,
                     f'Invalid username/email or password. '
-                    f'{attempts_left} attempt(s) remain before this browser is locked for '
+                    f'{attempts_left} attempt(s) remain before this account is locked for '
                     f'{lockout_minutes} {minute_label}.',
                 )
+            lockouts[lockout_key] = login_state
+            request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
 
     return render(request, 'accounts/login.html', {
         'show_maintenance_popup': show_maintenance_popup,
