@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from accounts.rbac_models import Module, ModulePermission, Role
+from branches.models import Branch
 from .forms import AdminPetForm
 
 
@@ -42,6 +44,56 @@ class AdminPetWalkInContactTests(TestCase):
 
 
 class PortalOwnerSearchTests(TestCase):
+    def test_branch_restricted_staff_can_search_owner_without_branch_or_patients(self):
+        branch = Branch.objects.create(
+            name='Search Test Branch',
+            phone_number='09123456789',
+            address='1 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        patients_module, _ = Module.objects.get_or_create(
+            code=Module.PATIENTS,
+            defaults={'name': 'Patients'},
+        )
+        role = Role.objects.create(
+            name='Branch-Restricted Patient Search Role',
+            code='branch-restricted-patient-search',
+            hierarchy_level=4,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=role,
+            module=patients_module,
+            permission_type=ModulePermission.PermissionType.CREATE,
+            restrict_to_branch=True,
+        )
+        staff = get_user_model().objects.create_user(
+            username='branchstaff',
+            email='branchstaff@example.com',
+            password='A-secure-test-password-925!',
+            branch=branch,
+            assigned_role=role,
+        )
+        owner = get_user_model().objects.create_user(
+            username='unassignedowner',
+            email='owner@example.com',
+            first_name='Unassigned',
+            last_name='Owner',
+            password='A-secure-test-password-926!',
+        )
+        client = Client()
+        client.force_login(staff)
+
+        response = client.get(
+            reverse('patients:api_owner_search'),
+            {'q': 'Unassigned Owner'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['owners'][0]['id'], owner.pk)
+
     def test_owner_search_matches_phone_number(self):
         admin = get_user_model().objects.create_superuser(
             username='patientadmin',

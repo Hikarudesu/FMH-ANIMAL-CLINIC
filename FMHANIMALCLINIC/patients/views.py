@@ -486,14 +486,12 @@ def admin_add_pet_view(request):
 def api_owner_search(request):
     """Search eligible portal owners without sending the full account list."""
     from django.contrib.auth import get_user_model
-    from branches.models import Branch
 
     User = get_user_model()
     query = request.GET.get('q', '').strip()
     owner_id = request.GET.get('owner_id', '').strip()
-    branch_id = request.GET.get('branch', '').strip()
 
-    if (branch_id and not branch_id.isdecimal()) or (owner_id and not owner_id.isdecimal()):
+    if owner_id and not owner_id.isdecimal():
         return JsonResponse({'owners': [], 'has_more': False})
 
     owners = User.objects.filter(
@@ -502,19 +500,6 @@ def api_owner_search(request):
     ).filter(
         Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
     )
-
-    if request.user.is_module_branch_restricted('patients'):
-        user_branch = getattr(request.user, 'branch', None)
-        if not user_branch:
-            return JsonResponse({'owners': [], 'has_more': False})
-        branch_id = str(user_branch.pk)
-
-    if branch_id:
-        if not Branch.objects.filter(pk=branch_id, is_active=True).exists():
-            return JsonResponse({'owners': [], 'has_more': False})
-        owners = owners.filter(
-            Q(branch_id=branch_id) | Q(pets__branch_id=branch_id)
-        ).distinct()
 
     if owner_id:
         owners = owners.filter(pk=owner_id)
