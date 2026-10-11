@@ -170,9 +170,6 @@
       <a href="{% url 'patients:my_pets' %}" class="sidebar-link {% if 'patients' in request.resolver_match.app_name %}active{% endif %}">
         <i class='bx bxs-dog'></i>
         <span style="flex-grow: 1;">Pets</span>
-        {% if user_pets_count %}
-        <span class="badge" style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: auto;">{{ user_pets_count }}</span>
-        {% endif %}
         {% if unread_pet_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_pet_notifications_count }}</span>{% endif %}
       </a>
       <a href="{% url 'appointments:my_appointments' %}" class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}">

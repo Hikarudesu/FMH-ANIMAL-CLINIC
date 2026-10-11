@@ -454,21 +454,6 @@
           >
             <i class="bx bxs-dog"></i>
             <span style="flex-grow: 1">Patients</span>
-            {% if total_patients_count %}
-            <span
-              class="badge"
-              style="
-                background: var(--primary);
-                color: white;
-                padding: 2px 8px;
-                border-radius: 12px;
-                font-size: 11px;
-                font-weight: 600;
-                margin-left: auto;
-              "
-              >{{ total_patients_count }}</span
-            >
-            {% endif %}
             {% if unread_notifications_by_module.patients > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_notifications_by_module.patients }}</span>{% endif %}
           </a>
           {% endif %}
