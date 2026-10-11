@@ -496,9 +496,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isMobile()) {
         const cards = Array.from(carouselTrack.children);
         cards.forEach((card) => {
-          const clone = card.cloneNode(true);
-          carouselTrack.appendChild(clone);
+          carouselTrack.appendChild(card.cloneNode(true));
         });
+        const cycleWidth =
+          carouselTrack.children[cardCount].getBoundingClientRect().left -
+          carouselTrack.children[0].getBoundingClientRect().left;
+        const viewportWidth = carouselContainer?.clientWidth || 0;
+        while (cycleWidth > 0 && carouselTrack.scrollWidth < cycleWidth + viewportWidth) {
+          cards.forEach((card) => {
+            carouselTrack.appendChild(card.cloneNode(true));
+          });
+        }
       }
 
       let currentScroll = 0;
@@ -510,7 +518,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const trackStyle = window.getComputedStyle(carouselTrack);
         const gap = parseFloat(trackStyle.gap) || 0;
         const step = card.offsetWidth + gap;
-        const totalWidth = step * cardCount;
+        const nextCycleCard = carouselTrack.children[cardCount];
+        const totalWidth = nextCycleCard
+          ? nextCycleCard.getBoundingClientRect().left - card.getBoundingClientRect().left
+          : step * cardCount;
         return { step, totalWidth };
       };
 
