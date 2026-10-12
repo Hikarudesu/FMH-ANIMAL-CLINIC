@@ -126,7 +126,8 @@
                     </a>
                     {% endif %}
                     {% if can_delete %}
-                    <button type="button" class="action-btn danger" title="Delete" onclick="openDeleteModal('{% url 'inventory:product_delete' item.pk %}', '{{ item.name|escapejs }}')">
+                    <button type="button" class="action-btn danger"
+                            {% if item.pending_reservation_count %}disabled aria-disabled="true" title="Cannot delete: this item has pending reservations" style="cursor: not-allowed; opacity: 0.45;"{% else %}title="Delete" onclick="openDeleteModal('{% url 'inventory:product_delete' item.pk %}', '{{ item.name|escapejs }}')"{% endif %}>
                       <i class='bx bx-trash'></i>
                     </button>
                     {% endif %}
@@ -462,6 +463,32 @@ window.closeDeleteModal = function() {
   document.getElementById('deleteItemModal').classList.remove('active');
 }
 
+window.requestFinalDeleteConfirmation = function(event) {
+  const form = event.currentTarget;
+  if (form.dataset.finalConfirmation === 'confirmed') {
+    delete form.dataset.finalConfirmation;
+    return true;
+  }
+
+  event.preventDefault();
+  document.getElementById('deleteItemModal').classList.remove('active');
+  document.getElementById('finalDeleteItemName').textContent =
+    document.getElementById('deleteItemName').textContent;
+  document.getElementById('finalDeleteItemModal').classList.add('active');
+  return false;
+}
+
+window.closeFinalDeleteModal = function() {
+  document.getElementById('finalDeleteItemModal').classList.remove('active');
+  document.getElementById('deleteItemModal').classList.add('active');
+}
+
+window.confirmFinalDelete = function() {
+  const form = document.getElementById('deleteItemForm');
+  form.dataset.finalConfirmation = 'confirmed';
+  form.requestSubmit();
+}
+
 window.openCancelReservationModal = function(url, reservationId, productName) {
   document.getElementById('cancelReservationId').textContent = reservationId;
   document.getElementById('cancelReservationProduct').textContent = productName;
@@ -492,7 +519,7 @@ window.closeReleaseReservationModal = function() {
       <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Delete Item</h3>
       <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
     </div>
-    <form id="deleteItemForm" method="post" action="">
+    <form id="deleteItemForm" method="post" action="" onsubmit="return requestFinalDeleteConfirmation(event)">
       {% csrf_token %}
       <div class="modal-body" style="text-align: center; padding-top: 30px;">
         <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
@@ -503,9 +530,29 @@ window.closeReleaseReservationModal = function() {
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
-        <button type="submit" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;">Yes, Delete Item</button>
+        <button type="submit" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;">Continue</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="finalDeleteItemModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Final Confirmation</h3>
+      <button type="button" class="modal-close" onclick="closeFinalDeleteModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-error' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="finalDeleteItemName"></span>?</h4>
+      <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+        This will permanently remove the item from active inventory. Are you really sure?
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeFinalDeleteModal()">Go Back</button>
+      <button type="button" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;" onclick="confirmFinalDelete()">Permanently Delete</button>
+    </div>
   </div>
 </div>
 

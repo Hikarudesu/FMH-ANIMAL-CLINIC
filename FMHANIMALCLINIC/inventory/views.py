@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -182,7 +182,12 @@ def inventory_management_view(request):
     selected_uom = request.GET.get('uom', '')
     selected_sale_type = request.GET.get('sale_type', '')
     search_query = request.GET.get('q', '').strip()
-    products = Product.objects.all().select_related('branch')
+    products = Product.objects.all().select_related('branch').annotate(
+        pending_reservation_count=Count(
+            'reservations',
+            filter=Q(reservations__status=Reservation.Status.PENDING),
+        ),
+    )
 
     # Apply branch restriction first if user is restricted
     if is_branch_restricted:
@@ -511,6 +516,17 @@ def product_delete_view(request, pk):
             return redirect('inventory:management')
         products = products.filter(branch=user_branch)
     product = get_object_or_404(products, pk=pk)
+    if Reservation.objects.filter(
+        product=product,
+        status=Reservation.Status.PENDING,
+    ).exists():
+        messages.error(
+            request,
+            'This item cannot be deleted while it has pending reservations. '
+            'Release or cancel the reservations first.',
+        )
+        return redirect('inventory:management')
+
     product_name = product.name
     product.delete()  # Soft delete via SoftDeleteModel
     messages.success(request, f'Item "{product_name}" deleted successfully.')

@@ -7,7 +7,7 @@ from accounts.rbac_models import Module, ModulePermission, Role
 from accounts.models import ActivityLog
 from branches.models import Branch
 from inventory.forms import ProductForm, StockAdjustmentForm
-from inventory.models import Product, StockAdjustment, StockTransfer
+from inventory.models import Product, Reservation, StockAdjustment, StockTransfer
 
 
 class InventoryWorkflowTests(TestCase):
@@ -431,6 +431,75 @@ class InventoryWorkflowTests(TestCase):
         self.assertIn('DEL-001', deletion_log.details)
         self.assertIn('Stock: 4', deletion_log.details)
         self.assertEqual(deletion_log.ip_address, '127.0.0.1')
+
+    def test_product_with_pending_reservation_cannot_be_deleted(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Reserved Item',
+            price=20,
+        )
+        Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            status=Reservation.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('inventory:product_delete', args=[product.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        product.refresh_from_db()
+        self.assertFalse(product.is_deleted)
+        self.assertContains(
+            self.client.get(reverse('inventory:management')),
+            'pending reservations',
+        )
+
+    def test_product_can_be_deleted_after_reservation_is_released(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Completed Reservation Item',
+            price=20,
+        )
+        Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            status=Reservation.Status.RELEASED,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('inventory:product_delete', args=[product.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        product.refresh_from_db()
+        self.assertTrue(product.is_deleted)
+
+    def test_branch_staff_delete_button_is_disabled_for_pending_reservation(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Branch Reserved Item',
+            price=20,
+        )
+        Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            status=Reservation.Status.PENDING,
+        )
+        receptionist = self.create_branch_restricted_user(self.branch)
+        self.client.force_login(receptionist)
+
+        response = self.client.get(reverse('inventory:management'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cannot delete: this item has pending reservations')
+        self.assertContains(response, 'disabled aria-disabled="true"')
 
     def test_stock_adjustment_reaching_zero_marks_item_unavailable(self):
         product = Product.objects.create(
