@@ -964,8 +964,24 @@ def admin_dashboard_view(request):
         F('stock_quantity') * F('unit_cost'),
         output_field=DecimalField(max_digits=18, decimal_places=2),
     )
+    inventory_retail_value_expression = ExpressionWrapper(
+        F('stock_quantity') * F('price'),
+        output_field=DecimalField(max_digits=18, decimal_places=2),
+    )
+    inventory_product_count = inventory_products.count()
+    missing_inventory_cost_count = inventory_products.filter(unit_cost=0).count()
+    inventory_value_is_estimated = (
+        inventory_product_count > 0
+        and missing_inventory_cost_count == inventory_product_count
+    )
     total_inventory_value = (
-        inventory_products.aggregate(total=Sum(inventory_value_expression))['total']
+        inventory_products.aggregate(
+            total=Sum(
+                inventory_retail_value_expression
+                if inventory_value_is_estimated
+                else inventory_value_expression
+            )
+        )['total']
         or Decimal('0.00')
     )
 
@@ -1359,6 +1375,7 @@ def admin_dashboard_view(request):
         'branch_appointments': branch_appointments,
         'staff_performance': staff_performance,
         'total_inventory_value': total_inventory_value,
+        'inventory_value_is_estimated': inventory_value_is_estimated,
         'dashboard_scope_label': dashboard_scope_label,
         'monthly_revenue': monthly_revenue,
         'last_month_revenue': last_month_revenue,

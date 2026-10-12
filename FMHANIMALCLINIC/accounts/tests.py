@@ -18,7 +18,7 @@ from branches.models import Branch
 from appointments.models import Appointment
 from billing.models import CustomerStatement
 from employees.models import StaffMember
-from inventory.models import Product
+from inventory.models import Product, StockAdjustment
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
@@ -133,6 +133,63 @@ class AdminDashboardQuickInsightsTests(TestCase):
         self.assertContains(response, 'Completed Visits This Month')
         self.assertContains(response, 'Across 3 Active Branches')
         self.assertNotContains(response, '0 low stock')
+        self.assertNotContains(response, 'Month to date')
+        self.assertContains(response, 'hero-stat-icon emerald')
+        self.assertContains(response, 'bx-wallet')
+
+    def test_inventory_hero_uses_current_stock_and_estimated_value_without_costs(self):
+        admin = get_user_model().objects.create_superuser(
+            username='inventory-estimate-admin',
+            email='inventory-estimate-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        branch = Branch.objects.create(
+            name='Inventory Estimate Branch',
+            branch_code='IEB1',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        product = Product.objects.create(
+            branch=branch,
+            name='Inventory Estimate Product',
+            item_type='Product',
+            price=20,
+            unit_cost=0,
+            stock_quantity=4,
+            min_stock_level=1,
+        )
+        cancelled_product = Product.objects.create(
+            branch=branch,
+            name='Cancelled Inventory Product',
+            item_type='Product',
+            price=50,
+            unit_cost=0,
+            stock_quantity=2,
+            min_stock_level=1,
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+        self.assertEqual(response.context['total_inventory_value'], 180)
+        self.assertTrue(response.context['inventory_value_is_estimated'])
+
+        StockAdjustment.objects.create(
+            branch=branch,
+            product=product,
+            adjustment_type='REMOVE',
+            date=timezone.localdate(),
+            quantity=1,
+            reason='Test stock reduction',
+        )
+        cancelled_product.delete()
+
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+        self.assertEqual(response.context['total_inventory_value'], 60)
+        self.assertTrue(response.context['inventory_value_is_estimated'])
+        self.assertContains(response, 'Estimated at selling price')
 
 
 class RolePermissionManagementTests(TestCase):
