@@ -9,11 +9,12 @@ from django.utils import timezone
 
 from accounts.activity_context import reset_current_actor, set_current_actor
 from accounts.models import ActivityLog, User
-from accounts.rbac_models import Role, SpecialPermission
+from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermission
 from appointments.models import Appointment
 from branches.models import Branch
 from employees.models import StaffMember
 from inquiries.models import Inquiry
+from inventory.models import Product
 from patients.models import Pet
 from payroll.email_service import send_payslip_email
 from payroll.models import Payslip, PayslipEmailLog, PayrollPeriod
@@ -83,6 +84,61 @@ class EmailDeliveryTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 403)
+
+
+class InventoryAlertEmailTests(TestCase):
+    def test_low_stock_alert_sends_email_to_superadmins_and_inventory_staff(self):
+        branch = Branch.objects.create(name='Inventory Branch')
+        inventory_module, _ = Module.objects.get_or_create(
+            code='inventory',
+            defaults={'name': 'Inventory'},
+        )
+        inventory_role = Role.objects.create(
+            name='Inventory Staff',
+            code='inventory_staff',
+            hierarchy_level=4,
+        )
+        for permission_type in (
+            ModulePermission.PermissionType.VIEW,
+            ModulePermission.PermissionType.CREATE,
+            ModulePermission.PermissionType.DELETE,
+        ):
+            ModulePermission.objects.create(
+                role=inventory_role,
+                module=inventory_module,
+                permission_type=permission_type,
+            )
+
+        superadmin = User.objects.create_superuser(
+            username='stock-superadmin',
+            email='superadmin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        inventory_staff = User.objects.create_user(
+            username='inventory-staff',
+            email='inventory.staff@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=inventory_role,
+            branch=branch,
+        )
+
+        with patch('notifications.signals.send_notification_email') as email_mock:
+            Product.objects.create(
+                name='Stock Alert Item',
+                branch=branch,
+                stock_quantity=3,
+                price=30,
+                unit_cost=20,
+            )
+
+        self.assertTrue(email_mock.called)
+        emails = {
+            email
+            for call in email_mock.call_args_list
+            for email in call.kwargs['recipient_list']
+        }
+        self.assertIn(superadmin.email, emails)
+        self.assertIn(inventory_staff.email, emails)
 
 
 class NotificationRoutingTests(TestCase):

@@ -13,6 +13,7 @@ from .utils import (
 from appointments.models import Appointment
 from inventory.models import Product, StockAdjustment
 from inventory.expiry_alerts import run_inventory_expiry_alert_job
+from notifications.delivery import send_notification_email
 from settings.utils import get_setting
 from inquiries.models import Inquiry
 
@@ -74,7 +75,7 @@ def create_low_inventory_notification(sender, instance, **kwargs):
         f"Thresholds: critical <= {critical_threshold}, low <= {low_threshold}."
     )
 
-    notify_module_users(
+    targets = notify_module_users(
         module_code='inventory',
         branch=instance.branch,
         title=title,
@@ -83,6 +84,26 @@ def create_low_inventory_notification(sender, instance, **kwargs):
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=instance.id,
     )
+
+    recipient_emails = []
+    seen = set()
+    for user in targets or []:
+        email = (getattr(user, 'email', '') or '').strip()
+        if email and email.lower() not in seen:
+            seen.add(email.lower())
+            recipient_emails.append(email)
+
+    if recipient_emails:
+        send_notification_email(
+            subject=f"[Inventory Alert] {title}",
+            message=(
+                f"{message}\n\n"
+                f"Branch: {instance.branch.name if instance.branch else 'Unassigned'}\n"
+                "Please review the stock level and replenish the item as needed."
+            ),
+            recipient_list=recipient_emails,
+            fail_silently=True,
+        )
 
 
 
