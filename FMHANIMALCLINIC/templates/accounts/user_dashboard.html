@@ -306,6 +306,14 @@
   .charts-row.equal {
     grid-template-columns: 1fr 1fr;
   }
+
+  .charts-row.appointment-history-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .appointment-history-row .chart-body {
+    height: 380px;
+  }
   
   .charts-row:nth-child(2) {
     grid-template-columns: 1fr 1.5fr;
@@ -316,6 +324,12 @@
     .charts-row:nth-child(2),
     .charts-row.equal {
       grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .appointment-history-row .chart-body {
+      height: 280px;
     }
   }
   
@@ -1362,31 +1376,18 @@
 <!-- CHARTS SECTION -->
 <div class="charts-section">
   
-  <!-- ROW 1: Appointment History & Pet Health -->
-  <div class="charts-row equal">
+  <!-- ROW 1: Expanded Monthly Spending -->
+  <div class="charts-row appointment-history-row">
     <div class="chart-card-modern dash-fade fade-up stagger-1">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-line-chart'></i>
-          <span>Appointment History</span>
+          <span>Monthly Spending</span>
         </div>
-        <div class="chart-badge purple">Last 6 Months</div>
+        <div class="chart-badge purple">January–December {{ monthly_spending_year }}</div>
       </div>
       <div class="chart-body">
-        <canvas id="appointmentHistoryChart"></canvas>
-      </div>
-    </div>
-    
-    <div class="chart-card-modern dash-fade fade-up stagger-2">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-heart'></i>
-          <span>Pet Health Overview</span>
-        </div>
-        <div class="chart-badge emerald">Current Status</div>
-      </div>
-      <div class="chart-body">
-        <canvas id="petHealthChart"></canvas>
+        <canvas id="monthlySpendingChart"></canvas>
       </div>
     </div>
   </div>
@@ -1781,30 +1782,34 @@ const commonTooltip = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1. APPOINTMENT HISTORY LINE CHART
+// 1. MONTHLY SPENDING LINE CHART
 // ═══════════════════════════════════════════════════════════════════════════
 
-const appointmentHistoryCtx = document.getElementById('appointmentHistoryChart');
-if (appointmentHistoryCtx) {
-  const monthlyData = {{ monthly_appointments_json|safe }};
-  
-  new Chart(appointmentHistoryCtx, {
+const monthlySpendingCtx = document.getElementById('monthlySpendingChart');
+if (monthlySpendingCtx) {
+  const monthlySpending = {{ monthly_spending_json|safe }};
+  const spendingGradient = monthlySpendingCtx.getContext('2d').createLinearGradient(0, 0, 0, 360);
+  spendingGradient.addColorStop(0, 'rgba(0, 150, 136, 0.3)');
+  spendingGradient.addColorStop(1, 'rgba(0, 150, 136, 0.02)');
+
+  new Chart(monthlySpendingCtx, {
     type: 'line',
     data: {
-      labels: monthlyData.map(d => d.month),
+      labels: monthlySpending.map(d => d.month),
       datasets: [{
-        label: 'Appointments',
-        data: monthlyData.map(d => d.count),
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        borderWidth: 3,
+        label: 'Spending',
+        data: monthlySpending.map(d => d.total),
+        borderColor: '#009688',
+        backgroundColor: spendingGradient,
+        borderWidth: 3.5,
         fill: true,
-        tension: 0.4,
-        pointRadius: 6,
-        pointBackgroundColor: '#6366f1',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        pointHoverRadius: 8
+        tension: 0.35,
+        pointRadius: 5,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: '#009688',
+        pointBorderWidth: 3,
+        pointHoverRadius: 7,
+        pointHoverBackgroundColor: '#009688'
       }]
     },
     options: {
@@ -1815,19 +1820,24 @@ if (appointmentHistoryCtx) {
         tooltip: {
           ...commonTooltip,
           callbacks: {
-            label: ctx => `${ctx.raw} appointment${ctx.raw !== 1 ? 's' : ''}`
+            label: ctx => `₱${Number(ctx.raw).toLocaleString('en-PH', {minimumFractionDigits: 2})}`
           }
         }
       },
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
-          grid: { color: isGlobalDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
+          ticks: {
+            color: isGlobalDark ? '#ffffff' : '#64748b',
+            font: { size: 11 },
+            callback: value => '₱' + (value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value)
+          },
+          grid: { color: isGlobalDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }
         },
         x: {
           ticks: { color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
-          grid: { display: false }
+          grid: { display: false },
+          border: { display: false }
         }
       }
     }
@@ -1835,82 +1845,7 @@ if (appointmentHistoryCtx) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 2. PET HEALTH DOUGHNUT CHART
-// ═══════════════════════════════════════════════════════════════════════════
-
-const petHealthCtx = document.getElementById('petHealthChart');
-if (petHealthCtx) {
-  const healthData = {{ pet_health_json|safe }};
-  
-  const healthColors = {
-    'Healthy': '#10b981',
-    'Monitoring': '#f59e0b',
-    'In Treatment': '#3b82f6',
-    'Post-Surgery': '#8b5cf6',
-    'Diagnostics': '#06b6d4',
-    'Critical': '#ef4444'
-  };
-  
-  const labels = healthData.map(d => d.status);
-  const data = healthData.map(d => d.count);
-  const colors = healthData.map(d => d.color || healthColors[d.status] || '#94a3b8');
-  const total = data.reduce((a, b) => a + b, 0);
-  
-  // Center text plugin
-  const centerTextPlugin = {
-    id: 'centerText',
-    afterDraw: function(chart) {
-      const ctx = chart.ctx;
-      const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
-      const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
-      
-      ctx.save();
-      ctx.font = 'bold 28px Inter, sans-serif';
-      ctx.fillStyle = isGlobalDark ? '#ffffff' : '#1e293b';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(total, centerX, centerY - 8);
-      
-      ctx.font = '500 12px Inter, sans-serif';
-      ctx.fillStyle = isGlobalDark ? '#ffffff' : '#64748b';
-      ctx.fillText('Total Pets', centerX, centerY + 16);
-      ctx.restore();
-    }
-  };
-  
-  new Chart(petHealthCtx, {
-    type: 'doughnut',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: colors,
-        borderWidth: 0,
-        hoverOffset: 8
-      }]
-    },
-    options: {
-      ...commonOptions,
-      cutout: '70%',
-      plugins: {
-        ...commonOptions.plugins,
-        tooltip: {
-          ...commonTooltip,
-          callbacks: {
-            label: ctx => {
-              const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-              return `${ctx.label}: ${ctx.raw} (${pct}%)`;
-            }
-          }
-        }
-      }
-    },
-    plugins: [centerTextPlugin]
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 3. APPOINTMENT STATUS PIE CHART
+// 2. APPOINTMENT STATUS PIE CHART
 // ═══════════════════════════════════════════════════════════════════════════
 
 const appointmentStatusCtx = document.getElementById('appointmentStatusChart');

@@ -135,6 +135,7 @@ def login_view(request):
             lockouts[lockout_key] = login_state
             request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
 
+<<<<<<< HEAD
         if (
             stored_user
             and not stored_user.is_active
@@ -153,6 +154,8 @@ def login_view(request):
                     'inactive_account_notice': reason,
                 })
 
+=======
+>>>>>>> ce9ada3080e9c8696610b4eca3f51dd68020a4be
         user = authenticate(request, username=username, password=password)
 
         maintenance_mode = get_setting('system_maintenance_mode', False)
@@ -407,47 +410,24 @@ def user_dashboard_view(request):
     pet_species_json = json.dumps(pet_species_breakdown)
 
     # Dashboard chart data
-    first_month = today.replace(day=1) - relativedelta(months=5)
-    month_starts = [
-        first_month + relativedelta(months=offset)
-        for offset in range(6)
-    ]
-    monthly_appointment_counts = {
-        (item['month'].year, item['month'].month): item['count']
-        for item in Appointment.objects.filter(
-            user=request.user,
-            pet__isnull=False,
-            appointment_date__gte=first_month,
-            appointment_date__lte=today,
-            **appt_branch_filter,
-        ).exclude(status='CANCELLED').annotate(
-            month=TruncMonth('appointment_date')
+    monthly_spending_totals = {
+        (item['month'].year, item['month'].month): item['total']
+        for item in Sale.objects.filter(
+            customer=request.user,
+            status=Sale.Status.COMPLETED,
+            completed_at__year=today.year,
+        ).annotate(
+            month=TruncMonth('completed_at')
         ).values('month').annotate(
-            count=Count('id')
+            total=Sum('total')
         )
     }
-    monthly_appointments = [
+    monthly_spending = [
         {
-            'month': month.strftime('%b %Y'),
-            'count': monthly_appointment_counts.get((month.year, month.month), 0),
+            'month': date(today.year, month, 1).strftime('%b'),
+            'total': float(monthly_spending_totals.get((today.year, month), 0)),
         }
-        for month in month_starts
-    ]
-
-    pet_health_counts = {}
-    for item in user_pets.values(
-        'clinical_status__name',
-        'clinical_status__color',
-    ).annotate(count=Count('id')):
-        status_name = item['clinical_status__name'] or 'Healthy'
-        color = item['clinical_status__color'] or '#10b981'
-        status_key = (status_name, color)
-        pet_health_counts[status_key] = (
-            pet_health_counts.get(status_key, 0) + item['count']
-        )
-    pet_health_data = [
-        {'status': status, 'count': count, 'color': color}
-        for (status, color), count in pet_health_counts.items()
+        for month in range(1, 13)
     ]
 
     appointment_status_counts = Appointment.objects.filter(
@@ -653,12 +633,10 @@ def user_dashboard_view(request):
         'recent_activities': recent_activities,
         'pet_species_breakdown': pet_species_breakdown,
         'pet_species_json': pet_species_json,
-        'monthly_appointments_json': json.dumps(
-            monthly_appointments, cls=DjangoJSONEncoder
+        'monthly_spending_json': json.dumps(
+            monthly_spending, cls=DjangoJSONEncoder
         ),
-        'pet_health_json': json.dumps(
-            pet_health_data, cls=DjangoJSONEncoder
-        ),
+        'monthly_spending_year': today.year,
         'appointment_status_json': json.dumps(
             appointment_status_data, cls=DjangoJSONEncoder
         ),
