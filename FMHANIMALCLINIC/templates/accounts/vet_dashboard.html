@@ -139,23 +139,64 @@
 </div>
 {% endif %}
 
-<!-- UPCOMING APPOINTMENT WORKLOAD -->
+<!-- MAIN CHARTS GRID -->
 <div class="charts-section">
+  
+  <!-- ROW 1: Weekly Workload & Appointment Types -->
   <div class="charts-row">
     <div class="chart-card-modern large">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Appointments by Day</span>
+          <span>Weekly Workload</span>
         </div>
-        <div class="chart-badge purple">Next 7 Days</div>
+        <div class="chart-badge purple">This Week</div>
       </div>
-      <p class="chart-description">Branch-wide bookings by day, status, and vet assignment. Today is included; cancelled and completed visits are excluded.</p>
       <div class="chart-body">
-        <canvas id="upcomingWorkloadChart" role="img" aria-label="Pending and confirmed appointments by day for the next seven days"></canvas>
+        <canvas id="weeklyWorkloadChart"></canvas>
       </div>
-      <div class="chart-footer-link">
-        <a href="{% url 'appointments:admin_list' %}" class="section-link">Open appointment schedule <i class='bx bx-right-arrow-alt'></i></a>
+    </div>
+    
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-pie-chart-alt-2'></i>
+          <span>Appointment Types</span>
+        </div>
+        <div class="chart-badge teal">All Time</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="appointmentTypesChart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ROW 2: Patient Health Status & Monthly Performance -->
+  <div class="charts-row">
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-heart-circle'></i>
+          <span>Patient Status</span>
+        </div>
+        <div class="chart-badge emerald">Current</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="patientHealthChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="chart-card-modern large">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-line-chart'></i>
+          <span>Monthly Performance</span>
+        </div>
+        <div class="chart-badge orange">Last 6 Months</div>
+      </div>
+      <p class="chart-description">Total number of patient visits per month</p>
+      <div class="chart-body">
+        <canvas id="monthlyPerformanceChart"></canvas>
       </div>
     </div>
   </div>
@@ -891,10 +932,6 @@
   
   .chart-body.tall { height: 320px; }
   .chart-body.wide { height: 260px; }
-
-  .chart-footer-link {
-    padding: 0 24px 20px;
-  }
 
   /* ═══════════════════════════════════════════════ */
   /* INSIGHTS SECTION */
@@ -1853,8 +1890,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const alert = document.querySelector('.alert-banner-modern');
     if (alert) alert.classList.add('dash-fade');
     
-    document.querySelectorAll('.chart-card-modern').forEach(card => {
-      card.classList.add('dash-fade', 'from-left');
+    // Chart cards — alternate left/right per row
+    document.querySelectorAll('.charts-row').forEach(row => {
+      const cards = row.querySelectorAll('.chart-card-modern');
+      cards.forEach((card, i) => {
+        card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
+        if (i > 0) card.classList.add('stagger-2');
+      });
     });
     
     // Section titles
@@ -1978,42 +2020,341 @@ document.addEventListener('DOMContentLoaded', function() {
     displayColors: true
   };
 
-  const upcomingWorkloadCtx = document.getElementById('upcomingWorkloadChart');
-  if (upcomingWorkloadCtx) {
-    const workload = {{ upcoming_workload_json|safe }};
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 1: WEEKLY WORKLOAD (Bar Chart - This Week)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const weeklyWorkloadCtx = document.getElementById('weeklyWorkloadChart');
+  if (weeklyWorkloadCtx) {
+    // Generate this week's days labels
+    const today = new Date();
+    // Adjusted dayOfWeek for Mon-Sun array (Monday=0 ... Sunday=6)
+    let dayOfWeek = today.getDay() - 1;
+    if (dayOfWeek < 0) dayOfWeek = 6; 
+    
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - dayOfWeek);
+    
+    const weekDays = [];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    // Real workload data from backend (index 0=Mon, 6=Sun)
+    const workloadData = {{ weekly_workload|safe }};
+    
+    for (let i = 0; i < 7; i++) {
+      weekDays.push(dayNames[i]);
+    }
+    
+    const gradient = weeklyWorkloadCtx.getContext('2d').createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, '#009688');
+    gradient.addColorStop(1, '#00bcd4');
 
-    new Chart(upcomingWorkloadCtx, {
+    new Chart(weeklyWorkloadCtx, {
       type: 'bar',
       data: {
-        labels: workload.map(day => day.label),
+        labels: weekDays,
+        datasets: [{
+          label: 'Appointments',
+          data: workloadData,
+          backgroundColor: function(context) {
+            const index = context.dataIndex;
+            if (index === dayOfWeek) {
+              return '#009688';
+            }
+            return 'rgba(0, 150, 136, 0.5)';
+          },
+          borderRadius: 4,
+          borderSkipped: 'bottom',
+          barThickness: 36,
+          maxBarThickness: 44
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              title: function(items) {
+                const i = items[0].dataIndex;
+                if (i === dayOfWeek) return items[0].label + ' (Today)';
+                return items[0].label;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { 
+              font: { size: 12, weight: '600' },
+              callback: function(value, index) {
+                return index === dayOfWeek ? '🟢 ' + dayNames[index] : dayNames[index];
+              }
+            }
+          },
+          y: { 
+            beginAtZero: true, 
+            grid: { color: isGlobalDark ? '#334155' : '#e2e8f0', drawBorder: false, borderDash: [5, 5] },
+            ticks: { 
+              font: { size: 11 },
+              precision: 0
+            } 
+          }
+        },
+        animation: {
+          duration: 1500,
+          easing: 'easeInOutCubic',
+          delay(ctx) {
+            return ctx.type === 'data' ? ctx.dataIndex * 120 : 0;
+          }
+        }
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 2: APPOINTMENT TYPES (Doughnut)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const appointmentTypesCtx = document.getElementById('appointmentTypesChart');
+  if (appointmentTypesCtx) {
+    const palette = ['#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#f43f5e'];
+    const appointmentData = [
+      {% for item in consultation_reasons %}
+      { label: '{{ item.reason|escapejs }}', value: {{ item.count }}, color: palette[{{ forloop.counter0 }} % palette.length] }{% if not forloop.last %},{% endif %}
+      {% empty %}
+      { label: 'No Data', value: 0, color: isGlobalDark ? '#334155' : '#e2e8f0' }
+      {% endfor %}
+    ].filter(item => item.value > 0);
+    
+    const totalAppointments = appointmentData.reduce((sum, item) => sum + item.value, 0);
+    
+    // Center text plugin
+    const centerTextPlugin = {
+      id: 'appointmentCenterText',
+      afterDraw: function(chart) {
+        const ctx = chart.ctx;
+        const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+        const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+        
+        ctx.save();
+        ctx.font = 'bold 28px Inter, sans-serif';
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+        ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(totalAppointments.toString(), centerX, centerY - 8);
+        
+        ctx.font = '500 12px Inter, sans-serif';
+        ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+        ctx.fillText('All Time', centerX, centerY + 16);
+        ctx.restore();
+      }
+    };
+    
+    new Chart(appointmentTypesCtx, {
+      type: 'doughnut',
+      data: {
+        labels: appointmentData.map(item => item.label),
+        datasets: [{
+          data: appointmentData.map(item => item.value),
+          backgroundColor: appointmentData.map(item => item.color),
+          borderWidth: 0,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        layout: {
+          padding: {
+            top: 0,
+            bottom: 0
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle',
+              padding: 12,
+              boxWidth: 10,
+              boxHeight: 10,
+              font: { size: 11, weight: '600', family: 'Inter, sans-serif' },
+              color: isGlobalDark ? '#ffffff' : '#64748b',
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => {
+                  const value = data.datasets[0].data[i];
+                  const percentage = totalAppointments > 0 ? ((value / totalAppointments) * 100).toFixed(1) : 0;
+                  return {
+                    text: `${label}: ${value} (${percentage}%)`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    strokeStyle: data.datasets[0].backgroundColor[i],
+                    lineWidth: 0,
+                    fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                    color: isGlobalDark ? '#ffffff' : '#64748b',
+                    pointStyle: 'circle',
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            },
+            align: 'center'
+          },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                const percent = totalAppointments > 0 ? ((context.raw / totalAppointments) * 100).toFixed(1) : 0;
+                return `${context.label}: ${context.raw} (${percent}%)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: false,
+          duration: 1500,
+          easing: 'easeInOutCubic'
+        }
+      },
+      plugins: [centerTextPlugin]
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 3: PATIENT HEALTH STATUS (Pie Chart)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const patientHealthCtx = document.getElementById('patientHealthChart');
+  if (patientHealthCtx) {
+    const healthData = [
+      {% for status in patient_status_distribution %}
+      { label: '{{ status.status }}', value: {{ status.count }}, color: '{{ status.color }}' },
+      {% endfor %}
+    ];
+    
+    if (healthData.length > 0) {
+      const totalPatients = healthData.reduce((sum, item) => sum + item.value, 0);
+      
+      new Chart(patientHealthCtx, {
+        type: 'pie',
+        data: {
+          labels: healthData.map(item => item.label),
+          datasets: [{
+            data: healthData.map(item => item.value),
+            backgroundColor: healthData.map(item => item.color),
+            borderColor: isGlobalDark ? '#1e293b' : '#ffffff',
+            borderWidth: 3,
+            hoverOffset: 12
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 2000,
+            easing: 'easeInOutQuart'
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                font: { size: 12, weight: '600' },
+                color: isGlobalDark ? '#ffffff' : '#64748b',
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  return data.labels.map((label, i) => {
+                    const value = data.datasets[0].data[i];
+                    const pct = totalPatients > 0 ? ((value / totalPatients) * 100).toFixed(0) : 0;
+                    return {
+                      text: `${label}: ${value} (${pct}%)`,
+                      fillStyle: data.datasets[0].backgroundColor[i],
+                      strokeStyle: data.datasets[0].backgroundColor[i],
+                      lineWidth: 0,
+                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                      color: isGlobalDark ? '#ffffff' : '#64748b',
+                      pointStyle: 'circle',
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
+              }
+            },
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: function(context) {
+                  const pct = totalPatients > 0 ? ((context.raw / totalPatients) * 100).toFixed(1) : 0;
+                  return `${context.label}: ${context.raw} patients (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 4: MONTHLY PERFORMANCE (Line Graph)
+  // Shows number of unique patients per month
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const monthlyPerformanceCtx = document.getElementById('monthlyPerformanceChart');
+  if (monthlyPerformanceCtx) {
+    const months         = {{ monthly_labels|safe }};
+    const registeredData = {{ monthly_registered|safe }};
+    const walkinData     = {{ monthly_walkin|safe }};
+
+    new Chart(monthlyPerformanceCtx, {
+      type: 'line',
+      data: {
+        labels: months,
         datasets: [
           {
-            label: 'Confirmed - assigned',
-            data: workload.map(day => day.confirmed_assigned),
-            backgroundColor: '#10b981',
-            borderRadius: 4,
-            stack: 'appointments'
+            label: 'Portal (Online)',
+            data: registeredData,
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderColor: '#10b981',
+            borderWidth: 3,
+            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
+            pointBorderColor: '#10b981',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.4
           },
           {
-            label: 'Confirmed - unassigned',
-            data: workload.map(day => day.confirmed_unassigned),
-            backgroundColor: '#6ee7b7',
-            borderRadius: 4,
-            stack: 'appointments'
-          },
-          {
-            label: 'Pending - assigned',
-            data: workload.map(day => day.pending_assigned),
-            backgroundColor: '#f59e0b',
-            borderRadius: 4,
-            stack: 'appointments'
-          },
-          {
-            label: 'Pending - unassigned',
-            data: workload.map(day => day.pending_unassigned),
-            backgroundColor: '#fcd34d',
-            borderRadius: 4,
-            stack: 'appointments'
+            label: 'Walk-ins',
+            data: walkinData,
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            borderColor: '#38bdf8',
+            borderWidth: 3,
+            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
+            pointBorderColor: '#38bdf8',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.4
           }
         ]
       },
@@ -2023,24 +2364,27 @@ document.addEventListener('DOMContentLoaded', function() {
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: {
+            display: true,
             position: 'top',
-            align: 'end',
-            labels: { usePointStyle: true, boxWidth: 8 }
+            labels: { usePointStyle: true, boxWidth: 8, font: { family: "'Inter', sans-serif", size: 12 } }
           },
           tooltip: commonTooltip
         },
         scales: {
           x: {
-            stacked: true,
             grid: { display: false, drawBorder: false },
-            ticks: { font: { size: 12, weight: '600' } }
+            ticks: { font: { size: 12, weight: '500' } }
           },
           y: {
-            stacked: true,
             beginAtZero: true,
-            grid: { color: isGlobalDark ? '#334155' : '#e2e8f0', drawBorder: false },
-            ticks: { precision: 0, stepSize: 1 }
+            grid: { color: isGlobalDark ? '#334155' : '#e2e8f0', drawBorder: false, borderDash: [5,5] },
+            ticks: { font: { size: 11 }, precision: 0 }
           }
+        },
+        animation: {
+          duration: 1400,
+          easing: 'easeInOutCubic',
+          delay(ctx) { return ctx.type === 'data' ? ctx.dataIndex * 100 : 0; }
         }
       }
     });

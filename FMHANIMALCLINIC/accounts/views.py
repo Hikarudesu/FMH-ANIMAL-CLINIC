@@ -1530,40 +1530,111 @@ def vet_dashboard_view(request):
         is_read=False,
     ).count()
 
-    # Upcoming branch workload, split by booking status for the next seven days.
-    upcoming_workload = [
-        {
-            'label': f"{(today + timedelta(days=day_offset)).strftime('%a')} "
-                     f"{(today + timedelta(days=day_offset)).day}",
-            'pending_assigned': 0,
-            'pending_unassigned': 0,
-            'confirmed_assigned': 0,
-            'confirmed_unassigned': 0,
-        }
-        for day_offset in range(7)
-    ]
+    # ═══════════════════════════════════════════════════════════════════════
+    # CHART 1 — PATIENT HEALTH STATUS  (pie chart)
+    # ═══════════════════════════════════════════════════════════════════════
+    # Groups pets from the vet's universe by their current clinical_status.
+
+    patient_status_distribution = []
+    if staff_profile and not patients_restricted_no_branch:
+        status_counts = {}
+        for pet in vet_pet_qs.select_related('clinical_status').iterator():
+            cs = pet.clinical_status
+            name  = cs.name  if cs else 'Unassigned'
+            code  = cs.code  if cs else 'UNKNOWN'
+            color = cs.color if cs else '#94a3b8'
+            key = (name, code, color)
+            status_counts[key] = status_counts.get(key, 0) + 1
+
+        patient_status_distribution = sorted(
+            [
+                {'status': n, 'code': c, 'color': cl, 'count': ct}
+                for (n, c, cl), ct in status_counts.items()
+            ],
+            key=lambda x: x['count'],
+            reverse=True,
+        )
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # CHART 2 — APPOINTMENT TYPES  (doughnut chart)
+    # ═══════════════════════════════════════════════════════════════════════
+    # All-time breakdown of appointment reasons for this branch.
+
+    consultation_reasons = []
     if staff_profile and not appt_restricted_no_branch:
-        workload_end = today + timedelta(days=6)
-        daily_workload = (
+        reasons_qs = (
             Appointment.objects.filter(
-                appointment_date__gte=today,
-                appointment_date__lte=workload_end,
-                status__in=['PENDING', 'CONFIRMED'],
+                pet__isnull=False,
                 **appt_filter
             )
-            .values('appointment_date', 'status', 'preferred_vet_id')
+            .values('reason_for_visit__name')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+        consultation_reasons = list(reasons_qs)
+        if consultation_reasons:
+            total_reasons = sum(r['count'] for r in consultation_reasons)
+            for r in consultation_reasons:
+                r['reason'] = r.pop('reason_for_visit__name') or 'Unspecified'
+                r['percentage'] = (
+                    round(r['count'] / total_reasons * 100, 1)
+                    if total_reasons > 0 else 0
+                )
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # CHART 3 — WEEKLY WORKLOAD  (bar chart, Mon–Sun)
+    # ═══════════════════════════════════════════════════════════════════════
+    # Index 0 = Monday … 6 = Sunday
+
+    weekly_workload = [0] * 7
+    if staff_profile and not appt_restricted_no_branch:
+        # Monday-aligned start of the current week
+        py_dow = today.weekday()                   # Mon=0 … Sun=6
+        start_of_week = today - timedelta(days=py_dow)
+        end_of_week = start_of_week + timedelta(days=6)
+
+        # Single aggregate query for the whole week for this branch
+        week_daily = (
+            Appointment.objects.filter(
+                pet__isnull=False,
+                appointment_date__gte=start_of_week,
+                appointment_date__lte=end_of_week,
+                **appt_filter
+            )
+            .exclude(status='CANCELLED')
+            .values('appointment_date')
             .annotate(cnt=Count('id'))
         )
-        day_indexes = {
-            today + timedelta(days=day_offset): day_offset
-            for day_offset in range(7)
-        }
-        for row in daily_workload:
-            day_index = day_indexes[row['appointment_date']]
-            status_key = row['status'].lower()
-            assignment_key = 'unassigned' if row['preferred_vet_id'] is None else 'assigned'
-            workload_key = f'{status_key}_{assignment_key}'
-            upcoming_workload[day_index][workload_key] += row['cnt']
+        for row in week_daily:
+            # Convert DB date → Mon-based index (Mon=0, Sun=6)
+            d = row['appointment_date']
+            idx = d.weekday()
+            weekly_workload[idx] = row['cnt']
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # CHART 4 — MONTHLY PERFORMANCE  (line graph, last 6 calendar months)
+    # ═══════════════════════════════════════════════════════════════════════
+    monthly_labels     = []
+    monthly_registered = []
+    monthly_walkin     = []
+
+    for months_back in range(5, -1, -1):
+        m_start = get_month_offset(today, months_back)
+        if m_start.month == 12:
+            m_end = date(m_start.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            m_end = date(m_start.year, m_start.month + 1, 1) - timedelta(days=1)
+
+        monthly_labels.append(m_start.strftime('%b'))
+
+        if staff_profile and not patients_restricted_no_branch:
+            # Count pets CREATED in this month belonging to the branch universe
+            month_pets = vet_pet_qs.filter(created_at__range=[m_start, m_end])
+            monthly_registered.append(month_pets.filter(source='PORTAL').count())
+            monthly_walkin.append(month_pets.filter(source='WALKIN').count())
+        else:
+            monthly_registered.append(0)
+            monthly_walkin.append(0)
 
 
 
@@ -1672,7 +1743,12 @@ def vet_dashboard_view(request):
         'follow_up_count': follow_up_count,
         'unread_notif_count': unread_notif_count,
         # Charts
-        'upcoming_workload_json': json.dumps(upcoming_workload, cls=DjangoJSONEncoder),
+        'patient_status_distribution': patient_status_distribution,
+        'consultation_reasons': consultation_reasons,
+        'weekly_workload': weekly_workload,
+        'monthly_labels': monthly_labels,
+        'monthly_registered': monthly_registered,
+        'monthly_walkin': monthly_walkin,
         # Insight cards
         'avg_daily_consultations': avg_daily_consultations,
         'new_patients_this_month': new_patients_this_month,
