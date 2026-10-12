@@ -68,21 +68,30 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotIn('visits_per_pet_json', response.context)
 
     def test_spending_breakdown_uses_completed_sales_linked_to_owner(self):
-        owner = get_user_model().objects.create_user(
-            username='spending-dashboard-owner',
-            email='spending-dashboard-owner@example.com',
-            password='A-secure-test-password-923!',
-        )
-        branch = Branch.objects.create(
-            name='Spending Dashboard Branch',
+        owner_branch = Branch.objects.create(
+            name='Owner Home Branch',
             phone_number='09123456789',
             address='1 Clinic Street',
             city='Manila',
             state='NCR',
             zip_code='1000',
         )
+        sale_branch = Branch.objects.create(
+            name='Spending Purchase Branch',
+            phone_number='09123456789',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        owner = get_user_model().objects.create_user(
+            username='spending-dashboard-owner',
+            email='spending-dashboard-owner@example.com',
+            password='A-secure-test-password-923!',
+            branch=owner_branch,
+        )
         sale = Sale.objects.create(
-            branch=branch,
+            branch=sale_branch,
             customer=owner,
             status=Sale.Status.COMPLETED,
         )
