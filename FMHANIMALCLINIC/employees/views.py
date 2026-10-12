@@ -261,6 +261,15 @@ def staff_delete(request, pk):
         reassign_to_id = request.POST.get('reassign_to', '')
 
         if action == 'deactivate':
+            inactive_reason = request.POST.get('inactive_reason', '').strip()
+            if not inactive_reason:
+                messages.error(request, 'Enter a reason before deactivating this staff member.')
+                return render(request, 'employees/staff_delete.html', {
+                    'member': member,
+                    'future_appointments': future_appointments,
+                    'reassign_vets': reassign_vets,
+                })
+
             # Reassign appointments if a vet was selected
             if reassign_to_id and future_appointments.exists():
                 reassign_vet = get_object_or_404(
@@ -275,7 +284,26 @@ def staff_delete(request, pk):
                     request, f'{future_appointments.count()} appointment(s) set to "Any available vet".')
 
             # Soft-delete: deactivate instead of hard delete
+            if member.user_id:
+                member.user.inactive_reason = inactive_reason
+                member.user.save(update_fields=['inactive_reason'])
             member.set_active(False)
+            if member.user_id and member.user.email:
+                try:
+                    send_mail(
+                        'Your FMH Animal Clinic staff account is inactive',
+                        (
+                            f'Hello {member.user.get_full_name() or member.user.username},\n\n'
+                            'Your FMH Animal Clinic staff account has been made inactive.\n\n'
+                            f'Reason: {inactive_reason}\n\n'
+                            'Please contact the clinic administrator if you have questions.'
+                        ),
+                        None,
+                        [member.user.email],
+                        fail_silently=False,
+                    )
+                except Exception:  # Email failure must not undo the account change.
+                    messages.warning(request, 'The account was deactivated, but the email could not be sent.')
             messages.success(
                 request, f'{member.full_name} has been deactivated.')
         else:

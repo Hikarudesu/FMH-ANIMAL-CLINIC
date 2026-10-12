@@ -121,7 +121,8 @@ class StaffAccountActivationTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Your staff account is inactive.')
+        self.assertContains(response, 'id="inactiveAccountModal"')
+        self.assertContains(response, 'Your staff account is inactive and cannot sign in.')
         self.assertContains(response, 'Employment has ended.')
         self.assertNotIn('_auth_user_id', self.client.session)
 
@@ -139,6 +140,45 @@ class StaffAccountActivationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'Employment has ended.')
+
+    def test_inactive_staff_login_shows_reason_in_modal(self):
+        self.user.is_active = False
+        self.user.inactive_reason = 'Position eliminated.'
+        self.user.save(update_fields=['is_active', 'inactive_reason'])
+        self.staff.is_active = False
+        self.staff.save(update_fields=['is_active'])
+
+        response = self.client.post(reverse('accounts:login_page'), {
+            'username': self.user.username,
+            'password': 'A-secure-test-password-923!',
+        })
+
+        self.assertContains(response, 'id="inactiveAccountModal"')
+        self.assertContains(response, 'Position eliminated.')
+
+    def test_staff_deactivation_page_requires_and_saves_reason(self):
+        self.client.force_login(self.admin)
+
+        missing_reason_response = self.client.post(
+            reverse('employees:staff_delete', args=[self.staff.pk]),
+            {'action': 'deactivate', 'inactive_reason': ''},
+        )
+        self.assertEqual(missing_reason_response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_active)
+
+        reason = 'Staff leave of absence.'
+        response = self.client.post(
+            reverse('employees:staff_delete', args=[self.staff.pk]),
+            {'action': 'deactivate', 'inactive_reason': reason},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+        self.assertEqual(self.user.inactive_reason, reason)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(reason, mail.outbox[0].body)
 
 
 class InactiveStaffListTests(TestCase):

@@ -85,6 +85,24 @@
           </div>
         {% endif %}
 
+        {% if inactive_account_notice %}
+          <div id="inactiveAccountModal" class="auth-modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="inactiveAccountTitle">
+            <div class="auth-modal-content">
+              <div class="auth-modal-header">
+                <h3 id="inactiveAccountTitle">Account Inactive</h3>
+                <button type="button" class="auth-modal-close" onclick="closeInactiveAccountModal()" aria-label="Close">&times;</button>
+              </div>
+              <div class="auth-modal-body">
+                <p>Your staff account is inactive and cannot sign in.</p>
+                <p><strong>Reason:</strong> {{ inactive_account_notice }}</p>
+              </div>
+              <div class="auth-modal-footer">
+                <button type="button" class="btn btn-primary" onclick="closeInactiveAccountModal()">Okay</button>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
         <form id="loginForm" class="auth-form" method="POST" action="{% url 'login_page' %}" novalidate>
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}">
@@ -201,6 +219,13 @@
 <script>
   function closeMaintenanceModal() {
     const modal = document.getElementById('maintenanceModal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  }
+
+  function closeInactiveAccountModal() {
+    const modal = document.getElementById('inactiveAccountModal');
     if (modal) {
       modal.style.display = 'none';
     }

@@ -71,6 +71,12 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="deactivate">
 
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="inactive_reason">Reason for deactivation <span style="color: #d32f2f;">*</span></label>
+        <textarea name="inactive_reason" id="inactive_reason" class="form-control" rows="4" maxlength="2000" required>{{ request.POST.inactive_reason }}</textarea>
+        <span class="form-hint-portal">This reason will be emailed to the staff member and shown if they try to sign in.</span>
+      </div>
+
       {% if future_appointments and reassign_vets %}
       <div class="form-group" style="margin-bottom: 16px;">
         <label for="reassign_to">Reassign {{ future_appointments.count }} appointment{{ future_appointments.count|pluralize }} to:</label>

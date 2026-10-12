@@ -148,12 +148,9 @@ def login_view(request):
                 reason = stored_user.inactive_reason.strip() or 'No reason was provided.'
                 lockouts.pop(lockout_key, None)
                 request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
-                messages.error(
-                    request,
-                    f'Your staff account is inactive. Reason: {reason}',
-                )
                 return render(request, 'accounts/login.html', {
                     'show_maintenance_popup': show_maintenance_popup,
+                    'inactive_account_notice': reason,
                 })
 
         user = authenticate(request, username=username, password=password)
