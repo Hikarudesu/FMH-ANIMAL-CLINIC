@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import User
@@ -123,6 +124,29 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
         form = AdminQuickCreateForm()
 
         self.assertFalse(form.fields['owner_name'].required)
+
+    def test_owner_api_includes_registered_accounts_without_pets(self):
+        admin = User.objects.create_superuser(
+            username='quick-create-owner-api-admin',
+            email='quick-create-owner-api-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        new_owner = User.objects.create_user(
+            username='new-appointment-owner',
+            email='new-appointment-owner@example.com',
+            password='A-secure-test-password-923!',
+            first_name='New',
+            last_name='Owner',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('appointments:api_owners'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            new_owner.pk,
+            [owner['id'] for owner in response.json()['owners']],
+        )
 
 
 class AppointmentEditVeterinarianOptionalTests(TestCase):

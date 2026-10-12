@@ -727,10 +727,8 @@ def admin_delete(request, pk):
 @module_permission_required('appointments', 'VIEW')
 def api_pet_owners(request):
     """API: return list of registered pet owners for admin dropdown."""
-    # Only return users who have at least one pet (pet owners = not staff or no role)
+    # Include new accounts before they have registered a pet profile.
     owners = User.objects.filter(
-        pets__isnull=False
-    ).filter(
         Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
     ).distinct().order_by('first_name', 'last_name', 'username')
 

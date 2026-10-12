@@ -573,6 +573,7 @@
       {% for appt in appointments %}
       <tr class="accordion-row searchable-row" data-id="{{ appt.pk }}"
           data-owner="{{ appt.owner_name }}"
+          data-email="{{ appt.owner_email }}"
           data-pet="{{ appt.pet_name }}"
           data-branch="{{ appt.branch.name }}"
           data-vet="{{ appt.preferred_vet.full_name|default:'Any available' }}"
@@ -1696,7 +1697,8 @@ if (clientSourceSelect) {
 // ── Portal Mode: Load Owners ──
 function loadPortalOwners() {
   if (!ownerSelect) return;
-  fetch(API_OWNERS_URL)
+  const selectedOwnerId = ownerSelect.value;
+  fetch(API_OWNERS_URL, {cache: 'no-store'})
     .then(r => r.json())
     .then(data => {
       ownerSelect.innerHTML = '<option value="">— Select Owner —</option>';
@@ -1710,11 +1712,15 @@ function loadPortalOwners() {
         opt.dataset.address = o.address;
         ownerSelect.appendChild(opt);
       });
-      renderOwnerResults('');
+      if (selectedOwnerId) ownerSelect.value = selectedOwnerId;
+      renderOwnerResults(ownerSearchInput ? ownerSearchInput.value : '');
     })
     .catch(() => {});
 }
 loadPortalOwners();
+if (quickCreateBtn) {
+  quickCreateBtn.addEventListener('click', loadPortalOwners);
+}
 
 function renderOwnerResults(query) {
   if (!ownerDropdown || !ownerSelect) return;
@@ -2056,6 +2062,7 @@ if (walkinNewPetToggle) {
       const editLink = row.querySelector('a[href*="edit"]');
       list.push({
         owner : row.dataset.owner  || '',
+        email : row.dataset.email || '',
         pet   : row.dataset.pet    || '',
         branch: row.dataset.branch || '',
         vet   : row.dataset.vet    || '',
@@ -2111,8 +2118,9 @@ if (walkinNewPetToggle) {
   function filterRows(q) {
     appts.forEach(a => {
       const ol = a.owner.toLowerCase(); const pl = a.pet.toLowerCase();
+      const el = a.email.toLowerCase();
       const bl = a.branch.toLowerCase(); const vl = a.vet.toLowerCase();
-      const matches = !q || ol.includes(q) || pl.includes(q) || bl.includes(q) || vl.includes(q);
+      const matches = !q || ol.includes(q) || el.includes(q) || pl.includes(q) || bl.includes(q) || vl.includes(q);
       a.row.style.display = matches ? '' : 'none';
       if (!matches && a.detailsId) {
         const detailRow = document.getElementById(a.detailsId);
@@ -2126,7 +2134,7 @@ if (walkinNewPetToggle) {
     filterRows(q);
     if (!q) { hideDropdown(); return; }
     const results = appts.filter(a =>
-      a.owner.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q) ||
+      a.owner.toLowerCase().includes(q) || a.email.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q) ||
       a.branch.toLowerCase().includes(q) || a.vet.toLowerCase().includes(q));
     renderDropdown(results, q);
   });
