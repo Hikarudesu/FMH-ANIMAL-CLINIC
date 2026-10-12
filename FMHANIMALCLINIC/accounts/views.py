@@ -517,34 +517,6 @@ def user_dashboard_view(request):
     # Pet Health Status Badges (per-pet)
     # ═══════════════════════════════════════════════════════════════════════════
 
-    health_labels = {
-        'HEALTHY': 'Healthy',
-        'MONITOR': 'Monitoring',
-        'TREATMENT': 'In Treatment',
-        'SURGERY': 'Post-Surgery',
-        'DIAGNOSTICS': 'Diagnostics',
-        'CRITICAL': 'Critical',
-    }
-    health_colors = {
-        'HEALTHY': '#10b981',
-        'MONITOR': '#f59e0b',
-        'TREATMENT': '#3b82f6',
-        'SURGERY': '#8b5cf6',
-        'DIAGNOSTICS': '#06b6d4',
-        'CRITICAL': '#ef4444',
-    }
-    pet_health_list = []
-    for pet in user_pets.select_related('clinical_status')[:10]:
-        code = pet.clinical_status.code if pet.clinical_status else 'HEALTHY'
-        pet_health_list.append({
-            'id': pet.pk,
-            'name': pet.name,
-            'species': pet.species,
-            'status': health_labels.get(code, code),
-            'color': health_colors.get(code, '#10b981'),
-            'code': code,
-        })
-
     # ═══════════════════════════════════════════════════════════════════════════
     # NEW: Recent completed appointments (for medical records section)
     # ═══════════════════════════════════════════════════════════════════════════
@@ -594,8 +566,6 @@ def user_dashboard_view(request):
         'last_visit': last_visit,
         'next_visit': next_visit,
         
-        # Pet health badges
-        'pet_health_list': pet_health_list,
         # Recent medical records
         'recent_completed': recent_completed,
     })

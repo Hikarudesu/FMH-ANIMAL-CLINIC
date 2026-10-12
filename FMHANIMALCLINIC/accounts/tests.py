@@ -129,6 +129,12 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
         self.assertContains(response, 'Low Stock Items')
         self.assertContains(response, 'Registered Customers')
         self.assertContains(response, 'Walk-in Customers')
+        self.assertContains(
+            response,
+            'grid-template-columns: repeat(3, minmax(0, 1fr))',
+        )
+        self.assertEqual(response.content.count(b'class="hero-stat-card'), 4)
+        self.assertNotContains(response, 'hero-stat-side')
         self.assertNotContains(response, 'Last 7 Days')
 
 
@@ -179,40 +185,12 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotContains(response, 'petHealthChart')
         self.assertIn('appointment-history-row', response.content.decode())
         self.assertContains(response, 'Monthly Spending')
-        self.assertContains(response, 'Pet Health at a Glance')
-        self.assertContains(response, 'No pets registered yet')
+        self.assertNotContains(response, 'Pet Health at a Glance')
         self.assertNotContains(response, 'Quick Insights')
         self.assertNotContains(response, 'Reservations')
         self.assertNotContains(response, 'This Month')
         self.assertNotIn('pet_species_json', response.context)
-
-    def test_dashboard_shows_pet_status_and_links_to_its_profile(self):
-        from patients.models import Pet
-
-        owner = get_user_model().objects.create_user(
-            username='pet-health-owner',
-            email='pet-health-owner@example.com',
-            password='A-secure-test-password-923!',
-        )
-        pet = Pet.objects.create(
-            owner=owner,
-            name='Milo',
-            species='Dog',
-            sex=Pet.Sex.MALE,
-        )
-        self.client.force_login(owner)
-
-        response = self.client.get(reverse('accounts:user_dashboard'))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Milo')
-        self.assertContains(response, 'Dog')
-        self.assertContains(response, 'Healthy')
-        self.assertContains(
-            response,
-            reverse('patients:user_pet_detail', args=[pet.pk]),
-        )
-        self.assertEqual(response.context['pet_health_list'][0]['id'], pet.pk)
+        self.assertNotIn('pet_health_list', response.context)
 
     def test_monthly_spending_chart_aggregates_current_year_completed_sales(self):
         owner = get_user_model().objects.create_user(
