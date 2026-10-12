@@ -328,7 +328,6 @@ def user_dashboard_view(request):
     user_branch = request.user.branch
     branch_filter = {'branch': user_branch} if user_branch else {}
     appt_branch_filter = {'branch': user_branch} if user_branch else {}
-    sale_branch_filter = {'sale__branch': user_branch} if user_branch else {}
 
     # Pet count and pets list
     owned_pets = request.user.pets.all()
@@ -523,7 +522,6 @@ def user_dashboard_view(request):
     spending_by_category = SaleItem.objects.filter(
         sale__customer=request.user,
         sale__status='COMPLETED',
-        **sale_branch_filter,
     ).values('item_type').annotate(
         total=Sum(F('unit_price') * F('quantity') - F('discount'))
     ).order_by('-total')
