@@ -271,7 +271,7 @@
     <thead>
       <tr>
         <th style="text-align: center;">Name</th>
-        <th style="text-align: center;">Pet ID</th>
+        <th style="text-align: center;">Pet Code</th>
         <th style="text-align: center;">Client (Owner)</th>
         <th style="text-align: center;">Species</th>
         <th style="text-align: center;">Breed</th>
@@ -292,7 +292,7 @@
         <td style="text-align: center;">
           <a href="{% url 'patients:admin_detail' pet.id %}" class="cell-link">{{ pet.name }}{% if pet.has_missing_details %}<i class='bx bx-info-circle' style="font-size: 1rem; color: #ff9800; margin-left: 6px; vertical-align: middle;" title="Incomplete profile: {{ pet.missing_details_list|join:', ' }}"></i>{% endif %}</a>
         </td>
-        <td style="text-align: center;"><span class="cell-secondary" title="PET-{{ pet.id|stringformat:'06d' }}">PET-{{ pet.id|stringformat:"06d" }}</span></td>
+        <td style="text-align: center;"><span class="cell-secondary">{{ pet.pet_code }}</span></td>
         <td style="text-align: center;">
           <div>
             {% if pet.owner %}
