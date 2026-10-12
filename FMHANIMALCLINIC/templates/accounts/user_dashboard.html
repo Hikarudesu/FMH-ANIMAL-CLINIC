@@ -1871,7 +1871,7 @@ if (petHealthCtx) {
   
   const labels = healthData.map(d => d.status);
   const data = healthData.map(d => d.count);
-  const colors = labels.map(l => healthColors[l] || '#94a3b8');
+  const colors = healthData.map(d => d.color || healthColors[d.status] || '#94a3b8');
   const total = data.reduce((a, b) => a + b, 0);
   
   // Center text plugin

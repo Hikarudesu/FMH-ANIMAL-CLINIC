@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import time
 from urllib.parse import parse_qs, urlsplit
@@ -23,6 +24,44 @@ from .lifecycle import (
     resolve_owner_deactivation_on_login,
     schedule_owner_deactivation,
 )
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class UserPortalDashboardTests(TestCase):
+    def test_dashboard_serializes_data_for_every_chart(self):
+        owner = get_user_model().objects.create_user(
+            username='dashboard-owner',
+            email='dashboard-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(owner)
+
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        for context_key in (
+            'monthly_appointments_json',
+            'pet_health_json',
+            'appointment_status_json',
+            'spending_breakdown_json',
+            'visits_per_pet_json',
+        ):
+            with self.subTest(context_key=context_key):
+                self.assertIn(context_key, response.context)
+                self.assertIsInstance(
+                    json.loads(response.context[context_key]), list
+                )
+        self.assertEqual(
+            len(json.loads(response.context['monthly_appointments_json'])), 6
+        )
+        self.assertNotIn(b'const monthlyData = ;', response.content)
 
 
 class RolePermissionManagementTests(TestCase):

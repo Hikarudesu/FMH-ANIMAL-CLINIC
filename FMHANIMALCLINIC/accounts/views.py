@@ -322,6 +322,7 @@ def user_dashboard_view(request):
     from decimal import Decimal
     import json
     from dateutil.relativedelta import relativedelta
+    from django.db.models.functions import TruncMonth
 
     today = date.today()
     user_branch = request.user.branch
@@ -387,6 +388,67 @@ def user_dashboard_view(request):
     for species in pet_species_breakdown:
         species['percentage'] = round((species['count'] / pet_count * 100), 1) if pet_count > 0 else 0
     pet_species_json = json.dumps(pet_species_breakdown)
+
+    # Dashboard chart data
+    first_month = today.replace(day=1) - relativedelta(months=5)
+    month_starts = [
+        first_month + relativedelta(months=offset)
+        for offset in range(6)
+    ]
+    monthly_appointment_counts = {
+        (item['month'].year, item['month'].month): item['count']
+        for item in Appointment.objects.filter(
+            user=request.user,
+            pet__isnull=False,
+            appointment_date__gte=first_month,
+            appointment_date__lte=today,
+            **appt_branch_filter,
+        ).exclude(status='CANCELLED').annotate(
+            month=TruncMonth('appointment_date')
+        ).values('month').annotate(
+            count=Count('id')
+        )
+    }
+    monthly_appointments = [
+        {
+            'month': month.strftime('%b %Y'),
+            'count': monthly_appointment_counts.get((month.year, month.month), 0),
+        }
+        for month in month_starts
+    ]
+
+    pet_health_counts = {}
+    for item in user_pets.values(
+        'clinical_status__name',
+        'clinical_status__color',
+    ).annotate(count=Count('id')):
+        status_name = item['clinical_status__name'] or 'Healthy'
+        color = item['clinical_status__color'] or '#10b981'
+        status_key = (status_name, color)
+        pet_health_counts[status_key] = (
+            pet_health_counts.get(status_key, 0) + item['count']
+        )
+    pet_health_data = [
+        {'status': status, 'count': count, 'color': color}
+        for (status, color), count in pet_health_counts.items()
+    ]
+
+    appointment_status_counts = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        appointment_date__range=[today - timedelta(days=89), today],
+        **appt_branch_filter,
+    ).values('status').annotate(count=Count('id'))
+    appointment_status_labels = dict(Appointment.Status.choices)
+    appointment_status_data = [
+        {
+            'status': appointment_status_labels.get(
+                item['status'], item['status'].replace('_', ' ').title()
+            ),
+            'count': item['count'],
+        }
+        for item in appointment_status_counts
+    ]
 
     # Vaccination appointments tracking
     vaccination_appointments = Appointment.objects.filter(
@@ -553,7 +615,7 @@ def user_dashboard_view(request):
         user=request.user,
         pet__isnull=False,
         **appt_branch_filter,
-    ).exclude(status='CANCELLED').values('pet__name').annotate(
+    ).exclude(status='CANCELLED').values('pet_id', 'pet__name').annotate(
         visits=Count('id')
     ).order_by('-visits')[:6])
 
@@ -592,6 +654,15 @@ def user_dashboard_view(request):
         'recent_activities': recent_activities,
         'pet_species_breakdown': pet_species_breakdown,
         'pet_species_json': pet_species_json,
+        'monthly_appointments_json': json.dumps(
+            monthly_appointments, cls=DjangoJSONEncoder
+        ),
+        'pet_health_json': json.dumps(
+            pet_health_data, cls=DjangoJSONEncoder
+        ),
+        'appointment_status_json': json.dumps(
+            appointment_status_data, cls=DjangoJSONEncoder
+        ),
         'vaccination_appointments': vaccination_appointments,
         'cancelled_appointments_count': cancelled_appointments_count,
         'appointments_this_month': appointments_this_month,
@@ -602,6 +673,9 @@ def user_dashboard_view(request):
         'total_spent_this_year': total_spent_this_year,
         'total_spent_all_time': total_spent_all_time,
         'spending_breakdown': spending_breakdown,
+        'spending_breakdown_json': json.dumps(
+            spending_breakdown, cls=DjangoJSONEncoder
+        ),
         'spending_total': spending_total,
         
         # Visit timeline
@@ -613,6 +687,9 @@ def user_dashboard_view(request):
         
         # Visits per pet
         'visits_per_pet': visits_per_pet,
+        'visits_per_pet_json': json.dumps(
+            visits_per_pet, cls=DjangoJSONEncoder
+        ),
         'show_visits_per_pet': show_visits_per_pet,
         
         # Recent medical records
