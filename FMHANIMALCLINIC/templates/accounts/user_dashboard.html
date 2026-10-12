@@ -2066,7 +2066,21 @@ if (spendingCtx) {
               pointStyle: 'rectRounded',
               padding: 20,
               font: { size: 12, weight: '600', family: 'Inter, sans-serif' },
-              color: isGlobalDark ? '#e2e8f0' : '#64748b'
+              color: isGlobalDark ? '#e2e8f0' : '#64748b',
+              generateLabels(chart) {
+                const dataset = chart.data.datasets[0];
+                return chart.data.labels.map((label, index) => ({
+                  text: label,
+                  fillStyle: dataset.backgroundColor[index],
+                  strokeStyle: dataset.backgroundColor[index],
+                  hidden: !chart.getDataVisibility(index),
+                  index
+                }));
+              }
+            },
+            onClick(event, legendItem, legend) {
+              legend.chart.toggleDataVisibility(legendItem.index);
+              legend.chart.update();
             }
           },
           tooltip: {

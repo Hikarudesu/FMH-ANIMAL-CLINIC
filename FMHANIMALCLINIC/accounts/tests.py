@@ -135,6 +135,8 @@ class UserPortalDashboardTests(TestCase):
             ],
         )
         self.assertIn('spendingChart', response.content.decode())
+        self.assertContains(response, 'generateLabels(chart)')
+        self.assertContains(response, 'chart.data.labels.map((label, index)')
 
 
 @override_settings(
