@@ -133,6 +133,8 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
             response,
             'grid-template-columns: repeat(3, minmax(0, 1fr))',
         )
+        self.assertContains(response, 'id="receptionist-hero-stats"')
+        self.assertContains(response, '#receptionist-hero-stats')
         self.assertEqual(response.content.count(b'class="hero-stat-card'), 4)
         self.assertNotContains(response, 'hero-stat-side')
         self.assertNotContains(response, 'Last 7 Days')

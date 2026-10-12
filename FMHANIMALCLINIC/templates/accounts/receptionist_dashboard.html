@@ -58,7 +58,7 @@
 /* HERO STATS ROW */
 /* ═══════════════════════════════════════════════ */
 
-.hero-stats {
+#receptionist-hero-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
@@ -142,11 +142,11 @@
 .hero-stat-compact .hero-stat-meta { margin-top: 4px; }
 
 @media (max-width: 1000px) {
-  .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #receptionist-hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
-  .hero-stats { grid-template-columns: 1fr; }
+  #receptionist-hero-stats { grid-template-columns: 1fr; }
   .hero-stat-card.hero-stat-featured { padding: 22px; }
   .annual-revenue-head { grid-template-columns: 46px minmax(0, 1fr); gap: 14px; }
   .annual-revenue-head .hero-stat-icon { width: 46px; height: 46px; }
@@ -925,7 +925,7 @@
 </style>
 
 <!-- HERO STATS ROW -->
-<div class="hero-stats">
+<div class="hero-stats" id="receptionist-hero-stats">
   <div class="hero-stat-card hero-stat-featured">
     <div class="annual-revenue-head">
       <div class="hero-stat-icon emerald">
