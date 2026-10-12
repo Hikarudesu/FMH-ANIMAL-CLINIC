@@ -82,7 +82,6 @@
         <span><strong>E</strong> Edit</span>
         <span><strong>D</strong> Delete</span>
         <span><strong>M</strong> Full Management</span>
-        <span><strong>All</strong> Select All for module</span>
         <span><strong><i class='bx bx-building-house' style="font-size: 13px; vertical-align: middle;"></i></strong> Restrict to Own Branch</span>
       </div>
 
@@ -96,7 +95,6 @@
               <th>E</th>
               <th>D</th>
               <th>M</th>
-              <th>All</th>
               <th title="Restrict data to own branch"><i class='bx bx-building-house'></i></th>
             </tr>
           </thead>
@@ -121,10 +119,6 @@
               </td>
               {% endif %}
               {% endfor %}
-              <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
               <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
@@ -155,10 +149,6 @@
               {% endif %}
               {% endfor %}
               <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
-              <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
                        data-module="{{ module.code }}"
@@ -187,10 +177,6 @@
               </td>
               {% endif %}
               {% endfor %}
-              <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
               <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
@@ -221,10 +207,6 @@
               {% endif %}
               {% endfor %}
               <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
-              <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
                        data-module="{{ module.code }}"
@@ -253,10 +235,6 @@
               </td>
               {% endif %}
               {% endfor %}
-              <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
               <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
@@ -287,10 +265,6 @@
               {% endif %}
               {% endfor %}
               <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
-              <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
                        data-module="{{ module.code }}"
@@ -319,10 +293,6 @@
               </td>
               {% endif %}
               {% endfor %}
-              <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
               <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
@@ -353,10 +323,6 @@
               {% endif %}
               {% endfor %}
               <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
-              <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
                        data-module="{{ module.code }}"
@@ -385,10 +351,6 @@
               </td>
               {% endif %}
               {% endfor %}
-              <td>
-                <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                       onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-              </td>
               <td>
                 <input type="checkbox" name="branch_restrict_{{ module.code }}"
                        class="perm-cb branch-restrict-cb"
@@ -419,10 +381,6 @@
                 </td>
                 {% endif %}
                 {% endfor %}
-                <td>
-                  <input type="checkbox" class="perm-cb all-perms-toggle" data-module="{{ module.code }}"
-                         onclick="toggleAllPerms(this, '{{ module.code }}')" title="Toggle all permissions for {{ module.display_name }}">
-                </td>
                 <td>
                   <input type="checkbox" name="branch_restrict_{{ module.code }}"
                          class="perm-cb branch-restrict-cb"
@@ -743,13 +701,6 @@
       }
     });
 
-    document.querySelectorAll('tr[data-module]').forEach((row) => {
-      const moduleCode = row.dataset.module;
-      if (typeof updateAllToggle === 'function') {
-        updateAllToggle(moduleCode);
-      }
-    });
-
     if (typeof syncReservationsDependency === 'function') {
       syncReservationsDependency();
     }
@@ -780,16 +731,28 @@
     }, 600);
   }
 
-  // ─── Update "All" Checkbox State ───────────────────────────────
-  function updateAllToggle(moduleCode) {
-    const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
+  function syncModuleManagementCheckboxes(changedCheckbox) {
+    const row = changedCheckbox.closest('tr[data-module]');
     if (!row) return;
-    const perms = row.querySelectorAll('.module-perm');
-    const allToggle = row.querySelector('.all-perms-toggle');
-    if (perms.length > 0 && allToggle) {
-      const allChecked = Array.from(perms).every(p => p.checked);
-      allToggle.checked = allChecked;
+
+    const moduleCode = row.dataset.module;
+    const modulePermissionInputs = row.querySelectorAll('.module-perm');
+    if (!modulePermissionInputs.length) return;
+
+    const manageCheckbox = row.querySelector(`input[name="perm_${moduleCode}_MANAGE"]`);
+    if (!manageCheckbox) return;
+
+    if (changedCheckbox.name === `perm_${moduleCode}_MANAGE`) {
+      modulePermissionInputs.forEach((checkbox) => {
+        if (checkbox !== changedCheckbox) {
+          checkbox.checked = changedCheckbox.checked;
+        }
+      });
+      return;
     }
+
+    const allChecked = Array.from(modulePermissionInputs).every((checkbox) => checkbox.checked);
+    manageCheckbox.checked = allChecked;
   }
 
   // ─── Reservations Depend on Inventory ─────────────────────────
@@ -801,7 +764,7 @@
     const inventoryEnabled = Array.from(inventoryRow.querySelectorAll('.module-perm'))
       .some(cb => cb.checked);
     const reservationControls = reservationsRow.querySelectorAll(
-      '.module-perm, .all-perms-toggle, .branch-restrict-cb'
+      '.module-perm, .branch-restrict-cb'
     );
 
     reservationControls.forEach(control => {
@@ -812,18 +775,6 @@
     });
 
     reservationsRow.classList.toggle('module-row-disabled', !inventoryEnabled);
-  }
-
-  // ─── Toggle All Permissions for a Module ───────────────────────
-  function toggleAllPerms(checkbox, moduleCode) {
-    const row = document.querySelector(`tr[data-module="${moduleCode}"]`);
-    const perms = row.querySelectorAll('.module-perm');
-    perms.forEach(perm => {
-      perm.checked = checkbox.checked;
-    });
-    if (moduleCode === 'inventory') {
-      syncReservationsDependency();
-    }
   }
 
   // ─── Initialize on Page Load ───────────────────────────────────
@@ -838,19 +789,14 @@
       }
     }
 
-    // Initialize "All" checkboxes state
-    document.querySelectorAll('tr[data-module]').forEach(row => {
-      const moduleCode = row.dataset.module;
-      updateAllToggle(moduleCode);
-    });
-
     syncReservationsDependency();
 
     // Add change listeners to individual permission checkboxes
     document.querySelectorAll('.module-perm').forEach(cb => {
       cb.addEventListener('change', function() {
+        syncModuleManagementCheckboxes(this);
+
         const moduleCode = this.dataset.module;
-        updateAllToggle(moduleCode);
         if (moduleCode === 'inventory') {
           syncReservationsDependency();
         }

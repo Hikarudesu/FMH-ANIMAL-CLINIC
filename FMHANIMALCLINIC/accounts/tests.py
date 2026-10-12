@@ -228,6 +228,17 @@ class RolePermissionManagementTests(TestCase):
                     self.role.has_module_permission('inventory', permission)
                 )
 
+    def test_role_form_does_not_show_module_select_all_toggle(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('accounts:role_create'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="perm_inventory_VIEW"')
+        self.assertContains(response, 'name="perm_inventory_MANAGE"')
+        self.assertNotContains(response, 'Select All for module')
+        self.assertNotContains(response, 'all-perms-toggle')
+
     def test_role_edit_exposes_manage_and_preserves_hidden_permissions(self):
         ModulePermission.objects.create(
             role=self.role,
