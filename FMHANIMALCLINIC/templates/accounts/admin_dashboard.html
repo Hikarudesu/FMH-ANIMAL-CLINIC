@@ -44,6 +44,20 @@
   </div>
   
   <div class="hero-stat-card">
+    <div class="hero-stat-icon emerald">
+      <i class='bx bx-package'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">₱{{ total_inventory_value|floatformat:0 }}</span>
+      <span class="hero-stat-label">Total Inventory Value</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">{{ inventory_scope_label }}</span>
+        <span class="meta-item">{{ inventory_low_stock_count }} low stock</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-stat-card">
     <div class="hero-stat-icon orange">
       <i class='bx bx-group'></i>
     </div>
@@ -316,7 +330,7 @@
   
   .hero-stats {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 20px;
     margin-bottom: 28px;
   }

@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from django.conf import settings as django_settings
 from django.core import signing
 from django.core.mail import send_mail
-from django.db.models import Count, Sum, Q, F
+from django.db.models import Count, Sum, Q, F, DecimalField, ExpressionWrapper
 from django.db.models.functions import TruncDate
 from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.html import format_html
@@ -943,10 +943,32 @@ def admin_dashboard_view(request):
         ))
     ).values('first_name', 'last_name', 'total_appointments', 'completed_appointments')
 
-    # Inventory value calculation
-    total_inventory_value = sum(
-        product.inventory_value for product in Product.objects.all()
-    ) or 0
+    # Inventory value is current stock at recorded unit cost; no monthly
+    # snapshots exist for a reliable month-over-month comparison.
+    inventory_is_all_branches = request.user.is_admin_role()
+    inventory_products = Product.objects.all()
+    if inventory_is_all_branches:
+        inventory_products = inventory_products.filter(branch__in=branches)
+        inventory_scope_label = f'Across {branches.count()} Active Branches'
+    elif request.user.branch_id:
+        inventory_products = inventory_products.filter(branch=request.user.branch)
+        inventory_scope_label = request.user.branch.name
+    else:
+        inventory_products = inventory_products.none()
+        inventory_scope_label = 'No Branch Assigned'
+
+    inventory_value_expression = ExpressionWrapper(
+        F('stock_quantity') * F('unit_cost'),
+        output_field=DecimalField(max_digits=18, decimal_places=2),
+    )
+    total_inventory_value = (
+        inventory_products.aggregate(total=Sum(inventory_value_expression))['total']
+        or Decimal('0.00')
+    )
+    inventory_low_stock_count = inventory_products.filter(
+        is_available=True,
+        stock_quantity__lte=F('min_stock_level'),
+    ).count()
 
     # Expiring products list (next 30 days)
     expiring_products = Product.objects.filter(
@@ -1306,6 +1328,8 @@ def admin_dashboard_view(request):
         'branch_appointments': branch_appointments,
         'staff_performance': staff_performance,
         'total_inventory_value': total_inventory_value,
+        'inventory_scope_label': inventory_scope_label,
+        'inventory_low_stock_count': inventory_low_stock_count,
         'expiring_products': expiring_products,
         'pet_species_breakdown': pet_species_breakdown,
         'pet_species_breakdown_json': pet_species_breakdown_json,

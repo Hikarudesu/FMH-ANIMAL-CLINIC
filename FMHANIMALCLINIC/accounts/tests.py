@@ -18,6 +18,7 @@ from branches.models import Branch
 from appointments.models import Appointment
 from billing.models import CustomerStatement
 from employees.models import StaffMember
+from inventory.models import Product
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
@@ -89,6 +90,47 @@ class AdminDashboardQuickInsightsTests(TestCase):
         self.assertNotContains(response, 'Branch Performance')
         self.assertIn('top_products', response.context)
         self.assertIn('service_breakdown', response.context)
+
+    def test_inventory_hero_stat_sums_stock_value_across_active_branches(self):
+        admin = get_user_model().objects.create_superuser(
+            username='inventory-value-admin',
+            email='inventory-value-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        branches = [
+            Branch.objects.create(
+                name=f'Inventory Value Branch {index}',
+                branch_code=f'IVB{index}',
+                phone_number='09123456789',
+                address='1 Clinic Street',
+                city='Manila',
+                state='NCR',
+                zip_code='1000',
+            )
+            for index in range(1, 4)
+        ]
+        for index, branch in enumerate(branches, start=1):
+            Product.objects.create(
+                branch=branch,
+                name=f'Inventory Test Product {index}',
+                item_type='Product',
+                price=20,
+                unit_cost=10,
+                stock_quantity=2,
+                min_stock_level=5,
+            )
+
+        self.client.force_login(admin)
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_inventory_value'], 60)
+        self.assertEqual(response.context['inventory_low_stock_count'], 3)
+        self.assertEqual(
+            response.context['inventory_scope_label'], 'Across 3 Active Branches'
+        )
+        self.assertContains(response, 'Total Inventory Value')
+        self.assertContains(response, 'Across 3 Active Branches')
 
 
 class RolePermissionManagementTests(TestCase):
