@@ -93,7 +93,7 @@
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-trending-up'></i>
-          <span>Revenue Trend</span>
+          <span>{% if revenue_chart_is_all_branches %}Combined Revenue Across All Branches{% else %}{{ user.branch.name|default:"Branch" }} Revenue Trend{% endif %}</span>
         </div>
         <div class="chart-badge purple">Last 6 Months</div>
       </div>
@@ -118,7 +118,7 @@
     {% endif %}
   </div>
   
-  <!-- ROW 2: Most Appointed Branches & Weekly Comparison -->
+  <!-- ROW 2: Branch Overview & Branch Growth -->
   <div class="charts-row">
     {% if branches|length > 1 %}
     <div class="chart-card-modern">
@@ -148,24 +148,8 @@
     </div>
     {% endif %}
     
+    {% if branches|length > 1 and user.assigned_role.code != 'cashier' and user.assigned_role.code != 'receptionist' %}
     <div class="chart-card-modern large">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Weekly Comparison</span>
-        </div>
-        <div class="chart-badge emerald">This vs Last Week</div>
-      </div>
-      <div class="chart-body tall">
-        <canvas id="weeklyComparisonChart"></canvas>
-      </div>
-    </div>
-  </div>
-  
-  {% if branches|length > 1 and user.assigned_role.code != 'cashier' and user.assigned_role.code != 'receptionist' %}
-  <!-- ROW 3: Branch Growth Trend (Full Width) -->
-  <div class="charts-row">
-    <div class="chart-card-modern full">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-line-chart'></i>
@@ -176,12 +160,12 @@
           View Reports <i class='bx bx-right-arrow-alt'></i>
         </a>
       </div>
-      <div class="chart-body wide">
+      <div class="chart-body tall">
         <canvas id="branchMonthlyChart"></canvas>
       </div>
     </div>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
 
 <!-- QUICK INSIGHTS GRID -->
@@ -1553,115 +1537,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   {% endif %}
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // NEW CHART 2: WEEKLY PERFORMANCE COMPARISON (Modern Grouped Bar)
-  // ═══════════════════════════════════════════════════════════════════════
-  
-  const weeklyComparisonCtx = document.getElementById('weeklyComparisonChart');
-  if (weeklyComparisonCtx) {
-    // Get data from context
-    const weeklyData = {
-      labels: ['Appointments', 'New Customers', 'Revenue (₱K)', 'Completed', 'Products Sold'],
-      thisWeek: [{{ this_week_appointments|default:0 }}, {{ new_customers_this_week|default:0 }}, {{ this_week_revenue_k|default:0 }}, {{ this_week_completed|default:0 }}, {{ this_week_products|default:0 }}],
-      lastWeek: [{{ last_week_appointments|default:0 }}, {{ last_week_customers|default:0 }}, {{ last_week_revenue_k|default:0 }}, {{ last_week_completed|default:0 }}, {{ last_week_products|default:0 }}]
-    };
-    
-    // Create gradient for this week
-    const thisWeekGradient = weeklyComparisonCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    thisWeekGradient.addColorStop(0, '#10b981');
-    thisWeekGradient.addColorStop(1, '#059669');
-    
-    // Create gradient for last week
-    const lastWeekGradient = weeklyComparisonCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    lastWeekGradient.addColorStop(0, '#94a3b8');
-    lastWeekGradient.addColorStop(1, '#64748b');
-    
-    new Chart(weeklyComparisonCtx, {
-      type: 'bar',
-      data: {
-        labels: weeklyData.labels,
-        datasets: [
-          {
-            label: 'This Week',
-            data: weeklyData.thisWeek,
-            backgroundColor: thisWeekGradient,
-            borderRadius: 0,
-            borderSkipped: false,
-            barPercentage: 0.7,
-            categoryPercentage: 0.8
-          },
-          {
-            label: 'Last Week',
-            data: weeklyData.lastWeek,
-            backgroundColor: lastWeekGradient,
-            borderRadius: 0,
-            borderSkipped: false,
-            barPercentage: 0.7,
-            categoryPercentage: 0.8
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            position: 'top',
-            align: 'end',
-            labels: {
-              usePointStyle: true,
-              pointStyle: 'rectRounded',
-              padding: 20,
-              font: { size: 12, weight: '600' }
-            }
-          },
-          tooltip: {
-            ...commonTooltip,
-            callbacks: {
-              label: function(context) {
-                const label = context.dataset.label;
-                const value = context.raw;
-                const otherDataset = context.chart.data.datasets[context.datasetIndex === 0 ? 1 : 0];
-                const otherValue = otherDataset.data[context.dataIndex];
-                const diff = value - otherValue;
-                const diffPercent = otherValue > 0 ? ((diff / otherValue) * 100).toFixed(1) : 0;
-                const arrow = diff >= 0 ? '↑' : '↓';
-                const color = diff >= 0 ? '🟢' : '🔴';
-                
-                if (context.datasetIndex === 0) {
-                  return `${label}: ${value.toLocaleString()} ${color} ${arrow}${Math.abs(diffPercent)}%`;
-                }
-                return `${label}: ${value.toLocaleString()}`;
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            grid: { display: false, drawBorder: false },
-            ticks: { font: { size: 11, weight: '500' } }
-          },
-          y: {
-            beginAtZero: true,
-            grid: { color: 'rgba(0, 0, 0, 0.04)', drawBorder: false, borderDash: [4, 4] },
-            ticks: { font: { size: 11 }, precision: 0 }
-          }
-        },
-        animation: {
-          duration: 1600,
-          easing: 'easeInOutCubic',
-          delay(ctx) {
-            if (ctx.type === 'data' && ctx.mode === 'default') {
-              return ctx.dataIndex * 120 + ctx.datasetIndex * 200;
-            }
-            return 0;
-          }
-        }
-      }
-    });
-  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // MULTI-BRANCH ANALYTICS CHARTS

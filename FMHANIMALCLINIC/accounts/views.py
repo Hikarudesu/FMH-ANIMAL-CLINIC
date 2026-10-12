@@ -803,6 +803,7 @@ def admin_dashboard_view(request):
 
     # Monthly revenue chart data (last 6 months)
     monthly_revenue_data = []
+    revenue_chart_is_all_branches = request.user.is_admin_role()
     for i in range(6):
         # Calculate the first day of the month, i months ago
         if i == 0:
@@ -822,7 +823,7 @@ def admin_dashboard_view(request):
             month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
         
         # Calculate revenue for that month
-        if request.user.is_admin_role():  # HQ admin sees all branches
+        if revenue_chart_is_all_branches:  # HQ admin sees all branches
             monthly_revenue = Sale.objects.filter(
                 created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(month_end)[1]),
                 status='COMPLETED'
@@ -846,69 +847,6 @@ def admin_dashboard_view(request):
         {'status': 'Completed', 'count': Appointment.objects.filter(status='COMPLETED', pet__isnull=False).count()},
         {'status': 'Cancelled', 'count': Appointment.objects.filter(status='CANCELLED', pet__isnull=False).count()},
     ]
-
-    # ─── WEEKLY PERFORMANCE COMPARISON DATA ───
-    last_week_start = week_start - timedelta(days=7)
-    last_week_end = week_start - timedelta(days=1)
-    
-    # This week metrics
-    this_week_appointments = Appointment.objects.filter(
-        appointment_date__gte=week_start,
-        appointment_date__lte=week_end,
-        pet__isnull=False
-    ).count()
-    
-    this_week_completed = Appointment.objects.filter(
-        appointment_date__gte=week_start,
-        appointment_date__lte=week_end,
-        pet__isnull=False,
-        status='COMPLETED'
-    ).count()
-    
-    this_week_revenue = Sale.objects.filter(
-        created_at__gte=get_day_bounds(week_start)[0],
-        created_at__lte=get_day_bounds(week_end)[1],
-        status='COMPLETED'
-    ).aggregate(total=Sum('total'))['total'] or 0
-    this_week_revenue_k = round(float(this_week_revenue) / 1000, 1)
-    
-    this_week_products = SaleItem.objects.filter(
-        sale__created_at__gte=get_day_bounds(week_start)[0],
-        sale__created_at__lte=get_day_bounds(week_end)[1],
-        sale__status='COMPLETED'
-    ).aggregate(total=Sum('quantity'))['total'] or 0
-    
-    # Last week metrics
-    last_week_appointments = Appointment.objects.filter(
-        appointment_date__gte=last_week_start,
-        appointment_date__lte=last_week_end,
-        pet__isnull=False
-    ).count()
-    
-    last_week_completed = Appointment.objects.filter(
-        appointment_date__gte=last_week_start,
-        appointment_date__lte=last_week_end,
-        pet__isnull=False,
-        status='COMPLETED'
-    ).count()
-    
-    last_week_customers = User.objects.filter(
-        date_joined__date__gte=last_week_start,
-        date_joined__date__lte=last_week_end
-    ).count()
-    
-    last_week_revenue = Sale.objects.filter(
-        created_at__gte=get_day_bounds(last_week_start)[0],
-        created_at__lte=get_day_bounds(last_week_end)[1],
-        status='COMPLETED'
-    ).aggregate(total=Sum('total'))['total'] or 0
-    last_week_revenue_k = round(float(last_week_revenue) / 1000, 1)
-    
-    last_week_products = SaleItem.objects.filter(
-        sale__created_at__gte=get_day_bounds(last_week_start)[0],
-        sale__created_at__lte=get_day_bounds(last_week_end)[1],
-        sale__status='COMPLETED'
-    ).aggregate(total=Sum('quantity'))['total'] or 0
 
     # Branch-wise appointment statistics
     branch_appointments = Branch.objects.filter(is_active=True).annotate(
@@ -1259,6 +1197,7 @@ def admin_dashboard_view(request):
         'unread_notif_count': unread_notif_count,
         'revenue_by_day': revenue_by_day_json,
         'monthly_revenue_data': monthly_revenue_data_json,
+        'revenue_chart_is_all_branches': revenue_chart_is_all_branches,
         'appointment_status_breakdown': appointment_status_breakdown_json,
         'branch_appointments': branch_appointments,
         'staff_performance': staff_performance,
@@ -1297,16 +1236,6 @@ def admin_dashboard_view(request):
         'total_customers_all_branches': total_customers_all_branches,
         'total_revenue_all_branches': float(total_revenue_all_branches),
         'total_appointments_all_branches': total_appointments_all_branches,
-        # Weekly comparison chart data
-        'this_week_appointments': this_week_appointments,
-        'this_week_completed': this_week_completed,
-        'this_week_revenue_k': this_week_revenue_k,
-        'this_week_products': this_week_products,
-        'last_week_appointments': last_week_appointments,
-        'last_week_completed': last_week_completed,
-        'last_week_customers': last_week_customers,
-        'last_week_revenue_k': last_week_revenue_k,
-        'last_week_products': last_week_products,
     })
 
 
