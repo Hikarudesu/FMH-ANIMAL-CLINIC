@@ -916,27 +916,7 @@
 <!-- MAIN CHARTS SECTION -->
 <div class="charts-section">
   
-  <!-- ROW 1: Weekly Revenue Trend (Line Chart) - Full Width -->
-  <div class="charts-row">
-    <div class="chart-card-modern large">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-line-chart'></i>
-          <span>{{ branch_name }} Revenue Trend</span>
-        </div>
-        <div class="chart-badge emerald">Last 7 Days</div>
-      </div>
-      <div class="chart-body tall">
-        <canvas id="weeklyRevenueChart"></canvas>
-        <div id="weeklyRevenueEmpty" class="chart-empty-state" style="display: none;">
-          <i class='bx bx-line-chart'></i>
-          <span>No revenue data for this period</span>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- ROW 2: Appointment Status (Area) & Top Products (Vertical Bar) -->
+  <!-- ROW 1: Appointment Status (Area) & Top Products (Vertical Bar) -->
   <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
@@ -973,7 +953,7 @@
     </div>
   </div>
   
-  <!-- ROW 3: Category Sales (Doughnut) & Top 5 Selling Products (Pie) -->
+  <!-- ROW 2: Category Sales (Doughnut) & Top 5 Selling Products (Pie) -->
   <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
@@ -1279,7 +1259,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Graceful fallback when Chart.js CDN is unavailable
   if (typeof Chart === 'undefined') {
     [
-      ['weeklyRevenueChart', 'weeklyRevenueEmpty'],
       ['appointmentStatusChart', 'appointmentStatusEmpty'],
       ['topProductsChart', 'topProductsEmpty'],
       ['categorySalesChart', 'categorySalesEmpty'],
@@ -1287,74 +1266,6 @@ document.addEventListener('DOMContentLoaded', function() {
     ].forEach(([chartId, emptyId]) => showEmptyState(chartId, emptyId));
     startDashAnimations();
     return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // 1. WEEKLY REVENUE LINE CHART
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const weeklyRevenueCtx = document.getElementById('weeklyRevenueChart');
-  if (weeklyRevenueCtx) {
-    const weeklyData = {{ weekly_revenue_data|safe }};
-    const hasData = weeklyData && weeklyData.some(d => d.revenue > 0);
-    
-    if (hasData) {
-      new Chart(weeklyRevenueCtx, {
-        type: 'line',
-        data: {
-          labels: weeklyData.map(d => d.date),
-          datasets: [{
-            label: 'Revenue',
-            data: weeklyData.map(d => d.revenue),
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            borderWidth: 3,
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: '#10b981',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-            pointRadius: 6,
-            pointHoverRadius: 8
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: {
-            duration: 1500,
-            easing: 'easeInOutCubic',
-            delay: (context) => context.dataIndex * 100
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              ...commonTooltip,
-              callbacks: {
-                label: ctx => `₱${ctx.raw.toLocaleString()}`
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { font: { size: 12, weight: '600' }, color: '#64748b' }
-            },
-            y: {
-              beginAtZero: true,
-              grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: {
-                font: { size: 11 },
-                color: '#94a3b8',
-                callback: val => '₱' + (val >= 1000 ? (val/1000).toFixed(0) + 'K' : val)
-              }
-            }
-          }
-        }
-      });
-    } else {
-      showEmptyState('weeklyRevenueChart', 'weeklyRevenueEmpty');
-    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════

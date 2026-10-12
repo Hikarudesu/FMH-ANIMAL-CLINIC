@@ -465,106 +465,102 @@ def user_dashboard_view(request):
     ).values('item_type').annotate(
         total=Sum(F('unit_price') * F('quantity') - F('discount'))
     ).order_by('-total')
-    
+
     category_labels = {
         'SERVICE': 'Services',
         'PRODUCT': 'Products',
         'MEDICATION': 'Medications'
     }
+    category_icons = {
+        'Services': 'bx-briefcase',
+        'Products': 'bx-package',
+        'Medications': 'bx-capsule',
+    }
+    category_colors = {
+        'Services': '#009688',
+        'Products': '#3b82f6',
+        'Medications': '#f59e0b',
+    }
     spending_breakdown = []
     for item in spending_by_category:
+        cat_name = category_labels.get(item['item_type'], item['item_type'])
         spending_breakdown.append({
-            'category': category_labels.get(item['item_type'], item['item_type']),
-            'total': float(item['total'] or 0)
+            'category': cat_name,
+            'total': float(item['total'] or 0),
+            'icon': category_icons.get(cat_name, 'bx-money'),
+            'color': category_colors.get(cat_name, '#94a3b8'),
         })
-    spending_breakdown_json = json.dumps(spending_breakdown)
+    spending_total = sum(item['total'] for item in spending_breakdown)
+    for item in spending_breakdown:
+        item['percentage'] = round((item['total'] / spending_total * 100), 1) if spending_total > 0 else 0
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # NEW: Monthly Appointment History (last 6 months)
+    # Visit Timeline: Last & Next Visits
     # ═══════════════════════════════════════════════════════════════════════════
-    
-    monthly_appointments = []
-    for i in range(5, -1, -1):
-        m_start = get_month_offset(today, i)
-        if m_start.month == 12:
-            m_end = date(m_start.year + 1, 1, 1) - timedelta(days=1)
-        else:
-            m_end = date(m_start.year, m_start.month + 1, 1) - timedelta(days=1)
-        
-        count = Appointment.objects.filter(
-            user=request.user,
-            pet__isnull=False,
-            appointment_date__range=[m_start, m_end],
-            **appt_branch_filter,
-        ).exclude(status='CANCELLED').count()
-        
-        monthly_appointments.append({
-            'month': m_start.strftime('%b'),
-            'count': count
-        })
-    monthly_appointments_json = json.dumps(monthly_appointments)
+
+    last_visit = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        status='COMPLETED',
+        **appt_branch_filter,
+    ).select_related('pet', 'branch').order_by('-appointment_date').first()
+
+    next_visit = Appointment.objects.filter(
+        user=request.user,
+        pet__isnull=False,
+        appointment_date__gte=today,
+        **appt_branch_filter,
+    ).exclude(status='CANCELLED').select_related(
+        'pet', 'branch'
+    ).order_by('appointment_date', 'appointment_time').first()
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # NEW: Pet Health Status Distribution
+    # Pet Health Status Badges (per-pet)
     # ═══════════════════════════════════════════════════════════════════════════
-    
-    pet_health_stats = list(
-        user_pets.values('clinical_status__code').annotate(count=Count('id')).order_by('-count')
-    )
+
     health_labels = {
         'HEALTHY': 'Healthy',
         'MONITOR': 'Monitoring',
         'TREATMENT': 'In Treatment',
         'SURGERY': 'Post-Surgery',
         'DIAGNOSTICS': 'Diagnostics',
-        'CRITICAL': 'Critical'
+        'CRITICAL': 'Critical',
     }
-    pet_health_breakdown = []
-    for stat in pet_health_stats:
-        status_code = stat['clinical_status__code'] or 'HEALTHY'
-        pet_health_breakdown.append({
-            'status': health_labels.get(status_code, status_code),
-            'count': stat['count']
+    health_colors = {
+        'HEALTHY': '#10b981',
+        'MONITOR': '#f59e0b',
+        'TREATMENT': '#3b82f6',
+        'SURGERY': '#8b5cf6',
+        'DIAGNOSTICS': '#06b6d4',
+        'CRITICAL': '#ef4444',
+    }
+    pet_health_list = []
+    for pet in user_pets.select_related('clinical_status')[:10]:
+        code = pet.clinical_status.code if pet.clinical_status else 'HEALTHY'
+        pet_health_list.append({
+            'name': pet.name,
+            'species': pet.species,
+            'status': health_labels.get(code, code),
+            'color': health_colors.get(code, '#10b981'),
+            'code': code,
         })
-    pet_health_json = json.dumps(pet_health_breakdown)
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # NEW: Appointment Status Distribution (for chart)
+    # Visits Per Pet (simple list, shown conditionally when ≥ 3 pets)
     # ═══════════════════════════════════════════════════════════════════════════
-    
-    appointment_status_stats = Appointment.objects.filter(
-        user=request.user,
-        pet__isnull=False,
-        appointment_date__gte=today - timedelta(days=90),
-        **appt_branch_filter,
-    ).values('status').annotate(count=Count('id')).order_by('-count')
-    
-    status_labels = {
-        'PENDING': 'Pending',
-        'CONFIRMED': 'Confirmed',
-        'COMPLETED': 'Completed',
-        'CANCELLED': 'Cancelled'
-    }
-    appointment_status_breakdown = []
-    for stat in appointment_status_stats:
-        appointment_status_breakdown.append({
-            'status': status_labels.get(stat['status'], stat['status']),
-            'count': stat['count']
-        })
-    appointment_status_json = json.dumps(appointment_status_breakdown)
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # NEW: Visits per Pet (for chart)
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    visits_per_pet = Appointment.objects.filter(
+    visits_per_pet = list(Appointment.objects.filter(
         user=request.user,
         pet__isnull=False,
         **appt_branch_filter,
     ).exclude(status='CANCELLED').values('pet__name').annotate(
         visits=Count('id')
-    ).order_by('-visits')[:6]
-    visits_per_pet_json = json.dumps(list(visits_per_pet))
+    ).order_by('-visits')[:6])
+
+    max_visits = visits_per_pet[0]['visits'] if visits_per_pet else 1
+    for item in visits_per_pet:
+        item['percentage'] = round((item['visits'] / max_visits * 100), 1) if max_visits > 0 else 0
+    show_visits_per_pet = pet_count >= 3 and len(visits_per_pet) > 0
 
     # ═══════════════════════════════════════════════════════════════════════════
     # NEW: Recent completed appointments (for medical records section)
@@ -602,18 +598,24 @@ def user_dashboard_view(request):
         'pending_reservations': pending_reservations,
         'approved_reservations': approved_reservations,
         
-        # New: Financial data
+        # Financial data
         'total_spent_this_year': total_spent_this_year,
         'total_spent_all_time': total_spent_all_time,
-        'spending_breakdown_json': spending_breakdown_json,
+        'spending_breakdown': spending_breakdown,
+        'spending_total': spending_total,
         
-        # New: Chart data
-        'monthly_appointments_json': monthly_appointments_json,
-        'pet_health_json': pet_health_json,
-        'appointment_status_json': appointment_status_json,
-        'visits_per_pet_json': visits_per_pet_json,
+        # Visit timeline
+        'last_visit': last_visit,
+        'next_visit': next_visit,
         
-        # New: Recent medical records
+        # Pet health badges
+        'pet_health_list': pet_health_list,
+        
+        # Visits per pet
+        'visits_per_pet': visits_per_pet,
+        'show_visits_per_pet': show_visits_per_pet,
+        
+        # Recent medical records
         'recent_completed': recent_completed,
     })
 
@@ -2103,23 +2105,6 @@ def receptionist_dashboard_view(request):
             **appt_filter
         ).count()
 
-    # ─── WEEKLY REVENUE TREND (Last 7 Days, branch-specific) ───
-    weekly_revenue_data = []
-    for i in range(6, -1, -1):  # Last 7 days
-        day = today - timedelta(days=i)
-        if pos_restricted_no_branch:
-            day_revenue = 0
-        else:
-            day_revenue = Sale.objects.filter(
-                created_at__range=get_day_bounds(day),
-                status='COMPLETED',
-                **sale_filter
-            ).aggregate(total=Sum('total'))['total'] or 0
-        weekly_revenue_data.append({
-            'date': day.strftime('%a'),  # Mon, Tue, etc.
-            'revenue': float(day_revenue)
-        })
-
     # ─── TOP SELLING PRODUCTS (This Week, own branch) ───
     if pos_restricted_no_branch:
         top_products = []
@@ -2246,7 +2231,6 @@ def receptionist_dashboard_view(request):
         'checked_in_today': checked_in_today,
         
         # NEW: Revenue & Product Analytics
-        'weekly_revenue_data': json.dumps(weekly_revenue_data, cls=DjangoJSONEncoder),
         'top_products': json.dumps(top_products, cls=DjangoJSONEncoder),
         'low_stock_products': low_stock_products,
         'low_stock_count': low_stock_count,
