@@ -1376,18 +1376,18 @@
 <!-- CHARTS SECTION -->
 <div class="charts-section">
   
-  <!-- ROW 1: Expanded Appointment History -->
+  <!-- ROW 1: Expanded Monthly Spending -->
   <div class="charts-row appointment-history-row">
     <div class="chart-card-modern dash-fade fade-up stagger-1">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-line-chart'></i>
-          <span>Appointment History</span>
+          <span>Monthly Spending</span>
         </div>
-        <div class="chart-badge purple">Last 6 Months</div>
+        <div class="chart-badge purple">January–June {{ monthly_spending_year }}</div>
       </div>
       <div class="chart-body">
-        <canvas id="appointmentHistoryChart"></canvas>
+        <canvas id="monthlySpendingChart"></canvas>
       </div>
     </div>
   </div>
@@ -1782,30 +1782,34 @@ const commonTooltip = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1. APPOINTMENT HISTORY LINE CHART
+// 1. MONTHLY SPENDING LINE CHART
 // ═══════════════════════════════════════════════════════════════════════════
 
-const appointmentHistoryCtx = document.getElementById('appointmentHistoryChart');
-if (appointmentHistoryCtx) {
-  const monthlyData = {{ monthly_appointments_json|safe }};
-  
-  new Chart(appointmentHistoryCtx, {
+const monthlySpendingCtx = document.getElementById('monthlySpendingChart');
+if (monthlySpendingCtx) {
+  const monthlySpending = {{ monthly_spending_json|safe }};
+  const spendingGradient = monthlySpendingCtx.getContext('2d').createLinearGradient(0, 0, 0, 360);
+  spendingGradient.addColorStop(0, 'rgba(0, 150, 136, 0.3)');
+  spendingGradient.addColorStop(1, 'rgba(0, 150, 136, 0.02)');
+
+  new Chart(monthlySpendingCtx, {
     type: 'line',
     data: {
-      labels: monthlyData.map(d => d.month),
+      labels: monthlySpending.map(d => d.month),
       datasets: [{
-        label: 'Appointments',
-        data: monthlyData.map(d => d.count),
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        borderWidth: 3,
+        label: 'Spending',
+        data: monthlySpending.map(d => d.total),
+        borderColor: '#009688',
+        backgroundColor: spendingGradient,
+        borderWidth: 3.5,
         fill: true,
-        tension: 0.4,
-        pointRadius: 6,
-        pointBackgroundColor: '#6366f1',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        pointHoverRadius: 8
+        tension: 0.35,
+        pointRadius: 5,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: '#009688',
+        pointBorderWidth: 3,
+        pointHoverRadius: 7,
+        pointHoverBackgroundColor: '#009688'
       }]
     },
     options: {
@@ -1816,19 +1820,24 @@ if (appointmentHistoryCtx) {
         tooltip: {
           ...commonTooltip,
           callbacks: {
-            label: ctx => `${ctx.raw} appointment${ctx.raw !== 1 ? 's' : ''}`
+            label: ctx => `₱${Number(ctx.raw).toLocaleString('en-PH', {minimumFractionDigits: 2})}`
           }
         }
       },
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
-          grid: { color: isGlobalDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
+          ticks: {
+            color: isGlobalDark ? '#ffffff' : '#64748b',
+            font: { size: 11 },
+            callback: value => '₱' + (value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value)
+          },
+          grid: { color: isGlobalDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }
         },
         x: {
           ticks: { color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
-          grid: { display: false }
+          grid: { display: false },
+          border: { display: false }
         }
       }
     }

@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import time
+from datetime import datetime, time
 from urllib.parse import parse_qs, urlsplit
 
 from dateutil.relativedelta import relativedelta
@@ -49,7 +49,7 @@ class UserPortalDashboardTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         for context_key in (
-            'monthly_appointments_json',
+            'monthly_spending_json',
             'appointment_status_json',
             'spending_breakdown_json',
         ):
@@ -58,16 +58,64 @@ class UserPortalDashboardTests(TestCase):
                 self.assertIsInstance(
                     json.loads(response.context[context_key]), list
                 )
+        monthly_spending = json.loads(response.context['monthly_spending_json'])
         self.assertEqual(
-            len(json.loads(response.context['monthly_appointments_json'])), 6
+            [month['month'] for month in monthly_spending],
+            ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
         )
-        self.assertNotIn(b'const monthlyData = ;', response.content)
+        self.assertEqual(len(monthly_spending), 6)
+        self.assertNotIn(b'const monthlySpending = ;', response.content)
         self.assertNotContains(response, 'Visits Per Pet')
         self.assertNotContains(response, 'visitsPerPetChart')
         self.assertNotIn('visits_per_pet_json', response.context)
         self.assertNotContains(response, 'Pet Health Overview')
         self.assertNotContains(response, 'petHealthChart')
         self.assertIn('appointment-history-row', response.content.decode())
+        self.assertContains(response, 'Monthly Spending')
+
+    def test_monthly_spending_chart_aggregates_current_year_completed_sales(self):
+        owner = get_user_model().objects.create_user(
+            username='monthly-spending-owner',
+            email='monthly-spending-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        current_year = timezone.localdate().year
+        branch = Branch.objects.create(
+            name='Monthly Spending Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        for month, amount, status, year in (
+            (1, 125, Sale.Status.COMPLETED, current_year),
+            (1, 75, Sale.Status.COMPLETED, current_year),
+            (6, 300, Sale.Status.COMPLETED, current_year),
+            (7, 999, Sale.Status.COMPLETED, current_year),
+            (2, 888, Sale.Status.VOIDED, current_year),
+            (3, 777, Sale.Status.COMPLETED, current_year - 1),
+        ):
+            sale = Sale.objects.create(
+                branch=branch,
+                customer=owner,
+                total=amount,
+                status=status,
+            )
+            sale.completed_at = timezone.make_aware(
+                datetime(year, month, 15, 12, 0)
+            )
+            sale.save(update_fields=['completed_at'])
+
+        self.client.force_login(owner)
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        monthly_spending = json.loads(response.context['monthly_spending_json'])
+        self.assertEqual(monthly_spending[0], {'month': 'Jan', 'total': 200.0})
+        self.assertEqual(monthly_spending[1], {'month': 'Feb', 'total': 0.0})
+        self.assertEqual(monthly_spending[5], {'month': 'Jun', 'total': 300.0})
+        self.assertEqual(response.context['monthly_spending_year'], current_year)
 
     def test_spending_breakdown_uses_completed_sales_linked_to_owner(self):
         owner_branch = Branch.objects.create(

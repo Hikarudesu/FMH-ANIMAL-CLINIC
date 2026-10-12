@@ -389,31 +389,25 @@ def user_dashboard_view(request):
     pet_species_json = json.dumps(pet_species_breakdown)
 
     # Dashboard chart data
-    first_month = today.replace(day=1) - relativedelta(months=5)
-    month_starts = [
-        first_month + relativedelta(months=offset)
-        for offset in range(6)
-    ]
-    monthly_appointment_counts = {
-        (item['month'].year, item['month'].month): item['count']
-        for item in Appointment.objects.filter(
-            user=request.user,
-            pet__isnull=False,
-            appointment_date__gte=first_month,
-            appointment_date__lte=today,
-            **appt_branch_filter,
-        ).exclude(status='CANCELLED').annotate(
-            month=TruncMonth('appointment_date')
+    monthly_spending_totals = {
+        (item['month'].year, item['month'].month): item['total']
+        for item in Sale.objects.filter(
+            customer=request.user,
+            status=Sale.Status.COMPLETED,
+            completed_at__year=today.year,
+            completed_at__month__lte=6,
+        ).annotate(
+            month=TruncMonth('completed_at')
         ).values('month').annotate(
-            count=Count('id')
+            total=Sum('total')
         )
     }
-    monthly_appointments = [
+    monthly_spending = [
         {
-            'month': month.strftime('%b %Y'),
-            'count': monthly_appointment_counts.get((month.year, month.month), 0),
+            'month': date(today.year, month, 1).strftime('%b'),
+            'total': float(monthly_spending_totals.get((today.year, month), 0)),
         }
-        for month in month_starts
+        for month in range(1, 7)
     ]
 
     appointment_status_counts = Appointment.objects.filter(
@@ -619,9 +613,10 @@ def user_dashboard_view(request):
         'recent_activities': recent_activities,
         'pet_species_breakdown': pet_species_breakdown,
         'pet_species_json': pet_species_json,
-        'monthly_appointments_json': json.dumps(
-            monthly_appointments, cls=DjangoJSONEncoder
+        'monthly_spending_json': json.dumps(
+            monthly_spending, cls=DjangoJSONEncoder
         ),
+        'monthly_spending_year': today.year,
         'appointment_status_json': json.dumps(
             appointment_status_data, cls=DjangoJSONEncoder
         ),
