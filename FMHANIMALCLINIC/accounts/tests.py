@@ -19,7 +19,7 @@ from appointments.models import Appointment
 from billing.models import CustomerStatement
 from employees.models import StaffMember
 from inventory.models import Product, StockAdjustment
-from pos.models import Sale
+from pos.models import Sale, SaleItem
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
@@ -66,6 +66,66 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotContains(response, 'Visits Per Pet')
         self.assertNotContains(response, 'visitsPerPetChart')
         self.assertNotIn('visits_per_pet_json', response.context)
+
+    def test_spending_breakdown_uses_completed_sales_linked_to_owner(self):
+        owner = get_user_model().objects.create_user(
+            username='spending-dashboard-owner',
+            email='spending-dashboard-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        branch = Branch.objects.create(
+            name='Spending Dashboard Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        sale = Sale.objects.create(
+            branch=branch,
+            customer=owner,
+            status=Sale.Status.COMPLETED,
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            item_type=SaleItem.ItemType.SERVICE,
+            name='Consultation',
+            unit_price=250,
+            quantity=1,
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            item_type=SaleItem.ItemType.PRODUCT,
+            name='Pet food',
+            unit_price=300,
+            quantity=2,
+            discount=100,
+        )
+
+        self.client.force_login(owner)
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['spending_breakdown'],
+            [
+                {
+                    'category': 'Products',
+                    'total': 500.0,
+                    'icon': 'bx-package',
+                    'color': '#3b82f6',
+                    'percentage': 66.7,
+                },
+                {
+                    'category': 'Services',
+                    'total': 250.0,
+                    'icon': 'bx-briefcase',
+                    'color': '#009688',
+                    'percentage': 33.3,
+                },
+            ],
+        )
+        self.assertIn('spendingChart', response.content.decode())
 
 
 @override_settings(
