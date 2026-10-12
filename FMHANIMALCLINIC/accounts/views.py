@@ -1790,6 +1790,36 @@ def receptionist_dashboard_view(request):
     weekly_sales_count = weekly_sales.count()
     weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
 
+    # ── Revenue trend (last 7 days, branch-specific) ──
+    revenue_trend_start = today - timedelta(days=6)
+    if pos_restricted_no_branch:
+        revenue_by_day = {}
+    else:
+        revenue_by_day = {
+            item['sale_day']: float(item['total'] or 0)
+            for item in Sale.objects.filter(
+                created_at__range=(
+                    get_day_bounds(revenue_trend_start)[0],
+                    get_day_bounds(today)[1],
+                ),
+                status='COMPLETED',
+                **sale_filter
+            ).annotate(
+                sale_day=TruncDate('created_at')
+            ).values('sale_day').annotate(
+                total=Sum('total')
+            ).order_by('sale_day')
+        }
+    revenue_trend_data = [
+        {
+            'day': (revenue_trend_start + timedelta(days=offset)).strftime('%a, %b %d'),
+            'revenue': revenue_by_day.get(
+                revenue_trend_start + timedelta(days=offset), 0
+            ),
+        }
+        for offset in range(7)
+    ]
+
     # ── Pending tasks (branch-specific) ──
     if appt_restricted_no_branch:
         pending_appointments = 0
@@ -1849,9 +1879,6 @@ def receptionist_dashboard_view(request):
     ).count()
 
     # ─── COMPREHENSIVE ANALYTICS ───
-    last_week_start = week_start - timedelta(days=7)
-    last_week_end = week_start - timedelta(days=1)
-
     # Walk-in vs Portal appointments (today, branch-specific)
     if appt_restricted_no_branch:
         walkin_week = 0
@@ -1870,57 +1897,34 @@ def receptionist_dashboard_view(request):
             **appt_filter
         ).count()
 
-    # ─── APPOINTMENT STATUS DISTRIBUTION (This Week vs Last Week, branch-specific) ───
-    if appt_restricted_no_branch:
-        status_counts_this_week = []
-        status_counts_last_week = []
-    else:
-        status_counts_this_week = Appointment.objects.filter(
-            appointment_date__range=[week_start, week_end],
-            pet__isnull=False,
-            **appt_filter
-        ).values('status').annotate(count=Count('id'))
-        
-        status_counts_last_week = Appointment.objects.filter(
-            appointment_date__range=[last_week_start, last_week_end],
-            pet__isnull=False,
-            **appt_filter
-        ).values('status').annotate(count=Count('id'))
-    
-    appointment_status_dict = {}
-    for item in status_counts_this_week:
-        appointment_status_dict[item['status']] = {'this_week': item['count'], 'last_week': 0}
-    
-    for item in status_counts_last_week:
-        if item['status'] not in appointment_status_dict:
-            appointment_status_dict[item['status']] = {'this_week': 0, 'last_week': 0}
-        appointment_status_dict[item['status']]['last_week'] = item['count']
-
-    appointment_status_data = []
-    for status, counts in appointment_status_dict.items():
-        appointment_status_data.append({
-            'status': status,
-            'this_week': counts['this_week'],
-            'last_week': counts['last_week']
-        })
-
-    # ─── WALK-IN VS PORTAL APPOINTMENTS DATA (This Week, branch-specific) ───
-    appointment_source_data = [
-        {'source': 'Walk-in', 'count': walkin_week},
-        {'source': 'Online Booking', 'count': portal_week}
-    ]
-
-    # Hourly distribution of appointments (today, branch-specific)
+    # ─── TODAY'S SCHEDULED APPOINTMENTS BY HOUR (branch-specific) ───
     if appt_restricted_no_branch:
         hourly_distribution = []
     else:
         hourly_distribution = Appointment.objects.filter(
             appointment_date=today,
             pet__isnull=False,
+            status__in=['PENDING', 'CONFIRMED'],
             **appt_filter
         ).values('appointment_time__hour').annotate(
             count=Count('id')
         ).order_by('appointment_time__hour')
+        hourly_distribution = [
+            {
+                'hour': (
+                    f"{item['appointment_time__hour'] % 12 or 12} "
+                    f"{'AM' if item['appointment_time__hour'] < 12 else 'PM'}"
+                ),
+                'count': item['count'],
+            }
+            for item in hourly_distribution
+        ]
+
+    # ─── WALK-IN VS PORTAL APPOINTMENTS DATA (This Week, branch-specific) ───
+    appointment_source_data = [
+        {'source': 'Walk-in', 'count': walkin_week},
+        {'source': 'Online Booking', 'count': portal_week}
+    ]
 
     # Registered vs Walk-in sales (today, branch-specific)
     if pos_restricted_no_branch:
@@ -2131,6 +2135,7 @@ def receptionist_dashboard_view(request):
         'todays_revenue': todays_revenue,
         'weekly_sales_count': weekly_sales_count,
         'weekly_revenue': weekly_revenue,
+        'revenue_trend_data': json.dumps(revenue_trend_data, cls=DjangoJSONEncoder),
         'registered_sales_today': float(registered_sales_today) if registered_sales_today else 0,
         'walkin_sales_today': float(walkin_sales_today) if walkin_sales_today else 0,
 
@@ -2149,7 +2154,6 @@ def receptionist_dashboard_view(request):
         # Additional analytics
         'walkin_today': walkin_week,
         'portal_today': portal_week,
-        'hourly_distribution': hourly_distribution,
         'refunds_count': refunds_count,
         'refunds_amount': refunds_amount,
         'appointment_reasons_today': appointment_reasons_today,
@@ -2165,8 +2169,8 @@ def receptionist_dashboard_view(request):
         'low_stock_count': low_stock_count,
         'category_sales': json.dumps(category_sales, cls=DjangoJSONEncoder),
         
-        # NEW: Appointment Analytics (replacing hourly sales & payment methods)
-        'appointment_status_data': json.dumps(appointment_status_data, cls=DjangoJSONEncoder),
+        # Receptionist dashboard chart data
+        'appointment_hourly_data': json.dumps(hourly_distribution, cls=DjangoJSONEncoder),
         'appointment_source_data': json.dumps(appointment_source_data, cls=DjangoJSONEncoder),
     }
 

@@ -297,6 +297,10 @@
   grid-template-columns: repeat(3, 1fr);
 }
 
+.charts-row.full-width {
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 1024px) {
   .charts-row,
   .charts-row:nth-child(odd),
@@ -916,21 +920,41 @@
 <!-- MAIN CHARTS SECTION -->
 <div class="charts-section">
   
-  <!-- ROW 1: Appointment Status (Area) & Top Products (Vertical Bar) -->
+  <!-- ROW 1: Branch Revenue Trend -->
+  <div class="charts-row full-width">
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-line-chart'></i>
+          <span>FMH Animal Clinic{% if user_branch %} - {{ user_branch.name }}{% endif %} Revenue Trend</span>
+        </div>
+        <div class="chart-badge emerald">Last 7 Days</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="weeklyRevenueChart"></canvas>
+        <div id="weeklyRevenueEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>No completed sales in the last 7 days</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Today's Appointment Flow & Sales by Item Type -->
   <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Appointment Status</span>
+          <i class='bx bx-time-five'></i>
+          <span>Today's Appointment Flow</span>
         </div>
-        <div class="chart-badge blue">This Week</div>
+        <div class="chart-badge blue">Pending &amp; Confirmed</div>
       </div>
       <div class="chart-body">
-        <canvas id="appointmentStatusChart"></canvas>
-        <div id="appointmentStatusEmpty" class="chart-empty-state" style="display: none;">
+        <canvas id="appointmentHourlyChart"></canvas>
+        <div id="appointmentHourlyEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-calendar-x'></i>
-          <span>No appointments this week</span>
+          <span>No scheduled appointments today</span>
         </div>
       </div>
     </div>
@@ -939,7 +963,7 @@
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-category'></i>
-          <span>Sales by Category</span>
+          <span>Sales by Item Type</span>
         </div>
         <div class="chart-badge purple">This Week</div>
       </div>
@@ -947,13 +971,13 @@
         <canvas id="categorySalesChart"></canvas>
         <div id="categorySalesEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-category'></i>
-          <span>No category data this week</span>
+          <span>No sales data this week</span>
         </div>
       </div>
     </div>
   </div>
   
-  <!-- ROW 2: Category Sales (Doughnut) & Top 5 Selling Products (Pie) -->
+  <!-- ROW 3: Booking Source & Top 5 Selling Products -->
   <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
@@ -1259,7 +1283,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Graceful fallback when Chart.js CDN is unavailable
   if (typeof Chart === 'undefined') {
     [
-      ['appointmentStatusChart', 'appointmentStatusEmpty'],
+      ['weeklyRevenueChart', 'weeklyRevenueEmpty'],
+      ['appointmentHourlyChart', 'appointmentHourlyEmpty'],
       ['topProductsChart', 'topProductsEmpty'],
       ['categorySalesChart', 'categorySalesEmpty'],
       ['appointmentSourceChart', 'appointmentSourceEmpty']
@@ -1269,130 +1294,112 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 2. APPOINTMENT STATUS DISTRIBUTION (Bar Chart)
+  // 1. BRANCH REVENUE TREND (Last 7 Days)
   // ═══════════════════════════════════════════════════════════════════════
 
-  const appointmentStatusCtx = document.getElementById('appointmentStatusChart');
-  if (appointmentStatusCtx) {
-    const statusData = {{ appointment_status_data|safe }};
-    const hasData = statusData && statusData.length > 0;
-    
-    // Using single green similar to the Admin bar chart, or the specific status colors:
-    const statusColors = {
-      'PENDING': '#f59e0b',
-      'CONFIRMED': '#3b82f6',
-      'COMPLETED': '#10b981',
-      'CANCELLED': '#ef4444',
-      'NO_SHOW': '#6b7280'
-    };
-    
-    const statusLabels = {
-      'PENDING': 'Pending',
-      'CONFIRMED': 'Confirmed',
-      'COMPLETED': 'Completed',
-      'CANCELLED': 'Cancelled',
-      'NO_SHOW': 'No Show'
-    };
-    
-    if (hasData) {
-      // Create gradient for this week
-      const thisWeekGradient = appointmentStatusCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-      thisWeekGradient.addColorStop(0, '#10b981');
-      thisWeekGradient.addColorStop(1, '#059669');
-      
-      // Create gradient for last week
-      const lastWeekGradient = appointmentStatusCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-      lastWeekGradient.addColorStop(0, '#94a3b8');
-      lastWeekGradient.addColorStop(1, '#64748b');
-      
-      new Chart(appointmentStatusCtx, {
-        type: 'bar',
+  const weeklyRevenueCtx = document.getElementById('weeklyRevenueChart');
+  if (weeklyRevenueCtx) {
+    const revenueData = {{ revenue_trend_data|safe }};
+    if (revenueData.some(item => item.revenue > 0)) {
+      const context = weeklyRevenueCtx.getContext('2d');
+      const revenueGradient = context.createLinearGradient(0, 0, 0, 300);
+      revenueGradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+      revenueGradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+
+      new Chart(weeklyRevenueCtx, {
+        type: 'line',
         data: {
-          labels: statusData.map(s => statusLabels[s.status] || s.status),
-          datasets: [
-            {
-              label: 'This Week',
-              data: statusData.map(s => s.this_week),
-              backgroundColor: thisWeekGradient,
-              borderRadius: 0,
-              borderSkipped: false,
-              barPercentage: 0.7,
-              categoryPercentage: 0.8
-            },
-            {
-              label: 'Last Week',
-              data: statusData.map(s => s.last_week),
-              backgroundColor: lastWeekGradient,
-              borderRadius: 0,
-              borderSkipped: false,
-              barPercentage: 0.7,
-              categoryPercentage: 0.8
-            }
-          ]
+          labels: revenueData.map(item => item.day),
+          datasets: [{
+            label: 'Revenue',
+            data: revenueData.map(item => item.revenue),
+            borderColor: '#10b981',
+            backgroundColor: revenueGradient,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2
+          }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
-          animation: {
-            duration: 1500,
-            easing: 'easeInOutCubic',
-            delay: (context) => context.dataIndex * 150
-          },
           plugins: {
-            legend: {
-              position: 'top',
-              align: 'end',
-              labels: {
-                usePointStyle: true,
-                pointStyle: 'rectRounded',
-                padding: 20,
-                font: { size: 12, weight: '600' }
-              }
-            },
+            legend: { display: false },
             tooltip: {
               ...commonTooltip,
               callbacks: {
-                label: function(context) {
-                  const label = context.dataset.label;
-                  const value = context.raw;
-                  const otherDataset = context.chart.data.datasets[context.datasetIndex === 0 ? 1 : 0];
-                  const otherValue = otherDataset.data[context.dataIndex];
-                  const diff = value - otherValue;
-                  const diffPercent = otherValue > 0 ? ((diff / otherValue) * 100).toFixed(1) : 0;
-                  const arrow = diff >= 0 ? '↑' : '↓';
-                  const color = diff >= 0 ? '🟢' : '🔴';
-                  
-                  if (context.datasetIndex === 0) {
-                    return `${label}: ${value} ${color} ${arrow}${Math.abs(diffPercent)}%`;
-                  }
-                  return `${label}: ${value}`;
-                }
+                label: context => `Revenue: ₱${Number(context.raw).toLocaleString()}`
               }
             }
           },
           scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
+            },
             y: {
               beginAtZero: true,
               grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: { 
-                font: { size: 11 }, 
+              ticks: {
                 color: '#94a3b8',
-                stepSize: 1
-              }
-            },
-            x: {
-              grid: { display: false },
-              ticks: { 
-                font: { size: 11, weight: '600' }, 
-                color: '#64748b'
+                callback: value => `₱${Number(value).toLocaleString()}`
               }
             }
           }
         }
       });
     } else {
-      showEmptyState('appointmentStatusChart', 'appointmentStatusEmpty');
+      showEmptyState('weeklyRevenueChart', 'weeklyRevenueEmpty');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 2. TODAY'S APPOINTMENT FLOW (Pending and Confirmed by Hour)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const appointmentHourlyCtx = document.getElementById('appointmentHourlyChart');
+  if (appointmentHourlyCtx) {
+    const hourlyData = {{ appointment_hourly_data|safe }};
+    if (hourlyData.length > 0) {
+      new Chart(appointmentHourlyCtx, {
+        type: 'bar',
+        data: {
+          labels: hourlyData.map(item => item.hour),
+          datasets: [{
+            label: 'Scheduled appointments',
+            data: hourlyData.map(item => item.count),
+            backgroundColor: '#3b82f6',
+            borderRadius: 6,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: commonTooltip
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: { precision: 0, stepSize: 1, color: '#94a3b8' }
+            }
+          }
+        }
+      });
+    } else {
+      showEmptyState('appointmentHourlyChart', 'appointmentHourlyEmpty');
     }
   }
 
@@ -1458,7 +1465,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 4. CATEGORY SALES DOUGHNUT CHART
+  // 4. SALES BY ITEM TYPE DOUGHNUT CHART
   // ═══════════════════════════════════════════════════════════════════════
 
   const categorySalesCtx = document.getElementById('categorySalesChart');
