@@ -135,6 +135,27 @@ def login_view(request):
             lockouts[lockout_key] = login_state
             request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
 
+        if (
+            stored_user
+            and not stored_user.is_active
+            and stored_user.check_password(password)
+        ):
+            is_staff_account = stored_user.is_clinic_staff() or User.objects.filter(
+                pk=stored_user.pk,
+                staff_profile__isnull=False,
+            ).exists()
+            if is_staff_account:
+                reason = stored_user.inactive_reason.strip() or 'No reason was provided.'
+                lockouts.pop(lockout_key, None)
+                request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
+                messages.error(
+                    request,
+                    f'Your staff account is inactive. Reason: {reason}',
+                )
+                return render(request, 'accounts/login.html', {
+                    'show_maintenance_popup': show_maintenance_popup,
+                })
+
         user = authenticate(request, username=username, password=password)
 
         maintenance_mode = get_setting('system_maintenance_mode', False)

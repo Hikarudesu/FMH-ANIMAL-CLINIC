@@ -61,12 +61,21 @@
             <div class="detail-content">
               <label>Active Staff Employee</label>
               <label class="checkbox-item modern" style="padding: 0; margin-top: 6px;">
-                <input type="checkbox" name="is_active"
-                       {% if staff_profile.is_active or not staff_profile.pk %}checked{% endif %}>
+                  <input type="checkbox" name="is_active" id="staffActiveCheckbox"
+                    {% if request.method == 'POST' %}{% if request.POST.is_active %}checked{% endif %}{% elif staff_profile.is_active or not staff_profile.pk %}checked{% endif %}>
                 <span class="checkbox-label">
                   <strong>{% if staff_profile.is_active %}Active{% else %}Inactive{% endif %}</strong>
                 </span>
               </label>
+            </div>
+          </div>
+
+          <div class="detail-card" id="inactiveReasonCard" {% if staff_profile.is_active %}hidden{% endif %}>
+            <div class="detail-icon status"><i class='bx bx-comment-detail'></i></div>
+            <div class="detail-content" style="width: 100%;">
+              <label for="inactiveReason">Reason for inactivation <span style="color: #d32f2f;">*</span></label>
+              <textarea id="inactiveReason" name="inactive_reason" class="admin-input" rows="4" maxlength="2000" placeholder="Explain why this account is being made inactive." aria-describedby="inactiveReasonHint">{% if request.method == 'POST' %}{{ request.POST.inactive_reason }}{% else %}{{ edited_user.inactive_reason }}{% endif %}</textarea>
+              <small id="inactiveReasonHint" class="form-hint">Required when changing an active account to inactive. This reason will be emailed to the staff member and shown at login.</small>
             </div>
           </div>
 
@@ -198,6 +207,10 @@
     display: flex;
     align-items: center;
     gap: 16px;
+  }
+
+  #inactiveReasonCard[hidden] {
+    display: none;
   }
 
   .detail-icon {
@@ -477,6 +490,22 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const salaryInput = document.getElementById('salaryInput');
+    const activeCheckbox = document.getElementById('staffActiveCheckbox');
+    const inactiveReasonCard = document.getElementById('inactiveReasonCard');
+    const inactiveReason = document.getElementById('inactiveReason');
+    const accountWasActive = {{ edited_user.is_active|yesno:'true,false' }};
+
+    function updateInactiveReasonField() {
+      if (!activeCheckbox || !inactiveReasonCard || !inactiveReason) return;
+      const isDeactivation = accountWasActive && !activeCheckbox.checked;
+      inactiveReasonCard.hidden = activeCheckbox.checked;
+      inactiveReason.required = isDeactivation;
+    }
+
+    if (activeCheckbox) {
+      activeCheckbox.addEventListener('change', updateInactiveReasonField);
+      updateInactiveReasonField();
+    }
     
     function formatCurrencyNumber(val) {
       if (!val) return '';

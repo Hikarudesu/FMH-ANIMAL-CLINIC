@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -20,6 +21,11 @@ class StaffAccountActivationTests(TestCase):
             first_name='Clinic',
             last_name='Staff',
             position=StaffMember.Position.RECEPTIONIST,
+        )
+        self.admin = get_user_model().objects.create_superuser(
+            username='staff-deactivation-admin',
+            email='staff-deactivation-admin@example.com',
+            password='A-secure-test-password-923!',
         )
 
     def test_deactivating_staff_disables_login_and_records_date(self):
@@ -49,6 +55,90 @@ class StaffAccountActivationTests(TestCase):
         self.assertFalse(
             StaffMember.objects.schedulable_staff().filter(pk=self.staff.pk).exists()
         )
+
+    def test_staff_cannot_be_deactivated_without_a_reason(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('employees:staff_edit', args=[self.user.pk]),
+            {'branch': '', 'inactive_reason': ''},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_active)
+        self.assertContains(response, 'Enter a reason before making this staff account inactive.')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_deactivation_saves_reason_and_emails_staff_member(self):
+        self.client.force_login(self.admin)
+        reason = 'Employment has ended.'
+
+        response = self.client.post(
+            reverse('employees:staff_edit', args=[self.user.pk]),
+            {'branch': '', 'inactive_reason': reason},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.staff.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+        self.assertFalse(self.staff.is_active)
+        self.assertEqual(self.user.inactive_reason, reason)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+        self.assertIn(reason, mail.outbox[0].body)
+
+    def test_reactivation_clears_inactive_reason_without_sending_email(self):
+        self.user.is_active = False
+        self.user.inactive_reason = 'Employment has ended.'
+        self.user.save(update_fields=['is_active', 'inactive_reason'])
+        self.staff.is_active = False
+        self.staff.save(update_fields=['is_active'])
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('employees:staff_edit', args=[self.user.pk]),
+            {'branch': '', 'is_active': 'on'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_active)
+        self.assertEqual(self.user.inactive_reason, '')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_inactive_staff_login_shows_saved_reason_after_correct_password(self):
+        self.user.is_active = False
+        self.user.inactive_reason = 'Employment has ended.'
+        self.user.save(update_fields=['is_active', 'inactive_reason'])
+        self.staff.is_active = False
+        self.staff.save(update_fields=['is_active'])
+
+        response = self.client.post(reverse('accounts:login_page'), {
+            'username': self.user.username,
+            'password': 'A-secure-test-password-923!',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Your staff account is inactive.')
+        self.assertContains(response, 'Employment has ended.')
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_inactive_staff_login_does_not_reveal_reason_for_wrong_password(self):
+        self.user.is_active = False
+        self.user.inactive_reason = 'Employment has ended.'
+        self.user.save(update_fields=['is_active', 'inactive_reason'])
+        self.staff.is_active = False
+        self.staff.save(update_fields=['is_active'])
+
+        response = self.client.post(reverse('accounts:login_page'), {
+            'username': self.user.username,
+            'password': 'incorrect-password',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Employment has ended.')
 
 
 class InactiveStaffListTests(TestCase):

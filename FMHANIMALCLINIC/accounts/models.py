@@ -60,6 +60,7 @@ class User(AbstractUser):
     address = models.TextField(
         blank=True, help_text='Full address of the pet owner')
     email_verified = models.BooleanField(default=False)
+    inactive_reason = models.TextField(blank=True)
     owner_deactivation_requested_at = models.DateTimeField(null=True, blank=True)
     owner_deactivation_due_at = models.DateTimeField(null=True, blank=True)
     owner_account_deactivated_at = models.DateTimeField(null=True, blank=True)

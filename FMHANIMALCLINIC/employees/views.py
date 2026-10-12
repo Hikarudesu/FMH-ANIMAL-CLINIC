@@ -4,8 +4,10 @@ import calendar
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.db.models import Q
+from django.utils import timezone
 
 from accounts.decorators import module_permission_required, special_permission_required, admin_only
 from accounts.rbac_models import Role
@@ -154,6 +156,7 @@ def staff_edit(request, user_id):
     if request.method == 'POST':
         branch_id = request.POST.get('branch', '').strip()
         is_active = request.POST.get('is_active') == 'on'
+        deactivation_reason = request.POST.get('inactive_reason', '').strip()
         branch = None
         if branch_id:
             branch = Branch.objects.filter(pk=branch_id).first()
@@ -165,9 +168,25 @@ def staff_edit(request, user_id):
                     'branches': Branch.objects.filter(is_active=True),
                 })
 
+        is_being_deactivated = user.is_active and not is_active
+        if is_being_deactivated and not deactivation_reason:
+            messages.error(request, 'Enter a reason before making this staff account inactive.')
+            return render(request, 'employees/staff_edit.html', {
+                'edited_user': user,
+                'staff_profile': staff_profile,
+                'branches': Branch.objects.filter(is_active=True),
+            })
+
         user.branch = branch
         user.is_active = is_active
-        user.save(update_fields=['branch', 'is_active'])
+        update_fields = ['branch', 'is_active']
+        if is_being_deactivated:
+            user.inactive_reason = deactivation_reason
+            update_fields.append('inactive_reason')
+        elif is_active and user.inactive_reason:
+            user.inactive_reason = ''
+            update_fields.append('inactive_reason')
+        user.save(update_fields=update_fields)
 
         if is_active and staff_profile.is_deleted:
             staff_profile.restore()
@@ -178,6 +197,33 @@ def staff_edit(request, user_id):
             update_fields.append('biometric_id')
         staff_profile.save(update_fields=update_fields)
         staff_profile.set_active(is_active)
+
+        if is_being_deactivated:
+            if user.email:
+                subject = 'Your FMH Animal Clinic staff account is inactive'
+                email_message = (
+                    f'Hello {user.get_full_name() or user.username},\n\n'
+                    'Your FMH Animal Clinic staff account has been made inactive.\n\n'
+                    f'Reason: {deactivation_reason}\n\n'
+                    'Please contact the clinic administrator if you have questions.'
+                )
+                try:
+                    email_sent = send_mail(
+                        subject,
+                        email_message,
+                        None,
+                        [user.email],
+                        fail_silently=False,
+                    )
+                except Exception:  # Email failure must not undo the account change.
+                    email_sent = 0
+
+                if email_sent:
+                    messages.success(request, f'An inactive-account email was sent to {user.email}.')
+                else:
+                    messages.warning(request, 'The account was made inactive, but the email could not be sent.')
+            else:
+                messages.warning(request, 'The account was made inactive, but this staff member has no email address.')
 
         messages.success(request, f'{user.get_full_name()} profile updated successfully.')
         return redirect('employees:staff_list')
