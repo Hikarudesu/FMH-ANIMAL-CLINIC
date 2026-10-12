@@ -2,12 +2,13 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import User
 from accounts.rbac_models import Role
 from appointments.models import Appointment
-from appointments.forms import AdminQuickCreateForm
+from appointments.forms import AdminQuickCreateForm, AppointmentEditForm
 from branches.models import Branch
 from employees.models import StaffMember
 
@@ -105,4 +106,55 @@ class InactiveStaffAppointmentOptionsTests(TestCase):
 
         self.assertFalse(
             form.fields['preferred_vet'].queryset.filter(pk=staff.pk).exists()
+        )
+
+
+class AdminQuickCreateOwnerValidationTests(TestCase):
+    def test_walkin_owner_name_is_required(self):
+        form = AdminQuickCreateForm(data={'source': Appointment.Source.WALKIN})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('owner_name', form.errors)
+        self.assertEqual(
+            form.errors['owner_name'][0],
+            'Owner name is required for walk-in appointments.',
+        )
+
+    def test_owner_name_field_is_not_required_for_portal_form_rendering(self):
+        form = AdminQuickCreateForm()
+
+        self.assertFalse(form.fields['owner_name'].required)
+
+    def test_owner_api_includes_registered_accounts_without_pets(self):
+        admin = User.objects.create_superuser(
+            username='quick-create-owner-api-admin',
+            email='quick-create-owner-api-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        new_owner = User.objects.create_user(
+            username='new-appointment-owner',
+            email='new-appointment-owner@example.com',
+            password='A-secure-test-password-923!',
+            first_name='New',
+            last_name='Owner',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('appointments:api_owners'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            new_owner.pk,
+            [owner['id'] for owner in response.json()['owners']],
+        )
+
+
+class AppointmentEditVeterinarianOptionalTests(TestCase):
+    def test_veterinarian_is_optional_when_editing_appointment(self):
+        form = AppointmentEditForm()
+
+        self.assertFalse(form.fields['preferred_vet'].required)
+        self.assertEqual(
+            form.fields['preferred_vet'].empty_label,
+            '-- Any Available Vet --',
         )

@@ -19,6 +19,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import FileResponse, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -35,7 +36,11 @@ from .models import (
     get_laboratory_type_options,
 )
 from .forms import MedicalRecordForm, RecordEntryForm
-from notifications.utils import notify_medical_record_follow_up
+from notifications.utils import (
+    notify_medical_record_follow_up,
+    sync_medical_record_entry_follow_up,
+)
+from notifications.models import FollowUp, Notification
 
 User = get_user_model()
 
@@ -201,6 +206,25 @@ def admin_record_create(request):
 
     from_patients = request.GET.get('from_patients', '0') == '1'
     pet_id = request.GET.get('pet', '')
+    appointment_id = request.GET.get('appointment') or request.POST.get('appointment', '')
+    linked_appointment = None
+    if appointment_id:
+        from appointments.models import Appointment
+        linked_appointment = Appointment.objects.filter(
+            pk=appointment_id,
+            status=Appointment.Status.COMPLETED,
+        ).select_related('preferred_vet', 'pet', 'branch').first()
+        if linked_appointment and linked_appointment.pet_id:
+            pet_id = str(linked_appointment.pet_id)
+            existing_record = MedicalRecord.objects.filter(
+                pet_id=linked_appointment.pet_id,
+            ).order_by('-created_at').first()
+            if request.method == 'GET' and existing_record:
+                from_patients_query = '&from_patients=1' if from_patients else ''
+                return redirect(
+                    f"{reverse('records:admin_add_entry', args=[existing_record.pk])}"
+                    f"?appointment={linked_appointment.pk}{from_patients_query}"
+                )
 
     if request.method == 'POST':
         entry_form = RecordEntryForm(request.POST)
@@ -399,12 +423,20 @@ def admin_record_create(request):
                         # Always create a new entry (visit row) on the record card
                         entry = entry_form.save(commit=False)
                         entry.record = record
+                        entry.appointment = linked_appointment
                         # The vet is already set from the form
                         # But if the form had no vet and we have selected_vet fallback, use it
                         if not entry.vet and selected_vet:
                             entry.vet = selected_vet
                         entry.save()
                         notify_medical_record_follow_up(record, request.user)
+                        if linked_appointment:
+                            Notification.objects.filter(
+                                user=request.user,
+                                notification_type=Notification.NotificationType.APPOINTMENT,
+                                related_object_id=linked_appointment.id,
+                                is_read=False,
+                            ).update(is_read=True)
 
                         messages.success(
                             request,
@@ -426,6 +458,16 @@ def admin_record_create(request):
             )
     else:
         initial_data = {'date_recorded': timezone.now().date()}
+        if linked_appointment:
+            initial_data.update({
+                'date_recorded': linked_appointment.appointment_date,
+                'vet': linked_appointment.preferred_vet_id,
+            })
+            appointment_followup = FollowUp.objects.filter(
+                appointment=linked_appointment,
+            ).order_by('-created_at').first()
+            if appointment_followup:
+                initial_data['ff_up'] = appointment_followup.follow_up_date
         entry_form = RecordEntryForm(initial=initial_data)
 
     # Build pet details JSON for dynamic form population
@@ -482,6 +524,72 @@ def admin_record_create(request):
         except (Pet.DoesNotExist, ValueError):
             pass
 
+    appointment_prefill = None
+    if linked_appointment:
+        appointment_pet = linked_appointment.pet or selected_pet
+        if appointment_pet:
+            appointment_owner = appointment_pet.owner
+            appointment_prefill = {
+                'pet_id': appointment_pet.pk,
+                'pet_name': appointment_pet.name or linked_appointment.pet_name,
+                'owner_id': appointment_owner.pk if appointment_owner else '',
+                'owner_name': (
+                    appointment_owner.get_full_name() or appointment_owner.username
+                    if appointment_owner else linked_appointment.owner_name
+                ),
+                'owner_address': (
+                    appointment_owner.address
+                    if appointment_owner else linked_appointment.owner_address
+                ) or '',
+                'owner_contact': (
+                    appointment_owner.phone_number
+                    if appointment_owner else linked_appointment.owner_phone
+                ) or '',
+                'date_of_birth': (
+                    appointment_pet.date_of_birth.isoformat()
+                    if appointment_pet.date_of_birth
+                    else linked_appointment.pet_dob.isoformat()
+                    if linked_appointment.pet_dob else ''
+                ),
+                'pet_color': appointment_pet.color or linked_appointment.pet_color or '',
+                'pet_species': appointment_pet.species or linked_appointment.pet_species or '',
+                'pet_breed': appointment_pet.breed or linked_appointment.pet_breed or '',
+                'pet_sex': appointment_pet.get_sex_display() or linked_appointment.pet_sex or '',
+                'branch_id': linked_appointment.branch_id or '',
+                'source': linked_appointment.source,
+            }
+
+    selected_pet_prefill = None
+    if selected_pet and not appointment_prefill:
+        selected_pet_owner = selected_pet.owner
+        selected_pet_prefill = {
+            'pet_id': selected_pet.pk,
+            'pet_name': selected_pet.name,
+            'owner_id': selected_pet_owner.pk if selected_pet_owner else '',
+            'owner_name': (
+                selected_pet_owner.get_full_name() or selected_pet_owner.username
+                if selected_pet_owner else selected_pet.guest_owner_name
+            ) or '',
+            'owner_address': (
+                selected_pet_owner.address
+                if selected_pet_owner else selected_pet.guest_owner_address
+            ) or '',
+            'owner_contact': (
+                selected_pet_owner.phone_number
+                if selected_pet_owner else selected_pet.guest_owner_phone
+            ) or '',
+            'date_of_birth': (
+                selected_pet.date_of_birth.isoformat()
+                if selected_pet.date_of_birth else ''
+            ),
+            'pet_color': selected_pet.color or '',
+            'pet_species': selected_pet.species or '',
+            'pet_breed': selected_pet.breed or '',
+            'pet_sex': selected_pet.get_sex_display() or '',
+            'branch_id': '',
+            'source': selected_pet.source,
+        }
+
     context = {
         'form': entry_form,
         'pets_data': pets_data,
@@ -493,6 +601,9 @@ def admin_record_create(request):
         'pet_id': pet_id,
         'selected_pet': selected_pet,
         'prefill_pet_name': prefill_pet_name,
+        'linked_appointment': linked_appointment,
+        'appointment_prefill': appointment_prefill,
+        'selected_pet_prefill': selected_pet_prefill,
     }
     return render(request, 'records/admin_form.html', context)
 
@@ -805,19 +916,34 @@ def admin_add_entry(request, pk):
 
     record = get_object_or_404(MedicalRecord, pk=pk)
     from_patients = request.GET.get('from_patients', '0') == '1'
+    appointment_id = request.GET.get('appointment') or request.POST.get('appointment', '')
+    linked_appointment = None
+    if appointment_id:
+        from appointments.models import Appointment
+        linked_appointment = Appointment.objects.filter(
+            pk=appointment_id,
+            status=Appointment.Status.COMPLETED,
+        ).select_related('preferred_vet', 'branch').first()
 
     if request.method == 'POST':
         form = RecordEntryForm(request.POST)
         if form.is_valid():
+            branch_id_post = request.POST.get('branch_id', '').strip()
+            selected_branch = (
+                Branch.objects.filter(pk=branch_id_post, is_active=True).first()
+                if branch_id_post else None
+            )
+            if not selected_branch:
+                form.add_error(
+                    None,
+                    'Branch / Location is required. Please select an active branch.',
+                )
+
+        if form.is_valid():
             entry = form.save(commit=False)
             entry.record = record
-            # Update record branch if a different branch was selected
-            branch_id_post = request.POST.get('branch_id', '').strip()
-            if branch_id_post:
-                try:
-                    record.branch = Branch.objects.get(pk=branch_id_post)
-                except Branch.DoesNotExist:
-                    pass
+            entry.appointment = linked_appointment
+            record.branch = selected_branch
 
             # Get vet from form, fall back to logged-in user if not set
             selected_vet = entry.vet
@@ -841,6 +967,13 @@ def admin_add_entry(request, pk):
             # Touch the parent record so updated_at changes (also saves branch/vet update)
             record.save()
             notify_medical_record_follow_up(record, request.user)
+            if linked_appointment:
+                Notification.objects.filter(
+                    user=request.user,
+                    notification_type=Notification.NotificationType.APPOINTMENT,
+                    related_object_id=linked_appointment.id,
+                    is_read=False,
+                ).update(is_read=True)
 
             messages.success(
                 request, f'New visit entry added to {record.pet.name}\'s record.')
@@ -852,8 +985,17 @@ def admin_add_entry(request, pk):
         initial_data = {
             'date_recorded': timezone.now().date(),
         }
+        if linked_appointment:
+            initial_data['date_recorded'] = linked_appointment.appointment_date
+            if linked_appointment.preferred_vet_id:
+                initial_data['vet'] = linked_appointment.preferred_vet_id
+            appointment_followup = FollowUp.objects.filter(
+                appointment=linked_appointment,
+            ).order_by('-created_at').first()
+            if appointment_followup:
+                initial_data['ff_up'] = appointment_followup.follow_up_date
         if record.vet:
-            initial_data['vet'] = record.vet
+            initial_data.setdefault('vet', record.vet)
         form = RecordEntryForm(initial=initial_data)
 
     vets, vets_for_json = get_veterinarians_for_json()
@@ -866,6 +1008,7 @@ def admin_add_entry(request, pk):
         'branches': branches,
         'vets_json': json.dumps(vets_for_json),
         'from_patients': from_patients,
+        'linked_appointment': linked_appointment,
     })
 
 
@@ -905,7 +1048,7 @@ def admin_entry_edit(request, entry_pk):
                 record.pet.save(update_fields=['branch'])
             # Touch the parent record so updated_at changes
             record.save()
-            notify_medical_record_follow_up(record, request.user)
+            sync_medical_record_entry_follow_up(updated_entry, request.user)
 
             messages.success(request, 'Visit entry updated.')
             return redirect('records:admin_detail', pk=record.pk)
@@ -1022,7 +1165,11 @@ def api_search_owners(request):
         owners = User.objects.filter(
             Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
         ).filter(
-            Q(first_name__icontains=query) | Q(last_name__icontains=query)
+            Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+            | Q(username__icontains=query)
+            | Q(email__icontains=query)
+            | Q(phone_number__icontains=query)
         ).order_by('first_name', 'last_name')[:20]  # Limit to 20 results
 
     data = [{

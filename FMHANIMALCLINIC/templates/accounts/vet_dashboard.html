@@ -89,6 +89,56 @@
 </div>
 {% endif %}
 
+{% if pending_medical_records %}
+<div class="alert-banner-modern" style="border-left-color: #f59e0b; margin-bottom: 24px;">
+  <div class="alert-icon" style="color: #f59e0b;">
+    <i class='bx bx-file-blank bx-tada'></i>
+  </div>
+  <div class="alert-content" style="width: 100%;">
+    <h4>Medical Records Pending</h4>
+    <p style="margin: 4px 0 12px;">Completed visits still needing your medical record.</p>
+    <div class="schedule-table-wrapper" style="background: transparent;">
+      <table class="schedule-table">
+        <thead>
+          <tr>
+            <th>Visit Date</th>
+            <th>Patient</th>
+            <th>Owner</th>
+            <th>Reason</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="pendingMedicalRecordsBody">
+          {% for appt in pending_medical_records %}
+          <tr class="pending-medical-record-row">
+            <td>{{ appt.appointment_date|date:"M d, Y" }}</td>
+            <td><strong>{{ appt.pet_name }}</strong></td>
+            <td>{{ appt.owner_name }}</td>
+            <td>{{ appt.reason_display }}</td>
+            <td>
+              <a href="{% url 'records:admin_create' %}?pet={{ appt.pet_id }}&vet={{ appt.preferred_vet_id }}&appointment={{ appt.id }}"
+                 class="section-link" style="white-space: nowrap;">
+                Create Record <i class='bx bx-right-arrow-alt'></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div id="pendingMedicalRecordsPagination" class="pending-records-pagination" hidden>
+      <button type="button" id="pendingRecordsPrevious" aria-label="Previous pending records page">
+        <i class='bx bx-chevron-left'></i> Previous
+      </button>
+      <span id="pendingRecordsPageLabel" class="pending-records-page-label"></span>
+      <button type="button" id="pendingRecordsNext" aria-label="Next pending records page">
+        Next <i class='bx bx-chevron-right'></i>
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- MAIN CHARTS GRID -->
 <div class="charts-section">
   
@@ -693,6 +743,43 @@
     border-radius: 8px;
   }
   
+  .pending-records-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .pending-records-pagination button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: 1px solid #fcd34d;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.65);
+    color: #78350f;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .pending-records-pagination button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .pending-records-pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .pending-records-page-label {
+    color: #78350f;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
   .alert-close {
     position: absolute;
     top: 12px;
@@ -2305,6 +2392,47 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Start all animations after charts are ready
   setTimeout(startDashAnimations, 100);
+
+  const pendingRecordsBody = document.getElementById('pendingMedicalRecordsBody');
+  const pendingRecordsPagination = document.getElementById('pendingMedicalRecordsPagination');
+  const pendingRecordsPrevious = document.getElementById('pendingRecordsPrevious');
+  const pendingRecordsNext = document.getElementById('pendingRecordsNext');
+  const pendingRecordsPageLabel = document.getElementById('pendingRecordsPageLabel');
+  const pendingRecordRows = pendingRecordsBody
+    ? Array.from(pendingRecordsBody.querySelectorAll('.pending-medical-record-row'))
+    : [];
+  const pendingRecordsPageSize = 5;
+  let pendingRecordsPage = 1;
+
+  function renderPendingRecordsPage() {
+    const totalPages = Math.ceil(pendingRecordRows.length / pendingRecordsPageSize);
+    const start = (pendingRecordsPage - 1) * pendingRecordsPageSize;
+    pendingRecordRows.forEach((row, index) => {
+      row.style.display = index >= start && index < start + pendingRecordsPageSize ? '' : 'none';
+    });
+    if (pendingRecordsPagination && totalPages > 1) {
+      pendingRecordsPagination.hidden = false;
+      pendingRecordsPageLabel.textContent = `Page ${pendingRecordsPage} of ${totalPages}`;
+      pendingRecordsPrevious.disabled = pendingRecordsPage === 1;
+      pendingRecordsNext.disabled = pendingRecordsPage === totalPages;
+    }
+  }
+
+  if (pendingRecordRows.length > pendingRecordsPageSize) {
+    renderPendingRecordsPage();
+    pendingRecordsPrevious.addEventListener('click', function() {
+      if (pendingRecordsPage > 1) {
+        pendingRecordsPage -= 1;
+        renderPendingRecordsPage();
+      }
+    });
+    pendingRecordsNext.addEventListener('click', function() {
+      if (pendingRecordsPage < Math.ceil(pendingRecordRows.length / pendingRecordsPageSize)) {
+        pendingRecordsPage += 1;
+        renderPendingRecordsPage();
+      }
+    });
+  }
 });
 </script>
 

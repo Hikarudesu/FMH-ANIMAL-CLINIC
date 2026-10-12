@@ -18,16 +18,16 @@ def patient_stats(request):
     pet_model = apps.get_model('patients', 'Pet')
     appointment_model = apps.get_model('appointments', 'Appointment')
 
-    total_patients_count = pet_model.objects.count()
-
     context = {
-        'total_patients_count': total_patients_count,
+        'total_patients_count': pet_model.objects.count(),
     }
 
     # Fetch dynamic data logic mapped to the specific logged in user:
     # 1. Fetch user's Pets
     user_pets = pet_model.objects.filter(owner=request.user)
     context['sidebar_user_pets'] = user_pets
+    if request.user.is_pet_owner():
+        context['user_pets_count'] = user_pets.count()
 
     # 2. Fetch user's Upcoming Appointment (today or later)
     # Exclude cancelled/completed to get a truly 'upcoming' relevant appointment
@@ -40,10 +40,5 @@ def patient_stats(request):
     ).order_by('appointment_date', 'appointment_time').first()
 
     context['sidebar_upcoming_appointment'] = upcoming_appointment
-
-    # Check for user specific role mapping if user is a standard Pet Owner
-    if request.user.is_pet_owner():
-        user_pets_count = pet_model.objects.filter(owner=request.user).count()
-        context['user_pets_count'] = user_pets_count
 
     return context

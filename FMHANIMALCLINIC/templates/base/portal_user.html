@@ -173,7 +173,6 @@
         {% if user_pets_count %}
         <span class="badge" style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: auto;">{{ user_pets_count }}</span>
         {% endif %}
-        {% if unread_pet_notifications_count > 0 %}<span class="badge" style="background: #ef4444;">{{ unread_pet_notifications_count }}</span>{% endif %}
       </a>
       <a href="{% url 'appointments:my_appointments' %}" class="sidebar-link {% if 'appointments' in request.path %}active{% endif %}">
         <i class='bx bx-calendar-check'></i><span>Appointments</span>

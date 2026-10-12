@@ -495,10 +495,30 @@ document.addEventListener("DOMContentLoaded", () => {
       // Keep the mobile list finite while retaining the seamless desktop loop.
       if (!isMobile()) {
         const cards = Array.from(carouselTrack.children);
-        cards.forEach((card) => {
-          const clone = card.cloneNode(true);
-          carouselTrack.appendChild(clone);
-        });
+        const viewportWidth = carouselContainer?.clientWidth || 0;
+        const appendCloneSet = () => {
+          cards.forEach((card) => {
+            const clone = card.cloneNode(true);
+            clone.classList.add("visible");
+            clone.setAttribute("aria-hidden", "true");
+            carouselTrack.appendChild(clone);
+          });
+        };
+
+        appendCloneSet();
+        const cycleWidth =
+          carouselTrack.children[cardCount].getBoundingClientRect().left -
+          carouselTrack.children[0].getBoundingClientRect().left;
+        const getTrailingWidth = () => {
+          const lastCard = carouselTrack.lastElementChild;
+          const firstCard = carouselTrack.children[0];
+          return lastCard.getBoundingClientRect().right -
+            firstCard.getBoundingClientRect().left -
+            cycleWidth;
+        };
+        while (cycleWidth > 0 && getTrailingWidth() < viewportWidth) {
+          appendCloneSet();
+        }
       }
 
       let currentScroll = 0;
@@ -510,7 +530,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const trackStyle = window.getComputedStyle(carouselTrack);
         const gap = parseFloat(trackStyle.gap) || 0;
         const step = card.offsetWidth + gap;
-        const totalWidth = step * cardCount;
+        const nextCycleCard = carouselTrack.children[cardCount];
+        const totalWidth = nextCycleCard
+          ? nextCycleCard.getBoundingClientRect().left - card.getBoundingClientRect().left
+          : step * cardCount;
         return { step, totalWidth };
       };
 

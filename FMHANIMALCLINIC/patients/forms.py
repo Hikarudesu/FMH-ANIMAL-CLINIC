@@ -264,21 +264,26 @@ class AdminPetForm(forms.ModelForm):
                 cleaned['guest_owner_email'] = ''
                 cleaned['guest_owner_address'] = ''
         elif source == Pet.Source.WALKIN:
+            phone = cleaned.get('guest_owner_phone', '').strip()
+            if not phone:
+                self.add_error('guest_owner_phone', 'Phone number is required for walk-in patients.')
+            else:
+                try:
+                    validate_philippines_phone(phone)
+                except forms.ValidationError as e:
+                    self.add_error('guest_owner_phone', e)
+
+            email = cleaned.get('guest_owner_email', '').strip()
+            if not email:
+                self.add_error('guest_owner_email', 'Email address is required for walk-in patients.')
+
             # Only validate and clear if this is a new record (not editing)
             if not self.instance or not self.instance.pk:
                 if not guest_name:
                     self.add_error('guest_owner_name', 'Owner name is required for walk-in patients.')
-                # Validate phone using centralized function
-                phone = cleaned.get('guest_owner_phone', '').strip()
-                if phone:
-                    try:
-                        validate_philippines_phone(phone)
-                    except forms.ValidationError as e:
-                        self.add_error('guest_owner_phone', e)
                 # Clear portal owner when source is WALKIN
                 cleaned['owner'] = None
                 if cleaned.get('create_new_account'):
-                    email = cleaned.get('guest_owner_email', '').strip()
                     if email:
                         from django.contrib.auth import get_user_model
 
@@ -287,14 +292,6 @@ class AdminPetForm(forms.ModelForm):
                                 'guest_owner_email',
                                 'This email already has an account. Select that account to link it instead.',
                             )
-            else:
-                # When editing walk-in patient, still validate phone if it's being changed
-                phone = cleaned.get('guest_owner_phone', '').strip()
-                if phone:
-                    try:
-                        validate_philippines_phone(phone)
-                    except forms.ValidationError as e:
-                        self.add_error('guest_owner_phone', e)
 
         return cleaned
 

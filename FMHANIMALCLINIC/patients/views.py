@@ -179,6 +179,19 @@ def admin_detail_view(request, pk):
     latest_entry = RecordEntry.objects.filter(
         record__pet=pet
     ).order_by('-date_recorded', '-created_at').first()
+    record_appointment_ids = set(
+        RecordEntry.objects.filter(
+            appointment_id__in=[
+                appointment.pk for appointment in appointments
+                if appointment.status == Appointment.Status.COMPLETED
+            ],
+        ).values_list('appointment_id', flat=True)
+    )
+    for appointment in appointments:
+        appointment.medical_record_added = (
+            appointment.status == Appointment.Status.COMPLETED
+            and appointment.pk in record_appointment_ids
+        )
 
     can_create_medical_record = request.user.has_module_permission('medical_records', 'CREATE')
     can_view_appointments = request.user.has_module_permission('appointments', 'VIEW')
@@ -497,14 +510,12 @@ def admin_add_pet_view(request):
 def api_owner_search(request):
     """Search eligible portal owners without sending the full account list."""
     from django.contrib.auth import get_user_model
-    from branches.models import Branch
 
     User = get_user_model()
     query = request.GET.get('q', '').strip()
     owner_id = request.GET.get('owner_id', '').strip()
-    branch_id = request.GET.get('branch', '').strip()
 
-    if (branch_id and not branch_id.isdecimal()) or (owner_id and not owner_id.isdecimal()):
+    if owner_id and not owner_id.isdecimal():
         return JsonResponse({'owners': [], 'has_more': False})
 
     owners = User.objects.filter(
@@ -513,19 +524,6 @@ def api_owner_search(request):
     ).filter(
         Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
     )
-
-    if request.user.is_module_branch_restricted('patients'):
-        user_branch = getattr(request.user, 'branch', None)
-        if not user_branch:
-            return JsonResponse({'owners': [], 'has_more': False})
-        branch_id = str(user_branch.pk)
-
-    if branch_id:
-        if not Branch.objects.filter(pk=branch_id, is_active=True).exists():
-            return JsonResponse({'owners': [], 'has_more': False})
-        owners = owners.filter(
-            Q(branch_id=branch_id) | Q(pets__branch_id=branch_id)
-        ).distinct()
 
     if owner_id:
         owners = owners.filter(pk=owner_id)
@@ -537,7 +535,8 @@ def api_owner_search(request):
                 Q(first_name__icontains=term) |
                 Q(last_name__icontains=term) |
                 Q(username__icontains=term) |
-                Q(email__icontains=term)
+                Q(email__icontains=term) |
+                Q(phone_number__icontains=term)
             )
 
     matches = list(
@@ -549,6 +548,7 @@ def api_owner_search(request):
         'name': owner.get_full_name().strip() or owner.username,
         'username': owner.username,
         'email': owner.email or '',
+        'phone': owner.phone_number or '',
     } for owner in matches[:25]]
     return JsonResponse({'owners': data, 'has_more': len(matches) > 25})
 

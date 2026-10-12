@@ -24,6 +24,8 @@ from notifications.utils import (
     notify_appointment_status_change,
     notify_follow_up_scheduled,
     notify_staff_appointment_status_change,
+    notify_veterinarian_medical_record_required,
+    sync_appointment_follow_up_to_medical_record,
 )
 
 
@@ -386,10 +388,31 @@ def admin_list(request):
     paginator = Paginator(appointments, 10)
     page_obj = paginator.get_page(page_number)
 
+    # A completed appointment remains actionable until a matching visit entry
+    # is saved for its pet, date, and assigned veterinarian.
+    from records.models import RecordEntry
+    completed_page_appointments = list(page_obj.object_list)
+    record_appointment_ids = set(
+        RecordEntry.objects.filter(
+            appointment_id__in=[
+                appointment.pk for appointment in completed_page_appointments
+                if appointment.status == Appointment.Status.COMPLETED
+            ],
+        ).values_list('appointment_id', flat=True)
+    )
+    for appointment in completed_page_appointments:
+        appointment.medical_record_added = (
+            appointment.status == Appointment.Status.COMPLETED
+            and appointment.pk in record_appointment_ids
+        )
+
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('appointments', 'CREATE')
     can_edit = request.user.has_module_permission('appointments', 'EDIT')
     can_delete = request.user.has_module_permission('appointments', 'DELETE')
+    can_create_medical_record = request.user.has_module_permission(
+        'medical_records', 'CREATE'
+    )
 
     return render(request, 'appointments/admin_list.html', {
         'appointments': page_obj,
@@ -410,6 +433,7 @@ def admin_list(request):
         'can_create': can_create,
         'can_edit': can_edit,
         'can_delete': can_delete,
+        'can_create_medical_record': can_create_medical_record,
     })
 
 
@@ -544,6 +568,8 @@ def admin_quick_create(request):
             
             # Also notify vet assistants about the appointment status
             notify_staff_appointment_status_change(appointment, appointment.status, actor=request.user)
+            if appointment.status == Appointment.Status.COMPLETED:
+                notify_veterinarian_medical_record_required(appointment, actor=request.user)
 
             # Handle follow-up creation
             follow_up_enabled = request.POST.get('follow_up_enabled')
@@ -608,6 +634,11 @@ def admin_edit(request, pk):
                     updated_appointment.status,
                     actor=request.user,
                 )
+                if updated_appointment.status == Appointment.Status.COMPLETED:
+                    notify_veterinarian_medical_record_required(
+                        updated_appointment,
+                        actor=request.user,
+                    )
 
             # Handle follow-up creation
             follow_up_enabled = request.POST.get('follow_up_enabled')
@@ -640,6 +671,9 @@ def admin_edit(request, pk):
                             created_by=request.user,
                         )
 
+                    sync_appointment_follow_up_to_medical_record(
+                        updated_appointment, followup,
+                    )
                     notify_follow_up_scheduled(
                         appointment=updated_appointment,
                         followup=followup,
@@ -693,10 +727,8 @@ def admin_delete(request, pk):
 @module_permission_required('appointments', 'VIEW')
 def api_pet_owners(request):
     """API: return list of registered pet owners for admin dropdown."""
-    # Only return users who have at least one pet (pet owners = not staff or no role)
+    # Include new accounts before they have registered a pet profile.
     owners = User.objects.filter(
-        pets__isnull=False
-    ).filter(
         Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
     ).distinct().order_by('first_name', 'last_name', 'username')
 

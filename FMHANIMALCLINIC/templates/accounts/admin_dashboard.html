@@ -30,28 +30,44 @@
   
   <div class="hero-stat-card">
     <div class="hero-stat-icon purple">
-      <i class='bx bx-money'></i>
+      <i class='bx bx-line-chart'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">₱{{ total_revenue_this_week|floatformat:0 }}</span>
-      <span class="hero-stat-label">Weekly Revenue</span>
+      <span class="hero-stat-value">₱{{ monthly_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-label">Monthly Revenue</span>
       <div class="hero-stat-meta">
-        <span class="meta-item {% if revenue_growth >= 0 %}success{% else %}danger{% endif %}">
-          <i class='bx bx-trending-{% if revenue_growth >= 0 %}up{% else %}down{% endif %}'></i> {{ revenue_growth|floatformat:1 }}% vs last week
-        </span>
+        <span class="meta-item">{{ dashboard_scope_label }}</span>
+        <span class="meta-item">₱{{ last_month_revenue|floatformat:0 }} last month</span>
       </div>
     </div>
   </div>
   
   <div class="hero-stat-card">
-    <div class="hero-stat-icon orange">
-      <i class='bx bx-group'></i>
+    <div class="hero-stat-icon emerald">
+      <i class='bx bx-wallet'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ new_customers_this_week }}</span>
-      <span class="hero-stat-label">New Customers</span>
+      <span class="hero-stat-value">₱{{ total_inventory_value|floatformat:0 }}</span>
+      <span class="hero-stat-label">Total Inventory Value</span>
       <div class="hero-stat-meta">
-        <span class="meta-item">{{ returning_customers_this_week }} returning</span>
+        <span class="meta-item">{{ dashboard_scope_label }}</span>
+        <span class="meta-item">
+          {% if inventory_value_is_estimated %}Estimated at selling price{% else %}Valued at recorded cost{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon blue">
+      <i class='bx bx-calendar-check'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ completed_visits_this_month }}</span>
+      <span class="hero-stat-label">Completed Visits This Month</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">{{ dashboard_scope_label }}</span>
+        <span class="meta-item">{{ scheduled_appointments_this_month }} scheduled</span>
       </div>
     </div>
   </div>
@@ -93,7 +109,7 @@
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-trending-up'></i>
-          <span>Revenue Trend</span>
+          <span>{% if revenue_chart_is_all_branches %}Combined Revenue Across All Branches{% else %}{{ user.branch.name|default:"Branch" }} Revenue Trend{% endif %}</span>
         </div>
         <div class="chart-badge purple">Last 6 Months</div>
       </div>
@@ -118,7 +134,7 @@
     {% endif %}
   </div>
   
-  <!-- ROW 2: Most Appointed Branches & Weekly Comparison -->
+  <!-- ROW 2: Branch Overview & Branch Growth -->
   <div class="charts-row">
     {% if branches|length > 1 %}
     <div class="chart-card-modern">
@@ -148,24 +164,8 @@
     </div>
     {% endif %}
     
+    {% if branches|length > 1 and user.assigned_role.code != 'cashier' and user.assigned_role.code != 'receptionist' %}
     <div class="chart-card-modern large">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Weekly Comparison</span>
-        </div>
-        <div class="chart-badge emerald">This vs Last Week</div>
-      </div>
-      <div class="chart-body tall">
-        <canvas id="weeklyComparisonChart"></canvas>
-      </div>
-    </div>
-  </div>
-  
-  {% if branches|length > 1 %}
-  <!-- ROW 3: Branch Growth Trend (Full Width) -->
-  <div class="charts-row">
-    <div class="chart-card-modern full">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-line-chart'></i>
@@ -176,12 +176,12 @@
           View Reports <i class='bx bx-right-arrow-alt'></i>
         </a>
       </div>
-      <div class="chart-body wide">
+      <div class="chart-body tall">
         <canvas id="branchMonthlyChart"></canvas>
       </div>
     </div>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
 
 <!-- QUICK INSIGHTS GRID -->
@@ -192,25 +192,27 @@
   </div>
   
   <div class="insights-grid">
-    <!-- Customer Metrics -->
+    <!-- Top Products -->
     <div class="insight-card">
       <div class="insight-header">
-        <i class='bx bx-user-voice'></i>
-        <span>Customers</span>
+        <i class='bx bx-package'></i>
+        <span>Top Products</span>
       </div>
-      <div class="insight-metrics">
-        <div class="metric-item">
-          <span class="metric-value success">{{ new_customers_this_week }}</span>
-          <span class="metric-label">New</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value blue">{{ returning_customers_this_week }}</span>
-          <span class="metric-label">Returning</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value purple">{{ new_patients_this_week }}</span>
-          <span class="metric-label">Pets Added</span>
-        </div>
+      <div class="product-sales">
+        {% if top_products %}
+          {% for product in top_products %}
+          <div class="service-row">
+            <span class="service-rank">#{{ forloop.counter }}</span>
+            <span class="service-name">{{ product.name }}</span>
+            <span class="product-sales-meta">
+              <strong>{{ product.units_sold }} sold</strong>
+              <span>₱{{ product.revenue|floatformat:2 }}</span>
+            </span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="no-data">No completed product sales yet</div>
+        {% endif %}
       </div>
     </div>
     
@@ -222,7 +224,7 @@
       </div>
       <div class="service-list-modern">
         {% if service_breakdown %}
-          {% for service in service_breakdown|slice:":4" %}
+          {% for service in service_breakdown|slice:":5" %}
           <div class="service-row">
             <span class="service-rank">#{{ forloop.counter }}</span>
             <span class="service-name">{{ service.name }}</span>
@@ -234,30 +236,6 @@
         {% endif %}
       </div>
     </div>
-    
-    {% if branches|length > 1 %}
-    <!-- Branch Summary -->
-    <div class="insight-card wide">
-      <div class="insight-header">
-        <i class='bx bx-buildings'></i>
-        <span>Branch Performance</span>
-      </div>
-      <div class="branch-bars">
-        {% for branch_data in branch_revenue_data %}
-        <div class="branch-bar-item">
-          <div class="branch-bar-label">
-            <span class="branch-name">{{ branch_data.name }}</span>
-            <span class="branch-value">₱{{ branch_data.revenue|floatformat:0 }}</span>
-          </div>
-          <div class="branch-bar-track">
-            <div class="branch-bar-fill" style="--target-width: {{ branch_data.percentage }}%; background: linear-gradient(90deg, #009688, #00bcd4);"></div>
-          </div>
-          <span class="branch-percentage">{{ branch_data.percentage }}%</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
   </div>
 </div>
 
@@ -354,7 +332,7 @@
   
   .hero-stats {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 20px;
     margin-bottom: 28px;
   }
@@ -425,6 +403,7 @@
   .hero-stat-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
   .hero-stat-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
   .hero-stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  .hero-stat-icon.emerald { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
   
   .hero-stat-card:hover .hero-stat-icon {
     transform: scale(1.1) rotate(-5deg);
@@ -534,6 +513,27 @@
     padding: 6px 12px;
     background: rgba(255,255,255,0.5);
     border-radius: 8px;
+  }
+
+  .product-sales {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .product-sales-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    color: var(--text-3);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .product-sales-meta strong {
+    color: var(--primary);
+    font-size: 14px;
   }
   
   .alert-item:hover {
@@ -745,14 +745,10 @@
   
   .insights-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
   }
-  
-  @media (max-width: 1100px) {
-    .insights-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-  
+
   @media (max-width: 700px) {
     .insights-grid { grid-template-columns: 1fr; }
   }
@@ -764,14 +760,6 @@
     padding: 24px;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-card);
-  }
-  
-  .insight-card.wide {
-    grid-column: span 1;
-  }
-  
-  @media (min-width: 1100px) {
-    .insight-card.wide { grid-column: span 1; }
   }
   
   .insight-card:hover {
@@ -896,64 +884,6 @@
     font-size: 13px;
   }
   
-  /* Branch Bars */
-  .branch-bars {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  .branch-bar-item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  
-  .branch-bar-label {
-    width: 140px;
-    flex-shrink: 0;
-  }
-  
-  .branch-name {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-1);
-    margin-bottom: 2px;
-  }
-  
-  .branch-value {
-    font-size: 11px;
-    color: var(--text-3);
-  }
-  
-  .branch-bar-track {
-    flex: 1;
-    height: 10px;
-    background: var(--bg);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  
-  .branch-bar-fill {
-    height: 100%;
-    border-radius: 6px;
-    width: 0;
-    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
-  }
-  
-  .dash-fade.visible .branch-bar-fill {
-    width: var(--target-width, 100%);
-  }
-  
-  .branch-percentage {
-    width: 40px;
-    text-align: right;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--primary);
-  }
-
   /* ═══════════════════════════════════════════════ */
   /* SCHEDULE SECTION */
   /* ═══════════════════════════════════════════════ */
@@ -1173,11 +1103,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Insight cards — staggered
     document.querySelectorAll('.insight-card').forEach((card, i) => {
       card.classList.add('dash-fade', `stagger-${i + 1}`);
-    });
-    
-    // Branch bar items
-    document.querySelectorAll('.branch-bar-item').forEach((bar, i) => {
-      bar.classList.add('dash-fade', 'from-right', `stagger-${i + 1}`);
     });
     
     // Schedule section
@@ -1553,115 +1478,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   {% endif %}
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // NEW CHART 2: WEEKLY PERFORMANCE COMPARISON (Modern Grouped Bar)
-  // ═══════════════════════════════════════════════════════════════════════
-  
-  const weeklyComparisonCtx = document.getElementById('weeklyComparisonChart');
-  if (weeklyComparisonCtx) {
-    // Get data from context
-    const weeklyData = {
-      labels: ['Appointments', 'New Customers', 'Revenue (₱K)', 'Completed', 'Products Sold'],
-      thisWeek: [{{ this_week_appointments|default:0 }}, {{ new_customers_this_week|default:0 }}, {{ this_week_revenue_k|default:0 }}, {{ this_week_completed|default:0 }}, {{ this_week_products|default:0 }}],
-      lastWeek: [{{ last_week_appointments|default:0 }}, {{ last_week_customers|default:0 }}, {{ last_week_revenue_k|default:0 }}, {{ last_week_completed|default:0 }}, {{ last_week_products|default:0 }}]
-    };
-    
-    // Create gradient for this week
-    const thisWeekGradient = weeklyComparisonCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    thisWeekGradient.addColorStop(0, '#10b981');
-    thisWeekGradient.addColorStop(1, '#059669');
-    
-    // Create gradient for last week
-    const lastWeekGradient = weeklyComparisonCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    lastWeekGradient.addColorStop(0, '#94a3b8');
-    lastWeekGradient.addColorStop(1, '#64748b');
-    
-    new Chart(weeklyComparisonCtx, {
-      type: 'bar',
-      data: {
-        labels: weeklyData.labels,
-        datasets: [
-          {
-            label: 'This Week',
-            data: weeklyData.thisWeek,
-            backgroundColor: thisWeekGradient,
-            borderRadius: 0,
-            borderSkipped: false,
-            barPercentage: 0.7,
-            categoryPercentage: 0.8
-          },
-          {
-            label: 'Last Week',
-            data: weeklyData.lastWeek,
-            backgroundColor: lastWeekGradient,
-            borderRadius: 0,
-            borderSkipped: false,
-            barPercentage: 0.7,
-            categoryPercentage: 0.8
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            position: 'top',
-            align: 'end',
-            labels: {
-              usePointStyle: true,
-              pointStyle: 'rectRounded',
-              padding: 20,
-              font: { size: 12, weight: '600' }
-            }
-          },
-          tooltip: {
-            ...commonTooltip,
-            callbacks: {
-              label: function(context) {
-                const label = context.dataset.label;
-                const value = context.raw;
-                const otherDataset = context.chart.data.datasets[context.datasetIndex === 0 ? 1 : 0];
-                const otherValue = otherDataset.data[context.dataIndex];
-                const diff = value - otherValue;
-                const diffPercent = otherValue > 0 ? ((diff / otherValue) * 100).toFixed(1) : 0;
-                const arrow = diff >= 0 ? '↑' : '↓';
-                const color = diff >= 0 ? '🟢' : '🔴';
-                
-                if (context.datasetIndex === 0) {
-                  return `${label}: ${value.toLocaleString()} ${color} ${arrow}${Math.abs(diffPercent)}%`;
-                }
-                return `${label}: ${value.toLocaleString()}`;
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            grid: { display: false, drawBorder: false },
-            ticks: { font: { size: 11, weight: '500' } }
-          },
-          y: {
-            beginAtZero: true,
-            grid: { color: 'rgba(0, 0, 0, 0.04)', drawBorder: false, borderDash: [4, 4] },
-            ticks: { font: { size: 11 }, precision: 0 }
-          }
-        },
-        animation: {
-          duration: 1600,
-          easing: 'easeInOutCubic',
-          delay(ctx) {
-            if (ctx.type === 'data' && ctx.mode === 'default') {
-              return ctx.dataIndex * 120 + ctx.datasetIndex * 200;
-            }
-            return 0;
-          }
-        }
-      }
-    });
-  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // MULTI-BRANCH ANALYTICS CHARTS

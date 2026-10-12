@@ -977,6 +977,8 @@ function getLocalYMD(d) {
   const clientSourceSelect = document.getElementById("qc-client-source");
   const sourceHiddenField = document.getElementById("qc-source-hidden");
   const ownerSelect = document.getElementById("ownerSelect");
+  const ownerSearchInput = document.getElementById("qc-owner-search-input");
+  const ownerDropdown = document.getElementById("qc-owner-dropdown");
   const petSelect = document.getElementById("petSelect");
   const selectedUserIdField = document.querySelector('#quickCreateModal input[name="selected_user_id"]');
   const selectedPetIdField = document.querySelector('#quickCreateModal input[name="selected_pet_id"]');
@@ -984,6 +986,17 @@ function getLocalYMD(d) {
   // Owner groups
   const ownerPortalGroup = document.getElementById("qc-owner-portal-group");
   const ownerNameGroup = document.getElementById("qc-owner-name-group");
+  const ownerSearchWrapper = document.querySelector(".qc-owner-search-wrapper");
+  const walkinSearchWrapper = document.querySelector(".qc-walkin-search-wrapper");
+
+  document.addEventListener("pointerdown", function (event) {
+    if (ownerDropdown && ownerSearchWrapper && !ownerSearchWrapper.contains(event.target)) {
+      ownerDropdown.style.display = "none";
+    }
+    if (walkinDropdown && walkinSearchWrapper && !walkinSearchWrapper.contains(event.target)) {
+      walkinDropdown.style.display = "none";
+    }
+  }, true);
 
   // Pet groups
   const petPortalGroup = document.getElementById("qc-pet-portal-group");
@@ -1012,6 +1025,11 @@ function getLocalYMD(d) {
 
     // Update hidden source field
     if (sourceHiddenField) sourceHiddenField.value = isPortal ? "PORTAL" : "WALKIN";
+    if (clientSourceSelect) clientSourceSelect.required = true;
+    if (ownerSearchInput) ownerSearchInput.required = isPortal;
+    if (ownerNameField) ownerNameField.required = !isPortal;
+    if (petSelect) petSelect.required = isPortal && !petManualToggle?.checked;
+    if (petNameField) petNameField.required = !isPortal || Boolean(petManualToggle?.checked);
 
     if (isPortal) {
       // Portal Mode: Show owner dropdown, hide walk-in search, hide manual owner name input
@@ -1086,10 +1104,83 @@ function getLocalYMD(d) {
             ownerSelect.appendChild(opt);
           });
         }
+        renderOwnerResults("");
       })
       .catch(() => {
         console.error("Failed to load owners");
       });
+  }
+
+  function renderOwnerResults(query) {
+    if (!ownerDropdown || !ownerSelect) return;
+    const normalizedQuery = query.trim().toLowerCase();
+    const options = Array.from(ownerSelect.options).filter((option) => {
+      if (!option.value) return false;
+      const searchableText = [
+        option.dataset.name,
+        option.dataset.email,
+        option.dataset.phone,
+      ].join(" ").toLowerCase();
+      return !normalizedQuery || searchableText.includes(normalizedQuery);
+    });
+
+    ownerDropdown.innerHTML = "";
+    if (!options.length) {
+      ownerDropdown.innerHTML = '<div class="qc-owner-empty">No owners found</div>';
+      ownerDropdown.style.display = "block";
+      return;
+    }
+
+    options.slice(0, 30).forEach((option) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "qc-owner-item";
+      item.innerHTML = `
+        <i class="bx bx-user" aria-hidden="true"></i>
+        <span class="qc-owner-item-info">
+          <span class="qc-owner-item-name"></span>
+          <span class="qc-owner-item-sub"></span>
+        </span>
+      `;
+      item.querySelector(".qc-owner-item-name").textContent = option.dataset.name || "";
+      item.querySelector(".qc-owner-item-sub").textContent =
+        option.dataset.email || option.dataset.phone || "";
+      const selectOwner = (event) => {
+        event.preventDefault();
+        ownerSelect.value = option.value;
+        if (ownerSearchInput) ownerSearchInput.value = option.dataset.name || "";
+        ownerDropdown.style.display = "none";
+        ownerSelect.dispatchEvent(new Event("change"));
+      };
+      item.addEventListener("mousedown", selectOwner);
+      ownerDropdown.appendChild(item);
+    });
+    ownerDropdown.style.display = "block";
+  }
+
+  if (ownerSearchInput) {
+    ownerSearchInput.addEventListener("input", function () {
+      const selectedOption = ownerSelect && ownerSelect.options[ownerSelect.selectedIndex];
+      const selectedName = selectedOption?.dataset.name || "";
+      if (ownerSelect && ownerSelect.value && this.value.trim() !== selectedName) {
+        ownerSelect.value = "";
+        if (selectedUserIdField) selectedUserIdField.value = "";
+        clearOwnerFields();
+        if (petSelect) {
+          petSelect.innerHTML = '<option value="">— Select owner first —</option>';
+          petSelect.disabled = true;
+        }
+      }
+      renderOwnerResults(this.value);
+    });
+    ownerSearchInput.addEventListener("focus", function () {
+      renderOwnerResults(this.value);
+    });
+    ownerSearchInput.addEventListener("blur", function () {
+      setTimeout(() => {
+        if (ownerDropdown) ownerDropdown.style.display = "none";
+      }, 180);
+    });
   }
 
   // When owner is selected (Portal mode), auto-fill owner fields and load pets
@@ -1097,6 +1188,7 @@ function getLocalYMD(d) {
     ownerSelect.addEventListener("change", function () {
       const ownerId = this.value;
       if (selectedUserIdField) selectedUserIdField.value = ownerId || "";
+      if (ownerSearchInput && !ownerId) ownerSearchInput.value = "";
 
       if (ownerId) {
         // Find owner data from dropdown option
@@ -1125,6 +1217,8 @@ function getLocalYMD(d) {
                 // Show manual pet input for new pet
                 if (petManualToggleLabel) petManualToggleLabel.style.display = "";
                 if (petNameGroup) petNameGroup.style.display = "";
+                petSelect.required = false;
+                if (petNameField) petNameField.required = true;
               } else {
                 petsCache.forEach((pet) => {
                   const opt = document.createElement("option");
@@ -1207,6 +1301,8 @@ function getLocalYMD(d) {
         if (petSelect) petSelect.style.display = "";
         if (petNameGroup && petsCache.length > 0) petNameGroup.style.display = "none";
       }
+      if (petSelect) petSelect.required = !this.checked;
+      if (petNameField) petNameField.required = this.checked;
     });
   }
 
@@ -1306,11 +1402,10 @@ function getLocalYMD(d) {
     walkinManualToggle.addEventListener('change', function() {
       const searchInner = document.getElementById("qc-walkin-search-inner");
       if (this.checked) {
-        // Show all owner input fields for fresh manual entry
+        // New guest: use the manual owner-name field instead of returning-guest search.
         if (ownerNameGroup) ownerNameGroup.style.display = "";
-        // Hide only the search bar
         if (searchInner) searchInner.style.display = "none";
-        // Clear any previously filled data
+        if (ownerNameField) ownerNameField.required = true;
         if (ownerNameField) ownerNameField.value = "";
         if (ownerPhoneField) ownerPhoneField.value = "";
         if (ownerEmailField) ownerEmailField.value = "";
@@ -1318,15 +1413,21 @@ function getLocalYMD(d) {
         // Clear search input since we're entering manually
         if (walkinSearchInput) walkinSearchInput.value = "";
         if (walkinDropdown) walkinDropdown.style.display = "none";
-        // Hide pet select group — new guest means new pet
         resetWalkinPetGroup();
+        if (ownerNameField) ownerNameField.focus();
       } else {
-        // Show the search bar again
+        // Returning guest: show search and hide manual owner-name entry.
         if (searchInner) searchInner.style.display = "";
-        // Hide manual fields if no guest selected yet
-        if (ownerNameGroup && !(ownerNameField && ownerNameField.value)) {
-          ownerNameGroup.style.display = "none";
+        if (ownerNameGroup) ownerNameGroup.style.display = "none";
+        if (ownerNameField) {
+          ownerNameField.required = false;
+          ownerNameField.value = "";
         }
+        if (ownerPhoneField) ownerPhoneField.value = "";
+        if (ownerEmailField) ownerEmailField.value = "";
+        if (ownerAddressField) ownerAddressField.value = "";
+        resetWalkinPetGroup();
+        if (walkinSearchInput) walkinSearchInput.focus();
       }
     });
   }
@@ -1462,6 +1563,8 @@ function getLocalYMD(d) {
       loadOwners();
       // Reset to initial Portal state
       if (clientSourceSelect) clientSourceSelect.value = "PORTAL";
+      if (ownerSearchInput) ownerSearchInput.value = "";
+      if (ownerDropdown) ownerDropdown.style.display = "none";
       // Reset walk-in owner search
       if (walkinSearchInput) walkinSearchInput.value = "";
       if (walkinDropdown) walkinDropdown.style.display = "none";
@@ -1517,6 +1620,10 @@ function getLocalYMD(d) {
           clearInterval(interval);
           if (ownerId) {
              ownerSelect.value = ownerId;
+             const ownerOption = ownerSelect.options[ownerSelect.selectedIndex];
+             if (ownerSearchInput && ownerOption) {
+               ownerSearchInput.value = ownerOption.dataset.name || "";
+             }
              // Trigger change to load pets
              ownerSelect.dispatchEvent(new Event("change"));
              
@@ -1546,4 +1653,3 @@ function getLocalYMD(d) {
   }
 
 });
-

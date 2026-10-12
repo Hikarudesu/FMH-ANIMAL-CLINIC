@@ -263,6 +263,7 @@
     transition: all 0.3s;
   }
   .od-list-item:hover .od-delete-icon { opacity: 1; }
+  .od-delete-icon:focus-visible { opacity: 1; outline: 3px solid rgba(0, 137, 123, 0.35); outline-offset: 2px; }
   .od-delete-icon:hover {
     background: linear-gradient(135deg, #ef5350 0%, #e53935 100%);
     color: #fff;
@@ -446,7 +447,7 @@
       <i class='bx bx-bell'></i> Recent Notifications
       <span class="od-section-count">{{ notifications|length }}</span>
       {% if notifications %}
-      <button class="od-clear-btn" onclick="clearAllNotifications()">Clear All</button>
+      <button type="button" class="od-clear-btn" onclick="clearAllNotifications()">Clear All</button>
       {% endif %}
     </div>
     <div class="od-card-body" style="padding: 8px 24px;">
@@ -458,9 +459,9 @@
             <div class="list-title">{{ notif.title }}</div>
             <div class="list-meta">{{ notif.message|truncatechars:60 }} · {{ notif.created_at|timesince }} ago</div>
           </div>
-          <div class="od-delete-icon" onclick="deleteNotification({{ notif.pk }}, this)">
+          <button type="button" class="od-delete-icon" aria-label="Delete notification" onclick="deleteNotification({{ notif.pk }}, this)">
             <i class='bx bx-trash'></i>
-          </div>
+          </button>
         </div>
         {% empty %}
         <div class="od-empty">
@@ -487,7 +488,7 @@
       <i class='bx bx-history'></i> Recent Activity
       <span class="od-section-count">{{ activities|length }}</span>
       {% if activities %}
-      <button class="od-clear-btn" onclick="clearAllActivities()">Clear All</button>
+      <button type="button" class="od-clear-btn" onclick="clearAllActivities()">Clear All</button>
       {% endif %}
     </div>
     <div class="od-card-body" style="padding: 8px 24px;">
@@ -499,9 +500,9 @@
             <div class="list-title">{{ act.action }} {{ act.object_name }}</div>
             <div class="list-meta">{{ act.timestamp|timesince }} ago</div>
           </div>
-          <div class="od-delete-icon" onclick="deleteActivity({{ act.pk }}, this)">
+          <button type="button" class="od-delete-icon" aria-label="Delete activity" onclick="deleteActivity({{ act.pk }}, this)">
             <i class='bx bx-trash'></i>
-          </div>
+          </button>
         </div>
         {% empty %}
         <div class="od-empty">
@@ -523,6 +524,168 @@
   </div>
 </div>
 
+<div class="od-confirm-overlay" id="odConfirmOverlay" aria-hidden="true">
+  <section class="od-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="odConfirmTitle" aria-describedby="odConfirmMessage">
+    <button type="button" class="od-confirm-close" id="odConfirmClose" aria-label="Close dialog">
+      <i class='bx bx-x'></i>
+    </button>
+    <div class="od-confirm-icon" id="odConfirmIcon"><i class='bx bx-trash'></i></div>
+    <h2 id="odConfirmTitle">Confirm action</h2>
+    <p id="odConfirmMessage"></p>
+    <div class="od-confirm-actions">
+      <button type="button" class="od-confirm-cancel" id="odConfirmCancel">Cancel</button>
+      <button type="button" class="od-confirm-submit" id="odConfirmSubmit">Delete</button>
+    </div>
+  </section>
+</div>
+
+<style>
+  .od-delete-icon {
+    border: 0;
+    padding: 0;
+  }
+
+  .od-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 180ms ease, visibility 180ms ease;
+  }
+
+  .od-confirm-overlay.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  body.od-confirm-open { overflow: hidden; }
+
+  .od-confirm-dialog {
+    position: relative;
+    width: min(100%, 430px);
+    padding: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 22px;
+    background: #fff;
+    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.25);
+    text-align: center;
+    transform: translateY(12px) scale(0.98);
+    transition: transform 180ms ease;
+  }
+
+  .od-confirm-overlay.open .od-confirm-dialog {
+    transform: translateY(0) scale(1);
+  }
+
+  .od-confirm-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 1.25rem;
+    cursor: pointer;
+  }
+
+  .od-confirm-icon {
+    display: grid;
+    width: 64px;
+    height: 64px;
+    margin: 2px auto 18px;
+    place-items: center;
+    border-radius: 20px;
+    background: #fff1f2;
+    color: #e11d48;
+    font-size: 1.8rem;
+  }
+
+  .od-confirm-dialog h2 {
+    margin: 0 24px 10px;
+    color: #172033;
+    font-size: 1.25rem;
+    font-weight: 750;
+  }
+
+  .od-confirm-dialog p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.94rem;
+    line-height: 1.6;
+  }
+
+  .od-confirm-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 26px;
+  }
+
+  .od-confirm-actions button {
+    min-width: 120px;
+    min-height: 42px;
+    padding: 10px 18px;
+    border-radius: 11px;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  }
+
+  .od-confirm-actions button:hover {
+    transform: translateY(-1px);
+  }
+
+  .od-confirm-cancel {
+    border: 1px solid #dbe2ea;
+    background: #fff;
+    color: #475569;
+  }
+
+  .od-confirm-cancel:hover {
+    background: #f8fafc;
+  }
+
+  .od-confirm-submit {
+    border: 1px solid #dc2626;
+    background: #dc2626;
+    color: #fff;
+    box-shadow: 0 5px 14px rgba(220, 38, 38, 0.2);
+  }
+
+  .od-confirm-submit:hover {
+    background: #b91c1c;
+  }
+
+  .od-confirm-dialog.is-message .od-confirm-icon {
+    background: #fff7ed;
+    color: #ea580c;
+  }
+
+  .od-confirm-dialog.is-message .od-confirm-cancel {
+    display: none;
+  }
+
+  @media (max-width: 480px) {
+    .od-confirm-dialog { padding: 28px 22px 24px; }
+    .od-confirm-actions { flex-direction: column-reverse; }
+    .od-confirm-actions button { width: 100%; }
+  }
+</style>
+
 <!-- Client-Side Pagination & Delete Script -->
 <script>
   const ITEMS_PER_PAGE = 5;
@@ -532,6 +695,76 @@
     notif: { page: 1, total: {{ notifications|length }} },
     activity: { page: 1, total: {{ activities|length }} }
   };
+  const confirmOverlay = document.getElementById('odConfirmOverlay');
+  const confirmDialog = confirmOverlay.querySelector('.od-confirm-dialog');
+  const confirmTitle = document.getElementById('odConfirmTitle');
+  const confirmMessage = document.getElementById('odConfirmMessage');
+  const confirmIcon = document.getElementById('odConfirmIcon');
+  const confirmSubmit = document.getElementById('odConfirmSubmit');
+  const confirmCancel = document.getElementById('odConfirmCancel');
+  const confirmClose = document.getElementById('odConfirmClose');
+  let confirmResolver = null;
+  let previousFocus = null;
+
+  function closeConfirmDialog(confirmed) {
+    confirmOverlay.classList.remove('open');
+    confirmOverlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('od-confirm-open');
+    if (confirmResolver) {
+      confirmResolver(confirmed);
+      confirmResolver = null;
+    }
+    if (previousFocus?.isConnected) previousFocus.focus();
+  }
+
+  function openConfirmDialog({ title, message, confirmText, icon, isMessage = false }) {
+    confirmTitle.textContent = title;
+    confirmMessage.textContent = message;
+    confirmSubmit.textContent = confirmText;
+    confirmIcon.innerHTML = `<i class='bx ${icon}' aria-hidden='true'></i>`;
+    confirmDialog.classList.toggle('is-message', isMessage);
+    confirmCancel.hidden = isMessage;
+    previousFocus = document.activeElement;
+    confirmOverlay.classList.add('open');
+    confirmOverlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('od-confirm-open');
+    (isMessage ? confirmSubmit : confirmCancel).focus();
+
+    return new Promise(resolve => {
+      confirmResolver = resolve;
+    });
+  }
+
+  confirmSubmit.addEventListener('click', () => closeConfirmDialog(true));
+  confirmCancel.addEventListener('click', () => closeConfirmDialog(false));
+  confirmClose.addEventListener('click', () => closeConfirmDialog(false));
+  confirmOverlay.addEventListener('click', event => {
+    if (event.target === confirmOverlay) closeConfirmDialog(false);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && confirmOverlay.classList.contains('open')) {
+      closeConfirmDialog(false);
+    }
+  });
+
+  function confirmDestructiveAction(title, message, confirmText = 'Delete') {
+    return openConfirmDialog({
+      title,
+      message,
+      confirmText,
+      icon: 'bx-trash',
+    });
+  }
+
+  function showActionError(message) {
+    return openConfirmDialog({
+      title: 'Action couldn’t be completed',
+      message,
+      confirmText: 'Got it',
+      icon: 'bx-error-circle',
+      isMessage: true,
+    });
+  }
 
   function updateListVisibility(type) {
     let selector, prefix;
@@ -581,7 +814,10 @@
 
   // Delete individual notification
   async function deleteNotification(notifId, btnElement) {
-    if (!confirm('Delete this notification?')) return;
+    if (!await confirmDestructiveAction(
+      'Delete notification?',
+      'This notification will be permanently removed from this owner’s recent notifications.'
+    )) return;
 
     try {
       const response = await fetch(`/patients/admin/owner/{{ owner.pk }}/notification/${notifId}/delete/`, {
@@ -591,27 +827,30 @@
           'Content-Type': 'application/json',
         }
       });
+      if (!response.ok) throw new Error('Notification deletion failed.');
 
-      if (response.ok) {
-        const listItem = btnElement.closest('.notif-item');
-        listItem.style.transition = 'all 0.3s';
-        listItem.style.opacity = '0';
-        listItem.style.transform = 'translateX(20px)';
-        setTimeout(() => {
-          listItem.remove();
-          state.notif.total--;
-          updateNotificationCount();
-          updateListVisibility('notif');
-        }, 300);
-      }
+      const listItem = btnElement.closest('.notif-item');
+      listItem.style.transition = 'all 0.3s';
+      listItem.style.opacity = '0';
+      listItem.style.transform = 'translateX(20px)';
+      setTimeout(() => {
+        listItem.remove();
+        state.notif.total--;
+        updateNotificationCount();
+        updateListVisibility('notif');
+      }, 300);
     } catch (error) {
-      alert('Failed to delete notification');
+      await showActionError('We couldn’t delete this notification. Please try again.');
     }
   }
 
   // Clear all notifications
   async function clearAllNotifications() {
-    if (!confirm(`Clear all ${state.notif.total} notifications?`)) return;
+    if (!await confirmDestructiveAction(
+      'Clear all notifications?',
+      `This will permanently remove all ${state.notif.total} notifications for this owner. This can’t be undone.`,
+      'Clear all'
+    )) return;
 
     try {
       const response = await fetch(`/patients/admin/owner/{{ owner.pk }}/notifications/clear/`, {
@@ -621,18 +860,20 @@
           'Content-Type': 'application/json',
         }
       });
+      if (!response.ok) throw new Error('Notification clearing failed.');
 
-      if (response.ok) {
-        location.reload();
-      }
+      location.reload();
     } catch (error) {
-      alert('Failed to clear notifications');
+      await showActionError('We couldn’t clear the notifications. Please try again.');
     }
   }
 
   // Delete individual activity
   async function deleteActivity(actId, btnElement) {
-    if (!confirm('Delete this activity?')) return;
+    if (!await confirmDestructiveAction(
+      'Delete activity?',
+      'This activity entry will be permanently removed from this owner’s recent activity.'
+    )) return;
 
     try {
       const response = await fetch(`/patients/admin/owner/{{ owner.pk }}/activity/${actId}/delete/`, {
@@ -642,27 +883,30 @@
           'Content-Type': 'application/json',
         }
       });
+      if (!response.ok) throw new Error('Activity deletion failed.');
 
-      if (response.ok) {
-        const listItem = btnElement.closest('.activity-item');
-        listItem.style.transition = 'all 0.3s';
-        listItem.style.opacity = '0';
-        listItem.style.transform = 'translateX(20px)';
-        setTimeout(() => {
-          listItem.remove();
-          state.activity.total--;
-          updateActivityCount();
-          updateListVisibility('activity');
-        }, 300);
-      }
+      const listItem = btnElement.closest('.activity-item');
+      listItem.style.transition = 'all 0.3s';
+      listItem.style.opacity = '0';
+      listItem.style.transform = 'translateX(20px)';
+      setTimeout(() => {
+        listItem.remove();
+        state.activity.total--;
+        updateActivityCount();
+        updateListVisibility('activity');
+      }, 300);
     } catch (error) {
-      alert('Failed to delete activity');
+      await showActionError('We couldn’t delete this activity. Please try again.');
     }
   }
 
   // Clear all activities
   async function clearAllActivities() {
-    if (!confirm(`Clear all ${state.activity.total} activities?`)) return;
+    if (!await confirmDestructiveAction(
+      'Clear all activity?',
+      `This will permanently remove all ${state.activity.total} activity entries for this owner. This can’t be undone.`,
+      'Clear all'
+    )) return;
 
     try {
       const response = await fetch(`/patients/admin/owner/{{ owner.pk }}/activities/clear/`, {
@@ -672,12 +916,11 @@
           'Content-Type': 'application/json',
         }
       });
+      if (!response.ok) throw new Error('Activity clearing failed.');
 
-      if (response.ok) {
-        location.reload();
-      }
+      location.reload();
     } catch (error) {
-      alert('Failed to clear activities');
+      await showActionError('We couldn’t clear the recent activity. Please try again.');
     }
   }
 

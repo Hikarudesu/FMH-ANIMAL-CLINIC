@@ -48,6 +48,9 @@
 
     <form method="post">
         {% csrf_token %}
+        {% if request.GET.appointment %}
+        <input type="hidden" name="appointment" value="{{ request.GET.appointment }}">
+        {% endif %}
 
         <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
             <div class="form-group">
@@ -67,8 +70,8 @@
                 {{ form.temperature }}
             </div>
             <div class="form-group">
-                <label class="form-label">Branch / Location</label>
-                <select name="branch_id" id="ae_branch" class="form-control-custom">
+                <label class="form-label">Branch / Location *</label>
+                <select name="branch_id" id="ae_branch" class="form-control-custom" required>
                     <option value="">— Select Branch —</option>
                     {% for branch in branches %}
                     <option value="{{ branch.id }}" {% if record.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
@@ -76,7 +79,7 @@
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Attending Veterinarian</label>
+                <label class="form-label">Attending Veterinarian *</label>
                 {{ form.vet }}
             </div>
         </div>

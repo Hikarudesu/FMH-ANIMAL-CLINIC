@@ -3,6 +3,12 @@
 {% block title %}Add Medical Record Entry{% endblock %}
 
 {% block content %}
+{% if appointment_prefill %}
+{{ appointment_prefill|json_script:"appointment-prefill-data" }}
+{% endif %}
+{% if selected_pet_prefill %}
+{{ selected_pet_prefill|json_script:"selected-pet-prefill-data" }}
+{% endif %}
 <!-- Page Hero -->
 {% if from_patients and selected_pet %}
     {% url 'patients:admin_detail' selected_pet.id as back_url %}
@@ -23,6 +29,9 @@
 
     <form method="post" action="{% url 'records:admin_create' %}" style="display: flex; flex-direction: column; gap: 24px;">
         {% csrf_token %}
+        {% if request.GET.appointment %}
+        <input type="hidden" name="appointment" value="{{ request.GET.appointment }}">
+        {% endif %}
 
                 {% if form.non_field_errors or form.errors %}
                 <div role="alert" style="padding: 12px 16px; border: 1px solid #e57373; border-radius: 8px; background: #fff5f5; color: #b71c1c;">
@@ -103,6 +112,7 @@
             /* Custom checkbox styling */
             .custom-checkbox {
                 appearance: none;
+                box-sizing: border-box;
                 width: 18px;
                 height: 18px;
                 border: 2px solid var(--primary);
@@ -121,6 +131,22 @@
                 background-size: 100% 100%;
                 background-position: center;
                 background-repeat: no-repeat;
+            }
+            #owner-walkin-toggle-label,
+            #pet-input-toggle-label {
+                display: flex;
+                align-items: center;
+                min-height: 22px;
+                line-height: 18px;
+                user-select: none;
+            }
+            #owner-walkin-toggle-label span,
+            #pet-input-toggle-label span {
+                line-height: 18px;
+            }
+            #owner-walkin-toggle-label + div,
+            #pet-input-toggle-label + div {
+                line-height: 1.4;
             }
             .custom-checkbox:focus {
                 outline: none;
@@ -154,7 +180,7 @@
         <!-- Owner & Pet Selection (Parallel) -->
         <div>
             <h3 class="section-title">Owner & Pet Selection</h3>
-            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-grid" style="grid-template-columns: 1fr;">
                 <!-- Left Column: Owner Selection -->
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <div class="form-group">
@@ -165,23 +191,43 @@
                         </select>
                     </div>
                     <div class="form-group" id="owner-portal-group">
-                        <label class="form-label">Select Owner *</label>
-                        <select id="ro-owner-select" class="form-control-custom" required>
+                        <label class="form-label">Search Registered Owner *</label>
+                        <div style="position: relative;">
+                            <i class="bx bx-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;"></i>
+                            <input type="search" id="ro-owner-search" class="form-control-custom" style="padding-left: 38px;" placeholder="Type owner name, phone, or email..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" required />
+                        </div>
+                        <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 6px;">
+                            Search and select a registered portal owner to load their contact details and pets.
+                        </div>
+                        <div id="ro-owner-results" role="listbox" style="display: none; position: relative; z-index: 5; max-height: 220px; overflow-y: auto; margin-top: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-sm);">
+                        </div>
+                        <select id="ro-owner-select" class="form-control-custom" required style="display: none;" aria-hidden="true" tabindex="-1">
                             <option value="">— Search & Select Owner —</option>
                         </select>
                         <input type="hidden" id="selected_user_id" name="selected_user_id" value="" />
                         <input type="hidden" id="ro-owner-name" name="owner_name" value="" />
                     </div>
                     <div class="form-group" id="owner-walkin-group" style="display: none;">
-                        <label class="form-label">Name of Owner *</label>
-                        <select id="ro-walkin-select" class="form-control-custom">
+                        <div id="ro-walkin-search-wrapper">
+                            <label class="form-label">Search Guest Owner *</label>
+                            <div style="position: relative;">
+                                <i class="bx bx-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;"></i>
+                                <input type="search" id="ro-walkin-search" class="form-control-custom" style="padding-left: 38px;" placeholder="Type guest owner name or phone..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" />
+                            </div>
+                            <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 6px;">
+                                Search and select a returning guest owner, or register a new guest below.
+                            </div>
+                            <div id="ro-walkin-results" role="listbox" style="display: none; position: relative; z-index: 5; max-height: 220px; overflow-y: auto; margin-top: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-sm);">
+                            </div>
+                        </div>
+                        <select id="ro-walkin-select" class="form-control-custom" required style="display: none;" aria-hidden="true" tabindex="-1">
                             <option value="">— Select Guest Owner —</option>
                         </select>
                         <input type="text" id="ro-owner-name-walkin" name="owner_name_walkin" class="form-control-custom" placeholder="Enter guest owner name" autocomplete="off" style="display: none;" />
                     </div>
                     <div class="form-group" id="owner-walkin-toggle-group" style="display: none; margin-top: -8px;">
                         <div style="background-color: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px;">
-                            <label id="owner-walkin-toggle-label" style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; color: var(--primary); cursor: pointer; margin-bottom: 4px;">
+                            <label id="owner-walkin-toggle-label" style="gap: 10px; font-size: 13.5px; font-weight: 600; color: var(--primary); cursor: pointer; margin-bottom: 4px;">
                                 <input type="checkbox" id="owner-walkin-manual" class="custom-checkbox" />
                                 <span>Register New Guest Owner</span>
                             </label>
@@ -192,28 +238,6 @@
                     </div>
                 </div>
 
-                <!-- Right Column: Pet Selection -->
-                <div style="display: flex; flex-direction: column; gap: 16px;">
-                    <div class="form-group" id="pet-select-group">
-                        <label class="form-label">Name of Pet *</label>
-                        <select id="ro-pet-select" class="form-control-custom" style="display: none;">
-                            <option value="">— Select Pet —</option>
-                        </select>
-                        <input type="text" id="ro-pet-name" name="pet_name" class="form-control-custom" placeholder="Select owner first or type pet name" required autocomplete="off" />
-                        <input type="hidden" id="selected_pet_id" value="" />
-                    </div>
-                    <div class="form-group" id="pet-input-toggle-group" style="display: none; margin-top: -8px;">
-                        <div style="background-color: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px;">
-                            <label id="pet-input-toggle-label" style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; color: var(--primary); cursor: pointer; margin-bottom: 4px;">
-                                <input type="checkbox" id="pet-input-manual" class="custom-checkbox" />
-                                <span>Register New Pet</span>
-                            </label>
-                            <div style="font-size: 11.5px; color: var(--text-secondary); margin-left: 28px; line-height: 1.4;">
-                                Check this box to bypass the dropdown and manually enter a new pet for this owner.
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -267,9 +291,24 @@
         <div>
             <h3 class="section-title">Pet Details</h3>
             <div class="form-grid" style="grid-template-columns: repeat(3, 1fr);">
-                <div class="form-group">
-                    <label class="form-label">Date of Birth</label>
-                    <input type="date" id="ro-pet-age" name="pet_age" class="form-control-custom" />
+                <div class="form-group" id="pet-select-group" style="grid-column: span 2;">
+                    <label class="form-label">Name of Pet *</label>
+                    <select id="ro-pet-select" class="form-control-custom" style="display: none;">
+                        <option value="">— Select Pet —</option>
+                    </select>
+                    <input type="text" id="ro-pet-name" name="pet_name" class="form-control-custom" placeholder="Select owner first or type pet name" required autocomplete="off" />
+                    <input type="hidden" id="selected_pet_id" value="" />
+                </div>
+                <div class="form-group" id="pet-input-toggle-group" style="display: none; grid-column: span 2; margin-top: -8px;">
+                    <div style="background-color: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px;">
+                        <label id="pet-input-toggle-label" style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; color: var(--primary); cursor: pointer; margin-bottom: 4px;">
+                            <input type="checkbox" id="pet-input-manual" class="custom-checkbox" />
+                            <span>Register New Pet</span>
+                        </label>
+                        <div style="font-size: 11.5px; color: var(--text-secondary); margin-left: 28px; line-height: 1.4;">
+                            Check this box to bypass the dropdown and manually enter a new pet for this owner.
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Species *</label>
@@ -280,8 +319,16 @@
                     <input type="text" id="ro-pet-breed" name="pet_breed" class="form-control-custom" placeholder="e.g. Labrador" />
                 </div>
                 <div class="form-group">
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" id="ro-pet-age" name="pet_age" class="form-control-custom" />
+                </div>
+                <div class="form-group">
                     <label class="form-label">Sex *</label>
-                    <input type="text" id="ro-pet-sex" name="pet_sex" class="form-control-custom" placeholder="e.g. Male" required />
+                    <select id="ro-pet-sex" name="pet_sex" class="form-control-custom" required>
+                        <option value="">— Select Sex —</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Color *</label>
@@ -394,6 +441,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ====== Owner Select / Source Toggle Setup ======
     const ownerSelect = document.getElementById('ro-owner-select');
+    const ownerSearch = document.getElementById('ro-owner-search');
+    const ownerResults = document.getElementById('ro-owner-results');
     const ownerNameHidden = document.getElementById('ro-owner-name');
     const selectedUserIdField = document.getElementById('selected_user_id');
     const ownerNameWalkin = document.getElementById('ro-owner-name-walkin');
@@ -404,6 +453,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Walk-in specific elements
     const walkinSelect = document.getElementById('ro-walkin-select');
+    const walkinSearch = document.getElementById('ro-walkin-search');
+    const walkinSearchWrapper = document.getElementById('ro-walkin-search-wrapper');
+    const walkinResults = document.getElementById('ro-walkin-results');
     const walkinManualToggle = document.getElementById('owner-walkin-manual');
     const ownerWalkinToggleGroup = document.getElementById('owner-walkin-toggle-group');
 
@@ -450,18 +502,79 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    buildOwnerPetsMap();
-
-    // Load all registered owners into the select dropdown
-    function loadPortalOwners() {
-        fetch("{% url 'records:api_search_owners' %}?q=__all__")
-            .then(response => response.json())
-            .then(data => {
-                allOwners = data.owners || [];
-                populateOwnerSelect(allOwners);
-            })
-            .catch(err => console.error('Error loading owners:', err));
+    function selectWalkinOwner(ownerName) {
+        const option = Array.from(walkinSelect.options).find(function(opt) {
+            return opt.value === ownerName;
+        });
+        if (!option) return;
+        walkinSelect.value = ownerName;
+        walkinSearch.value = ownerName;
+        walkinSearch.setCustomValidity('');
+        walkinResults.innerHTML = '';
+        walkinResults.style.display = 'none';
+        walkinSearch.setAttribute('aria-expanded', 'false');
+        walkinSelect.dispatchEvent(new Event('change'));
     }
+
+    function searchWalkinOwners(query) {
+        const normalizedQuery = query.trim().toLowerCase();
+        walkinSelect.value = '';
+        if (!normalizedQuery) {
+            walkinResults.innerHTML = '';
+            walkinResults.style.display = 'none';
+            walkinSearch.setCustomValidity('Select a returning guest owner or register a new guest.');
+            resetPetToManual();
+            return;
+        }
+
+        const matches = Object.keys(walkinPetsMap).filter(function(ownerName) {
+            const pets = walkinPetsMap[ownerName] || [];
+            return ownerName.toLowerCase().includes(normalizedQuery) || pets.some(function(pet) {
+                return (pet.owner_contact || '').toLowerCase().includes(normalizedQuery)
+                    || (pet.name || '').toLowerCase().includes(normalizedQuery);
+            });
+        }).slice(0, 20);
+
+        walkinResults.innerHTML = '';
+        if (!matches.length) {
+            walkinResults.innerHTML = '<div style="padding: 10px 12px; color: var(--text-secondary);">No returning guest owners found.</div>';
+        } else {
+            matches.forEach(function(ownerName) {
+                const result = document.createElement('button');
+                result.type = 'button';
+                result.role = 'option';
+                result.style.cssText = 'display:block; width:100%; padding:10px 12px; border:0; border-bottom:1px solid var(--border); background:transparent; text-align:left; cursor:pointer; color:var(--text-primary);';
+                const ownerLabel = document.createElement('strong');
+                ownerLabel.textContent = ownerName;
+                result.appendChild(ownerLabel);
+                const samplePet = walkinPetsMap[ownerName][0];
+                if (samplePet.owner_contact) {
+                    result.appendChild(document.createElement('br'));
+                    const phoneLabel = document.createElement('small');
+                    phoneLabel.textContent = samplePet.owner_contact;
+                    result.appendChild(phoneLabel);
+                }
+                result.addEventListener('click', function() {
+                    selectWalkinOwner(ownerName);
+                });
+                walkinResults.appendChild(result);
+            });
+        }
+        walkinResults.style.display = 'block';
+        walkinSearch.setAttribute('aria-expanded', 'true');
+    }
+
+    walkinSearch.addEventListener('input', function() {
+        searchWalkinOwners(this.value);
+    });
+    walkinSearch.addEventListener('blur', function() {
+        setTimeout(function() {
+            walkinResults.style.display = 'none';
+            walkinSearch.setAttribute('aria-expanded', 'false');
+        }, 180);
+    });
+
+    buildOwnerPetsMap();
 
     function populateOwnerSelect(owners) {
         ownerSelect.innerHTML = '<option value="">— Select Owner —</option>';
@@ -475,6 +588,84 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerSelect.appendChild(opt);
         });
     }
+
+    function selectPortalOwner(owner) {
+        populateOwnerSelect([owner]);
+        ownerSelect.value = String(owner.id);
+        ownerSearch.value = owner.full_name + (owner.phone_number ? ' (' + owner.phone_number + ')' : '');
+        ownerSearch.setCustomValidity('');
+        ownerResults.innerHTML = '';
+        ownerResults.style.display = 'none';
+        ownerSearch.setAttribute('aria-expanded', 'false');
+        ownerSelect.dispatchEvent(new Event('change'));
+    }
+
+    let ownerSearchTimer;
+    function searchPortalOwners(query) {
+        clearTimeout(ownerSearchTimer);
+        const normalizedQuery = query.trim();
+        ownerSelect.value = '';
+        selectedUserIdField.value = '';
+        ownerNameHidden.value = '';
+        if (!normalizedQuery) {
+            ownerResults.innerHTML = '';
+            ownerResults.style.display = 'none';
+            ownerSearch.setAttribute('aria-expanded', 'false');
+            ownerSearch.setCustomValidity('Select a registered owner.');
+            resetPetToManual();
+            return;
+        }
+
+        ownerSearchTimer = setTimeout(function() {
+            fetch("{% url 'records:api_search_owners' %}?q=" + encodeURIComponent(normalizedQuery))
+                .then(response => response.json())
+                .then(data => {
+                    const owners = data.owners || [];
+                    ownerResults.innerHTML = '';
+                    if (!owners.length) {
+                        ownerResults.innerHTML = '<div style="padding: 10px 12px; color: var(--text-secondary);">No registered owners found.</div>';
+                    } else {
+                        owners.forEach(function(owner) {
+                            const result = document.createElement('button');
+                            result.type = 'button';
+                            result.role = 'option';
+                            result.style.cssText = 'display:block; width:100%; padding:10px 12px; border:0; border-bottom:1px solid var(--border); background:transparent; text-align:left; cursor:pointer; color:var(--text-primary);';
+                            const ownerName = document.createElement('strong');
+                            ownerName.textContent = owner.full_name;
+                            result.appendChild(ownerName);
+                            if (owner.phone_number) {
+                                result.appendChild(document.createElement('br'));
+                                const ownerPhone = document.createElement('small');
+                                ownerPhone.textContent = owner.phone_number;
+                                result.appendChild(ownerPhone);
+                            }
+                            result.addEventListener('click', function() {
+                                selectPortalOwner(owner);
+                            });
+                            ownerResults.appendChild(result);
+                        });
+                    }
+                    ownerResults.style.display = 'block';
+                    ownerSearch.setAttribute('aria-expanded', 'true');
+                })
+                .catch(function(error) {
+                    console.error('Error searching owners:', error);
+                    ownerResults.innerHTML = '<div style="padding: 10px 12px; color: var(--accent);">Unable to search owners.</div>';
+                    ownerResults.style.display = 'block';
+                    ownerSearch.setAttribute('aria-expanded', 'true');
+                });
+        }, 250);
+    }
+
+    ownerSearch.addEventListener('input', function() {
+        searchPortalOwners(this.value);
+    });
+    ownerSearch.addEventListener('blur', function() {
+        setTimeout(function() {
+            ownerResults.style.display = 'none';
+            ownerSearch.setAttribute('aria-expanded', 'false');
+        }, 180);
+    });
 
     // Populate pet dropdown based on selected owner/guest
     function populatePetDropdown(ownerKey, source) {
@@ -536,7 +727,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('ro-pet-age').value = petData.date_of_birth || '';
         document.getElementById('ro-pet-color').value = petData.pet_color || '';
         document.getElementById('ro-pet-breed').value = petData.pet_breed || '';
-        document.getElementById('ro-pet-sex').value = petData.pet_sex || '';
+        document.getElementById('ro-pet-sex').value = (petData.pet_sex || '').toUpperCase();
         document.getElementById('ro-pet-species').value = petData.pet_species || '';
 
         // Auto-select branch from pet's last record
@@ -552,11 +743,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (this.value) {
             selectedUserIdField.value = this.value;
             ownerNameHidden.value = selectedOpt.dataset.name || '';
+            ownerSearch.value = selectedOpt.textContent;
+            ownerSearch.setCustomValidity('');
             ownerContactInput.value = selectedOpt.dataset.phone || '';
             ownerAddressInput.value = selectedOpt.dataset.address || '';
             // Populate pet dropdown for this owner
             populatePetDropdown(this.value, 'PORTAL');
         } else {
+            ownerSearch.value = '';
+            ownerSearch.setCustomValidity('Select a registered owner.');
             selectedUserIdField.value = '';
             ownerNameHidden.value = '';
             ownerContactInput.value = '';
@@ -592,6 +787,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 walkinSelect.style.display = 'none';
                 walkinSelect.disabled = true;
                 walkinSelect.removeAttribute('name');
+                walkinSearchWrapper.style.display = 'none';
+                walkinSearch.required = false;
+                walkinSearch.value = '';
                 ownerNameWalkin.style.display = '';
                 ownerNameWalkin.disabled = false;
                 ownerNameWalkin.setAttribute('name', 'owner_name');
@@ -601,10 +799,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 ownerAddressInput.value = '';
                 resetPetToManual();
             } else {
-                // Show dropdown
-                walkinSelect.style.display = '';
+                // Keep the legacy select hidden; the search bar is the visible control.
+                walkinSelect.style.display = 'none';
                 walkinSelect.disabled = false;
                 walkinSelect.setAttribute('name', 'owner_name');
+                walkinSearchWrapper.style.display = '';
+                walkinSearch.required = true;
+                walkinSearch.value = '';
                 ownerNameWalkin.style.display = 'none';
                 ownerNameWalkin.disabled = true;
                 ownerNameWalkin.removeAttribute('name');
@@ -694,6 +895,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerWalkinToggleGroup.style.display = 'none';
             ownerSelect.required = true;
             ownerSelect.disabled = false;
+            ownerSearch.required = true;
+            ownerSearch.disabled = false;
             walkinSelect.required = false;
             walkinSelect.disabled = true;
             ownerNameWalkin.disabled = true;
@@ -709,6 +912,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerWalkinGroup.style.display = '';
             ownerSelect.required = false;
             ownerSelect.disabled = true;
+            ownerSearch.required = false;
+            ownerSearch.disabled = true;
             ownerNameHidden.removeAttribute('name');
             selectedUserIdField.removeAttribute('name');
             selectedUserIdField.value = '';
@@ -717,8 +922,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (walkinSelect.options.length > 1) {
                 ownerWalkinToggleGroup.style.display = 'flex';
                 if (!walkinManualToggle.checked) {
-                    walkinSelect.style.display = '';
+                    walkinSelect.style.display = 'none';
                     ownerNameWalkin.style.display = 'none';
+                    walkinSearchWrapper.style.display = '';
+                    walkinSearch.required = true;
                     walkinSelect.required = true;
                     walkinSelect.disabled = false;
                     ownerNameWalkin.required = false;
@@ -728,6 +935,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     walkinSelect.style.display = 'none';
                     ownerNameWalkin.style.display = '';
+                    walkinSearchWrapper.style.display = 'none';
+                    walkinSearch.required = false;
                     walkinSelect.required = false;
                     walkinSelect.disabled = true;
                     ownerNameWalkin.required = true;
@@ -740,6 +949,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 walkinSelect.style.display = 'none';
                 walkinSelect.disabled = true;
                 ownerNameWalkin.style.display = '';
+                walkinSearchWrapper.style.display = 'none';
+                walkinSearch.required = false;
                 walkinSelect.required = false;
                 ownerNameWalkin.required = true;
                 ownerNameWalkin.disabled = false;
@@ -751,7 +962,10 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedUserIdField.value = '';
             // Clear portal selection
             ownerSelect.value = '';
+            ownerSearch.value = '';
+            ownerSearch.setCustomValidity('Select a registered owner.');
             ownerNameHidden.value = '';
+            walkinSearch.value = '';
             // Reset pet selection
             if (!walkinSelect.value || walkinManualToggle.checked) {
                 resetPetToManual();
@@ -767,58 +981,80 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear fields when switching source
         ownerContactInput.value = '';
         ownerAddressInput.value = '';
+        ownerSearch.value = '';
         petInput.value = '';
         if (ownerNameWalkin) ownerNameWalkin.value = '';
         if (walkinSelect) walkinSelect.value = '';
+        if (walkinSearch) walkinSearch.value = '';
         clearPetDetails();
     });
 
     toggleOwnerFields(); // Set initial state
-    loadPortalOwners(); // Load owners on page load
+    ownerSearch.setCustomValidity('Select a registered owner.');
 
     // ====== Auto-Prefill from ?pet=<pk> ======
     {% if prefill_pet_name %}
     (function autoFillPet() {
-        const prefillName = '{{ prefill_pet_name|escapejs }}';
-        const prefillData = petsData[prefillName];
+        const prefillElement = document.getElementById('appointment-prefill-data')
+            || document.getElementById('selected-pet-prefill-data');
+        const prefillData = prefillElement
+            ? JSON.parse(prefillElement.textContent)
+            : petsData['{{ prefill_pet_name|escapejs }}'];
         if (!prefillData) return;
 
-        // Set the pet name in the input field
-        petInput.value = prefillName;
-        petInput.style.display = '';
-        petSelect.style.display = 'none';
-        petInput.required = true;
+        const prefillName = prefillData.pet_name || '{{ prefill_pet_name|escapejs }}';
 
-        // Fill pet detail fields
-        fillPetDetails(prefillData);
-
-        // Set client source
         if (sourceSelect && prefillData.source) {
             sourceSelect.value = prefillData.source;
             toggleOwnerFields();
         }
 
-        // Fill owner contact info
         if (ownerAddressInput) ownerAddressInput.value = prefillData.owner_address || '';
         if (ownerContactInput) ownerContactInput.value = prefillData.owner_contact || '';
 
         if (prefillData.source === 'WALKIN') {
-            // Walk-in: fill guest owner name
-            if (ownerNameWalkin) ownerNameWalkin.value = prefillData.owner_name || '';
-        } else if (prefillData.source === 'PORTAL' && prefillData.owner_id) {
-            // Portal: select the owner after the async owner load completes
+            if (walkinSearch && prefillData.owner_name) {
+                walkinSearch.value = prefillData.owner_name;
+            }
+            if (walkinSelect && prefillData.owner_name) {
+                const matchingGuest = Array.from(walkinSelect.options).some(function(option) {
+                    return option.value === prefillData.owner_name;
+                });
+                if (matchingGuest && !walkinManualToggle.checked) {
+                    selectWalkinOwner(prefillData.owner_name);
+                } else if (ownerNameWalkin) {
+                    walkinManualToggle.checked = true;
+                    walkinManualToggle.dispatchEvent(new Event('change'));
+                    ownerNameWalkin.value = prefillData.owner_name;
+                }
+            } else if (ownerNameWalkin) {
+                ownerNameWalkin.value = prefillData.owner_name || '';
+            }
+        }
+
+        function restorePetFields() {
+            petInput.value = prefillName;
+            if (selectedPetIdField && prefillData.pet_id) {
+                selectedPetIdField.value = String(prefillData.pet_id);
+            }
+            petInput.style.display = '';
+            petSelect.style.display = 'none';
+            petInput.required = true;
+            fillPetDetails(prefillData);
+        }
+
+        if (prefillData.source === 'PORTAL' && prefillData.owner_id) {
             ownerNameHidden.value = prefillData.owner_name || '';
             selectedUserIdField.value = String(prefillData.owner_id);
-
-            // Wait for loadPortalOwners to finish, then set the dropdown value
-            const waitForOwners = setInterval(function() {
-                if (ownerSelect.options.length > 1) {
-                    clearInterval(waitForOwners);
-                    ownerSelect.value = String(prefillData.owner_id);
-                    // Don't repopulate pet dropdown — keep manual input with prefilled name
-                }
-            }, 100);
-            setTimeout(function() { clearInterval(waitForOwners); }, 5000);
+            selectPortalOwner({
+                id: prefillData.owner_id,
+                full_name: prefillData.owner_name || '',
+                phone_number: prefillData.owner_contact || '',
+                address: prefillData.owner_address || ''
+            });
+            restorePetFields();
+        } else {
+            restorePetFields();
         }
     })();
     {% endif %}

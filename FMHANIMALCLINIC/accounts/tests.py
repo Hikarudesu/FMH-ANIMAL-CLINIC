@@ -1,4 +1,6 @@
+import json
 import re
+from datetime import time
 from urllib.parse import parse_qs, urlsplit
 
 from dateutil.relativedelta import relativedelta
@@ -13,12 +15,181 @@ from accounts.activity_context import reset_current_actor, set_current_actor
 from accounts.models import ActivityLog
 from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermission
 from branches.models import Branch
+from appointments.models import Appointment
+from billing.models import CustomerStatement
+from employees.models import StaffMember
+from inventory.models import Product, StockAdjustment
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
     resolve_owner_deactivation_on_login,
     schedule_owner_deactivation,
 )
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class UserPortalDashboardTests(TestCase):
+    def test_dashboard_serializes_data_for_every_chart(self):
+        owner = get_user_model().objects.create_user(
+            username='dashboard-owner',
+            email='dashboard-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(owner)
+
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        for context_key in (
+            'monthly_appointments_json',
+            'pet_health_json',
+            'appointment_status_json',
+            'spending_breakdown_json',
+            'visits_per_pet_json',
+        ):
+            with self.subTest(context_key=context_key):
+                self.assertIn(context_key, response.context)
+                self.assertIsInstance(
+                    json.loads(response.context[context_key]), list
+                )
+        self.assertEqual(
+            len(json.loads(response.context['monthly_appointments_json'])), 6
+        )
+        self.assertNotIn(b'const monthlyData = ;', response.content)
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class AdminDashboardQuickInsightsTests(TestCase):
+    def test_quick_insights_show_products_and_services_without_branch_performance(self):
+        admin = get_user_model().objects.create_superuser(
+            username='quick-insights-admin',
+            email='quick-insights-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Top Products')
+        self.assertContains(response, 'Top Services')
+        self.assertNotContains(response, 'Branch Performance')
+        self.assertIn('top_products', response.context)
+        self.assertIn('service_breakdown', response.context)
+
+    def test_inventory_hero_stat_sums_stock_value_across_active_branches(self):
+        admin = get_user_model().objects.create_superuser(
+            username='inventory-value-admin',
+            email='inventory-value-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        branches = [
+            Branch.objects.create(
+                name=f'Inventory Value Branch {index}',
+                branch_code=f'IVB{index}',
+                phone_number='09123456789',
+                address='1 Clinic Street',
+                city='Manila',
+                state='NCR',
+                zip_code='1000',
+            )
+            for index in range(1, 4)
+        ]
+        for index, branch in enumerate(branches, start=1):
+            Product.objects.create(
+                branch=branch,
+                name=f'Inventory Test Product {index}',
+                item_type='Product',
+                price=20,
+                unit_cost=10,
+                stock_quantity=2,
+                min_stock_level=5,
+            )
+
+        self.client.force_login(admin)
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_inventory_value'], 60)
+        self.assertEqual(
+            response.context['dashboard_scope_label'], 'Across 3 Active Branches'
+        )
+        self.assertContains(response, 'Total Inventory Value')
+        self.assertContains(response, 'Monthly Revenue')
+        self.assertContains(response, 'Completed Visits This Month')
+        self.assertContains(response, 'Across 3 Active Branches')
+        self.assertNotContains(response, '0 low stock')
+        self.assertNotContains(response, 'Month to date')
+        self.assertContains(response, 'hero-stat-icon emerald')
+        self.assertContains(response, 'bx-wallet')
+
+    def test_inventory_hero_uses_current_stock_and_estimated_value_without_costs(self):
+        admin = get_user_model().objects.create_superuser(
+            username='inventory-estimate-admin',
+            email='inventory-estimate-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        branch = Branch.objects.create(
+            name='Inventory Estimate Branch',
+            branch_code='IEB1',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        product = Product.objects.create(
+            branch=branch,
+            name='Inventory Estimate Product',
+            item_type='Product',
+            price=20,
+            unit_cost=0,
+            stock_quantity=4,
+            min_stock_level=1,
+        )
+        cancelled_product = Product.objects.create(
+            branch=branch,
+            name='Cancelled Inventory Product',
+            item_type='Product',
+            price=50,
+            unit_cost=0,
+            stock_quantity=2,
+            min_stock_level=1,
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+        self.assertEqual(response.context['total_inventory_value'], 180)
+        self.assertTrue(response.context['inventory_value_is_estimated'])
+
+        StockAdjustment.objects.create(
+            branch=branch,
+            product=product,
+            adjustment_type='REMOVE',
+            date=timezone.localdate(),
+            quantity=1,
+            reason='Test stock reduction',
+        )
+        cancelled_product.delete()
+
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+        self.assertEqual(response.context['total_inventory_value'], 60)
+        self.assertTrue(response.context['inventory_value_is_estimated'])
+        self.assertContains(response, 'Estimated at selling price')
 
 
 class RolePermissionManagementTests(TestCase):
@@ -82,6 +253,149 @@ class RolePermissionManagementTests(TestCase):
         self.assertTrue(
             self.role.special_permissions.filter(permission=self.stock_monitor).exists()
         )
+
+    def test_profile_updates_sync_appointments_and_customer_statements(self):
+        branch = Branch.objects.create(
+            name='Profile Sync Branch',
+            phone_number='09123456789',
+            address='1 Profile Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        owner = get_user_model().objects.create_user(
+            username='profile-sync-owner',
+            first_name='Before',
+            last_name='Profile',
+            email='before@example.com',
+            phone_number='09123456789',
+            address='Old Address',
+            password='A-secure-test-password-923!',
+        )
+        appointment = Appointment.objects.create(
+            owner_name='Before Profile',
+            owner_email=owner.email,
+            owner_phone=owner.phone_number,
+            owner_address=owner.address,
+            pet_name='Profile Pet',
+            branch=branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(9, 0),
+            user=owner,
+            source=Appointment.Source.PORTAL,
+        )
+        statement = CustomerStatement.objects.create(
+            patient_name='Profile Pet',
+            owner_name='Before Profile',
+            customer=owner,
+            date=timezone.localdate(),
+        )
+
+        owner.first_name = 'After'
+        owner.last_name = 'Updated'
+        owner.email = 'after@example.com'
+        owner.phone_number = '09987654321'
+        owner.address = 'New Address'
+        owner.save()
+
+        appointment.refresh_from_db()
+        statement.refresh_from_db()
+        self.assertEqual(appointment.owner_name, 'After Updated')
+        self.assertEqual(appointment.owner_email, 'after@example.com')
+        self.assertEqual(appointment.owner_phone, '09987654321')
+        self.assertEqual(appointment.owner_address, 'New Address')
+        self.assertEqual(statement.owner_name, 'After Updated')
+
+    def test_staff_account_profile_updates_sync_linked_staff_records(self):
+        branch = Branch.objects.create(
+            name='Staff Sync Branch',
+            phone_number='09123456789',
+            address='1 Staff Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        staff_roles = (
+            ('veterinarian', StaffMember.Position.VETERINARIAN),
+            ('assistant_veterinarian', StaffMember.Position.VET_ASSISTANT),
+            ('cashier', StaffMember.Position.RECEPTIONIST),
+        )
+
+        for role_code, position in staff_roles:
+            with self.subTest(role_code=role_code):
+                role, _ = Role.objects.get_or_create(
+                    code=role_code,
+                    defaults={
+                        'name': role_code.replace('_', ' ').title(),
+                        'hierarchy_level': 5,
+                        'is_staff_role': True,
+                    },
+                )
+                user = get_user_model().objects.create_user(
+                    username=f'{role_code}-profile-sync',
+                    first_name='Before',
+                    last_name='Staff',
+                    email=f'{role_code}@example.com',
+                    phone_number='09123456789',
+                    password='A-secure-test-password-923!',
+                    assigned_role=role,
+                    branch=branch,
+                )
+                staff = StaffMember.objects.create(
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    email=user.email,
+                    phone=user.phone_number,
+                    branch=branch,
+                    position=position,
+                    user=user,
+                )
+
+                user.first_name = 'After'
+                user.last_name = 'Updated'
+                user.email = f'updated-{role_code}@example.com'
+                user.phone_number = '09987654321'
+                user.branch = branch
+                user.save()
+
+                staff.refresh_from_db()
+                self.assertEqual(staff.first_name, 'After')
+                self.assertEqual(staff.last_name, 'Updated')
+                self.assertEqual(staff.email, f'updated-{role_code}@example.com')
+                self.assertEqual(staff.phone, '09987654321')
+                self.assertEqual(staff.branch_id, branch.pk)
+
+        admin = get_user_model().objects.create_superuser(
+            username='admin-profile-sync',
+            first_name='Before',
+            last_name='Admin',
+            email='admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        admin.branch = branch
+        admin.save()
+        admin_staff = StaffMember.objects.create(
+            first_name=admin.first_name,
+            last_name=admin.last_name,
+            email=admin.email,
+            phone='',
+            branch=branch,
+            position=StaffMember.Position.ADMIN,
+            user=admin,
+        )
+
+        admin.first_name = 'After'
+        admin.last_name = 'Updated'
+        admin.email = 'updated-admin@example.com'
+        admin.phone_number = '09987654321'
+        admin.save()
+
+        admin_staff.refresh_from_db()
+        self.assertEqual(admin_staff.first_name, 'After')
+        self.assertEqual(admin_staff.last_name, 'Updated')
+        self.assertEqual(admin_staff.email, 'updated-admin@example.com')
+        self.assertEqual(admin_staff.phone, '09987654321')
+        self.assertEqual(admin_staff.branch_id, branch.pk)
 
     def test_generic_audit_records_changed_fields_without_values(self):
         branch = Branch.objects.create(
@@ -351,13 +665,13 @@ class BrowserLoginLockoutTests(TestCase):
             password='A-secure-test-password-923!',
         )
 
-    def test_three_failures_lock_only_the_current_browser(self):
+    def test_five_failures_lock_only_the_current_browser(self):
         browser = Client()
         login_url = reverse('accounts:login_page')
 
-        for attempt in range(3):
+        for _ in range(5):
             response = browser.post(login_url, {
-                'username': f'wrong-user-{attempt}',
+                'username': self.user.username,
                 'password': 'wrong-password',
             })
             self.assertEqual(response.status_code, 200)
@@ -379,7 +693,32 @@ class BrowserLoginLockoutTests(TestCase):
             another_browser.session.get('_auth_user_id'), str(self.user.pk),
         )
 
-    def test_browser_lock_expires_after_one_hour(self):
+    def test_locking_one_account_does_not_block_another_in_same_browser(self):
+        second_user = get_user_model().objects.create_user(
+            username='anotherloginowner',
+            email='anotherloginowner@example.com',
+            password='Another-secure-test-password-924!',
+        )
+        browser = Client()
+        login_url = reverse('accounts:login_page')
+
+        for _ in range(5):
+            browser.post(login_url, {
+                'username': self.user.username,
+                'password': 'wrong-password',
+            })
+
+        response = browser.post(login_url, {
+            'username': second_user.username,
+            'password': 'Another-secure-test-password-924!',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            browser.session.get('_auth_user_id'), str(second_user.pk),
+        )
+
+    def test_first_browser_lock_expires_after_one_minute(self):
         from datetime import timedelta
         from unittest.mock import patch
 
@@ -390,7 +729,7 @@ class BrowserLoginLockoutTests(TestCase):
         login_url = reverse('accounts:login_page')
 
         with patch('accounts.views.timezone.now', return_value=now):
-            for _ in range(3):
+            for _ in range(5):
                 browser.post(login_url, {
                     'username': self.user.username,
                     'password': 'wrong-password',
@@ -398,7 +737,7 @@ class BrowserLoginLockoutTests(TestCase):
 
         with patch(
             'accounts.views.timezone.now',
-            return_value=now + timedelta(hours=1, seconds=1),
+            return_value=now + timedelta(minutes=1, seconds=1),
         ):
             response = browser.post(login_url, {
                 'username': self.user.username,
@@ -407,3 +746,39 @@ class BrowserLoginLockoutTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(browser.session.get('_auth_user_id'), str(self.user.pk))
+
+    def test_lockout_increases_to_five_and_fifteen_minutes_then_caps(self):
+        from datetime import timedelta
+        from unittest.mock import patch
+
+        from django.utils import timezone
+
+        browser = Client()
+        login_url = reverse('accounts:login_page')
+        now = timezone.now()
+
+        for expected_seconds in (60, 5 * 60, 15 * 60, 15 * 60):
+            with patch('accounts.views.timezone.now', return_value=now):
+                for _ in range(5):
+                    response = browser.post(login_url, {
+                        'username': self.user.username,
+                        'password': 'wrong-password',
+                    })
+                    self.assertEqual(response.status_code, 200)
+
+            lockout_state = next(iter(browser.session['login_lockouts'].values()))
+            lock_until = lockout_state['locked_until']
+            self.assertEqual(
+                int(float(lock_until) - now.timestamp()),
+                expected_seconds,
+            )
+            now += timedelta(seconds=expected_seconds + 1)
+
+        with patch('accounts.views.timezone.now', return_value=now):
+            response = browser.post(login_url, {
+                'username': self.user.username,
+                'password': 'A-secure-test-password-923!',
+            })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(browser.session.get('login_lockouts'), {})

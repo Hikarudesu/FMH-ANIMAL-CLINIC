@@ -6,17 +6,20 @@
 {% block content %}
 <style>
   .apf-page { max-width: 740px; margin: 0 auto; }
-  .apf-owner-picker-filters { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(220px, 1.2fr); gap: 10px; }
-  .apf-owner-results { display: grid; gap: 6px; max-height: 250px; overflow-y: auto; margin-top: 8px; }
-  .apf-owner-result { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface, #fff); color: var(--text-primary); text-align: left; cursor: pointer; }
-  .apf-owner-result:hover, .apf-owner-result:focus-visible { border-color: var(--primary); background: var(--bg, #f5f8f8); outline: none; }
-  .apf-owner-result strong { font-size: .88rem; }
-  .apf-owner-result span, .apf-owner-search-status { color: var(--text-secondary); font-size: .78rem; }
-  .apf-owner-selected { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid rgba(33, 135, 57, .28); border-radius: 8px; background: rgba(33, 135, 57, .07); }
-  .apf-owner-selected[hidden] { display: none; }
-  .apf-owner-selected-name { font-size: .86rem; font-weight: 600; }
-  .apf-owner-change { border: 0; background: none; color: var(--primary); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
-  @media (max-width: 600px) { .apf-owner-picker-filters { grid-template-columns: 1fr; } }
+  .apf-owner-picker { position: relative; }
+  .apf-owner-search-wrap { position: relative; }
+  .apf-owner-search-icon { position: absolute; top: 50%; left: 13px; z-index: 1; color: var(--text-secondary); transform: translateY(-50%); pointer-events: none; }
+  #ownerSearch { padding-left: 40px; }
+  .apf-owner-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30; display: none; max-height: 260px; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface, #fff); box-shadow: 0 12px 28px rgba(15, 23, 42, .16); }
+  .apf-owner-results.open { display: block; }
+  .apf-owner-result { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 62px; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text-primary); text-align: left; cursor: pointer; }
+  .apf-owner-result:last-child { border-bottom: 0; }
+  .apf-owner-result:hover, .apf-owner-result:focus-visible { background: var(--bg, #f5f8f8); outline: none; }
+  .apf-owner-result-icon { flex: 0 0 auto; color: var(--primary); font-size: 1.05rem; }
+  .apf-owner-result-info { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+  .apf-owner-result strong { overflow: hidden; font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
+  .apf-owner-result span, .apf-owner-search-status { overflow: hidden; color: var(--text-secondary); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+  .apf-owner-search-status { display: block; padding: 12px 14px; }
 
   /* Source toggle pills */
   .apf-source-toggle {
@@ -689,24 +692,11 @@
             {% if action == 'Register' %}
             <label for="ownerSearch">Find portal account <span class="req">*</span></label>
             <div class="apf-owner-picker" id="ownerPicker" data-search-url="{% url 'patients:api_owner_search' %}" data-initial-owner-id="{{ form.owner.value|default:'' }}">
-              <div class="apf-owner-picker-filters">
-                {% if not owner_branch_restricted %}
-                <select id="ownerBranchFilter" class="pf-input" aria-label="Filter owners by branch">
-                  <option value="">All branches</option>
-                  {% for branch in owner_filter_branches %}
-                  <option value="{{ branch.pk }}">{{ branch.name }}</option>
-                  {% endfor %}
-                </select>
-                {% endif %}
-                <input type="search" id="ownerSearch" class="pf-input" placeholder="Search owner name or username" autocomplete="off" aria-controls="ownerSearchResults" aria-autocomplete="list">
+              <div class="apf-owner-search-wrap">
+                <i class='bx bx-search apf-owner-search-icon' aria-hidden="true"></i>
+                <input type="search" id="ownerSearch" class="pf-input" placeholder="Search by owner name, phone, or email..." autocomplete="off" role="combobox" aria-controls="ownerSearchResults" aria-autocomplete="list" aria-expanded="false">
               </div>
-              <div class="apf-owner-selected" id="ownerSelected" hidden>
-                <span class="apf-owner-selected-name" id="ownerSelectedName"></span>
-                <button type="button" class="apf-owner-change" id="ownerChangeButton">Change</button>
-              </div>
-              <div class="apf-owner-results" id="ownerSearchResults" role="listbox" aria-live="polite">
-                <span class="apf-owner-search-status">Choose a branch and enter at least two characters to search.</span>
-              </div>
+              <div class="apf-owner-results" id="ownerSearchResults" role="listbox" aria-live="polite"></div>
               {{ form.owner }}
             </div>
             {% else %}
@@ -736,12 +726,12 @@
             {% if form.guest_owner_name.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_name.errors.0 }}</span>{% endif %}
           </div>
           <div class="apf-field {% if form.guest_owner_phone.errors %}has-error{% endif %}">
-            <label for="{{ form.guest_owner_phone.id_for_label }}">Phone Number</label>
+            <label for="{{ form.guest_owner_phone.id_for_label }}">Phone Number <span class="req">*</span></label>
             {{ form.guest_owner_phone }}
             {% if form.guest_owner_phone.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_phone.errors.0 }}</span>{% endif %}
           </div>
           <div class="apf-field {% if form.guest_owner_email.errors %}has-error{% endif %}">
-            <label for="{{ form.guest_owner_email.id_for_label }}">Email Address</label>
+            <label for="{{ form.guest_owner_email.id_for_label }}">Email Address <span class="req">*</span></label>
             {{ form.guest_owner_email }}
             {% if form.guest_owner_email.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_email.errors.0 }}</span>{% endif %}
           </div>
@@ -958,6 +948,8 @@
     document.getElementById('btn-walkin').classList.toggle('active', val === 'WALKIN');
     document.getElementById('panel-portal').classList.toggle('visible', val === 'PORTAL');
     document.getElementById('panel-walkin').classList.toggle('visible', val === 'WALKIN');
+    document.getElementById('{{ form.guest_owner_phone.id_for_label }}').required = val === 'WALKIN';
+    document.getElementById('{{ form.guest_owner_email.id_for_label }}').required = val === 'WALKIN';
   }
 
   // Initialise on page load — respects existing value (fresh form or re-display after error)
@@ -984,6 +976,8 @@
       document.getElementById('btn-walkin').classList.toggle('active', initial === 'WALKIN');
       document.getElementById('panel-portal').classList.toggle('visible', initial === 'PORTAL');
       document.getElementById('panel-walkin').classList.toggle('visible', initial === 'WALKIN');
+      document.getElementById('{{ form.guest_owner_phone.id_for_label }}').required = initial === 'WALKIN';
+      document.getElementById('{{ form.guest_owner_email.id_for_label }}').required = initial === 'WALKIN';
     }
   })();
 
@@ -1295,52 +1289,57 @@
     if (!picker) return;
 
     const ownerField = document.getElementById('id_owner');
-    const branchFilter = document.getElementById('ownerBranchFilter');
     const searchInput = document.getElementById('ownerSearch');
     const results = document.getElementById('ownerSearchResults');
-    const selected = document.getElementById('ownerSelected');
-    const selectedName = document.getElementById('ownerSelectedName');
-    const changeButton = document.getElementById('ownerChangeButton');
     let debounceTimer;
     let activeRequest;
+    let resultsOpen = false;
+
+    function closeResults() {
+      resultsOpen = false;
+      results.classList.remove('open');
+      searchInput.setAttribute('aria-expanded', 'false');
+    }
 
     function showStatus(message) {
+      resultsOpen = true;
       results.replaceChildren();
       const status = document.createElement('span');
       status.className = 'apf-owner-search-status';
       status.textContent = message;
       results.appendChild(status);
+      results.classList.add('open');
+      searchInput.setAttribute('aria-expanded', 'true');
     }
 
     function chooseOwner(owner) {
       ownerField.value = owner.id;
-      selectedName.textContent = `${owner.name} (${owner.username})${owner.email ? ` · ${owner.email}` : ''}`;
-      selected.hidden = false;
-      results.replaceChildren();
+      searchInput.value = owner.name;
+      searchInput.setCustomValidity('');
+      closeResults();
     }
 
-    function searchOwners(ownerId) {
+    function searchOwners() {
       const query = searchInput.value.trim();
-      if (!ownerId && query.length < 2) {
-        showStatus('Enter at least two characters to search registered owners.');
+      if (query.length < 2) {
+        closeResults();
         return;
       }
 
       if (activeRequest) activeRequest.abort();
       activeRequest = new AbortController();
       const params = new URLSearchParams();
-      if (branchFilter && branchFilter.value) params.set('branch', branchFilter.value);
-      if (ownerId) params.set('owner_id', ownerId);
-      else params.set('q', query);
+      params.set('q', query);
 
       showStatus('Searching owners…');
       fetch(`${picker.dataset.searchUrl}?${params.toString()}`, {
         headers: { 'Accept': 'application/json' },
         signal: activeRequest.signal,
       }).then(response => response.json()).then(data => {
+        if (!resultsOpen) return;
         results.replaceChildren();
         if (!data.owners.length) {
-          showStatus(ownerId ? 'The selected account is no longer available.' : 'No matching owners found.');
+          showStatus('No matching portal accounts found.');
           return;
         }
 
@@ -1349,11 +1348,18 @@
           option.type = 'button';
           option.className = 'apf-owner-result';
           option.setAttribute('role', 'option');
+          option.setAttribute('aria-selected', 'false');
+          const icon = document.createElement('i');
+          icon.className = 'bx bx-user apf-owner-result-icon';
+          icon.setAttribute('aria-hidden', 'true');
+          const info = document.createElement('span');
+          info.className = 'apf-owner-result-info';
           const name = document.createElement('strong');
           name.textContent = owner.name;
           const details = document.createElement('span');
-          details.textContent = [owner.username, owner.email].filter(Boolean).join(' · ');
-          option.append(name, details);
+          details.textContent = owner.email || owner.phone || owner.username;
+          info.append(name, details);
+          option.append(icon, info);
           option.addEventListener('click', () => chooseOwner(owner));
           results.appendChild(option);
         });
@@ -1364,32 +1370,47 @@
           hint.textContent = 'Showing the first 25 matches. Refine your search to narrow the results.';
           results.appendChild(hint);
         }
+        results.classList.add('open');
+        searchInput.setAttribute('aria-expanded', 'true');
       }).catch(error => {
-        if (error.name !== 'AbortError') showStatus('Could not load owners. Please try again.');
+        if (error.name !== 'AbortError' && resultsOpen) {
+          showStatus('Could not load owners. Please try again.');
+        }
       });
     }
 
     searchInput.addEventListener('input', () => {
       window.clearTimeout(debounceTimer);
-      selected.hidden = true;
       ownerField.value = '';
-      debounceTimer = window.setTimeout(() => searchOwners(), 250);
-    });
-    if (branchFilter) {
-      branchFilter.addEventListener('change', () => {
-        selected.hidden = true;
-        ownerField.value = '';
-        searchOwners();
-      });
-    }
-    changeButton.addEventListener('click', () => {
-      selected.hidden = true;
-      ownerField.value = '';
-      searchInput.focus();
-      searchOwners();
+      if (activeRequest) activeRequest.abort();
+      if (searchInput.value.trim().length < 2) {
+        closeResults();
+        return;
+      }
+      debounceTimer = window.setTimeout(searchOwners, 250);
     });
 
-    if (picker.dataset.initialOwnerId) searchOwners(picker.dataset.initialOwnerId);
+    searchInput.addEventListener('focus', () => {
+      if (searchInput.value.trim().length >= 2) searchOwners();
+    });
+    searchInput.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeResults();
+    });
+    document.addEventListener('pointerdown', event => {
+      if (!picker.contains(event.target)) closeResults();
+    }, true);
+
+    if (picker.dataset.initialOwnerId) {
+      const params = new URLSearchParams({ owner_id: picker.dataset.initialOwnerId });
+      fetch(`${picker.dataset.searchUrl}?${params.toString()}`, {
+        headers: { 'Accept': 'application/json' },
+      }).then(response => response.json()).then(data => {
+        if (data.owners.length && ownerField.value === String(data.owners[0].id) && !searchInput.value) {
+          ownerField.value = data.owners[0].id;
+          searchInput.value = data.owners[0].name;
+        }
+      }).catch(() => showStatus('Could not load the selected owner. Please try again.'));
+    }
   })();
 </script>
 
