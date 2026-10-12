@@ -131,10 +131,12 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
         self.assertContains(response, 'Walk-in Customers')
         self.assertContains(
             response,
-            'grid-template-columns: repeat(3, minmax(0, 1fr))',
+            'grid-template-columns: repeat(4, 1fr)',
         )
-        self.assertContains(response, 'id="receptionist-hero-stats"')
-        self.assertContains(response, '#receptionist-hero-stats')
+        self.assertContains(response, '<div class="hero-stats">')
+        self.assertNotContains(response, 'receptionist-hero-stats')
+        self.assertNotContains(response, 'hero-stat-featured')
+        self.assertNotContains(response, 'hero-stat-compact')
         self.assertEqual(response.content.count(b'class="hero-stat-card'), 4)
         self.assertNotContains(response, 'hero-stat-side')
         self.assertNotContains(response, 'Last 7 Days')

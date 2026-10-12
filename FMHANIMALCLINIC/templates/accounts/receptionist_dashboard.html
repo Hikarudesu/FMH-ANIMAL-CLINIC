@@ -58,104 +58,19 @@
 /* HERO STATS ROW */
 /* ═══════════════════════════════════════════════ */
 
-#receptionist-hero-stats {
+.hero-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-bottom: 28px;
 }
 
-.hero-stat-card.hero-stat-featured {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 28px;
+@media (max-width: 1200px) {
+  .hero-stats { grid-template-columns: repeat(2, 1fr); }
 }
 
-.annual-revenue-head {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  align-items: center;
-  gap: 18px;
-}
-
-.annual-revenue-head .hero-stat-content { gap: 8px; }
-.annual-revenue-head .hero-stat-value { font-size: clamp(32px, 3vw, 44px); }
-
-.annual-revenue-period {
-  grid-column: 2;
-  justify-self: start;
-  padding: 7px 12px;
-  border: 1px solid rgba(16, 185, 129, 0.24);
-  border-radius: 999px;
-  color: #059669;
-  background: rgba(16, 185, 129, 0.1);
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.annual-revenue-breakdown {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-
-.annual-revenue-breakdown-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.annual-revenue-breakdown-label {
-  color: var(--text-3);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.annual-revenue-breakdown-value {
-  color: var(--text-1);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-
-.hero-stat-card.hero-stat-compact {
-  align-items: center;
-  gap: 14px;
-  min-height: 88px;
-  padding: 16px 20px;
-}
-
-.hero-stat-compact .hero-stat-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-}
-
-.hero-stat-compact .hero-stat-icon i { font-size: 22px; }
-.hero-stat-compact .hero-stat-value { font-size: 25px; }
-.hero-stat-compact .hero-stat-meta { margin-top: 4px; }
-
-@media (max-width: 1000px) {
-  #receptionist-hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 700px) {
-  #receptionist-hero-stats { grid-template-columns: 1fr; }
-  .hero-stat-card.hero-stat-featured { padding: 22px; }
-  .annual-revenue-head { grid-template-columns: 46px minmax(0, 1fr); gap: 14px; }
-  .annual-revenue-head .hero-stat-icon { width: 46px; height: 46px; }
-}
-
-@media (max-width: 420px) {
-  .annual-revenue-period { padding: 6px 9px; font-size: 11px; }
-  .annual-revenue-breakdown { gap: 12px; }
-  .annual-revenue-breakdown-value { font-size: 18px; }
+@media (max-width: 640px) {
+  .hero-stats { grid-template-columns: 1fr; }
 }
 
 .hero-stat-card {
@@ -925,31 +840,8 @@
 </style>
 
 <!-- HERO STATS ROW -->
-<div class="hero-stats" id="receptionist-hero-stats">
-  <div class="hero-stat-card hero-stat-featured">
-    <div class="annual-revenue-head">
-      <div class="hero-stat-icon emerald">
-        <i class='bx bx-money'></i>
-      </div>
-      <div class="hero-stat-content">
-        <span class="hero-stat-label">Sales Revenue This Year</span>
-        <span class="hero-stat-value">₱{{ annual_revenue|floatformat:0 }}</span>
-      </div>
-      <span class="annual-revenue-period">Year to date · {{ revenue_year }}</span>
-    </div>
-    <div class="annual-revenue-breakdown">
-      <div class="annual-revenue-breakdown-item">
-        <span class="annual-revenue-breakdown-label">Registered Customers</span>
-        <span class="annual-revenue-breakdown-value">₱{{ annual_registered_revenue|floatformat:0 }}</span>
-      </div>
-      <div class="annual-revenue-breakdown-item">
-        <span class="annual-revenue-breakdown-label">Walk-in Customers</span>
-        <span class="annual-revenue-breakdown-value">₱{{ annual_walkin_revenue|floatformat:0 }}</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="hero-stat-card hero-stat-compact">
+<div class="hero-stats">
+  <div class="hero-stat-card">
     <div class="hero-stat-icon teal">
       <i class='bx bx-calendar-check'></i>
     </div>
@@ -963,7 +855,22 @@
     </div>
   </div>
 
-  <div class="hero-stat-card hero-stat-compact">
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon emerald">
+      <i class='bx bx-money'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">₱{{ annual_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-label">Sales Revenue This Year</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">Year to date · {{ revenue_year }}</span>
+        <span class="meta-item">Registered Customers: ₱{{ annual_registered_revenue|floatformat:0 }}</span>
+        <span class="meta-item">Walk-in Customers: ₱{{ annual_walkin_revenue|floatformat:0 }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-stat-card">
     <div class="hero-stat-icon blue">
       <i class='bx bx-cart'></i>
     </div>
@@ -976,7 +883,7 @@
     </div>
   </div>
 
-  <div class="hero-stat-card hero-stat-compact">
+  <div class="hero-stat-card">
     <div class="hero-stat-icon {% if low_stock_count > 0 %}red{% else %}purple{% endif %}">
       <i class='bx bx-package'></i>
     </div>
