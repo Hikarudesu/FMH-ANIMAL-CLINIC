@@ -19,6 +19,7 @@ from appointments.models import Appointment
 from billing.models import CustomerStatement
 from employees.models import StaffMember
 from inventory.models import Product, StockAdjustment
+from pos.models import Sale
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
@@ -52,7 +53,6 @@ class UserPortalDashboardTests(TestCase):
             'pet_health_json',
             'appointment_status_json',
             'spending_breakdown_json',
-            'visits_per_pet_json',
         ):
             with self.subTest(context_key=context_key):
                 self.assertIn(context_key, response.context)
@@ -63,6 +63,9 @@ class UserPortalDashboardTests(TestCase):
             len(json.loads(response.context['monthly_appointments_json'])), 6
         )
         self.assertNotIn(b'const monthlyData = ;', response.content)
+        self.assertNotContains(response, 'Visits Per Pet')
+        self.assertNotContains(response, 'visitsPerPetChart')
+        self.assertNotIn('visits_per_pet_json', response.context)
 
 
 @override_settings(
@@ -117,19 +120,31 @@ class AdminDashboardQuickInsightsTests(TestCase):
                 price=20,
                 unit_cost=10,
                 stock_quantity=2,
-                min_stock_level=5,
             )
+            Sale.objects.create(
+                branch=branch,
+                subtotal=100 * index,
+                total=100 * index,
+                status=Sale.Status.COMPLETED,
+            )
+        Sale.objects.create(
+            branch=branches[0],
+            subtotal=900,
+            total=900,
+            status=Sale.Status.VOIDED,
+        )
 
         self.client.force_login(admin)
         response = self.client.get(reverse('accounts:admin_dashboard'))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['total_inventory_value'], 60)
+        self.assertEqual(response.context['yearly_sales_revenue'], 600)
         self.assertEqual(
             response.context['dashboard_scope_label'], 'Across 3 Active Branches'
         )
         self.assertContains(response, 'Total Inventory Value')
-        self.assertContains(response, 'Monthly Revenue')
+        self.assertContains(response, 'Sales Revenue This Year')
         self.assertContains(response, 'Completed Visits This Month')
         self.assertContains(response, 'Across 3 Active Branches')
         self.assertNotContains(response, '0 low stock')
@@ -159,7 +174,6 @@ class AdminDashboardQuickInsightsTests(TestCase):
             price=20,
             unit_cost=0,
             stock_quantity=4,
-            min_stock_level=1,
         )
         cancelled_product = Product.objects.create(
             branch=branch,
@@ -168,7 +182,6 @@ class AdminDashboardQuickInsightsTests(TestCase):
             price=50,
             unit_cost=0,
             stock_quantity=2,
-            min_stock_level=1,
         )
         self.client.force_login(admin)
 
