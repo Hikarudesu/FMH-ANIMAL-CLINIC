@@ -162,7 +162,7 @@
     </div>
   </div>
   
-  {% if branches|length > 1 %}
+  {% if branches|length > 1 and user.assigned_role.code != 'cashier' and user.assigned_role.code != 'receptionist' %}
   <!-- ROW 3: Branch Growth Trend (Full Width) -->
   <div class="charts-row">
     <div class="chart-card-modern full">
