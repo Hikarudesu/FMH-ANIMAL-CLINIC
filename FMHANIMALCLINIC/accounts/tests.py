@@ -36,6 +36,88 @@ from .lifecycle import (
         },
     }
 )
+class ReceptionistDashboardRevenueTrendTests(TestCase):
+    def test_revenue_trend_shows_june_to_december_for_assigned_branch(self):
+        branch = Branch.objects.create(
+            name='Pilar Dashboard Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Pilar',
+            state='Cavite',
+            zip_code='4101',
+        )
+        other_branch = Branch.objects.create(
+            name='Other Dashboard Branch',
+            phone_number='09123456780',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        role = Role.objects.create(
+            name='Dashboard Receptionist',
+            code='dashboard_receptionist',
+            hierarchy_level=1,
+            is_staff_role=True,
+        )
+        receptionist = get_user_model().objects.create_user(
+            username='revenue-trend-receptionist',
+            email='revenue-trend-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        current_year = timezone.localdate().year
+
+        for sale_branch, month, amount, status in (
+            (branch, 6, 125, Sale.Status.COMPLETED),
+            (other_branch, 7, 900, Sale.Status.COMPLETED),
+            (branch, 8, 500, Sale.Status.VOIDED),
+            (branch, 9, 75, Sale.Status.COMPLETED),
+        ):
+            sale = Sale.objects.create(
+                branch=sale_branch,
+                total=amount,
+                status=status,
+            )
+            sale.created_at = timezone.make_aware(
+                datetime(current_year, month, 15, 12, 0)
+            )
+            sale.save(update_fields=['created_at'])
+
+        self.client.force_login(receptionist)
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            json.loads(response.context['revenue_trend_data']),
+            [
+                {'month': 'Jun', 'revenue': 125.0},
+                {'month': 'Jul', 'revenue': 0},
+                {'month': 'Aug', 'revenue': 0},
+                {'month': 'Sep', 'revenue': 75.0},
+                {'month': 'Oct', 'revenue': 0},
+                {'month': 'Nov', 'revenue': 0},
+                {'month': 'Dec', 'revenue': 0},
+            ],
+        )
+        self.assertEqual(
+            response.context['revenue_trend_period'],
+            f'June - December {current_year}',
+        )
+        self.assertContains(response, f'June - December {current_year}')
+        self.assertContains(response, 'id="monthlyRevenueChart"')
+        self.assertNotContains(response, 'Last 7 Days')
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class UserPortalDashboardTests(TestCase):
     def test_dashboard_serializes_data_for_every_chart(self):
         owner = get_user_model().objects.create_user(

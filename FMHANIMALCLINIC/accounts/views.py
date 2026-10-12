@@ -1801,6 +1801,7 @@ def receptionist_dashboard_view(request):
     from appointments.models import Appointment
     from patients.models import Pet
     from pos.models import Sale, Payment, SaleItem
+    from django.db.models.functions import TruncMonth
     from notifications.models import Notification
     from inventory.models import Product, StockAdjustment
 
@@ -1881,34 +1882,33 @@ def receptionist_dashboard_view(request):
     weekly_sales_count = weekly_sales.count()
     weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
 
-    # ── Revenue trend (last 7 days, branch-specific) ──
-    revenue_trend_start = today - timedelta(days=6)
+    # ── Revenue trend (June-December, branch-specific) ──
+    revenue_trend_start = date(today.year, 6, 1)
+    revenue_trend_end = date(today.year, 12, 31)
     if pos_restricted_no_branch:
-        revenue_by_day = {}
+        revenue_by_month = {}
     else:
-        revenue_by_day = {
-            item['sale_day']: float(item['total'] or 0)
+        revenue_by_month = {
+            item['sale_month'].month: float(item['total'] or 0)
             for item in Sale.objects.filter(
                 created_at__range=(
                     get_day_bounds(revenue_trend_start)[0],
-                    get_day_bounds(today)[1],
+                    get_day_bounds(revenue_trend_end)[1],
                 ),
                 status='COMPLETED',
                 **sale_filter
             ).annotate(
-                sale_day=TruncDate('created_at')
-            ).values('sale_day').annotate(
+                sale_month=TruncMonth('created_at')
+            ).values('sale_month').annotate(
                 total=Sum('total')
-            ).order_by('sale_day')
+            ).order_by('sale_month')
         }
     revenue_trend_data = [
         {
-            'day': (revenue_trend_start + timedelta(days=offset)).strftime('%a, %b %d'),
-            'revenue': revenue_by_day.get(
-                revenue_trend_start + timedelta(days=offset), 0
-            ),
+            'month': date(today.year, month, 1).strftime('%b'),
+            'revenue': revenue_by_month.get(month, 0),
         }
-        for offset in range(7)
+        for month in range(6, 13)
     ]
 
     # ── Pending tasks (branch-specific) ──
@@ -2228,6 +2228,7 @@ def receptionist_dashboard_view(request):
         'weekly_sales_count': weekly_sales_count,
         'weekly_revenue': weekly_revenue,
         'revenue_trend_data': json.dumps(revenue_trend_data, cls=DjangoJSONEncoder),
+        'revenue_trend_period': f'June - December {today.year}',
         'registered_sales_today': float(registered_sales_today) if registered_sales_today else 0,
         'walkin_sales_today': float(walkin_sales_today) if walkin_sales_today else 0,
 

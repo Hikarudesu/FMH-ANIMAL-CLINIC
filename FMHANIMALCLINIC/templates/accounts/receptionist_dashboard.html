@@ -390,6 +390,16 @@
   position: relative;
 }
 
+.chart-body.revenue-trend-body {
+  height: 380px;
+}
+
+@media (max-width: 700px) {
+  .chart-body.revenue-trend-body {
+    height: 300px;
+  }
+}
+
 .chart-body.tall {
   height: 320px;
 }
@@ -928,13 +938,13 @@
           <i class='bx bx-line-chart'></i>
           <span>FMH Animal Clinic{% if user_branch %} - {{ user_branch.name }}{% endif %} Revenue Trend</span>
         </div>
-        <div class="chart-badge emerald">Last 7 Days</div>
+        <div class="chart-badge emerald">{{ revenue_trend_period }}</div>
       </div>
-      <div class="chart-body">
-        <canvas id="weeklyRevenueChart"></canvas>
-        <div id="weeklyRevenueEmpty" class="chart-empty-state" style="display: none;">
+      <div class="chart-body revenue-trend-body">
+        <canvas id="monthlyRevenueChart"></canvas>
+        <div id="monthlyRevenueEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-bar-chart-alt-2'></i>
-          <span>No completed sales in the last 7 days</span>
+          <span>No completed sales from {{ revenue_trend_period }}</span>
         </div>
       </div>
     </div>
@@ -1283,7 +1293,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Graceful fallback when Chart.js CDN is unavailable
   if (typeof Chart === 'undefined') {
     [
-      ['weeklyRevenueChart', 'weeklyRevenueEmpty'],
+      ['monthlyRevenueChart', 'monthlyRevenueEmpty'],
       ['appointmentHourlyChart', 'appointmentHourlyEmpty'],
       ['topProductsChart', 'topProductsEmpty'],
       ['categorySalesChart', 'categorySalesEmpty'],
@@ -1294,22 +1304,22 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 1. BRANCH REVENUE TREND (Last 7 Days)
+  // 1. BRANCH REVENUE TREND (June-December)
   // ═══════════════════════════════════════════════════════════════════════
 
-  const weeklyRevenueCtx = document.getElementById('weeklyRevenueChart');
-  if (weeklyRevenueCtx) {
+  const monthlyRevenueCtx = document.getElementById('monthlyRevenueChart');
+  if (monthlyRevenueCtx) {
     const revenueData = {{ revenue_trend_data|safe }};
     if (revenueData.some(item => item.revenue > 0)) {
-      const context = weeklyRevenueCtx.getContext('2d');
+      const context = monthlyRevenueCtx.getContext('2d');
       const revenueGradient = context.createLinearGradient(0, 0, 0, 300);
       revenueGradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
       revenueGradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
 
-      new Chart(weeklyRevenueCtx, {
+      new Chart(monthlyRevenueCtx, {
         type: 'line',
         data: {
-          labels: revenueData.map(item => item.day),
+          labels: revenueData.map(item => item.month),
           datasets: [{
             label: 'Revenue',
             data: revenueData.map(item => item.revenue),
@@ -1354,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     } else {
-      showEmptyState('weeklyRevenueChart', 'weeklyRevenueEmpty');
+      showEmptyState('monthlyRevenueChart', 'monthlyRevenueEmpty');
     }
   }
 
