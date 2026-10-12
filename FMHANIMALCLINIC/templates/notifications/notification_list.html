@@ -183,7 +183,7 @@
           <span class="action-label">Read</span>
         </button>
         {% endif %}
-        <button class="notif-action-btn action-delete" onclick="deleteNotification(event, this, {{ notif.pk }})" title="Delete notification">
+        <button class="notif-action-btn action-delete" data-delete-url="{% url 'notifications:delete_notification' notif.pk %}" onclick="deleteNotification(event, this)" title="Delete notification">
           <span class="action-icon"><i class='bx bx-trash-alt'></i></span>
           <span class="action-ripple"></span>
         </button>
@@ -342,27 +342,33 @@ function markOneRead(evt, btn, pk) {
   });
 }
 
-function deleteNotification(evt, btn, pk) {
+async function deleteNotification(evt, btn) {
   evt.stopPropagation();
   const card = btn.closest('.notif-card-v2');
   if (!card) return;
 
-  card.classList.add('deleting');
-  setTimeout(() => {
-    fetch(`/notifications/${pk}/delete/`, {
+  btn.disabled = true;
+  try {
+    const response = await fetch(btn.dataset.deleteUrl, {
       method: "POST",
+      credentials: "same-origin",
       headers: {
         "X-CSRFToken": "{{ csrf_token }}",
-        "Content-Type": "application/json"
+        "X-Requested-With": "XMLHttpRequest"
       }
-    }).then(response => {
-      if (!response.ok) {
-        card.classList.remove('deleting');
-        return;
-      }
-      window.location.reload();
     });
-  }, 400);
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Notification deletion failed.');
+    }
+
+    card.classList.add('deleting');
+    window.setTimeout(() => window.location.reload(), 400);
+  } catch (error) {
+    btn.disabled = false;
+    console.error('Unable to delete notification:', error);
+    window.alert('The notification could not be deleted. Please try again.');
+  }
 }
 
 function clearAllNotifications() {

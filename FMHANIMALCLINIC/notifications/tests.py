@@ -163,6 +163,23 @@ class NotificationRoutingTests(TestCase):
             defaults={'name': 'Branch Administrator', 'hierarchy_level': 8},
         )
 
+    def test_delete_notification_removes_it_from_database(self):
+        notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Reservation update',
+            message='Your reservation is ready.',
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+        self.client.force_login(self.pet_owner)
+
+        response = self.client.post(
+            reverse('notifications:delete_notification', args=[notification.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        self.assertFalse(Notification.objects.filter(pk=notification.pk).exists())
+
     def create_linked_record_and_appointment(self, ff_up):
         today = timezone.localdate()
         pet = Pet.objects.create(
