@@ -1028,12 +1028,28 @@ def admin_dashboard_view(request):
         pet__isnull=False
     ).values('user').distinct().count()
 
-    # Service breakdown (consultation types)
+    # Top services and products (completed sales, within the admin's branch scope)
+    sales_scope_filter = (
+        {} if request.user.is_admin_role() else {'sale__branch': request.user.branch}
+    )
+    service_sales_scope_filter = {
+        f'sale_items__{field}': value
+        for field, value in sales_scope_filter.items()
+    }
+
     services_q = Service.objects.all()
 
     service_breakdown_query = services_q.annotate(
-        usage_count=Count('sale_items__sale', filter=Q(sale_items__sale__status='COMPLETED'))
-    ).values('name', 'usage_count').order_by('-usage_count')[:10]
+        usage_count=Count(
+            'sale_items__sale',
+            filter=Q(
+                sale_items__sale__status='COMPLETED',
+                **service_sales_scope_filter,
+            ),
+        )
+    ).values('name', 'usage_count').filter(
+        usage_count__gt=0
+    ).order_by('-usage_count')[:10]
     
     # Convert to list and calculate percentages
     service_breakdown = list(service_breakdown_query)
@@ -1041,6 +1057,17 @@ def admin_dashboard_view(request):
         max_count = service_breakdown[0]['usage_count'] or 1
         for service in service_breakdown:
             service['percentage'] = (service['usage_count'] / max_count * 100) if max_count > 0 else 0
+
+    top_products = list(
+        SaleItem.objects.filter(
+            sale__status='COMPLETED',
+            item_type__in=['PRODUCT', 'MEDICATION'],
+            **sales_scope_filter,
+        ).values('name').annotate(
+            units_sold=Sum('quantity'),
+            revenue=Sum(F('unit_price') * F('quantity') - F('discount')),
+        ).order_by('-units_sold', '-revenue')[:5]
+    )
 
     # Payment method statistics
     payment_method_stats = Payment.objects.filter(
@@ -1290,6 +1317,7 @@ def admin_dashboard_view(request):
         'new_customers_this_week': new_customers_this_week,
         'returning_customers_this_week': returning_customers_this_week,
         'service_breakdown': service_breakdown,
+        'top_products': top_products,
         'payment_method_stats': payment_method_stats_list,
         'payment_method_stats_json': payment_method_stats_json,
         'pet_health_stats': pet_health_stats,

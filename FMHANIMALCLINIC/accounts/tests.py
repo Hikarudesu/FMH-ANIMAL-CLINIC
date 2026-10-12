@@ -64,6 +64,33 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotIn(b'const monthlyData = ;', response.content)
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class AdminDashboardQuickInsightsTests(TestCase):
+    def test_quick_insights_show_products_and_services_without_branch_performance(self):
+        admin = get_user_model().objects.create_superuser(
+            username='quick-insights-admin',
+            email='quick-insights-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Top Products')
+        self.assertContains(response, 'Top Services')
+        self.assertNotContains(response, 'Branch Performance')
+        self.assertIn('top_products', response.context)
+        self.assertIn('service_breakdown', response.context)
+
+
 class RolePermissionManagementTests(TestCase):
     def setUp(self):
         self.admin = get_user_model().objects.create_superuser(

@@ -176,25 +176,27 @@
   </div>
   
   <div class="insights-grid">
-    <!-- Customer Metrics -->
+    <!-- Top Products -->
     <div class="insight-card">
       <div class="insight-header">
-        <i class='bx bx-user-voice'></i>
-        <span>Customers</span>
+        <i class='bx bx-package'></i>
+        <span>Top Products</span>
       </div>
-      <div class="insight-metrics">
-        <div class="metric-item">
-          <span class="metric-value success">{{ new_customers_this_week }}</span>
-          <span class="metric-label">New</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value blue">{{ returning_customers_this_week }}</span>
-          <span class="metric-label">Returning</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value purple">{{ new_patients_this_week }}</span>
-          <span class="metric-label">Pets Added</span>
-        </div>
+      <div class="product-sales">
+        {% if top_products %}
+          {% for product in top_products %}
+          <div class="service-row">
+            <span class="service-rank">#{{ forloop.counter }}</span>
+            <span class="service-name">{{ product.name }}</span>
+            <span class="product-sales-meta">
+              <strong>{{ product.units_sold }} sold</strong>
+              <span>₱{{ product.revenue|floatformat:2 }}</span>
+            </span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="no-data">No completed product sales yet</div>
+        {% endif %}
       </div>
     </div>
     
@@ -206,7 +208,7 @@
       </div>
       <div class="service-list-modern">
         {% if service_breakdown %}
-          {% for service in service_breakdown|slice:":4" %}
+          {% for service in service_breakdown|slice:":5" %}
           <div class="service-row">
             <span class="service-rank">#{{ forloop.counter }}</span>
             <span class="service-name">{{ service.name }}</span>
@@ -218,30 +220,6 @@
         {% endif %}
       </div>
     </div>
-    
-    {% if branches|length > 1 %}
-    <!-- Branch Summary -->
-    <div class="insight-card wide">
-      <div class="insight-header">
-        <i class='bx bx-buildings'></i>
-        <span>Branch Performance</span>
-      </div>
-      <div class="branch-bars">
-        {% for branch_data in branch_revenue_data %}
-        <div class="branch-bar-item">
-          <div class="branch-bar-label">
-            <span class="branch-name">{{ branch_data.name }}</span>
-            <span class="branch-value">₱{{ branch_data.revenue|floatformat:0 }}</span>
-          </div>
-          <div class="branch-bar-track">
-            <div class="branch-bar-fill" style="--target-width: {{ branch_data.percentage }}%; background: linear-gradient(90deg, #009688, #00bcd4);"></div>
-          </div>
-          <span class="branch-percentage">{{ branch_data.percentage }}%</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
   </div>
 </div>
 
@@ -519,6 +497,27 @@
     background: rgba(255,255,255,0.5);
     border-radius: 8px;
   }
+
+  .product-sales {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .product-sales-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    color: var(--text-3);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .product-sales-meta strong {
+    color: var(--primary);
+    font-size: 14px;
+  }
   
   .alert-item:hover {
     background: rgba(255,255,255,0.8);
@@ -729,14 +728,10 @@
   
   .insights-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
   }
-  
-  @media (max-width: 1100px) {
-    .insights-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-  
+
   @media (max-width: 700px) {
     .insights-grid { grid-template-columns: 1fr; }
   }
@@ -748,14 +743,6 @@
     padding: 24px;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-card);
-  }
-  
-  .insight-card.wide {
-    grid-column: span 1;
-  }
-  
-  @media (min-width: 1100px) {
-    .insight-card.wide { grid-column: span 1; }
   }
   
   .insight-card:hover {
@@ -880,64 +867,6 @@
     font-size: 13px;
   }
   
-  /* Branch Bars */
-  .branch-bars {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  .branch-bar-item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  
-  .branch-bar-label {
-    width: 140px;
-    flex-shrink: 0;
-  }
-  
-  .branch-name {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-1);
-    margin-bottom: 2px;
-  }
-  
-  .branch-value {
-    font-size: 11px;
-    color: var(--text-3);
-  }
-  
-  .branch-bar-track {
-    flex: 1;
-    height: 10px;
-    background: var(--bg);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  
-  .branch-bar-fill {
-    height: 100%;
-    border-radius: 6px;
-    width: 0;
-    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
-  }
-  
-  .dash-fade.visible .branch-bar-fill {
-    width: var(--target-width, 100%);
-  }
-  
-  .branch-percentage {
-    width: 40px;
-    text-align: right;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--primary);
-  }
-
   /* ═══════════════════════════════════════════════ */
   /* SCHEDULE SECTION */
   /* ═══════════════════════════════════════════════ */
@@ -1157,11 +1086,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Insight cards — staggered
     document.querySelectorAll('.insight-card').forEach((card, i) => {
       card.classList.add('dash-fade', `stagger-${i + 1}`);
-    });
-    
-    // Branch bar items
-    document.querySelectorAll('.branch-bar-item').forEach((bar, i) => {
-      bar.classList.add('dash-fade', 'from-right', `stagger-${i + 1}`);
     });
     
     // Schedule section
