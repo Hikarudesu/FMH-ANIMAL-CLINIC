@@ -506,212 +506,61 @@
   
   .section-link:hover { gap: 8px; }
   
-  .insights-grid {
+  .pet-health-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-  
-  @media (max-width: 1100px) {
-    .insights-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-  
-  @media (max-width: 700px) {
-    .insights-grid { grid-template-columns: 1fr; }
-  }
-  
-  .insight-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 24px;
-    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--shadow-card);
-  }
-  
-  .insight-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
-    border-color: var(--primary);
-  }
-  
-  .insight-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 18px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--border);
-  }
-  
-  .insight-header i {
-    font-size: 20px;
-    color: var(--primary);
-  }
-  
-  .insight-header span {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-1);
-  }
-  
-  .insight-metrics {
-    display: flex;
-    gap: 16px;
-    justify-content: space-between;
-  }
-  
-  .metric-item {
-    flex: 1;
-    text-align: center;
-    padding: 14px 8px;
-    background: var(--bg);
-    border-radius: 12px;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .metric-item:hover {
-    transform: translateY(-2px);
-  }
-  
-  .metric-value {
-    display: block;
-    font-size: 26px;
-    font-weight: 800;
-    margin-bottom: 4px;
-    letter-spacing: -1px;
-  }
-  
-  .metric-value.success { color: #10b981; }
-  .metric-value.blue { color: #3b82f6; }
-  .metric-value.purple { color: #8b5cf6; }
-  .metric-value.orange { color: #f59e0b; }
-  
-  .metric-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
   }
 
-  /* ═══════════════════════════════════════════════ */
-  /* SPECIES BREAKDOWN BARS */
-  /* ═══════════════════════════════════════════════ */
-  
-  .species-list-modern {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .species-row {
+  .pet-health-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
+    gap: 14px;
+    padding: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--pet-status-color);
+    border-radius: 14px;
+    box-shadow: var(--shadow-card);
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .pet-health-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+  }
+
+  .pet-health-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    color: var(--pet-status-color);
     background: var(--bg);
-    border-radius: 10px;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 12px;
+    font-size: 21px;
   }
-  
-  .species-row:hover {
-    transform: translateX(4px);
-    background: rgba(0, 150, 136, 0.05);
-  }
-  
-  .species-info {
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .species-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-1);
-    margin-bottom: 6px;
-  }
-  
-  .species-bar-container {
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  
-  .species-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #009688, #00bcd4);
-    border-radius: 3px;
-    transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .species-count {
-    font-size: 14px;
+
+  .pet-health-details { display: flex; flex-direction: column; min-width: 0; }
+  .pet-health-name { color: var(--text-1); font-weight: 700; }
+  .pet-health-species { margin-top: 3px; color: var(--text-3); font-size: 12px; }
+  .pet-health-status {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 4px 9px;
+    color: var(--pet-status-color);
+    background: var(--bg);
+    border-radius: 999px;
+    font-size: 11px;
     font-weight: 700;
-    color: var(--primary);
-    min-width: 32px;
-    text-align: right;
-    padding: 4px 10px;
-    background: rgba(0, 150, 136, 0.1);
-    border-radius: 8px;
   }
-  
-  .species-percentage {
-    font-size: 11px;
-    font-weight: 600;
+
+  .pet-health-limit {
+    margin: 14px 2px 0;
     color: var(--text-3);
-    margin-left: 8px;
-  }
-  
-  /* Species Pagination */
-  .species-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-  }
-  
-  .species-page-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
     font-size: 12px;
-    font-weight: 600;
-    color: var(--text-2);
-    background: var(--bg);
-    border: none;
-    cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .species-page-btn:hover {
-    background: var(--primary);
-    color: white;
-    transform: translateY(-2px);
-  }
-  
-  .species-page-btn.active {
-    background: var(--primary);
-    color: white;
-  }
-  
-  .species-page-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-  }
-  
-  .species-page-info {
-    font-size: 11px;
-    color: var(--text-3);
-    padding: 0 8px;
   }
 
   /* ═══════════════════════════════════════════════ */
@@ -1423,99 +1272,40 @@
   
 </div>
 
-<!-- INSIGHTS SECTION -->
+<!-- PET HEALTH OVERVIEW -->
 <div class="insights-section">
   <div class="section-title">
-    <i class='bx bx-bar-chart'></i>
-    <span>Quick Insights</span>
+    <i class='bx bx-heart'></i>
+    <span>Pet Health at a Glance</span>
+    <a href="{% url 'patients:my_pets' %}" class="section-link">
+      View all pets <i class='bx bx-right-arrow-alt'></i>
+    </a>
   </div>
-  
-  <div class="insights-grid">
-    <!-- Pet Species Breakdown -->
-    <div class="insight-card dash-fade fade-up stagger-1">
-      <div class="insight-header">
-        <i class='bx bxs-dog'></i>
-        <span>Pet Species</span>
-      </div>
-      {% if pet_species_breakdown %}
-      <div class="species-list-modern" id="speciesList">
-        {% for species in pet_species_breakdown|slice:":5" %}
-        <div class="species-row species-item" data-index="{{ forloop.counter0 }}">
-          <div class="species-info">
-            <div class="species-name">{{ species.species }}</div>
-            <div class="species-bar-container">
-              <div class="species-bar-fill" style="width: {{ species.percentage }}%;"></div>
-            </div>
-          </div>
-          <div class="species-count">{{ species.count }}</div>
-          <span class="species-percentage">{{ species.percentage }}%</span>
-        </div>
-        {% endfor %}
-      </div>
-      {% if pet_species_breakdown|length > 5 %}
-      <div class="species-pagination">
-        <button class="species-page-btn" id="speciesPrev" disabled onclick="speciesPageChange(-1)">
-          <i class='bx bx-chevron-left'></i>
-        </button>
-        <span class="species-page-info" id="speciesPageInfo">1 / {{ pet_species_breakdown|length|add:"-1"|divisibleby:5|add:1 }}</span>
-        <button class="species-page-btn" id="speciesNext" onclick="speciesPageChange(1)">
-          <i class='bx bx-chevron-right'></i>
-        </button>
-      </div>
-      {% endif %}
-      {% else %}
-      <div class="empty-state-modern">
-        <i class='bx bxs-dog'></i>
-        <h4>No pets yet</h4>
-        <p>Register your first pet to get started</p>
-      </div>
-      {% endif %}
-    </div>
-    
-    <!-- Reservation Status -->
-    <div class="insight-card dash-fade fade-up stagger-2">
-      <div class="insight-header">
-        <i class='bx bx-calendar-check'></i>
-        <span>Reservations</span>
-      </div>
-      <div class="insight-metrics">
-        <div class="metric-item">
-          <span class="metric-value success">{{ approved_reservations|default:"0" }}</span>
-          <span class="metric-label">Confirmed</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value orange">{{ pending_reservations|default:"0" }}</span>
-          <span class="metric-label">Pending</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value purple">{{ cancelled_appointments_count|default:"0" }}</span>
-          <span class="metric-label">Cancelled</span>
-        </div>
-      </div>
-    </div>
-    
-    <!-- This Month Stats -->
-    <div class="insight-card dash-fade fade-up stagger-3">
-      <div class="insight-header">
-        <i class='bx bx-calendar'></i>
-        <span>This Month</span>
-      </div>
-      <div class="insight-metrics">
-        <div class="metric-item">
-          <span class="metric-value blue">{{ appointments_this_month|default:"0" }}</span>
-          <span class="metric-label">Visits</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value success">{{ vaccination_appointments|default:"0" }}</span>
-          <span class="metric-label">Vaccines</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value purple">{{ unread_notif_count|default:"0" }}</span>
-          <span class="metric-label">Alerts</span>
-        </div>
-      </div>
-    </div>
+
+  {% if pet_health_list %}
+  <div class="pet-health-grid">
+    {% for pet in pet_health_list %}
+    <a href="{% url 'patients:user_pet_detail' pet.id %}" class="pet-health-card dash-fade fade-up stagger-{{ forloop.counter }}" style="--pet-status-color: {{ pet.color }};">
+      <span class="pet-health-icon"><i class='bx bx-heart'></i></span>
+      <span class="pet-health-details">
+        <span class="pet-health-name">{{ pet.name }}</span>
+        <span class="pet-health-species">{{ pet.species }}</span>
+        <span class="pet-health-status">{{ pet.status }}</span>
+      </span>
+    </a>
+    {% endfor %}
   </div>
+  {% if pet_count > pet_health_list|length %}
+  <p class="pet-health-limit">Showing {{ pet_health_list|length }} of {{ pet_count }} pets. View all pets to see the rest.</p>
+  {% endif %}
+  {% else %}
+  <div class="empty-state-modern">
+    <i class='bx bxs-dog'></i>
+    <h4>No pets registered yet</h4>
+    <p>Add your pet to keep their clinic care information together.</p>
+    <a href="{% url 'patients:add_pet' %}" class="section-link">Register a pet <i class='bx bx-right-arrow-alt'></i></a>
+  </div>
+  {% endif %}
 </div>
 
 <!-- SCHEDULE SECTION -->
@@ -2107,70 +1897,6 @@ function downloadICS(petName, dateStr, reason) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SPECIES PAGINATION (Client-side)
-// ═══════════════════════════════════════════════════════════════════════════
-
-{% if pet_species_breakdown|length > 5 %}
-const speciesData = {{ pet_species_json|safe }};
-let speciesPage = 0;
-const speciesPerPage = 5;
-const totalSpeciesPages = Math.ceil(speciesData.length / speciesPerPage);
-
-function renderSpeciesPage() {
-  const start = speciesPage * speciesPerPage;
-  const end = start + speciesPerPage;
-  const pageData = speciesData.slice(start, end);
-  
-  const container = document.getElementById('speciesList');
-  if (!container) return;
-  
-  container.innerHTML = pageData.map((species, i) => `
-    <div class="species-row" style="animation: fadeIn 0.4s ease ${i * 0.08}s both;">
-      <div class="species-info">
-        <div class="species-name">${species.species}</div>
-        <div class="species-bar-container">
-          <div class="species-bar-fill" style="width: ${species.percentage}%;"></div>
-        </div>
-      </div>
-      <div class="species-count">${species.count}</div>
-      <span class="species-percentage">${species.percentage}%</span>
-    </div>
-  `).join('');
-  
-  // Update pagination info
-  const pageInfo = document.getElementById('speciesPageInfo');
-  if (pageInfo) pageInfo.textContent = `${speciesPage + 1} / ${totalSpeciesPages}`;
-  
-  // Update button states
-  const prevBtn = document.getElementById('speciesPrev');
-  const nextBtn = document.getElementById('speciesNext');
-  if (prevBtn) prevBtn.disabled = speciesPage === 0;
-  if (nextBtn) nextBtn.disabled = speciesPage >= totalSpeciesPages - 1;
-}
-
-function speciesPageChange(delta) {
-  const newPage = speciesPage + delta;
-  if (newPage >= 0 && newPage < totalSpeciesPages) {
-    speciesPage = newPage;
-    renderSpeciesPage();
-  }
-}
-
-// Add fadeIn animation keyframes if not exists
-if (!document.getElementById('speciesFadeStyle')) {
-  const style = document.createElement('style');
-  style.id = 'speciesFadeStyle';
-  style.textContent = `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateX(-10px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-  `;
-  document.head.appendChild(style);
-}
-{% endif %}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SCROLL-TRIGGERED ANIMATIONS

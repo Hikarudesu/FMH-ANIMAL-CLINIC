@@ -387,11 +387,6 @@ def user_dashboard_view(request):
         follow_up_date__lt=today,
     ).count()
 
-    # Unread notifications
-    unread_notif_count = Notification.scoped_for_user(request.user).filter(
-        is_read=False
-    ).count()
-
     # Recent activities (UserActivity)
     from accounts.models import UserActivity
     activities_list = UserActivity.objects.filter(user=request.user).order_by('-timestamp')
@@ -400,11 +395,9 @@ def user_dashboard_view(request):
     page_number = request.GET.get('page')
     recent_activities = paginator.get_page(page_number)
 
-    # Pet species breakdown with percentages
-    pet_species_breakdown = list(user_pets.values('species').annotate(count=Count('id')).order_by('-count'))
-    for species in pet_species_breakdown:
-        species['percentage'] = round((species['count'] / pet_count * 100), 1) if pet_count > 0 else 0
-    pet_species_json = json.dumps(pet_species_breakdown)
+    pet_species_breakdown = list(
+        user_pets.values('species').annotate(count=Count('id')).order_by('-count')
+    )
 
     # Dashboard chart data
     monthly_spending_totals = {
@@ -443,55 +436,6 @@ def user_dashboard_view(request):
         }
         for item in appointment_status_counts
     ]
-
-    # Vaccination appointments tracking
-    vaccination_appointments = Appointment.objects.filter(
-        user=request.user,
-        pet__isnull=False,
-        reason_for_visit__code='VACCINATION',
-        appointment_date__gte=today - timedelta(days=30),
-        appointment_date__lte=today,
-        **appt_branch_filter,
-    ).count()
-
-    # Appointment cancellation stats (past 30 days)
-    cancelled_appointments_count = Appointment.objects.filter(
-        user=request.user,
-        status='CANCELLED',
-        appointment_date__gte=today - timedelta(days=30),
-        **appt_branch_filter,
-    ).count()
-
-    # Appointments this month
-    month_start = date(today.year, today.month, 1)
-    if today.month == 12:
-        month_end = date(today.year + 1, 1, 1) - timedelta(days=1)
-    else:
-        month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
-    
-    appointments_this_month = Appointment.objects.filter(
-        user=request.user,
-        pet__isnull=False,
-        appointment_date__range=[month_start, month_end],
-        **appt_branch_filter,
-    ).exclude(status='CANCELLED').count()
-
-    # Reservation tracking (pending/approved)
-    pending_reservations = Appointment.objects.filter(
-        user=request.user,
-        pet__isnull=False,
-        status='PENDING',
-        appointment_date__gte=today,
-        **appt_branch_filter,
-    ).count()
-
-    approved_reservations = Appointment.objects.filter(
-        user=request.user,
-        pet__isnull=False,
-        status='CONFIRMED',
-        appointment_date__gte=today,
-        **appt_branch_filter,
-    ).count()
 
     # ═══════════════════════════════════════════════════════════════════════════
     # NEW: Spending & Financial Data
@@ -593,6 +537,7 @@ def user_dashboard_view(request):
     for pet in user_pets.select_related('clinical_status')[:10]:
         code = pet.clinical_status.code if pet.clinical_status else 'HEALTHY'
         pet_health_list.append({
+            'id': pet.pk,
             'name': pet.name,
             'species': pet.species,
             'status': health_labels.get(code, code),
@@ -626,10 +571,8 @@ def user_dashboard_view(request):
         'follow_ups': follow_ups,
         'follow_up_count': follow_up_count,
         'overdue_follow_ups': overdue_follow_ups,
-        'unread_notif_count': unread_notif_count,
         'recent_activities': recent_activities,
         'pet_species_breakdown': pet_species_breakdown,
-        'pet_species_json': pet_species_json,
         'monthly_spending_json': json.dumps(
             monthly_spending, cls=DjangoJSONEncoder
         ),
@@ -637,11 +580,6 @@ def user_dashboard_view(request):
         'appointment_status_json': json.dumps(
             appointment_status_data, cls=DjangoJSONEncoder
         ),
-        'vaccination_appointments': vaccination_appointments,
-        'cancelled_appointments_count': cancelled_appointments_count,
-        'appointments_this_month': appointments_this_month,
-        'pending_reservations': pending_reservations,
-        'approved_reservations': approved_reservations,
         
         # Financial data
         'total_spent_this_year': total_spent_this_year,
