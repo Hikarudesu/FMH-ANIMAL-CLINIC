@@ -25,6 +25,12 @@
   </div>
 </div>
 
+{% if branch_assignment_required %}
+<div class="portal-message warning" role="status">
+  Your account is restricted to one branch but has no branch assigned. Ask an administrator to assign your branch before managing inventory.
+</div>
+{% endif %}
+
 <!-- Tab Bar (Component) -->
 <div class="c-tab-bar" id="invTabs">
   <div class="c-tab-bar__glow"></div>
@@ -100,7 +106,7 @@
                 <td style="text-align: center; font-weight: 500;">
                   {% if item.profit_margin is not None %}{{ item.profit_margin }}%{% else %}N/A{% endif %}
                 </td>
-                <td style="text-align: center;"><strong>{{ item.stock_quantity }}</strong> / {{ item.min_stock_level }}</td>
+                <td style="text-align: center;"><strong>{{ item.stock_quantity }}</strong> {{ item.unit_label }}</td>
                 <td style="text-align: center;">
                     <span class="admin-badge" style="
                         {% if item.status == 'Out of Stock' %}background: #ffebee; color: #c62828;

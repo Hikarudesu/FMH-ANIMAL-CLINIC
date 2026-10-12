@@ -21,7 +21,7 @@ class ProductAdmin(admin.ModelAdmin):
         ('Inventory & Identification', {
             'fields': (
                 'sku', 'manufacturer', 'unit_of_measurement', 'sale_type',
-                'stock_quantity', 'min_stock_level', 'is_available'
+                'stock_quantity', 'is_available'
             )
         }),
         ('Pricing & Financials', {

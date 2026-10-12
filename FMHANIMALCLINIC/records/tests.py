@@ -5,10 +5,15 @@ from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import SimpleTestCase, override_settings
+from django.contrib.auth import get_user_model
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.urls import reverse
 
 from accounts.activity_signals import log_medical_record_changes
 from accounts.models import ActivityLog
+from accounts.rbac_models import Module, ModulePermission, Role
+from branches.models import Branch
+from patients.models import Pet
 from .models import MedicalRecord
 from .models import validate_laboratory_image, validate_medical_file
 from .views import _get_pdf_styles, _pdf_link_callback
@@ -35,6 +40,53 @@ class MedicalRecordActivitySignalTests(SimpleTestCase):
         self.assertEqual(
             log_activity.call_args.kwargs['category'], ActivityLog.Category.MEDICAL,
         )
+
+
+class BranchRestrictedMedicalRecordListTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(
+            name='Medical Record Scope Branch',
+            phone_number='09123456789',
+            address='1 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        module, _ = Module.objects.get_or_create(
+            code='medical_records', defaults={'name': 'Medical Records'},
+        )
+        role = Role.objects.create(
+            name='Medical Record Scope Role',
+            code='medical-record-scope-test-role',
+            hierarchy_level=4,
+        )
+        ModulePermission.objects.create(
+            role=role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+            restrict_to_branch=True,
+        )
+        self.user = get_user_model().objects.create_user(
+            username='medical-record-scope-user', assigned_role=role,
+        )
+        self.pet = Pet.objects.create(
+            name='Record Scope Pet', species='Cat', sex=Pet.Sex.FEMALE,
+        )
+        MedicalRecord.objects.create(
+            pet=self.pet,
+            branch=self.branch,
+            date_recorded='2026-10-12',
+        )
+
+    def test_unassigned_branch_restricted_staff_cannot_see_medical_records(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse('records:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['branch_assignment_required'])
+        self.assertEqual(response.context['records'].paginator.count, 0)
+        self.assertContains(response, 'Ask an administrator to assign your branch')
 
 
 class MedicalFileValidationTests(SimpleTestCase):

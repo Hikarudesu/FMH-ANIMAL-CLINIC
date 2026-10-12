@@ -9,7 +9,12 @@ from django.conf import settings
 from django.utils import timezone
 from branches.models import Branch
 from utils.models import SoftDeleteModel
-from settings.utils import get_inventory_unit_choices, get_inventory_sale_type_choices, get_inventory_item_type_choices
+from settings.utils import (
+    get_inventory_item_type_choices,
+    get_inventory_low_stock_threshold,
+    get_inventory_sale_type_choices,
+    get_inventory_unit_choices,
+)
 
 
 class Product(SoftDeleteModel):
@@ -54,7 +59,6 @@ class Product(SoftDeleteModel):
         Branch, on_delete=models.CASCADE, related_name='products')
     is_available = models.BooleanField(default=True)
     stock_quantity = models.PositiveIntegerField(default=0)
-    min_stock_level = models.PositiveIntegerField(default=5)
     is_consumable = models.BooleanField(
         default=False,
         help_text='True for single-use / consumable items (medicines, medical supplies)'
@@ -87,7 +91,7 @@ class Product(SoftDeleteModel):
         """Returns the current stock status."""
         if self.stock_quantity <= 0:
             return 'Out of Stock'
-        if self.stock_quantity <= self.min_stock_level:
+        if self.stock_quantity <= get_inventory_low_stock_threshold():
             return 'Low Stock'
         return 'In Stock'
 
@@ -415,7 +419,6 @@ class StockTransfer(models.Model):
                     'price': self.source_product.price,
                     'unit_of_measurement': self.source_product.unit_of_measurement,
                     'sale_type': self.source_product.sale_type,
-                    'min_stock_level': self.source_product.min_stock_level,
                     'expiration_date': self.source_product.expiration_date,
                 }
             )

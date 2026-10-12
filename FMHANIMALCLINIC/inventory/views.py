@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
+from django.db.models import DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -33,6 +33,7 @@ from .forms import (
     StockTransferRequestForm,
 )
 from settings.utils import (
+    get_inventory_low_stock_threshold,
     get_inventory_unit_options,
     get_inventory_sale_type_options,
     get_inventory_sale_type_value,
@@ -91,14 +92,30 @@ def catalog_view(request):
     """Digital Catalog displaying products available."""
     auto_cancel_expired_reservations()
 
-    # pylint: disable=no-member
-    # Filter products to only show products from the user's branch
+    branches = Branch.objects.filter(is_active=True).order_by('name')
     user_branch = request.user.branch
+    if not user_branch:
+        user_branch = _get_user_branch(request.user)
+
+    staff_branch_restricted = (
+        request.user.is_clinic_staff()
+        and request.user.is_module_branch_restricted('inventory')
+    )
+    if staff_branch_restricted:
+        selected_branch = user_branch
+    elif 'branch' in request.GET:
+        selected_branch_id = request.GET.get('branch', '').strip()
+        selected_branch = branches.filter(pk=selected_branch_id).first() if selected_branch_id else None
+    else:
+        selected_branch = branches.filter(pk=user_branch.pk).first() if user_branch else None
+
     products = Product.objects.exclude(
         item_type='Medication').select_related('branch')
 
-    if user_branch:
-        products = products.filter(branch=user_branch)
+    if staff_branch_restricted and not user_branch:
+        products = products.none()
+    elif selected_branch:
+        products = products.filter(branch=selected_branch)
 
     # User's own reservations
     user_reservations = Reservation.objects.filter(  # pylint: disable=no-member
@@ -122,6 +139,11 @@ def catalog_view(request):
         'products': page_obj,
         'page_obj': page_obj,
         'user_branch': user_branch,
+        'branches': branches,
+        'selected_catalog_branch': selected_branch,
+        'show_all_branches': selected_branch is None,
+        'can_select_catalog_branch': not staff_branch_restricted,
+        'catalog_branch_assignment_required': staff_branch_restricted and not user_branch,
         'user_reservations': user_reservations,
         'reservation_success': reservation_success,
     })
@@ -203,14 +225,15 @@ def inventory_management_view(request):
             if p.status == selected_status:
                 filtered_products.append(p)
         products = filtered_products
+        low_stock_threshold = get_inventory_low_stock_threshold()
         if selected_status == 'In Stock':
             adjustments = adjustments.filter(
-                product__stock_quantity__gt=F('product__min_stock_level')
+                product__stock_quantity__gt=low_stock_threshold
             )
         elif selected_status == 'Low Stock':
             adjustments = adjustments.filter(
                 product__stock_quantity__gt=0,
-                product__stock_quantity__lte=F('product__min_stock_level'),
+                product__stock_quantity__lte=low_stock_threshold,
             )
         elif selected_status == 'Out of Stock':
             adjustments = adjustments.filter(product__stock_quantity=0)
@@ -382,6 +405,8 @@ def inventory_management_view(request):
         'can_view_reservations': can_view_reservations,
         'can_manage_reservations': can_manage_reservations,
         'is_branch_restricted': is_branch_restricted,
+        'branch_assignment_required': is_branch_restricted and not user_branch,
+        'low_stock_threshold': get_inventory_low_stock_threshold(),
     })
 
 
@@ -1016,7 +1041,7 @@ def stock_transfer_update_status_view(request, pk):
 def super_admin_stock_view(request):
     """
     Stock Level Monitor.
-    Displays Low Stock alerts using min_stock_level threshold.
+    Displays Low Stock alerts using the configured global threshold.
     Superadmin can view all branches.
     Non-superadmin users are restricted to their own branch.
     """
@@ -1067,19 +1092,22 @@ def super_admin_stock_view(request):
             Q(sku__icontains=search_query)
         )
 
-    # Low Stock: current quantity <= min_stock_level
+    low_stock_threshold = get_inventory_low_stock_threshold()
+
+    # Low Stock uses the clinic-wide threshold from Inventory Settings.
     low_stock = products.filter(
-        stock_quantity__lte=F('min_stock_level')
-    ).exclude(
-        stock_quantity=0  # Exclude out of stock to show separately
+        stock_quantity__lte=low_stock_threshold,
+        stock_quantity__gt=0,
     ).annotate(
-        stock_shortfall=F('min_stock_level') - F('stock_quantity')
+        stock_shortfall=Value(
+            low_stock_threshold, output_field=IntegerField()
+        ) - F('stock_quantity')
     ).order_by('stock_quantity')
 
     # Out of Stock: quantity = 0
     out_of_stock = products.filter(stock_quantity=0).order_by('name')
     in_stock = products.filter(
-        stock_quantity__gt=F('min_stock_level')
+        stock_quantity__gt=low_stock_threshold
     ).order_by('name')
 
     # Apply status filter
@@ -1144,8 +1172,9 @@ def super_admin_stock_view(request):
         for branch in branches.filter(id__in=visible_branch_ids):
             branch_products = products.filter(branch=branch)
             branch_low = branch_products.filter(
-                stock_quantity__lte=F('min_stock_level')
-            ).exclude(stock_quantity=0).count()
+                stock_quantity__lte=low_stock_threshold,
+                stock_quantity__gt=0,
+            ).count()
             branch_out = branch_products.filter(stock_quantity=0).count()
             branch_product_count = branch_products.count()
             branch_missing_cost_count = branch_products.filter(unit_cost=0).count()
@@ -1202,6 +1231,7 @@ def super_admin_stock_view(request):
         'total_inventory_value_estimated': total_inventory_value_estimated,
         'all_costs_missing': all_costs_missing,
         'missing_cost_count': missing_cost_count,
+        'low_stock_threshold': low_stock_threshold,
         'branch_breakdown': branch_breakdown,
         'page_title': 'Stock Level Monitor',
         'search_value': search_query,
@@ -1209,6 +1239,7 @@ def super_admin_stock_view(request):
         'status_filters': status_filters,
         'show_clear': show_clear,
         'is_branch_restricted': is_branch_restricted,
+        'branch_assignment_required': is_branch_restricted and not user_branch,
     })
 
 

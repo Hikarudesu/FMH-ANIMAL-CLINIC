@@ -151,7 +151,7 @@ class InventorySettingsForm(AdminInputMixin, forms.Form):
         label='Low Stock Warning Threshold',
         min_value=1,
         widget=forms.NumberInput(),
-        help_text='Warn when stock falls below this level'
+        help_text='Warn when stock is at or below this level'
     )
     critical_threshold = forms.IntegerField(
         label='Critical Stock Alert Threshold',

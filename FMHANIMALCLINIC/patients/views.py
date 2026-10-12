@@ -31,9 +31,11 @@ def admin_list_view(request):
     # Get unique species that actually exist in the DB for the dropdown
     unique_species = Pet.objects.exclude(species__isnull=True).exclude(species='').values_list('species', flat=True).distinct().order_by('species')
 
-    # Patients are centralized across the clinic. Everyone with access sees all patients.
-    is_branch_restricted = False
+    is_branch_restricted = request.user.is_module_branch_restricted('patients')
     user_branch = getattr(request.user, 'branch', None)
+    if not user_branch:
+        staff_profile = getattr(request.user, 'staff_profile', None)
+        user_branch = getattr(staff_profile, 'branch', None) if staff_profile else None
 
     query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
@@ -61,19 +63,40 @@ def admin_list_view(request):
             pets_qs = pets_qs.filter(clinical_status_id=status_id)
         except ValueError:
             pass
-    # Branch filter only if not already restricted
-    if branch_filter and not is_branch_restricted:
+    if is_branch_restricted and user_branch:
         from records.models import MedicalRecord
         from appointments.models import Appointment
-        
+
+        pets_with_appt = Appointment.objects.filter(
+            branch=user_branch, pet__isnull=False
+        ).values_list('pet_id', flat=True)
+
+        pets_with_record = MedicalRecord.objects.filter(
+            branch=user_branch
+        ).values_list('pet_id', flat=True)
+
+        pets_qs = pets_qs.filter(
+            Q(branch=user_branch) |
+            Q(owner__branch=user_branch) |
+            Q(pk__in=pets_with_appt) |
+            Q(pk__in=pets_with_record)
+        )
+        branch_filter = str(user_branch.pk)
+    elif is_branch_restricted:
+        pets_qs = pets_qs.none()
+        branch_filter = ''
+    elif branch_filter:
+        from records.models import MedicalRecord
+        from appointments.models import Appointment
+
         pets_with_appt = Appointment.objects.filter(
             branch_id=branch_filter, pet__isnull=False
         ).values_list('pet_id', flat=True)
-        
+
         pets_with_record = MedicalRecord.objects.filter(
             branch_id=branch_filter
         ).values_list('pet_id', flat=True)
-        
+
         pets_qs = pets_qs.filter(
             Q(branch_id=branch_filter) |
             Q(owner__branch_id=branch_filter) |
@@ -121,6 +144,7 @@ def admin_list_view(request):
         'can_edit': can_edit,
         'can_delete': can_delete,
         'is_branch_restricted': is_branch_restricted,
+        'branch_assignment_required': is_branch_restricted and not user_branch,
     })
 
 

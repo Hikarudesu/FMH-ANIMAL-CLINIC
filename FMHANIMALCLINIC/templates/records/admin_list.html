@@ -71,6 +71,12 @@
 {% include "components/page_hero.html" with title="Medical Records" icon="bx-clipboard" subtitle="Manage and track all pet medical records across branches" icons_theme="medical" %}
 {% endif %}
 
+{% if branch_assignment_required %}
+<div class="portal-message warning" role="status">
+  Your account is restricted to one branch but has no branch assigned. Ask an administrator to assign your branch before viewing medical records.
+</div>
+{% endif %}
+
 <!-- ══════ FILTER BAR ══════ -->
 <div class="c-filter-bar" id="recordFilterBar">
   <div class="c-filter-bar__glow"></div>

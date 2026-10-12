@@ -7,7 +7,7 @@ Catalog{% endblock %} {% block content %}
   <div class="cat-hero-inner">
     <div class="cat-hero-text">
       <h1><i class="bx bx-store-alt"></i> Digital Catalog</h1>
-      <p>Browse products &amp; supplies available at {% if user_branch %}{{ user_branch.name }}{% else %}your clinic branch{% endif %}</p>
+      <p>{% if catalog_branch_assignment_required %}A branch assignment is required to view inventory.{% elif selected_catalog_branch %}Browse products &amp; supplies available at {{ selected_catalog_branch.name }}{% else %}Browse products &amp; supplies available across all active branches{% endif %}</p>
     </div>
   </div>
 </div>
@@ -53,6 +53,14 @@ Catalog{% endblock %} {% block content %}
 
       <!-- Filter Dropdowns Row -->
       <div class="c-filter-bar__filters">
+        {% if can_select_catalog_branch %}
+        <select name="branch" class="c-filter-dropdown__select sd-convert" aria-label="Filter products by branch" onchange="this.form.submit()">
+          <option value="">All active branches</option>
+          {% for branch in branches %}
+          <option value="{{ branch.pk }}" {% if selected_catalog_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
       </div>
     </form>
   </div> {% if products %}

@@ -25,7 +25,7 @@ from branches.models import Branch
 from .models import User
 from .decorators import module_permission_required, admin_only, special_permission_required, staff_only
 from .forms import PetOwnerRegistrationForm
-from settings.utils import get_setting
+from settings.utils import get_inventory_low_stock_threshold, get_setting
 
 EMAIL_VERIFICATION_SALT = 'accounts.email-verification'
 EMAIL_VERIFICATION_MAX_AGE = 60 * 60 * 24
@@ -1020,8 +1020,9 @@ def admin_dashboard_view(request):
     ]
 
     # Low stock alerts and refunds
+    low_stock_threshold = get_inventory_low_stock_threshold()
     low_stock_products = Product.objects.filter(
-        stock_quantity__lte=F('min_stock_level'),
+        stock_quantity__lte=low_stock_threshold,
         is_available=True
     ).order_by('stock_quantity')[:10]
     
@@ -2097,15 +2098,16 @@ def receptionist_dashboard_view(request):
         low_stock_products = Product.objects.none()
         low_stock_count = 0
     else:
+        low_stock_threshold = get_inventory_low_stock_threshold()
         low_stock_products = Product.objects.filter(
             is_available=True,
-            stock_quantity__lte=F('min_stock_level'),
+            stock_quantity__lte=low_stock_threshold,
             **product_branch_filter
         ).order_by('stock_quantity')[:5]
         
         low_stock_count = Product.objects.filter(
             is_available=True,
-            stock_quantity__lte=F('min_stock_level'),
+            stock_quantity__lte=low_stock_threshold,
             **product_branch_filter
         ).count()
 
@@ -2204,6 +2206,7 @@ def receptionist_dashboard_view(request):
         'top_products': json.dumps(top_products, cls=DjangoJSONEncoder),
         'low_stock_products': low_stock_products,
         'low_stock_count': low_stock_count,
+        'low_stock_threshold': get_inventory_low_stock_threshold(),
         'category_sales': json.dumps(category_sales, cls=DjangoJSONEncoder),
         
         # NEW: Appointment Analytics (replacing hourly sales & payment methods)

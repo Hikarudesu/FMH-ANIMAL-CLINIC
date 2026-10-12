@@ -13,6 +13,12 @@
   {% include "components/page_hero.html" with title="Stock Level Monitor" icon="bx-check-shield" subtitle="Monitor low stock levels" action_url=refresh_url action_icon="bx-refresh" action_label="Refresh" %}
 {% endif %}
 
+{% if branch_assignment_required %}
+<div class="portal-message warning" role="status">
+  Your account is restricted to one branch but has no branch assigned. Ask an administrator to assign your branch before viewing stock levels.
+</div>
+{% endif %}
+
 <!-- Filter Bar -->
 <div class="c-filter-bar" style="margin-bottom: 22px;">
   <div class="c-filter-bar__glow"></div>
@@ -201,7 +207,7 @@
           <th>Product Name</th>
           <th>Branch</th>
           <th>Current Stock</th>
-          <th>Min. Threshold</th>
+          <th>Low-Stock Alert</th>
           <th>Variance</th>
           <th>Type</th>
           <th style="text-align: right;">Action</th>
@@ -217,7 +223,7 @@
             </span>
           </td>
           <td style="font-weight: 600; font-size: 1.1rem;">{{ item.stock_quantity }}</td>
-          <td style="color: var(--text-2);">{{ item.min_stock_level }}</td>
+          <td style="color: var(--text-2);">{{ low_stock_threshold }} {{ item.unit_label }}</td>
           <td style="color: #d32f2f; font-weight: 600;">
             -{{ item.stock_shortfall }} {{ item.unit_label }}
           </td>
@@ -266,7 +272,7 @@
           <th>Product Name</th>
           <th>Branch</th>
           <th>Current Stock</th>
-          <th>Min. Threshold</th>
+          <th>Low-Stock Alert</th>
           <th>Type</th>
           <th>Last Updated</th>
         </tr>
@@ -277,7 +283,7 @@
           <td style="font-weight: 600;">{{ item.name }}</td>
           <td>{{ item.branch.name }}</td>
           <td>{{ item.stock_quantity }} {{ item.unit_label }}</td>
-          <td>{{ item.min_stock_level }} {{ item.unit_label }}</td>
+          <td>{{ low_stock_threshold }} {{ item.unit_label }}</td>
           <td>{{ item.item_type }}</td>
           <td>{{ item.updated_at|date:"M j, Y g:i A" }}</td>
         </tr>
@@ -307,7 +313,7 @@
         <tr>
           <th>Product Name</th>
           <th>Branch</th>
-          <th>Min. Threshold</th>
+          <th>Low-Stock Alert</th>
           <th>Type</th>
           <th>Last Updated</th>
           <th style="text-align: right;">Action</th>
@@ -322,7 +328,7 @@
               {{ item.branch.name }}
             </span>
           </td>
-          <td style="color: var(--text-2);">{{ item.min_stock_level }}</td>
+          <td style="color: var(--text-2);">{{ low_stock_threshold }} {{ item.unit_label }}</td>
           <td>
             <span style="
               {% if item.item_type == 'Medication' %}

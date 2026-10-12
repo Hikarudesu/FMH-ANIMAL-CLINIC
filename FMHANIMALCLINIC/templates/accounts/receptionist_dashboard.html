@@ -1087,7 +1087,7 @@
           </div>
           <div class="low-stock-info">
             <div class="low-stock-name">{{ product.name }}</div>
-            <div class="low-stock-qty">{{ product.stock_quantity }} left (min: {{ product.min_stock_level }})</div>
+            <div class="low-stock-qty">{{ product.stock_quantity }} left (alert at {{ low_stock_threshold }} or less)</div>
           </div>
         </div>
         {% endfor %}

@@ -80,6 +80,14 @@ def get_setting(key, default=None, use_cache=True):
         return default
 
 
+def get_inventory_low_stock_threshold():
+    """Return the configured clinic-wide low-stock threshold."""
+    try:
+        return max(1, int(get_setting('inventory_low_stock_threshold', 10)))
+    except (TypeError, ValueError):
+        return 10
+
+
 def normalize_inventory_unit_options(raw_options):
     """Normalize inventory unit options into a unique, ordered list."""
     if not raw_options:

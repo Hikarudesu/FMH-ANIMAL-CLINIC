@@ -324,8 +324,7 @@ try:
     @receiver(pre_save, sender=Product)
     def capture_product_deleted_state(sender, instance, **kwargs):
         audit_fields = (
-            'is_deleted', 'name', 'sku', 'stock_quantity', 'min_stock_level',
-            'unit_cost', 'price',
+            'is_deleted', 'name', 'sku', 'stock_quantity', 'unit_cost', 'price',
         )
         if not instance.pk:
             instance._previous_is_deleted = None
@@ -391,7 +390,6 @@ try:
                 ('name', 'Name'),
                 ('sku', 'SKU'),
                 ('stock_quantity', 'Stock'),
-                ('min_stock_level', 'Minimum stock'),
                 ('unit_cost', 'Unit cost'),
                 ('price', 'Price'),
             )

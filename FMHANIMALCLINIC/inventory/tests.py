@@ -40,7 +40,6 @@ class InventoryWorkflowTests(TestCase):
             'unit_cost': '10.00',
             'price': '20.00',
             'stock_quantity': '50',
-            'min_stock_level': '5',
             'expiration_date': '',
             'is_available': 'on',
         }
@@ -97,6 +96,132 @@ class InventoryWorkflowTests(TestCase):
 
         self.assertEqual(product.stock_quantity, 50)
         self.assertFalse(product.is_available)
+
+    def test_product_form_uses_global_threshold_instead_of_product_field(self):
+        form = ProductForm()
+
+        self.assertNotIn('min_stock_level', form.fields)
+
+    @patch('inventory.models.get_inventory_low_stock_threshold', return_value=10)
+    def test_product_status_uses_global_low_stock_threshold(self, _threshold):
+        self.assertEqual(Product(stock_quantity=10).status, 'Low Stock')
+        self.assertEqual(Product(stock_quantity=11).status, 'In Stock')
+
+    def test_branchless_pet_owner_catalog_defaults_to_all_active_branches(self):
+        other_branch = Branch.objects.create(
+            name='Second Catalog Branch',
+            phone_number='09123456789',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        first_product = Product.objects.create(
+            branch=self.branch, item_type='Product', name='First Branch Item', price=15,
+        )
+        second_product = Product.objects.create(
+            branch=other_branch, item_type='Accessories', name='Second Branch Item', price=25,
+        )
+        owner = get_user_model().objects.create_user(
+            username='catalog-owner', password='A-secure-test-password-923!',
+        )
+        self.client.force_login(owner)
+
+        response = self.client.get(reverse('inventory:catalog'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['show_all_branches'])
+        self.assertEqual(
+            {product.pk for product in response.context['products']},
+            {first_product.pk, second_product.pk},
+        )
+        self.assertContains(response, 'all active branches')
+
+        response = self.client.get(
+            reverse('inventory:catalog'), {'branch': str(other_branch.pk)},
+        )
+        self.assertEqual(
+            {product.pk for product in response.context['products']},
+            {second_product.pk},
+        )
+
+    def test_branch_restricted_staff_cannot_select_another_catalog_branch(self):
+        other_branch = Branch.objects.create(
+            name='Restricted Catalog Other Branch',
+            phone_number='09123456789',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        assigned_product = Product.objects.create(
+            branch=self.branch, item_type='Product', name='Assigned Branch Item', price=15,
+        )
+        Product.objects.create(
+            branch=other_branch, item_type='Product', name='Other Branch Catalog Item', price=25,
+        )
+        user = self.create_branch_restricted_user(self.branch)
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse('inventory:catalog'), {'branch': str(other_branch.pk)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['can_select_catalog_branch'])
+        self.assertEqual(
+            [product.pk for product in response.context['products']],
+            [assigned_product.pk],
+        )
+        self.assertNotContains(response, 'Other Branch Catalog Item')
+
+    @patch('inventory.views.get_inventory_low_stock_threshold', return_value=10)
+    @patch('inventory.models.get_inventory_low_stock_threshold', return_value=10)
+    def test_stock_monitor_uses_global_threshold_and_reports_shortfall(self, _model_threshold, _view_threshold):
+        low_product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Global Threshold Low Item',
+            price=20,
+            stock_quantity=8,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('inventory:super_admin_stock_monitoring'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context['low_stock']), [low_product])
+        self.assertEqual(response.context['low_stock'][0].stock_shortfall, 2)
+        self.assertContains(response, '10 Piece')
+
+    def test_branchless_restricted_staff_sees_assignment_notice_not_other_inventory(self):
+        other_branch = Branch.objects.create(
+            name='Unassigned Staff Other Branch',
+            phone_number='09123456789',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        Product.objects.create(
+            branch=other_branch,
+            item_type='Product',
+            name='Restricted Other Branch Item',
+            price=20,
+            stock_quantity=20,
+        )
+        user = self.create_branch_restricted_user(self.branch)
+        user.branch = None
+        user.save(update_fields=['branch'])
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('inventory:management'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['branch_assignment_required'])
+        self.assertEqual(response.context['products'].paginator.count, 0)
+        self.assertContains(response, 'Ask an administrator to assign your branch')
+        self.assertNotContains(response, 'Restricted Other Branch Item')
 
     def test_removing_more_than_available_stock_shows_warning_without_adjustment(self):
         product = Product.objects.create(
@@ -263,8 +388,7 @@ class InventoryWorkflowTests(TestCase):
             item_type='Product',
             name='Adequately Stocked Item',
             price=20,
-            stock_quantity=10,
-            min_stock_level=5,
+            stock_quantity=11,
         )
         Product.objects.create(
             branch=self.branch,
@@ -272,7 +396,6 @@ class InventoryWorkflowTests(TestCase):
             name='Low Stock Item',
             price=20,
             stock_quantity=2,
-            min_stock_level=5,
         )
         self.client.force_login(self.admin)
 

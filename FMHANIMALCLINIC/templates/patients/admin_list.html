@@ -167,6 +167,12 @@
 {% include "components/page_hero.html" with title="Patients" icon="bxs-dog" subtitle="View all registered pets, owners, and clinical statuses" icons_theme="pets" %}
 {% endif %}
 
+{% if branch_assignment_required %}
+<div class="portal-message warning" role="status">
+  Your account is restricted to one branch but has no branch assigned. Ask an administrator to assign your branch before viewing patients.
+</div>
+{% endif %}
+
 <!-- ══════ SEARCH & FILTER BAR ══════ -->
 <div class="c-filter-bar" id="patientFilterBar">
   <div class="c-filter-bar__glow"></div>

@@ -97,7 +97,7 @@ class ProductForm(FormControlMixin, forms.ModelForm):
             'branch', 'item_type', 'name', 'description',
             'sku', 'manufacturer', 'unit_of_measurement', 'sale_type',
             'unit_cost', 'price',
-            'stock_quantity', 'min_stock_level', 'is_consumable',
+            'stock_quantity', 'is_consumable',
             'expiration_date', 'is_available'
         ]
         widgets = {
@@ -112,7 +112,6 @@ class ProductForm(FormControlMixin, forms.ModelForm):
             'unit_cost': forms.NumberInput(attrs={'step': '0.01', 'id': 'id_unit_cost'}),
             'price': forms.NumberInput(attrs={'step': '0.01', 'id': 'id_price'}),
             'stock_quantity': forms.NumberInput(),
-            'min_stock_level': forms.NumberInput(),
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
             'is_available': forms.CheckboxInput(),
         }

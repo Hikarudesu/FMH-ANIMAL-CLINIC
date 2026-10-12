@@ -113,6 +113,9 @@ def admin_records_list(request):
     # Check if user is branch-restricted
     is_branch_restricted = request.user.is_module_branch_restricted('medical_records')
     user_branch = getattr(request.user, 'branch', None)
+    if not user_branch:
+        staff_profile = getattr(request.user, 'staff_profile', None)
+        user_branch = getattr(staff_profile, 'branch', None) if staff_profile else None
 
     query = request.GET.get('q', '')
     records = MedicalRecord.objects.all().select_related(
@@ -120,8 +123,8 @@ def admin_records_list(request):
     ).prefetch_related('entries')
     
     # Apply branch restriction first if user is restricted
-    if is_branch_restricted and user_branch:
-        records = records.filter(branch=user_branch)
+    if is_branch_restricted:
+        records = records.filter(branch=user_branch) if user_branch else records.none()
 
     if query:
         records = records.filter(
@@ -186,6 +189,7 @@ def admin_records_list(request):
         'can_edit': can_edit,
         'can_delete': can_delete,
         'is_branch_restricted': is_branch_restricted,
+        'branch_assignment_required': is_branch_restricted and not user_branch,
     }
     return render(request, 'records/admin_list.html', context)
 

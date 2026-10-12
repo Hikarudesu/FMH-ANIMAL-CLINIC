@@ -22,6 +22,7 @@ from inventory.models import Product, StockAdjustment
 from patients.models import Pet
 from records.models import RecordEntry
 from branches.models import Branch
+from settings.utils import get_inventory_low_stock_threshold
 
 
 # =============================================================================
@@ -704,8 +705,9 @@ def operations_dashboard(request):
     if branch:
         inventory_qs = inventory_qs.filter(branch=branch)
 
+    low_stock_threshold = get_inventory_low_stock_threshold()
     low_stock = inventory_qs.filter(
-        stock_quantity__lte=F('min_stock_level'),
+        stock_quantity__lte=low_stock_threshold,
         stock_quantity__gt=0
     ).count()
     out_of_stock = inventory_qs.filter(stock_quantity=0).count()
@@ -1203,8 +1205,11 @@ def inventory_reports(request):
                 F('unit_cost'), output_field=DecimalField()))
     )['val'] or Decimal('0')
 
-    low_stock_items = inventory_qs.filter(stock_quantity__lte=F(
-        'min_stock_level'), stock_quantity__gt=0).order_by('stock_quantity')
+    low_stock_threshold = get_inventory_low_stock_threshold()
+    low_stock_items = inventory_qs.filter(
+        stock_quantity__lte=low_stock_threshold,
+        stock_quantity__gt=0,
+    ).order_by('stock_quantity')
     out_of_stock_items = inventory_qs.filter(stock_quantity=0)
     expiring_date = today + timedelta(days=30)
     expiring_items = inventory_qs.filter(
