@@ -1,8 +1,17 @@
+import secrets
+import string
+
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 
 from utils.validators import validate_image_file, IMAGE_UPLOAD_HELP_TEXT
+
+
+def generate_pet_code():
+    """Generate a short, readable alphanumeric identifier for a pet."""
+    alphabet = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(10))
 
 
 class Pet(models.Model):
@@ -68,6 +77,7 @@ class Pet(models.Model):
     )
 
     name = models.CharField(max_length=100)
+    pet_code = models.CharField(max_length=10, unique=True, editable=False)
     species = models.CharField(max_length=60, help_text='e.g. Dog, Cat, Bird, Rabbit')
     breed = models.CharField(max_length=100, blank=True)
     date_of_birth = models.DateField(
@@ -113,7 +123,9 @@ class Pet(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        """Set a default configurable clinical status when one is not provided."""
+        """Assign a permanent code and default clinical status when needed."""
+        if not self.pet_code:
+            self.pet_code = generate_pet_code()
         if self.clinical_status_id is None:
             try:
                 from settings.models import ClinicalStatus

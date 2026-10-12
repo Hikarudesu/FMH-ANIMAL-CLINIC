@@ -1420,24 +1420,6 @@
     </div>
   </div>
   
-  <!-- ROW 3: Visits Per Pet (Full Width) -->
-  <div class="charts-row">
-    <div class="chart-card-modern full dash-fade fade-up">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Visits Per Pet</span>
-        </div>
-        <div class="chart-badge teal">All Time</div>
-        <a href="{% url 'patients:my_pets' %}" class="chart-link">
-          View All Pets <i class='bx bx-right-arrow-alt'></i>
-        </a>
-      </div>
-      <div class="chart-body wide">
-        <canvas id="visitsPerPetChart"></canvas>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- INSIGHTS SECTION -->
@@ -2140,73 +2122,6 @@ if (spendingCtx) {
         <i class='bx bx-wallet'></i>
         <h4>No spending data yet</h4>
         <p>Your spending breakdown will appear here once you have purchases</p>
-      </div>
-    `;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 5. VISITS PER PET BAR CHART
-// ═══════════════════════════════════════════════════════════════════════════
-
-const visitsPerPetCtx = document.getElementById('visitsPerPetChart');
-if (visitsPerPetCtx) {
-  const visitsData = {{ visits_per_pet_json|safe }};
-  
-  if (visitsData.length > 0) {
-    const labels = visitsData.map(d => d.pet__name);
-    const data = visitsData.map(d => d.visits);
-    
-    // Gradient colors for bars
-    const barColors = [
-      '#009688', '#00bcd4', '#3b82f6', '#6366f1', '#8b5cf6', '#f59e0b'
-    ];
-    
-    new Chart(visitsPerPetCtx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Visits',
-          data: data,
-          backgroundColor: barColors.slice(0, labels.length),
-          borderRadius: 8,
-          borderSkipped: false,
-          barThickness: 40
-        }]
-      },
-      options: {
-        ...commonOptions,
-        indexAxis: 'y',
-        plugins: {
-          ...commonOptions.plugins,
-          legend: { display: false },
-          tooltip: {
-            ...commonTooltip,
-            callbacks: {
-              label: ctx => `${ctx.raw} visit${ctx.raw !== 1 ? 's' : ''}`
-            }
-          }
-        },
-        scales: {
-          x: {
-            beginAtZero: true,
-            ticks: { stepSize: 1, color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
-            grid: { color: isGlobalDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
-          },
-          y: {
-            ticks: { color: '#94a3b8', font: { size: 12, weight: '600' } }, // Neutral color visible on both light and dark backgrounds
-            grid: { display: false }
-          }
-        }
-      }
-    });
-  } else {
-    visitsPerPetCtx.parentElement.innerHTML = `
-      <div class="empty-state-modern">
-        <i class='bx bx-bar-chart-alt-2'></i>
-        <h4>No visit data</h4>
-        <p>Pet visits will appear here after appointments</p>
       </div>
     `;
   }

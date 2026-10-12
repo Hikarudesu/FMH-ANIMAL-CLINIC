@@ -608,23 +608,6 @@ def user_dashboard_view(request):
         })
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Visits Per Pet (simple list, shown conditionally when ≥ 3 pets)
-    # ═══════════════════════════════════════════════════════════════════════════
-
-    visits_per_pet = list(Appointment.objects.filter(
-        user=request.user,
-        pet__isnull=False,
-        **appt_branch_filter,
-    ).exclude(status='CANCELLED').values('pet_id', 'pet__name').annotate(
-        visits=Count('id')
-    ).order_by('-visits')[:6])
-
-    max_visits = visits_per_pet[0]['visits'] if visits_per_pet else 1
-    for item in visits_per_pet:
-        item['percentage'] = round((item['visits'] / max_visits * 100), 1) if max_visits > 0 else 0
-    show_visits_per_pet = pet_count >= 3 and len(visits_per_pet) > 0
-
-    # ═══════════════════════════════════════════════════════════════════════════
     # NEW: Recent completed appointments (for medical records section)
     # ═══════════════════════════════════════════════════════════════════════════
     
@@ -684,14 +667,6 @@ def user_dashboard_view(request):
         
         # Pet health badges
         'pet_health_list': pet_health_list,
-        
-        # Visits per pet
-        'visits_per_pet': visits_per_pet,
-        'visits_per_pet_json': json.dumps(
-            visits_per_pet, cls=DjangoJSONEncoder
-        ),
-        'show_visits_per_pet': show_visits_per_pet,
-        
         # Recent medical records
         'recent_completed': recent_completed,
     })
@@ -1000,6 +975,11 @@ def admin_dashboard_view(request):
             get_day_bounds(last_month_start)[0],
             get_day_bounds(last_month_end)[1],
         ),
+        status='COMPLETED',
+        **revenue_scope,
+    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    yearly_sales_revenue = Sale.objects.filter(
+        created_at__year=today.year,
         status='COMPLETED',
         **revenue_scope,
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
@@ -1380,6 +1360,7 @@ def admin_dashboard_view(request):
         'dashboard_scope_label': dashboard_scope_label,
         'monthly_revenue': monthly_revenue,
         'last_month_revenue': last_month_revenue,
+        'yearly_sales_revenue': yearly_sales_revenue,
         'completed_visits_this_month': completed_visits_this_month,
         'scheduled_appointments_this_month': scheduled_appointments_this_month,
         'expiring_products': expiring_products,

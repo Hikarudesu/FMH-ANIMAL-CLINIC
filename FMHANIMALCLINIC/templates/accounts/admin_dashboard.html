@@ -33,11 +33,11 @@
       <i class='bx bx-line-chart'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">₱{{ monthly_revenue|floatformat:0 }}</span>
-      <span class="hero-stat-label">Monthly Revenue</span>
+      <span class="hero-stat-value">₱{{ yearly_sales_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-label">Sales Revenue This Year</span>
       <div class="hero-stat-meta">
         <span class="meta-item">{{ dashboard_scope_label }}</span>
-        <span class="meta-item">₱{{ last_month_revenue|floatformat:0 }} last month</span>
+        <span class="meta-item">Completed sales, year to date</span>
       </div>
     </div>
   </div>
