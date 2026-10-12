@@ -1,5 +1,6 @@
+import json
 import re
-from datetime import time
+from datetime import date, time, timedelta
 from urllib.parse import parse_qs, urlsplit
 
 from dateutil.relativedelta import relativedelta
@@ -278,6 +279,108 @@ class RolePermissionManagementTests(TestCase):
         self.assertTrue(permission_logs.filter(
             action_type=ActivityLog.ActionType.DELETE,
         ).exists())
+
+
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+})
+class VeterinarianDashboardWorkloadTests(TestCase):
+    def test_upcoming_workload_counts_pending_and_confirmed_bookings_for_seven_days(self):
+        branch = Branch.objects.create(
+            name='Dashboard Workload Branch',
+            phone_number='09123456789',
+            address='1 Dashboard Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        user = get_user_model().objects.create_superuser(
+            username='dashboard-workload-vet',
+            email='dashboard-workload-vet@example.com',
+            password='A-secure-test-password-923!',
+        )
+        user.branch = branch
+        user.save(update_fields=['branch'])
+        staff = StaffMember.objects.create(
+            first_name='Dashboard',
+            last_name='Veterinarian',
+            branch=branch,
+            position=StaffMember.Position.VETERINARIAN,
+            user=user,
+        )
+
+        today = date.today()
+        appointment_defaults = {
+            'owner_name': 'Test Owner',
+            'pet_name': 'Test Patient',
+            'branch': branch,
+            'appointment_time': time(9, 0),
+        }
+        Appointment.objects.create(
+            **appointment_defaults,
+            appointment_date=today,
+            status=Appointment.Status.PENDING,
+        )
+        Appointment.objects.create(
+            **appointment_defaults,
+            appointment_date=today,
+            status=Appointment.Status.CONFIRMED,
+        )
+        Appointment.objects.create(
+            **appointment_defaults,
+            appointment_date=today,
+            status=Appointment.Status.CONFIRMED,
+            preferred_vet=staff,
+        )
+        Appointment.objects.create(
+            **appointment_defaults,
+            appointment_date=today + timedelta(days=6),
+            status=Appointment.Status.CONFIRMED,
+        )
+        Appointment.objects.create(
+            **appointment_defaults,
+            appointment_date=today + timedelta(days=7),
+            status=Appointment.Status.CONFIRMED,
+        )
+        Appointment.objects.create(
+            **appointment_defaults,
+            appointment_date=today + timedelta(days=1),
+            status=Appointment.Status.CANCELLED,
+        )
+        Appointment.objects.create(
+            **appointment_defaults,
+            appointment_date=today,
+            status=Appointment.Status.COMPLETED,
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('accounts:vet_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'upcomingWorkloadChart')
+        self.assertNotContains(response, 'appointmentTypesChart')
+        self.assertNotContains(response, 'patientHealthChart')
+        self.assertNotContains(response, 'monthlyPerformanceChart')
+        workload = json.loads(response.context['upcoming_workload_json'])
+        self.assertEqual(len(workload), 7)
+        self.assertEqual(workload[0]['pending_unassigned'], 1)
+        self.assertEqual(workload[0]['confirmed_assigned'], 1)
+        self.assertEqual(workload[0]['confirmed_unassigned'], 1)
+        self.assertEqual(workload[1]['pending_unassigned'], 0)
+        self.assertEqual(workload[6]['confirmed_unassigned'], 1)
+        self.assertEqual(
+            sum(
+                day['pending_assigned']
+                + day['pending_unassigned']
+                + day['confirmed_assigned']
+                + day['confirmed_unassigned']
+                for day in workload
+            ),
+            4,
+        )
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
