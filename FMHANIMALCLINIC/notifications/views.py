@@ -292,10 +292,12 @@ def mark_all_read(request):
 @require_POST
 def delete_notification(request, pk):
     """Delete a single notification."""
-    notification = get_object_or_404(Notification, pk=pk, user=request.user)
-    notification.delete()
+    deleted, _ = Notification.objects.filter(pk=pk, user=request.user).delete()
+    if not deleted:
+        return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
+
     unread_count = Notification.scoped_for_user(request.user).filter(is_read=False).count()
-    return JsonResponse({'success': True, 'unread_count': unread_count})
+    return JsonResponse({'success': True, 'deleted': deleted, 'unread_count': unread_count})
 
 
 @login_required

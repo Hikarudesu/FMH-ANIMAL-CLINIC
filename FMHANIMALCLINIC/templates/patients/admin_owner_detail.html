@@ -834,10 +834,7 @@
       listItem.style.opacity = '0';
       listItem.style.transform = 'translateX(20px)';
       setTimeout(() => {
-        listItem.remove();
-        state.notif.total--;
-        updateNotificationCount();
-        updateListVisibility('notif');
+        location.reload();
       }, 300);
     } catch (error) {
       await showActionError('We couldn’t delete this notification. Please try again.');

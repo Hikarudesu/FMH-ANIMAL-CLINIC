@@ -19,7 +19,7 @@
         <span class="notif-badge-count">{{ unread_count }}</span>
       </button>
       {% endif %}
-      {% if page_obj.paginator.count > 0 %}
+      {% if page_obj.object_list and page_obj.paginator.count > 0 %}
       <button id="clearAllBtn" class="page-hero-btn" onclick="clearAllNotifications()">
         <i class='bx bx-trash-alt'></i>
         <span>Clear All</span>
@@ -343,6 +343,8 @@ function markOneRead(evt, btn, pk) {
 function deleteNotification(evt, btn, pk) {
   evt.stopPropagation();
   const card = btn.closest('.notif-card-v2');
+  if (!card) return;
+
   card.classList.add('deleting');
   setTimeout(() => {
     fetch(`/notifications/${pk}/delete/`, {
@@ -352,17 +354,17 @@ function deleteNotification(evt, btn, pk) {
         "Content-Type": "application/json"
       }
     }).then(response => {
-      if (response.ok) {
-        card.remove();
-        if (document.querySelectorAll('.notif-card-v2').length === 0) {
-          window.location.reload();
-        }
+      if (!response.ok) {
+        card.classList.remove('deleting');
+        return;
       }
+      window.location.reload();
     });
   }, 400);
 }
 
 function clearAllNotifications() {
+  if (!document.querySelectorAll('.notif-card-v2').length) return;
   document.getElementById('clearNotificationsModal').classList.add('active');
 }
 
