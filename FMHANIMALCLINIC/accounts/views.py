@@ -135,7 +135,6 @@ def login_view(request):
             lockouts[lockout_key] = login_state
             request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
 
-<<<<<<< HEAD
         if (
             stored_user
             and not stored_user.is_active
@@ -154,8 +153,6 @@ def login_view(request):
                     'inactive_account_notice': reason,
                 })
 
-=======
->>>>>>> ce9ada3080e9c8696610b4eca3f51dd68020a4be
         user = authenticate(request, username=username, password=password)
 
         maintenance_mode = get_setting('system_maintenance_mode', False)
