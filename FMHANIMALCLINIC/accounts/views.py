@@ -135,27 +135,6 @@ def login_view(request):
             lockouts[lockout_key] = login_state
             request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
 
-        if (
-            stored_user
-            and not stored_user.is_active
-            and stored_user.check_password(password)
-        ):
-            is_staff_account = stored_user.is_clinic_staff() or User.objects.filter(
-                pk=stored_user.pk,
-                staff_profile__isnull=False,
-            ).exists()
-            if is_staff_account:
-                reason = stored_user.inactive_reason.strip() or 'No reason was provided.'
-                lockouts.pop(lockout_key, None)
-                request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
-                messages.error(
-                    request,
-                    f'Your staff account is inactive. Reason: {reason}',
-                )
-                return render(request, 'accounts/login.html', {
-                    'show_maintenance_popup': show_maintenance_popup,
-                })
-
         user = authenticate(request, username=username, password=password)
 
         maintenance_mode = get_setting('system_maintenance_mode', False)
@@ -437,22 +416,6 @@ def user_dashboard_view(request):
         for month in month_starts
     ]
 
-    pet_health_counts = {}
-    for item in user_pets.values(
-        'clinical_status__name',
-        'clinical_status__color',
-    ).annotate(count=Count('id')):
-        status_name = item['clinical_status__name'] or 'Healthy'
-        color = item['clinical_status__color'] or '#10b981'
-        status_key = (status_name, color)
-        pet_health_counts[status_key] = (
-            pet_health_counts.get(status_key, 0) + item['count']
-        )
-    pet_health_data = [
-        {'status': status, 'count': count, 'color': color}
-        for (status, color), count in pet_health_counts.items()
-    ]
-
     appointment_status_counts = Appointment.objects.filter(
         user=request.user,
         pet__isnull=False,
@@ -658,9 +621,6 @@ def user_dashboard_view(request):
         'pet_species_json': pet_species_json,
         'monthly_appointments_json': json.dumps(
             monthly_appointments, cls=DjangoJSONEncoder
-        ),
-        'pet_health_json': json.dumps(
-            pet_health_data, cls=DjangoJSONEncoder
         ),
         'appointment_status_json': json.dumps(
             appointment_status_data, cls=DjangoJSONEncoder

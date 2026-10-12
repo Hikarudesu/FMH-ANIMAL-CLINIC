@@ -50,7 +50,6 @@ class UserPortalDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         for context_key in (
             'monthly_appointments_json',
-            'pet_health_json',
             'appointment_status_json',
             'spending_breakdown_json',
         ):
@@ -66,6 +65,9 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotContains(response, 'Visits Per Pet')
         self.assertNotContains(response, 'visitsPerPetChart')
         self.assertNotIn('visits_per_pet_json', response.context)
+        self.assertNotContains(response, 'Pet Health Overview')
+        self.assertNotContains(response, 'petHealthChart')
+        self.assertIn('appointment-history-row', response.content.decode())
 
     def test_spending_breakdown_uses_completed_sales_linked_to_owner(self):
         owner_branch = Branch.objects.create(
