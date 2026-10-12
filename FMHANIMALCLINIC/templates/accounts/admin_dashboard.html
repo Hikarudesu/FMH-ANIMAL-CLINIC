@@ -30,15 +30,14 @@
   
   <div class="hero-stat-card">
     <div class="hero-stat-icon purple">
-      <i class='bx bx-money'></i>
+      <i class='bx bx-line-chart'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">₱{{ total_revenue_this_week|floatformat:0 }}</span>
-      <span class="hero-stat-label">Weekly Revenue</span>
+      <span class="hero-stat-value">₱{{ monthly_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-label">Monthly Revenue</span>
       <div class="hero-stat-meta">
-        <span class="meta-item {% if revenue_growth >= 0 %}success{% else %}danger{% endif %}">
-          <i class='bx bx-trending-{% if revenue_growth >= 0 %}up{% else %}down{% endif %}'></i> {{ revenue_growth|floatformat:1 }}% vs last week
-        </span>
+        <span class="meta-item">{{ dashboard_scope_label }} · Month to date</span>
+        <span class="meta-item">₱{{ last_month_revenue|floatformat:0 }} last month</span>
       </div>
     </div>
   </div>
@@ -51,21 +50,22 @@
       <span class="hero-stat-value">₱{{ total_inventory_value|floatformat:0 }}</span>
       <span class="hero-stat-label">Total Inventory Value</span>
       <div class="hero-stat-meta">
-        <span class="meta-item">{{ inventory_scope_label }}</span>
-        <span class="meta-item">{{ inventory_low_stock_count }} low stock</span>
+        <span class="meta-item">{{ dashboard_scope_label }}</span>
+        <span class="meta-item">Valued at recorded cost</span>
       </div>
     </div>
   </div>
 
   <div class="hero-stat-card">
-    <div class="hero-stat-icon orange">
-      <i class='bx bx-group'></i>
+    <div class="hero-stat-icon blue">
+      <i class='bx bx-calendar-check'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ new_customers_this_week }}</span>
-      <span class="hero-stat-label">New Customers</span>
+      <span class="hero-stat-value">{{ completed_visits_this_month }}</span>
+      <span class="hero-stat-label">Completed Visits This Month</span>
       <div class="hero-stat-meta">
-        <span class="meta-item">{{ returning_customers_this_week }} returning</span>
+        <span class="meta-item">{{ dashboard_scope_label }}</span>
+        <span class="meta-item">{{ scheduled_appointments_this_month }} scheduled</span>
       </div>
     </div>
   </div>

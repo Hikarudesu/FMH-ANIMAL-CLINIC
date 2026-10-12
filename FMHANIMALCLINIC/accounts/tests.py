@@ -125,12 +125,14 @@ class AdminDashboardQuickInsightsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['total_inventory_value'], 60)
-        self.assertEqual(response.context['inventory_low_stock_count'], 3)
         self.assertEqual(
-            response.context['inventory_scope_label'], 'Across 3 Active Branches'
+            response.context['dashboard_scope_label'], 'Across 3 Active Branches'
         )
         self.assertContains(response, 'Total Inventory Value')
+        self.assertContains(response, 'Monthly Revenue')
+        self.assertContains(response, 'Completed Visits This Month')
         self.assertContains(response, 'Across 3 Active Branches')
+        self.assertNotContains(response, '0 low stock')
 
 
 class RolePermissionManagementTests(TestCase):

@@ -817,6 +817,7 @@ def admin_dashboard_view(request):
     from inventory.models import Product
     from billing.models import Service
     from inquiries.models import Inquiry
+    from dateutil.relativedelta import relativedelta
 
     # Check if user is a veterinarian and redirect to vet dashboard
     if request.user.assigned_role and request.user.assigned_role.code == 'veterinarian':
@@ -833,6 +834,9 @@ def admin_dashboard_view(request):
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
+    month_start = today.replace(day=1)
+    last_month_end = month_start - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
 
     # ── Active patients ──
     patient_count = Pet.objects.count()
@@ -943,19 +947,18 @@ def admin_dashboard_view(request):
         ))
     ).values('first_name', 'last_name', 'total_appointments', 'completed_appointments')
 
-    # Inventory value is current stock at recorded unit cost; no monthly
-    # snapshots exist for a reliable month-over-month comparison.
-    inventory_is_all_branches = request.user.is_admin_role()
+    # HQ admins see active-branch totals; other staff remain limited to their branch.
+    dashboard_is_all_branches = request.user.is_admin_role()
     inventory_products = Product.objects.all()
-    if inventory_is_all_branches:
+    if dashboard_is_all_branches:
         inventory_products = inventory_products.filter(branch__in=branches)
-        inventory_scope_label = f'Across {branches.count()} Active Branches'
+        dashboard_scope_label = f'Across {branches.count()} Active Branches'
     elif request.user.branch_id:
         inventory_products = inventory_products.filter(branch=request.user.branch)
-        inventory_scope_label = request.user.branch.name
+        dashboard_scope_label = request.user.branch.name
     else:
         inventory_products = inventory_products.none()
-        inventory_scope_label = 'No Branch Assigned'
+        dashboard_scope_label = 'No Branch Assigned'
 
     inventory_value_expression = ExpressionWrapper(
         F('stock_quantity') * F('unit_cost'),
@@ -965,9 +968,37 @@ def admin_dashboard_view(request):
         inventory_products.aggregate(total=Sum(inventory_value_expression))['total']
         or Decimal('0.00')
     )
-    inventory_low_stock_count = inventory_products.filter(
-        is_available=True,
-        stock_quantity__lte=F('min_stock_level'),
+
+    revenue_scope = (
+        {'branch__in': branches}
+        if dashboard_is_all_branches
+        else {'branch': request.user.branch}
+    )
+    monthly_revenue = Sale.objects.filter(
+        created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(today)[1]),
+        status='COMPLETED',
+        **revenue_scope,
+    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    last_month_revenue = Sale.objects.filter(
+        created_at__range=(
+            get_day_bounds(last_month_start)[0],
+            get_day_bounds(last_month_end)[1],
+        ),
+        status='COMPLETED',
+        **revenue_scope,
+    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+    completed_visits_this_month = Appointment.objects.filter(
+        appointment_date__range=[month_start, today],
+        status='COMPLETED',
+        pet__isnull=False,
+        branch__in=branches if dashboard_is_all_branches else [request.user.branch_id],
+    ).count()
+    scheduled_appointments_this_month = Appointment.objects.filter(
+        appointment_date__range=[today, month_start + relativedelta(months=1) - timedelta(days=1)],
+        status__in=['PENDING', 'CONFIRMED'],
+        pet__isnull=False,
+        branch__in=branches if dashboard_is_all_branches else [request.user.branch_id],
     ).count()
 
     # Expiring products list (next 30 days)
@@ -1328,8 +1359,11 @@ def admin_dashboard_view(request):
         'branch_appointments': branch_appointments,
         'staff_performance': staff_performance,
         'total_inventory_value': total_inventory_value,
-        'inventory_scope_label': inventory_scope_label,
-        'inventory_low_stock_count': inventory_low_stock_count,
+        'dashboard_scope_label': dashboard_scope_label,
+        'monthly_revenue': monthly_revenue,
+        'last_month_revenue': last_month_revenue,
+        'completed_visits_this_month': completed_visits_this_month,
+        'scheduled_appointments_this_month': scheduled_appointments_this_month,
         'expiring_products': expiring_products,
         'pet_species_breakdown': pet_species_breakdown,
         'pet_species_breakdown_json': pet_species_breakdown_json,
