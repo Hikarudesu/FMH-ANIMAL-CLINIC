@@ -107,7 +107,7 @@ class InventoryWorkflowTests(TestCase):
         self.assertEqual(Product(stock_quantity=10).status, 'Low Stock')
         self.assertEqual(Product(stock_quantity=11).status, 'In Stock')
 
-    def test_branchless_pet_owner_catalog_defaults_to_all_active_branches(self):
+    def test_branchless_pet_owner_catalog_requires_a_preferred_branch(self):
         other_branch = Branch.objects.create(
             name='Second Catalog Branch',
             phone_number='09123456789',
@@ -116,10 +116,10 @@ class InventoryWorkflowTests(TestCase):
             state='Test State',
             zip_code='1000',
         )
-        first_product = Product.objects.create(
+        Product.objects.create(
             branch=self.branch, item_type='Product', name='First Branch Item', price=15,
         )
-        second_product = Product.objects.create(
+        Product.objects.create(
             branch=other_branch, item_type='Accessories', name='Second Branch Item', price=25,
         )
         owner = get_user_model().objects.create_user(
@@ -130,20 +130,16 @@ class InventoryWorkflowTests(TestCase):
         response = self.client.get(reverse('inventory:catalog'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.context['show_all_branches'])
-        self.assertEqual(
-            {product.pk for product in response.context['products']},
-            {first_product.pk, second_product.pk},
-        )
-        self.assertContains(response, 'all active branches')
+        self.assertTrue(response.context['catalog_branch_assignment_required'])
+        self.assertEqual(list(response.context['products']), [])
+        self.assertFalse(response.context['show_all_branches'])
+        self.assertContains(response, 'A branch assignment is required to view inventory.')
 
         response = self.client.get(
             reverse('inventory:catalog'), {'branch': str(other_branch.pk)},
         )
-        self.assertEqual(
-            {product.pk for product in response.context['products']},
-            {second_product.pk},
-        )
+        self.assertEqual(list(response.context['products']), [])
+        self.assertFalse(response.context['can_select_catalog_branch'])
 
     def test_branch_restricted_staff_cannot_select_another_catalog_branch(self):
         other_branch = Branch.objects.create(

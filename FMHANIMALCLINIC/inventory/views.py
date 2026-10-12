@@ -101,8 +101,18 @@ def catalog_view(request):
         request.user.is_clinic_staff()
         and request.user.is_module_branch_restricted('inventory')
     )
+    has_saved_branch = bool(user_branch)
+    is_pet_owner_without_branch = (
+        not staff_branch_restricted
+        and hasattr(request.user, 'is_pet_owner')
+        and request.user.is_pet_owner()
+        and not has_saved_branch
+    )
+
     if staff_branch_restricted:
         selected_branch = user_branch
+    elif is_pet_owner_without_branch:
+        selected_branch = None
     elif 'branch' in request.GET:
         selected_branch_id = request.GET.get('branch', '').strip()
         selected_branch = branches.filter(pk=selected_branch_id).first() if selected_branch_id else None
@@ -113,6 +123,8 @@ def catalog_view(request):
         item_type='Medication').select_related('branch')
 
     if staff_branch_restricted and not user_branch:
+        products = products.none()
+    elif is_pet_owner_without_branch:
         products = products.none()
     elif selected_branch:
         products = products.filter(branch=selected_branch)
@@ -141,9 +153,9 @@ def catalog_view(request):
         'user_branch': user_branch,
         'branches': branches,
         'selected_catalog_branch': selected_branch,
-        'show_all_branches': selected_branch is None,
-        'can_select_catalog_branch': not staff_branch_restricted,
-        'catalog_branch_assignment_required': staff_branch_restricted and not user_branch,
+        'show_all_branches': selected_branch is None and not is_pet_owner_without_branch,
+        'can_select_catalog_branch': not staff_branch_restricted and not is_pet_owner_without_branch,
+        'catalog_branch_assignment_required': (staff_branch_restricted and not user_branch) or is_pet_owner_without_branch,
         'user_reservations': user_reservations,
         'reservation_success': reservation_success,
     })
