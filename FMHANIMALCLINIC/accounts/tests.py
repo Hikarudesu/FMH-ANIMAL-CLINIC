@@ -69,16 +69,29 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
         )
         current_year = timezone.localdate().year
 
-        for sale_branch, month, amount, status in (
-            (branch, 6, 125, Sale.Status.COMPLETED),
-            (other_branch, 7, 900, Sale.Status.COMPLETED),
-            (branch, 8, 500, Sale.Status.VOIDED),
-            (branch, 9, 75, Sale.Status.COMPLETED),
+        for sale_branch, month, amount, status, customer_type in (
+            (
+                branch, 6, 125, Sale.Status.COMPLETED,
+                Sale.CustomerType.REGISTERED,
+            ),
+            (
+                other_branch, 7, 900, Sale.Status.COMPLETED,
+                Sale.CustomerType.WALKIN,
+            ),
+            (
+                branch, 8, 500, Sale.Status.VOIDED,
+                Sale.CustomerType.WALKIN,
+            ),
+            (
+                branch, 9, 75, Sale.Status.COMPLETED,
+                Sale.CustomerType.WALKIN,
+            ),
         ):
             sale = Sale.objects.create(
                 branch=sale_branch,
                 total=amount,
                 status=status,
+                customer_type=customer_type,
             )
             sale.created_at = timezone.make_aware(
                 datetime(current_year, month, 15, 12, 0)
@@ -105,8 +118,17 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
             response.context['revenue_trend_period'],
             f'June - December {current_year}',
         )
+        self.assertEqual(response.context['annual_revenue'], 200)
+        self.assertEqual(response.context['annual_registered_revenue'], 125)
+        self.assertEqual(response.context['annual_walkin_revenue'], 75)
         self.assertContains(response, f'June - December {current_year}')
         self.assertContains(response, 'id="monthlyRevenueChart"')
+        self.assertContains(response, 'Sales Revenue This Year')
+        self.assertContains(response, "Today's Appointments")
+        self.assertContains(response, 'Sales Today')
+        self.assertContains(response, 'Low Stock Items')
+        self.assertContains(response, 'Registered Customers')
+        self.assertContains(response, 'Walk-in Customers')
         self.assertNotContains(response, 'Last 7 Days')
 
 

@@ -1882,6 +1882,36 @@ def receptionist_dashboard_view(request):
     weekly_sales_count = weekly_sales.count()
     weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
 
+    # ── Year-to-date revenue and customer mix (branch-specific) ──
+    if pos_restricted_no_branch:
+        annual_revenue = 0
+        annual_registered_revenue = 0
+        annual_walkin_revenue = 0
+    else:
+        year_to_date_sales = Sale.objects.filter(
+            created_at__range=(
+                get_day_bounds(date(today.year, 1, 1))[0],
+                get_day_bounds(today)[1],
+            ),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        )
+        annual_revenue = year_to_date_sales.aggregate(
+            total=Sum('total')
+        )['total'] or 0
+        annual_revenue_by_customer_type = {
+            item['customer_type']: item['total'] or 0
+            for item in year_to_date_sales.values('customer_type').annotate(
+                total=Sum('total')
+            )
+        }
+        annual_registered_revenue = annual_revenue_by_customer_type.get(
+            Sale.CustomerType.REGISTERED, 0
+        )
+        annual_walkin_revenue = annual_revenue_by_customer_type.get(
+            Sale.CustomerType.WALKIN, 0
+        )
+
     # ── Revenue trend (June-December, branch-specific) ──
     revenue_trend_start = date(today.year, 6, 1)
     revenue_trend_end = date(today.year, 12, 31)
@@ -2227,6 +2257,10 @@ def receptionist_dashboard_view(request):
         'todays_revenue': todays_revenue,
         'weekly_sales_count': weekly_sales_count,
         'weekly_revenue': weekly_revenue,
+        'annual_revenue': annual_revenue,
+        'annual_registered_revenue': annual_registered_revenue,
+        'annual_walkin_revenue': annual_walkin_revenue,
+        'revenue_year': today.year,
         'revenue_trend_data': json.dumps(revenue_trend_data, cls=DjangoJSONEncoder),
         'revenue_trend_period': f'June - December {today.year}',
         'registered_sales_today': float(registered_sales_today) if registered_sales_today else 0,
