@@ -61,9 +61,12 @@ class UserPortalDashboardTests(TestCase):
         monthly_spending = json.loads(response.context['monthly_spending_json'])
         self.assertEqual(
             [month['month'] for month in monthly_spending],
-            ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            [
+                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+            ],
         )
-        self.assertEqual(len(monthly_spending), 6)
+        self.assertEqual(len(monthly_spending), 12)
         self.assertNotIn(b'const monthlySpending = ;', response.content)
         self.assertNotContains(response, 'Visits Per Pet')
         self.assertNotContains(response, 'visitsPerPetChart')
@@ -115,6 +118,8 @@ class UserPortalDashboardTests(TestCase):
         self.assertEqual(monthly_spending[0], {'month': 'Jan', 'total': 200.0})
         self.assertEqual(monthly_spending[1], {'month': 'Feb', 'total': 0.0})
         self.assertEqual(monthly_spending[5], {'month': 'Jun', 'total': 300.0})
+        self.assertEqual(monthly_spending[6], {'month': 'Jul', 'total': 999.0})
+        self.assertEqual(monthly_spending[11], {'month': 'Dec', 'total': 0.0})
         self.assertEqual(response.context['monthly_spending_year'], current_year)
 
     def test_spending_breakdown_uses_completed_sales_linked_to_owner(self):

@@ -395,7 +395,6 @@ def user_dashboard_view(request):
             customer=request.user,
             status=Sale.Status.COMPLETED,
             completed_at__year=today.year,
-            completed_at__month__lte=6,
         ).annotate(
             month=TruncMonth('completed_at')
         ).values('month').annotate(
@@ -407,7 +406,7 @@ def user_dashboard_view(request):
             'month': date(today.year, month, 1).strftime('%b'),
             'total': float(monthly_spending_totals.get((today.year, month), 0)),
         }
-        for month in range(1, 7)
+        for month in range(1, 13)
     ]
 
     appointment_status_counts = Appointment.objects.filter(
