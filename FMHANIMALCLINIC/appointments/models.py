@@ -135,22 +135,16 @@ class Appointment(models.Model):
     def time_display(self):
         """
         Display appointment time intelligently.
-        Shows 'Morning' or 'Afternoon' for flexible time slots (09:00 or 14:00),
-        regardless of whether a vet was assigned. Otherwise shows the actual time.
+        Flexible slots use Morning/Afternoon only when no preferred vet is assigned.
         """
         if not self.appointment_time:
             return ''
 
-        # For flexible time slots, ALWAYS show "Morning" or "Afternoon"
-        # even if a vet was auto-assigned
-        # Morning = 08:00, Afternoon = 13:00
-        if self.appointment_time.hour == 8 and self.appointment_time.minute == 0:
+        if self.preferred_vet_id is None and self.appointment_time.hour == 8 and self.appointment_time.minute == 0:
             return 'Morning'
-        elif self.appointment_time.hour == 13 and self.appointment_time.minute == 0:
+        if self.preferred_vet_id is None and self.appointment_time.hour == 13 and self.appointment_time.minute == 0:
             return 'Afternoon'
-        else:
-            # For specific vet times, show the actual time
-            return self.appointment_time.strftime('%I:%M %p')
+        return self.appointment_time.strftime('%I:%M %p')
 
     @property
     def appointment_time_display(self):

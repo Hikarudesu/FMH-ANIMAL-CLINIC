@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -73,6 +73,56 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertFalse(future.auto_cancel_countdown_active)
         self.assertFalse(expired.auto_cancel_countdown_active)
         self.assertFalse(confirmed.auto_cancel_countdown_active)
+
+
+class AppointmentTimeDisplayTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Appointment Time Display Branch')
+        role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 5,
+                'is_staff_role': True,
+            },
+        )
+        vet_user = User.objects.create_user(
+            username='time-display-vet',
+            email='time-display-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+        )
+        self.vet = StaffMember.objects.create(
+            user=vet_user,
+            first_name='Time',
+            last_name='Display Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+
+    def create_appointment(self, appointment_time, preferred_vet=None):
+        return Appointment(
+            owner_name='Test Owner',
+            pet_name='Test Pet',
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=appointment_time,
+            preferred_vet=preferred_vet,
+        )
+
+    def test_preferred_vet_appointment_displays_exact_flexible_hour(self):
+        morning = self.create_appointment(time(8), self.vet)
+        afternoon = self.create_appointment(time(13), self.vet)
+
+        self.assertEqual(morning.appointment_time_display, '08:00 AM')
+        self.assertEqual(afternoon.appointment_time_display, '01:00 PM')
+
+    def test_any_available_appointment_keeps_flexible_period_label(self):
+        morning = self.create_appointment(time(8))
+        afternoon = self.create_appointment(time(13))
+
+        self.assertEqual(morning.appointment_time_display, 'Morning')
+        self.assertEqual(afternoon.appointment_time_display, 'Afternoon')
 
 
 class InactiveStaffAppointmentOptionsTests(TestCase):
