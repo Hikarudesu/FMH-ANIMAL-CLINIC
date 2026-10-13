@@ -167,8 +167,9 @@
     <h3><i class='bx bx-info-circle'></i> Branch Details</h3>
   </div>
   <div class="card-body">
-    <form method="POST" autocomplete="off">
+    <form id="branchForm" method="POST" autocomplete="off">
     {% csrf_token %}
+    <input type="hidden" name="confirm_deactivation" id="confirmDeactivation" value="">
 
     <div class="admin-grid">
       <div class="form-section-title">
@@ -464,4 +465,48 @@
   </form>
   </div>
 </div>
+
+<div class="modal-overlay" id="branchDeactivationModal" role="alertdialog" aria-modal="true" aria-labelledby="branchDeactivationTitle">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 id="branchDeactivationTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Confirm Deactivation</h3>
+      <button type="button" class="modal-close" onclick="closeBranchDeactivationModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 24px;">
+      <i class='bx bx-building-house' style="font-size: 3.5rem; color: var(--accent); margin-bottom: 12px;"></i>
+      <p>Are you sure you want to make <strong>{{ branch.name|default:'this branch' }}</strong> inactive?</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeBranchDeactivationModal()">Cancel</button>
+      <button type="button" class="btn-submit" onclick="confirmBranchDeactivation()">Yes, Make Inactive</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const form = document.getElementById('branchForm');
+    const activeCheckbox = document.getElementById('id_is_active');
+    const confirmation = document.getElementById('confirmDeactivation');
+    const modal = document.getElementById('branchDeactivationModal');
+    const branchWasActive = {% if branch %}{{ branch.is_active|yesno:'true,false' }}{% else %}false{% endif %};
+
+    form.addEventListener('submit', function(event) {
+      if (branchWasActive && activeCheckbox && !activeCheckbox.checked && confirmation.value !== 'on') {
+        event.preventDefault();
+        modal.classList.add('active');
+      }
+    });
+
+    window.closeBranchDeactivationModal = function() {
+      modal.classList.remove('active');
+    };
+
+    window.confirmBranchDeactivation = function() {
+      confirmation.value = 'on';
+      modal.classList.remove('active');
+      form.requestSubmit();
+    };
+  }());
+</script>
 {% endblock %}

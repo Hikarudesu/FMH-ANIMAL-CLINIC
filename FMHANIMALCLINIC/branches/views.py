@@ -11,8 +11,11 @@ from .forms import BranchForm
 @module_permission_required('branches', 'VIEW')
 def branch_list(request):
     """View to list all branches."""
-    search_query = request.GET.get('q', '')
-    branches = Branch.objects.all()
+    search_query = request.GET.get('q', '').strip()
+    status = 'inactive' if request.GET.get('status') == 'inactive' else 'active'
+    active_branches = Branch.objects.filter(is_active=True)
+    inactive_branches = Branch.objects.filter(is_active=False)
+    branches = inactive_branches if status == 'inactive' else active_branches
 
     if search_query:
         branches = branches.filter(name__icontains=search_query)
@@ -20,6 +23,9 @@ def branch_list(request):
     return render(request, 'branches/branch_list.html', {
         'branches': branches,
         'q': search_query,
+        'status': status,
+        'active_count': active_branches.count(),
+        'inactive_count': inactive_branches.count(),
         'filters': [],
         'active_filters': [],
         'show_clear': bool(search_query),
@@ -52,11 +58,20 @@ def branch_update(request, pk):
     branch = get_object_or_404(Branch, pk=pk)
     
     if request.method == 'POST':
+        branch_was_active = branch.is_active
         form = BranchForm(request.POST, instance=branch)
         if form.is_valid():
-            branch = form.save()
-            messages.success(request, f"Branch '{branch.name}' was updated successfully.")
-            return redirect('branches:list')
+            submitted_is_active = request.POST.get('is_active') == 'on'
+            is_deactivation = branch_was_active and not submitted_is_active
+            if is_deactivation and request.POST.get('confirm_deactivation') != 'on':
+                messages.warning(request, 'Confirm that you want to make this branch inactive.')
+            else:
+                branch = form.save(commit=False)
+                branch.is_active = submitted_is_active
+                branch.save()
+                form.save_m2m()
+                messages.success(request, f"Branch '{branch.name}' was updated successfully.")
+                return redirect('branches:list')
     else:
         form = BranchForm(instance=branch)
 

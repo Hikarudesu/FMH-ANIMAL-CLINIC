@@ -18,8 +18,20 @@
   </div>
 </div>
 
+<div class="c-tab-bar" role="tablist" aria-label="Branch status">
+  <a href="{% url 'branches:list' %}?status=active" class="c-tab-btn{% if status == 'active' %} active{% endif %}" role="tab" aria-selected="{% if status == 'active' %}true{% else %}false{% endif %}">
+    <i class="bx bx-building c-tab-btn__icon"></i><span class="c-tab-btn__label">Active Branches</span>
+    <span class="c-tab-btn__badge">{{ active_count }}</span>
+  </a>
+  <a href="{% url 'branches:list' %}?status=inactive" class="c-tab-btn{% if status == 'inactive' %} active{% endif %}" role="tab" aria-selected="{% if status == 'inactive' %}true{% else %}false{% endif %}">
+    <i class="bx bx-building-house c-tab-btn__icon"></i><span class="c-tab-btn__label">Inactive Branches</span>
+    <span class="c-tab-btn__badge">{{ inactive_count }}</span>
+  </a>
+</div>
+
 <!-- Filter Bar -->
 {% include "components/filter_bar.html" with form_action="/branches/" form_id="branchFilterForm" filters=filters active_filters=active_filters clear_url="/branches/" show_clear=show_clear %}
+<input type="hidden" name="status" value="{{ status }}" form="branchFilterForm">
 
 {% if branches %}
 <!-- Branch Table -->
@@ -89,8 +101,8 @@
       <div class="empty-state-icon">
         <i class='bx bx-building-house'></i>
       </div>
-      <h3>No branches found</h3>
-      <p>Click the "Add Branch" button above to register a new clinic location.</p>
+      <h3>No {{ status }} branches found</h3>
+      <p>{% if status == 'active' %}Click the "Add Branch" button above to register a new clinic location.{% else %}Inactive branches will appear here.{% endif %}</p>
     </div>
   </div>
 </div>
