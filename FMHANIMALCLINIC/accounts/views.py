@@ -91,7 +91,7 @@ def login_view(request):
                 return redirect('vet_dashboard')
             elif request.user.assigned_role and request.user.assigned_role.code == 'assistant_veterinarian':
                 return redirect('vet_dashboard')  # Vet assistants share the vet dashboard
-            elif request.user.assigned_role and request.user.assigned_role.code == 'cashier':
+            elif request.user.is_receptionist():
                 return redirect('receptionist_dashboard')
             else:
                 return redirect('admin_dashboard')
@@ -192,7 +192,7 @@ def login_view(request):
                     return redirect('vet_dashboard')
                 elif user.assigned_role and user.assigned_role.code == 'assistant_veterinarian':
                     return redirect('vet_dashboard')  # Vet assistants share the vet dashboard
-                elif user.assigned_role and user.assigned_role.code == 'cashier':
+                elif user.is_receptionist():
                     return redirect('receptionist_dashboard')
                 else:
                     return redirect('admin_dashboard')
@@ -702,7 +702,7 @@ def admin_dashboard_view(request):
         return redirect('vet_dashboard')
 
     # Check if user is a receptionist and redirect to receptionist dashboard
-    if request.user.assigned_role and request.user.assigned_role.code == 'cashier':
+    if request.user.is_receptionist():
         return redirect('receptionist_dashboard')
 
     today = date.today()

@@ -225,7 +225,7 @@
         <div class="sidebar-header">
           {% if user.assigned_role.code == 'veterinarian' %}
           <a href="{% url 'vet_dashboard' %}" class="sidebar-logo">
-          {% elif user.assigned_role.code == 'cashier' %}
+          {% elif user.is_receptionist %}
           <a href="{% url 'receptionist_dashboard' %}" class="sidebar-logo">
           {% else %}
           <a href="{% url 'admin_dashboard' %}" class="sidebar-logo">
@@ -245,7 +245,7 @@
             href="{% url 'vet_dashboard' %}"
             class="sidebar-link {% if request.resolver_match.url_name == 'vet_dashboard' %}active{% endif %}"
           >
-          {% elif user.assigned_role.code == 'cashier' %}
+          {% elif user.is_receptionist %}
           <a
             href="{% url 'receptionist_dashboard' %}"
             class="sidebar-link {% if request.resolver_match.url_name == 'receptionist_dashboard' %}active{% endif %}"

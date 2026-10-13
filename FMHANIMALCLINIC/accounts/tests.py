@@ -54,12 +54,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
             state='NCR',
             zip_code='1000',
         )
-        role = Role.objects.create(
-            name='Dashboard Receptionist',
-            code='dashboard_receptionist',
-            hierarchy_level=1,
-            is_staff_role=True,
-        )
+        role = Role.objects.get(code='receptionist')
         receptionist = get_user_model().objects.create_user(
             username='revenue-trend-receptionist',
             email='revenue-trend-receptionist@example.com',
@@ -244,6 +239,49 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(response.context['completed_visits_this_month'], 0)
         self.assertEqual(response.context['scheduled_appointments_this_month'], 0)
         self.assertNotContains(response, 'Last 7 Days')
+        self.assertContains(
+            response,
+            f'href="{reverse("accounts:receptionist_dashboard")}"',
+        )
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class ReceptionistDashboardRoutingTests(TestCase):
+    def setUp(self):
+        role = Role.objects.get(code='receptionist')
+        self.receptionist = get_user_model().objects.create_user(
+            username='dashboard-route-receptionist',
+            email='dashboard-route-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+        )
+        self.client.force_login(self.receptionist)
+
+    def test_receptionist_login_and_admin_dashboard_route_use_receptionist_dashboard(self):
+        expected_url = reverse('accounts:receptionist_dashboard')
+
+        login_response = self.client.get(reverse('accounts:login_page'))
+        admin_response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertRedirects(login_response, expected_url)
+        self.assertRedirects(admin_response, expected_url)
+
+    def test_receptionist_dashboard_route_renders_receptionist_content(self):
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
+        self.assertContains(response, 'Hourly Appointment Volume / Peak Traffic Today')
+        self.assertContains(response, 'Most-Ordered Product Categories')
+        self.assertNotContains(response, 'Revenue by Branch')
+        self.assertNotContains(response, 'Most Appointed Branches')
 
 
 @override_settings(
