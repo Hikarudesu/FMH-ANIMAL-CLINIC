@@ -139,10 +139,12 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  container-type: inline-size;
 }
 
 .hero-stat-value {
-  font-size: 28px;
+  max-width: 100%;
+  font-size: clamp(18px, 14cqi, 28px);
   font-weight: 800;
   color: var(--text-1);
   letter-spacing: -1px;

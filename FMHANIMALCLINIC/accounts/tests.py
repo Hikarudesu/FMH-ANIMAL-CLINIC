@@ -357,6 +357,8 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, f'January - December {current_year}')
         self.assertContains(response, 'Sales by Category')
         self.assertContains(response, 'This Month')
+        self.assertContains(response, 'container-type: inline-size')
+        self.assertContains(response, 'font-size: clamp(18px, 14cqi, 28px)')
         dashboard_html = response.content.decode()
         self.assertLess(
             dashboard_html.index('id="categorySalesChart"'),
