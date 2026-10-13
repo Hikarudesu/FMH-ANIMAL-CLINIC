@@ -391,6 +391,106 @@
   height: 220px;
 }
 
+.chart-body.category-sales-body {
+  height: 280px;
+}
+
+.category-sales-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  height: 100%;
+}
+
+.category-sales-chart {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+}
+
+.category-sales-details {
+  min-width: 0;
+}
+
+.category-sales-total {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.category-sales-total-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.category-sales-total-value {
+  color: var(--text-1);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.category-sales-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.category-sales-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-sales-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.category-sales-name {
+  display: block;
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.category-sales-count {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.category-sales-amount {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .chart-body.category-sales-body {
+    height: auto;
+    min-height: 380px;
+  }
+
+  .category-sales-content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .category-sales-chart {
+    height: 200px;
+  }
+}
+
 /* Empty State for Charts */
 .chart-empty-state {
   display: flex;
@@ -954,8 +1054,13 @@
         </div>
         <div class="chart-badge purple">This Month</div>
       </div>
-      <div class="chart-body">
-        <canvas id="categorySalesChart"></canvas>
+      <div class="chart-body category-sales-body">
+        <div class="category-sales-content" id="categorySalesContent">
+          <div class="category-sales-chart">
+            <canvas id="categorySalesChart"></canvas>
+          </div>
+          <div class="category-sales-details" id="categorySalesDetails"></div>
+        </div>
         <div id="categorySalesEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-category'></i>
           <span>No category data this month</span>
@@ -1137,6 +1242,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById(chartId);
     const empty = document.getElementById(emptyId);
     if (canvas) canvas.style.display = 'none';
+    if (chartId === 'categorySalesChart') {
+      const content = document.getElementById('categorySalesContent');
+      if (content) content.style.display = 'none';
+    }
     if (empty) empty.style.display = 'flex';
   }
 
@@ -1297,6 +1406,52 @@ document.addEventListener('DOMContentLoaded', function() {
     if (hasData) {
       const total = categoryData.reduce((sum, c) => sum + c.total, 0);
 
+      const currencyFormatter = new Intl.NumberFormat('en-PH', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+      const categoryDetails = document.getElementById('categorySalesDetails');
+      if (categoryDetails) {
+        const totalBlock = document.createElement('div');
+        totalBlock.className = 'category-sales-total';
+        const totalLabel = document.createElement('span');
+        totalLabel.className = 'category-sales-total-label';
+        totalLabel.textContent = 'Total sales this month';
+        const totalValue = document.createElement('span');
+        totalValue.className = 'category-sales-total-value';
+        totalValue.textContent = `₱${currencyFormatter.format(total)}`;
+        totalBlock.append(totalLabel, totalValue);
+        categoryDetails.appendChild(totalBlock);
+
+        const detailList = document.createElement('div');
+        detailList.className = 'category-sales-list';
+        categoryData.forEach(category => {
+          const row = document.createElement('div');
+          row.className = 'category-sales-item';
+
+          const dot = document.createElement('span');
+          dot.className = 'category-sales-dot';
+          dot.style.backgroundColor = categoryColors[category.type] || '#94a3b8';
+
+          const description = document.createElement('div');
+          const name = document.createElement('span');
+          name.className = 'category-sales-name';
+          name.textContent = categoryLabels[category.type] || category.type;
+          const count = document.createElement('span');
+          count.className = 'category-sales-count';
+          count.textContent = `${category.count} line item${category.count === 1 ? '' : 's'}`;
+          description.append(name, count);
+
+          const amount = document.createElement('span');
+          amount.className = 'category-sales-amount';
+          amount.textContent = `₱${currencyFormatter.format(category.total)}`;
+
+          row.append(dot, description, amount);
+          detailList.appendChild(row);
+        });
+        categoryDetails.appendChild(detailList);
+      }
+
       new Chart(categorySalesCtx, {
         type: 'doughnut',
         data: {
@@ -1321,35 +1476,7 @@ document.addEventListener('DOMContentLoaded', function() {
             delay: (context) => context.dataIndex * 150
           },
           plugins: {
-            legend: {
-              display: true,
-              position: 'bottom',
-              labels: {
-                padding: 16,
-                usePointStyle: true,
-                pointStyle: 'circle',
-                font: { size: 11, weight: '600' },
-                color: isGlobalDark ? '#ffffff' : '#64748b',
-                generateLabels: function(chart) {
-                  const data = chart.data;
-                  return data.labels.map((label, i) => {
-                    const value = data.datasets[0].data[i];
-                    const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
-                    return {
-                      text: `${label}: ₱${value.toLocaleString()} (${pct}%)`,
-                      fillStyle: data.datasets[0].backgroundColor[i],
-                      strokeStyle: data.datasets[0].backgroundColor[i],
-                      lineWidth: 0,
-                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
-                      color: isGlobalDark ? '#ffffff' : '#64748b',
-                      pointStyle: 'circle',
-                      hidden: false,
-                      index: i
-                    };
-                  });
-                }
-              }
-            },
+            legend: { display: false },
             tooltip: {
               ...commonTooltip,
               callbacks: {
