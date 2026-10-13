@@ -37,7 +37,7 @@ from .lifecycle import (
     }
 )
 class ReceptionistDashboardMetricsTests(TestCase):
-    def test_hourly_appointments_and_revenue_summary_are_branch_scoped(self):
+    def test_receptionist_dashboard_charts_and_metrics_are_branch_scoped(self):
         branch = Branch.objects.create(
             name='Pilar Dashboard Branch',
             phone_number='09123456789',
@@ -208,37 +208,27 @@ class ReceptionistDashboardMetricsTests(TestCase):
                 {'category': 'Product', 'units_sold': 3},
             ],
         )
-        self.assertContains(response, 'Most-Ordered Product Categories')
-        self.assertContains(response, 'Pilar Dashboard Branch · This Week')
-        self.assertNotContains(response, 'Sales by Item Type')
         self.assertEqual(response.context['annual_revenue'], 290)
         self.assertEqual(response.context['annual_registered_revenue'], 125)
         self.assertEqual(response.context['annual_walkin_revenue'], 165)
-        self.assertContains(response, 'Hourly Appointment Volume / Peak Traffic Today')
-        self.assertContains(response, 'id="appointmentHourlyChart"')
-        self.assertNotContains(response, 'monthlyRevenueChart')
-        self.assertContains(response, 'Sales Revenue This Year')
-        self.assertContains(
-            response,
-            'grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr)',
+        self.assertContains(response, 'Appointment Status')
+        self.assertContains(response, 'id="appointmentStatusChart"')
+        self.assertContains(response, 'id="weeklyRevenueChart"')
+        self.assertContains(response, 'Sales by Category')
+        self.assertEqual(len(json.loads(response.context['weekly_revenue_data'])), 7)
+        self.assertIsInstance(
+            json.loads(response.context['appointment_status_data']), list
         )
+        self.assertIsInstance(json.loads(response.context['category_sales']), list)
+        self.assertNotContains(response, 'Hourly Appointment Volume / Peak Traffic Today')
+        self.assertNotContains(response, 'Most-Ordered Product Categories')
         self.assertContains(response, '<div class="hero-stats">')
-        self.assertNotContains(response, 'receptionist-hero-stats')
-        self.assertContains(response, 'hero-stat-card hero-stat-featured')
-        self.assertContains(response, '<div class="hero-stat-stack">')
         self.assertEqual(response.content.count(b'class="hero-stat-card'), 4)
-        self.assertContains(response, 'Completed sales, year to date')
-        self.assertContains(response, 'Active Staff')
-        self.assertContains(response, 'Total Inventory Value')
-        self.assertContains(response, 'Estimated at selling price')
-        self.assertContains(response, 'Completed Visits This Month')
-        self.assertContains(response, '1 of 2 active')
         self.assertEqual(response.context['active_staff'], 1)
         self.assertEqual(response.context['total_staff'], 2)
         self.assertEqual(response.context['total_inventory_value'], 60)
         self.assertEqual(response.context['completed_visits_this_month'], 0)
         self.assertEqual(response.context['scheduled_appointments_this_month'], 0)
-        self.assertNotContains(response, 'Last 7 Days')
         self.assertContains(
             response,
             f'href="{reverse("accounts:receptionist_dashboard")}"',
@@ -278,8 +268,8 @@ class ReceptionistDashboardRoutingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
-        self.assertContains(response, 'Hourly Appointment Volume / Peak Traffic Today')
-        self.assertContains(response, 'Most-Ordered Product Categories')
+        self.assertContains(response, 'Appointment Status')
+        self.assertContains(response, 'Weekly Revenue Trend')
         self.assertNotContains(response, 'Revenue by Branch')
         self.assertNotContains(response, 'Most Appointed Branches')
 

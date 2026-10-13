@@ -10,14 +10,14 @@
 {% url 'pos:checkout' as pos_url %}
 {% include "components/page_hero.html" with title="Front Desk" icon="bx-desktop" subtitle=branch_name action_url=appt_url action_label="New Appointment" action_icon="bx-calendar-plus" action_url_2=pos_url action_label_2="New Sale" action_icon_2="bx-cart-add" %}
 
-<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <!-- MODERN RECEPTIONIST DASHBOARD -->
-<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 
 <style>
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In)   */
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 @keyframes expandWidth {
   from { width: 0; }
@@ -54,80 +54,87 @@
 .dash-fade.stagger-5 { transition-delay: 0.30s; }
 .dash-fade.stagger-6 { transition-delay: 0.36s; }
 
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* HERO STATS ROW */
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .hero-stats {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
   margin-bottom: 28px;
 }
 
-.hero-stat-stack {
-  display: grid;
-  grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+@media (max-width: 1200px) {
+  .hero-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .hero-stats { grid-template-columns: 1fr; }
 }
 
 .hero-stat-card {
-  background: #fff;
-  border: 1px solid #e2e5ec;
-  border-radius: 18px;
-  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
   display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-  box-shadow: 0 2px 5px rgba(18, 25, 38, 0.08);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  align-items: flex-start;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hero-stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(18, 25, 38, 0.1);
+  transform: translateY(-6px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary);
 }
 
-.hero-stat-featured {
-  min-height: 380px;
-  padding: 26px;
-  align-items: stretch;
-}
-
-.hero-stat-featured .hero-stat-content {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.hero-stat-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.hero-stat-card:hover::before {
+  opacity: 1;
 }
 
 .hero-stat-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hero-stat-icon i {
-  font-size: 22px;
+  font-size: 26px;
   color: white;
 }
 
-.hero-stat-icon.teal { background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); }
+.hero-stat-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
 .hero-stat-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
 .hero-stat-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
 .hero-stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
 .hero-stat-icon.emerald { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
 .hero-stat-icon.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+
+.hero-stat-card:hover .hero-stat-icon {
+  transform: scale(1.1) rotate(-5deg);
+}
 
 .hero-stat-content {
   flex: 1;
@@ -138,61 +145,33 @@
 }
 
 .hero-stat-value {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 800;
-  color: #111318;
-  letter-spacing: -0.7px;
+  color: var(--text-1);
+  letter-spacing: -1px;
   line-height: 1.1;
 }
 
 .hero-stat-label {
   font-size: 13px;
-  color: #20242c;
+  color: var(--text-3);
   font-weight: 500;
-}
-
-.hero-stat-heading .hero-stat-label {
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.hero-stat-featured .hero-stat-value {
-  margin-top: 12px;
-  font-size: clamp(38px, 5vw, 58px);
-  letter-spacing: -2px;
-}
-
-.hero-stat-description {
-  color: #30343b;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.hero-stat-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: auto;
-  padding-top: 24px;
-  color: #343941;
-  font-size: 13px;
 }
 
 .hero-stat-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  margin-top: 2px;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .meta-item {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  color: #626a75;
+  color: var(--text-3);
 }
 
 .meta-item.success { color: #10b981; }
@@ -201,22 +180,9 @@
 
 .meta-item i { font-size: 14px; }
 
-@media (max-width: 900px) {
-  .hero-stats { grid-template-columns: 1fr; }
-  .hero-stat-stack { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto; }
-  .hero-stat-stack .hero-stat-card { align-items: flex-start; padding: 18px; }
-}
-
-@media (max-width: 640px) {
-  .hero-stat-stack { grid-template-columns: 1fr; }
-  .hero-stat-stack .hero-stat-card { align-items: center; }
-  .hero-stat-featured { min-height: 310px; }
-  .hero-stat-heading .hero-stat-label { font-size: 20px; }
-}
-
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* ACTION TASKS BANNER */
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .tasks-banner {
   background: var(--surface);
@@ -302,9 +268,9 @@
   background: #ef4444;
 }
 
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* CHARTS SECTION */
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .charts-section {
   display: flex;
@@ -329,10 +295,6 @@
 
 .charts-row.three-col {
   grid-template-columns: repeat(3, 1fr);
-}
-
-.charts-row.full-width {
-  grid-template-columns: 1fr;
 }
 
 @media (max-width: 1024px) {
@@ -424,16 +386,6 @@
   position: relative;
 }
 
-.chart-body.appointment-volume-body {
-  height: 380px;
-}
-
-@media (max-width: 700px) {
-  .chart-body.appointment-volume-body {
-    height: 300px;
-  }
-}
-
 .chart-body.tall {
   height: 320px;
 }
@@ -464,9 +416,9 @@
   font-weight: 500;
 }
 
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* SCHEDULE TABLE MODERN */
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .schedule-section {
   margin-bottom: 28px;
@@ -623,9 +575,9 @@
   color: var(--text-3);
 }
 
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* PRODUCT LIST STYLES */
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .product-list {
   display: flex;
@@ -729,9 +681,9 @@
   font-weight: 600;
 }
 
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* RECENT SALES LIST */
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .sales-list-modern {
   display: flex;
@@ -802,9 +754,9 @@
   color: #ef4444;
 }
 
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* QUICK ACTIONS */
-/* ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .quick-actions {
   display: grid;
@@ -875,63 +827,61 @@
 
 <!-- HERO STATS ROW -->
 <div class="hero-stats">
-  <div class="hero-stat-card hero-stat-featured">
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon teal">
+      <i class='bx bx-calendar-check'></i>
+    </div>
     <div class="hero-stat-content">
-      <div class="hero-stat-heading">
-        <span class="hero-stat-icon purple">
-          <i class='bx bx-line-chart'></i>
-        </span>
-        <span class="hero-stat-label">Sales Revenue This Year</span>
-      </div>
-      <span class="hero-stat-value">₱{{ annual_revenue|floatformat:0 }}</span>
-      <span class="hero-stat-description">Completed sales, year to date</span>
-      <span class="hero-stat-description">{{ branch_name }}</span>
-      <div class="hero-stat-footer">
-        <span>{{ branch_name }}</span>
-        <span>Completed sales, year to date</span>
+      <span class="hero-stat-value">{{ today_count }}</span>
+      <span class="hero-stat-label">Today's Appointments</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item success"><i class='bx bx-check'></i> {{ today_confirmed }} confirmed</span>
+        <span class="meta-item warning"><i class='bx bx-time'></i> {{ today_pending }} pending</span>
       </div>
     </div>
   </div>
 
-  <div class="hero-stat-stack">
-    <div class="hero-stat-card">
-      <div class="hero-stat-icon teal">
-        <i class='bx bx-user-check'></i>
-      </div>
-      <div class="hero-stat-content">
-        <span class="hero-stat-value">{{ active_staff }}</span>
-        <span class="hero-stat-label">Active Staff</span>
-        <div class="hero-stat-meta">
-          <span class="meta-item success"><i class='bx bx-check-circle'></i> {{ active_staff }} of {{ total_staff }} active</span>
-        </div>
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon emerald">
+      <i class='bx bx-money'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">â‚±{{ todays_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-label">Today's Revenue</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item {% if revenue_diff_pct >= 0 %}success{% else %}danger{% endif %}">
+          <i class='bx bx-trending-{% if revenue_diff_pct >= 0 %}up{% else %}down{% endif %}'></i> {% if revenue_diff_pct >= 0 %}+{% endif %}{{ revenue_diff_pct|floatformat:1 }}% vs yesterday
+        </span>
       </div>
     </div>
+  </div>
 
-    <div class="hero-stat-card">
-      <div class="hero-stat-icon emerald">
-        <i class='bx bx-wallet'></i>
-      </div>
-      <div class="hero-stat-content">
-        <span class="hero-stat-value">₱{{ total_inventory_value|floatformat:0 }}</span>
-        <span class="hero-stat-label">Total Inventory Value</span>
-        <div class="hero-stat-meta">
-          <span class="meta-item">{{ branch_name }}</span>
-          <span class="meta-item">Estimated at selling price</span>
-        </div>
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon blue">
+      <i class='bx bx-cart'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ todays_sales_count }}</span>
+      <span class="hero-stat-label">Sales Today</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">â‚±{{ weekly_revenue|floatformat:0 }} this week</span>
       </div>
     </div>
+  </div>
 
-    <div class="hero-stat-card">
-      <div class="hero-stat-icon blue">
-        <i class='bx bx-calendar-check'></i>
-      </div>
-      <div class="hero-stat-content">
-        <span class="hero-stat-value">{{ completed_visits_this_month }}</span>
-        <span class="hero-stat-label">Completed Visits This Month</span>
-        <div class="hero-stat-meta">
-          <span class="meta-item">{{ branch_name }}</span>
-          <span class="meta-item">{{ scheduled_appointments_this_month }} scheduled</span>
-        </div>
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon {% if low_stock_count > 0 %}red{% else %}purple{% endif %}">
+      <i class='bx bx-package'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ low_stock_count }}</span>
+      <span class="hero-stat-label">Low Stock Items</span>
+      <div class="hero-stat-meta">
+        {% if low_stock_count > 0 %}
+        <span class="meta-item danger"><i class='bx bx-error'></i> Needs restock</span>
+        {% else %}
+        <span class="meta-item success"><i class='bx bx-check'></i> Stock OK</span>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -965,46 +915,66 @@
 
 <!-- MAIN CHARTS SECTION -->
 <div class="charts-section">
-  
-  <!-- ROW 1: Today's Appointment Volume -->
-  <div class="charts-row full-width">
-    <div class="chart-card-modern">
+
+  <!-- ROW 1: Weekly Revenue Trend (Line Chart) - Full Width -->
+  <div class="charts-row">
+    <div class="chart-card-modern large">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-time-five'></i>
-          <span>Hourly Appointment Volume / Peak Traffic Today</span>
+          <i class='bx bx-line-chart'></i>
+          <span>{{ branch_name }} Revenue Trend</span>
         </div>
-        <div class="chart-badge blue">Pending &amp; Confirmed · Today</div>
+        <div class="chart-badge emerald">Last 7 Days</div>
       </div>
-      <div class="chart-body appointment-volume-body">
-        <canvas id="appointmentHourlyChart"></canvas>
-        <div id="appointmentHourlyEmpty" class="chart-empty-state" style="display: none;">
-          <i class='bx bx-calendar-x'></i>
-          <span>No scheduled appointments today</span>
+      <div class="chart-body tall">
+        <canvas id="weeklyRevenueChart"></canvas>
+        <div id="weeklyRevenueEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-line-chart'></i>
+          <span>No revenue data for this period</span>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ROW 2: Sales and Booking Insights -->
-  <div class="charts-row three-col">
+  <!-- ROW 2: Appointment Status (Area) & Top Products (Vertical Bar) -->
+  <div class="charts-row">
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>Appointment Status</span>
+        </div>
+        <div class="chart-badge blue">This Week</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="appointmentStatusChart"></canvas>
+        <div id="appointmentStatusEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-calendar-x'></i>
+          <span>No appointments this week</span>
+        </div>
+      </div>
+    </div>
+
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-category'></i>
-          <span>Most-Ordered Product Categories</span>
+          <span>Sales by Category</span>
         </div>
-        <div class="chart-badge purple">{% if user_branch %}{{ user_branch.name }}{% else %}No branch assigned{% endif %} · This Week</div>
+        <div class="chart-badge purple">This Week</div>
       </div>
       <div class="chart-body">
         <canvas id="categorySalesChart"></canvas>
         <div id="categorySalesEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-category'></i>
-          <span>No product orders this week</span>
+          <span>No category data this week</span>
         </div>
       </div>
     </div>
+  </div>
 
+  <!-- ROW 3: Category Sales (Doughnut) & Top 5 Selling Products (Pie) -->
+  <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
@@ -1095,7 +1065,7 @@
       {% endif %}
     </div>
   </div>
-  
+
   <!-- Low Stock Products -->
   <div class="stock-card">
     <div class="chart-header">
@@ -1117,7 +1087,7 @@
           </div>
           <div class="low-stock-info">
             <div class="low-stock-name">{{ product.name }}</div>
-            <div class="low-stock-qty">{{ product.stock_quantity }} left (alert at {{ low_stock_threshold }} or less)</div>
+            <div class="low-stock-qty">{{ product.stock_quantity }} left (min: {{ product.min_stock_level }})</div>
           </div>
         </div>
         {% endfor %}
@@ -1156,23 +1126,23 @@
             <div class="sale-customer">
               {% if sale.customer %}{{ sale.customer.get_full_name }}{% else %}{{ sale.guest_name|default:"Walk-in Customer" }}{% endif %}
             </div>
-            <div class="sale-meta">{{ sale.transaction_id }} · {{ sale.created_at|date:"M j, g:i A" }}</div>
+            <div class="sale-meta">{{ sale.transaction_id }} Â· {{ sale.created_at|date:"M j, g:i A" }}</div>
           </div>
           <div class="sale-amount {% if sale.status == 'REFUNDED' %}refunded{% endif %}">
-            {% if sale.status == 'REFUNDED' %}-{% endif %}₱{{ sale.total|floatformat:2 }}
+            {% if sale.status == 'REFUNDED' %}-{% endif %}â‚±{{ sale.total|floatformat:2 }}
           </div>
           <span class="status-pill {{ sale.status|lower }}">{{ sale.get_status_display }}</span>
         </div>
         {% endfor %}
       </div>
-      
+
       <!-- Modern Pagination -->
       {% if recent_sales %}
       <div style="margin-top: 16px;">
         {% include "components/modern_pagination.html" with url_fragment="recent-sales" %}
       </div>
       {% endif %}
-      
+
       {% else %}
       <div class="empty-schedule">
         <i class='bx bx-shopping-bag'></i>
@@ -1188,27 +1158,27 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  
-  // ═══════════════════════════════════════════════════════════════════════
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In System - matches admin portal)
-  // ═══════════════════════════════════════════════════════════════════════
-  
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
   function initDashboardAnimations() {
-    // Hero stat cards — staggered fade up
+    // Hero stat cards â€” staggered fade up
     document.querySelectorAll('.hero-stat-card').forEach((card, i) => {
       card.classList.add('dash-fade', `stagger-${i + 1}`);
     });
-    
+
     // Tasks banner
     const tasksBanner = document.querySelector('.tasks-banner');
     if (tasksBanner) tasksBanner.classList.add('dash-fade');
-    
+
     // Quick action buttons
     document.querySelectorAll('.quick-action-btn').forEach((btn, i) => {
       btn.classList.add('dash-fade', `stagger-${i + 1}`);
     });
-    
-    // Chart cards — alternate left/right per row
+
+    // Chart cards â€” alternate left/right per row
     document.querySelectorAll('.charts-section .charts-row').forEach(row => {
       const cards = row.querySelectorAll('.chart-card-modern');
       cards.forEach((card, i) => {
@@ -1216,36 +1186,36 @@ document.addEventListener('DOMContentLoaded', function() {
         if (i > 0) card.classList.add('stagger-2');
       });
     });
-    
+
     // Schedule and stock cards
     document.querySelectorAll('.schedule-card, .stock-card').forEach((card, i) => {
       card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
     });
-    
+
     // Recent sales card
     const recentSales = document.querySelector('.recent-sales-card');
     if (recentSales) recentSales.classList.add('dash-fade');
   }
-  
+
   // Add animation classes
   initDashboardAnimations();
-  
-  // ═══════════════════════════════════════════════════════════════════════
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // START ANIMATIONS WITH CHART REPLAY
-  // ═══════════════════════════════════════════════════════════════════════
-  
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
   function startDashAnimations() {
     const allFades = Array.from(document.querySelectorAll('.dash-fade'));
-    
+
     function isInView(el) {
       const r = el.getBoundingClientRect();
       return r.top < window.innerHeight && r.bottom > 0;
     }
-    
+
     function getStaggerMs(el) {
       return Math.round((parseFloat(getComputedStyle(el).transitionDelay) || 0) * 1000);
     }
-    
+
     function revealEl(el, extraDelay) {
       const stagger = getStaggerMs(el);
       const total = extraDelay + stagger;
@@ -1256,14 +1226,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (chart) setTimeout(() => { chart.reset(); chart.update(); }, total + 350);
       });
     }
-    
-    // Pass 1 — Elements already in viewport
+
+    // Pass 1 â€” Elements already in viewport
     const inView = allFades.filter(isInView);
     const offScreen = allFades.filter(el => !isInView(el));
-    
+
     inView.forEach(el => revealEl(el, 80));
-    
-    // Pass 2 — Off-screen elements: IntersectionObserver
+
+    // Pass 2 â€” Off-screen elements: IntersectionObserver
     if (offScreen.length) {
       const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -1277,9 +1247,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // CHART.JS CONFIGURATION
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   // Global Chart Defaults
   Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
@@ -1309,7 +1279,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Graceful fallback when Chart.js CDN is unavailable
   if (typeof Chart === 'undefined') {
     [
-      ['appointmentHourlyChart', 'appointmentHourlyEmpty'],
+      ['weeklyRevenueChart', 'weeklyRevenueEmpty'],
+      ['appointmentStatusChart', 'appointmentStatusEmpty'],
       ['topProductsChart', 'topProductsEmpty'],
       ['categorySalesChart', 'categorySalesEmpty'],
       ['appointmentSourceChart', 'appointmentSourceEmpty']
@@ -1318,64 +1289,214 @@ document.addEventListener('DOMContentLoaded', function() {
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 1. TODAY'S APPOINTMENT VOLUME BY HOUR
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // 1. WEEKLY REVENUE LINE CHART
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-  const appointmentHourlyCtx = document.getElementById('appointmentHourlyChart');
-  if (appointmentHourlyCtx) {
-    const hourlyData = {{ appointment_hourly_data|safe }};
-    if (hourlyData.some(item => item.count > 0)) {
-      new Chart(appointmentHourlyCtx, {
-        type: 'bar',
+  const weeklyRevenueCtx = document.getElementById('weeklyRevenueChart');
+  if (weeklyRevenueCtx) {
+    const weeklyData = {{ weekly_revenue_data|safe }};
+    const hasData = weeklyData && weeklyData.some(d => d.revenue > 0);
+
+    if (hasData) {
+      new Chart(weeklyRevenueCtx, {
+        type: 'line',
         data: {
-          labels: hourlyData.map(item => item.hour),
+          labels: weeklyData.map(d => d.date),
           datasets: [{
-            label: 'Scheduled appointments',
-            data: hourlyData.map(item => item.count),
-            backgroundColor: 'rgba(59, 130, 246, 0.82)',
-            hoverBackgroundColor: '#2563eb',
-            borderRadius: 6,
-            borderSkipped: false
+            label: 'Revenue',
+            data: weeklyData.map(d => d.revenue),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          animation: {
+            duration: 1500,
+            easing: 'easeInOutCubic',
+            delay: (context) => context.dataIndex * 100
+          },
           plugins: {
             legend: { display: false },
-            tooltip: commonTooltip
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: ctx => `â‚±${ctx.raw.toLocaleString()}`
+              }
+            }
           },
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
+              ticks: { font: { size: 12, weight: '600' }, color: '#64748b' }
             },
             y: {
               beginAtZero: true,
               grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: { precision: 0, stepSize: 1, color: '#94a3b8' }
+              ticks: {
+                font: { size: 11 },
+                color: '#94a3b8',
+                callback: val => 'â‚±' + (val >= 1000 ? (val/1000).toFixed(0) + 'K' : val)
+              }
             }
           }
         }
       });
     } else {
-      showEmptyState('appointmentHourlyChart', 'appointmentHourlyEmpty');
+      showEmptyState('weeklyRevenueChart', 'weeklyRevenueEmpty');
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // 2. APPOINTMENT STATUS DISTRIBUTION (Bar Chart)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+  const appointmentStatusCtx = document.getElementById('appointmentStatusChart');
+  if (appointmentStatusCtx) {
+    const statusData = {{ appointment_status_data|safe }};
+    const hasData = statusData && statusData.length > 0;
+
+    // Using single green similar to the Admin bar chart, or the specific status colors:
+    const statusColors = {
+      'PENDING': '#f59e0b',
+      'CONFIRMED': '#3b82f6',
+      'COMPLETED': '#10b981',
+      'CANCELLED': '#ef4444',
+      'NO_SHOW': '#6b7280'
+    };
+
+    const statusLabels = {
+      'PENDING': 'Pending',
+      'CONFIRMED': 'Confirmed',
+      'COMPLETED': 'Completed',
+      'CANCELLED': 'Cancelled',
+      'NO_SHOW': 'No Show'
+    };
+
+    if (hasData) {
+      // Create gradient for this week
+      const thisWeekGradient = appointmentStatusCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+      thisWeekGradient.addColorStop(0, '#10b981');
+      thisWeekGradient.addColorStop(1, '#059669');
+
+      // Create gradient for last week
+      const lastWeekGradient = appointmentStatusCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+      lastWeekGradient.addColorStop(0, '#94a3b8');
+      lastWeekGradient.addColorStop(1, '#64748b');
+
+      new Chart(appointmentStatusCtx, {
+        type: 'bar',
+        data: {
+          labels: statusData.map(s => statusLabels[s.status] || s.status),
+          datasets: [
+            {
+              label: 'This Week',
+              data: statusData.map(s => s.this_week),
+              backgroundColor: thisWeekGradient,
+              borderRadius: 0,
+              borderSkipped: false,
+              barPercentage: 0.7,
+              categoryPercentage: 0.8
+            },
+            {
+              label: 'Last Week',
+              data: statusData.map(s => s.last_week),
+              backgroundColor: lastWeekGradient,
+              borderRadius: 0,
+              borderSkipped: false,
+              barPercentage: 0.7,
+              categoryPercentage: 0.8
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          animation: {
+            duration: 1500,
+            easing: 'easeInOutCubic',
+            delay: (context) => context.dataIndex * 150
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              align: 'end',
+              labels: {
+                usePointStyle: true,
+                pointStyle: 'rectRounded',
+                padding: 20,
+                font: { size: 12, weight: '600' }
+              }
+            },
+            tooltip: {
+              ...commonTooltip,
+              callbacks: {
+                label: function(context) {
+                  const label = context.dataset.label;
+                  const value = context.raw;
+                  const otherDataset = context.chart.data.datasets[context.datasetIndex === 0 ? 1 : 0];
+                  const otherValue = otherDataset.data[context.dataIndex];
+                  const diff = value - otherValue;
+                  const diffPercent = otherValue > 0 ? ((diff / otherValue) * 100).toFixed(1) : 0;
+                  const arrow = diff >= 0 ? 'â†‘' : 'â†“';
+                  const color = diff >= 0 ? 'ðŸŸ¢' : 'ðŸ”´';
+
+                  if (context.datasetIndex === 0) {
+                    return `${label}: ${value} ${color} ${arrow}${Math.abs(diffPercent)}%`;
+                  }
+                  return `${label}: ${value}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: {
+                font: { size: 11 },
+                color: '#94a3b8',
+                stepSize: 1
+              }
+            },
+            x: {
+              grid: { display: false },
+              ticks: {
+                font: { size: 11, weight: '600' },
+                color: '#64748b'
+              }
+            }
+          }
+        }
+      });
+    } else {
+      showEmptyState('appointmentStatusChart', 'appointmentStatusEmpty');
+    }
+  }
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // 3. TOP PRODUCTS PIE CHART
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   const topProductsCtx = document.getElementById('topProductsChart');
   if (topProductsCtx) {
     const productsData = {{ top_products|safe }};
     const hasData = productsData && productsData.length > 0;
-    
+
     // Five distinct colors for pie chart segments
     const productColors = ['#f59e0b', '#fb923c', '#fbbf24', '#3b82f6', '#10b981'];
-    
+
     if (hasData) {
       new Chart(topProductsCtx, {
         type: 'pie',
@@ -1400,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', function() {
             animateRotate: true
           },
           plugins: {
-            legend: { 
+            legend: {
               position: 'right',
               labels: {
                 usePointStyle: true,
@@ -1413,7 +1534,7 @@ document.addEventListener('DOMContentLoaded', function() {
               callbacks: {
                 label: ctx => {
                   const data = productsData[ctx.dataIndex];
-                  return `${ctx.raw} units (₱${data.total_sales.toLocaleString()})`;
+                  return `${ctx.raw} units (â‚±${data.total_sales.toLocaleString()})`;
                 }
               }
             }
@@ -1425,51 +1546,91 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 4. MOST-ORDERED PRODUCT CATEGORIES
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // 4. CATEGORY SALES DOUGHNUT CHART
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   const categorySalesCtx = document.getElementById('categorySalesChart');
   if (categorySalesCtx) {
-    const categoryData = {{ product_category_orders|safe }};
+    const categoryData = {{ category_sales|safe }};
     const hasData = categoryData && categoryData.length > 0;
 
+    const categoryColors = {
+      'SERVICE': '#8b5cf6',
+      'PRODUCT': '#3b82f6',
+      'MEDICATION': '#10b981'
+    };
+
+    const categoryLabels = {
+      'SERVICE': 'Services',
+      'PRODUCT': 'Products',
+      'MEDICATION': 'Medications'
+    };
+
     if (hasData) {
+      const total = categoryData.reduce((sum, c) => sum + c.total, 0);
+
       new Chart(categorySalesCtx, {
-        type: 'bar',
+        type: 'doughnut',
         data: {
-          labels: categoryData.map(category => category.category),
+          labels: categoryData.map(c => categoryLabels[c.type] || c.type),
           datasets: [{
-            label: 'Units ordered',
-            data: categoryData.map(category => category.units_sold),
-            backgroundColor: 'rgba(139, 92, 246, 0.82)',
-            hoverBackgroundColor: '#7c3aed',
-            borderRadius: 6,
-            borderSkipped: false
+            data: categoryData.map(c => c.total),
+            backgroundColor: categoryData.map(c => categoryColors[c.type] || '#94a3b8'),
+            borderColor: '#ffffff',
+            borderWidth: 3,
+            hoverOffset: 10
           }]
         },
         options: {
-          indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
+          cutout: '60%',
+          animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 1500,
+            easing: 'easeInOutCubic',
+            delay: (context) => context.dataIndex * 150
+          },
           plugins: {
-            legend: { display: false },
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: {
+                padding: 16,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                font: { size: 11, weight: '600' },
+                color: isGlobalDark ? '#ffffff' : '#64748b',
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  return data.labels.map((label, i) => {
+                    const value = data.datasets[0].data[i];
+                    const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                    return {
+                      text: `${label}: â‚±${value.toLocaleString()} (${pct}%)`,
+                      fillStyle: data.datasets[0].backgroundColor[i],
+                      strokeStyle: data.datasets[0].backgroundColor[i],
+                      lineWidth: 0,
+                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                      color: isGlobalDark ? '#ffffff' : '#64748b',
+                      pointStyle: 'circle',
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
+              }
+            },
             tooltip: {
               ...commonTooltip,
               callbacks: {
-                label: context => `${context.raw} units ordered`
+                label: ctx => {
+                  const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                  return `â‚±${ctx.raw.toLocaleString()} (${pct}%)`;
+                }
               }
-            }
-          },
-          scales: {
-            x: {
-              beginAtZero: true,
-              grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: { precision: 0, stepSize: 1, color: '#94a3b8' }
-            },
-            y: {
-              grid: { display: false },
-              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
             }
           }
         }
@@ -1479,23 +1640,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // 5. APPOINTMENT SOURCE PIE CHART (Walk-in vs Online Booking)
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   const appointmentSourceCtx = document.getElementById('appointmentSourceChart');
   if (appointmentSourceCtx) {
     const sourceData = {{ appointment_source_data|safe }};
     const hasData = sourceData && sourceData.some(s => s.count > 0);
-    
+
     const sourceColors = {
       'Walk-in': '#f59e0b',
       'Online Booking': '#3b82f6'
     };
-    
+
     if (hasData) {
       const total = sourceData.reduce((sum, s) => sum + s.count, 0);
-      
+
       new Chart(appointmentSourceCtx, {
         type: 'bar',
         data: {
@@ -1561,10 +1722,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // START ANIMATIONS AFTER CHARTS ARE READY
-  // ═══════════════════════════════════════════════════════════════════════
-  
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
   startDashAnimations();
 
 }); // End DOMContentLoaded

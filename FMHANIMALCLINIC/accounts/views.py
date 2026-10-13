@@ -1806,6 +1806,8 @@ def receptionist_dashboard_view(request):
     yesterday = today - timedelta(days=1)
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
+    last_week_start = week_start - timedelta(days=7)
+    last_week_end = week_start - timedelta(days=1)
     
     # Get the receptionist's assigned branch
     user_branch = request.user.branch
@@ -1918,6 +1920,22 @@ def receptionist_dashboard_view(request):
     weekly_sales_count = weekly_sales.count()
     weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
 
+    weekly_revenue_data = []
+    for days_ago in range(6, -1, -1):
+        day = today - timedelta(days=days_ago)
+        if pos_restricted_no_branch:
+            day_revenue = 0
+        else:
+            day_revenue = Sale.objects.filter(
+                created_at__range=get_day_bounds(day),
+                status=Sale.Status.COMPLETED,
+                **sale_filter,
+            ).aggregate(total=Sum('total'))['total'] or 0
+        weekly_revenue_data.append({
+            'date': day.strftime('%a'),
+            'revenue': float(day_revenue),
+        })
+
     # ── Year-to-date revenue and customer mix (branch-specific) ──
     if pos_restricted_no_branch:
         annual_revenue = 0
@@ -2024,6 +2042,41 @@ def receptionist_dashboard_view(request):
             pet__isnull=False,
             **appt_filter
         ).count()
+
+    # ─── APPOINTMENT STATUS (This Week vs Last Week, branch-specific) ───
+    if appt_restricted_no_branch:
+        status_counts_this_week = []
+        status_counts_last_week = []
+    else:
+        status_counts_this_week = Appointment.objects.filter(
+            appointment_date__range=(week_start, week_end),
+            pet__isnull=False,
+            **appt_filter,
+        ).values('status').annotate(count=Count('id'))
+        status_counts_last_week = Appointment.objects.filter(
+            appointment_date__range=(last_week_start, last_week_end),
+            pet__isnull=False,
+            **appt_filter,
+        ).values('status').annotate(count=Count('id'))
+
+    appointment_status_counts = {}
+    for item in status_counts_this_week:
+        appointment_status_counts[item['status']] = {
+            'this_week': item['count'],
+            'last_week': 0,
+        }
+    for item in status_counts_last_week:
+        appointment_status_counts.setdefault(
+            item['status'], {'this_week': 0, 'last_week': 0}
+        )['last_week'] = item['count']
+    appointment_status_data = [
+        {
+            'status': status,
+            'this_week': counts['this_week'],
+            'last_week': counts['last_week'],
+        }
+        for status, counts in appointment_status_counts.items()
+    ]
 
     # ─── TODAY'S SCHEDULED APPOINTMENTS BY HOUR (branch-specific) ───
     if appt_restricted_no_branch:
@@ -2211,6 +2264,7 @@ def receptionist_dashboard_view(request):
     # ─── MOST-ORDERED PRODUCT CATEGORIES (This Week, own branch) ───
     if pos_restricted_no_branch:
         product_category_orders = []
+        category_sales = []
     else:
         product_category_orders_query = SaleItem.objects.filter(
             sale__created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
@@ -2230,6 +2284,26 @@ def receptionist_dashboard_view(request):
                 'category': product_category_labels.get(category, category),
                 'units_sold': item['units_sold'],
             })
+
+        category_sales_query = SaleItem.objects.filter(
+            sale__created_at__range=(
+                get_day_bounds(week_start)[0],
+                get_day_bounds(week_end)[1],
+            ),
+            sale__status=Sale.Status.COMPLETED,
+            **sale_own_branch_filter,
+        ).values('item_type').annotate(
+            count=Count('id'),
+            total=Sum(F('quantity') * F('unit_price')),
+        ).order_by('-total')
+        category_sales = [
+            {
+                'type': item['item_type'],
+                'count': item['count'],
+                'total': float(item['total']) if item['total'] else 0,
+            }
+            for item in category_sales_query
+        ]
 
     # ─── HOURLY SALES TREND (Today, branch-specific) ───
     hourly_sales_data = []
@@ -2309,7 +2383,11 @@ def receptionist_dashboard_view(request):
         'checked_in_today': checked_in_today,
         
         # NEW: Revenue & Product Analytics
+        'weekly_revenue_data': json.dumps(
+            weekly_revenue_data, cls=DjangoJSONEncoder
+        ),
         'top_products': json.dumps(top_products, cls=DjangoJSONEncoder),
+        'category_sales': json.dumps(category_sales, cls=DjangoJSONEncoder),
         'low_stock_products': low_stock_products,
         'low_stock_count': low_stock_count,
         'low_stock_threshold': get_inventory_low_stock_threshold(),
@@ -2318,6 +2396,9 @@ def receptionist_dashboard_view(request):
         ),
         
         # Receptionist dashboard chart data
+        'appointment_status_data': json.dumps(
+            appointment_status_data, cls=DjangoJSONEncoder
+        ),
         'appointment_hourly_data': json.dumps(hourly_distribution, cls=DjangoJSONEncoder),
         'appointment_source_data': json.dumps(appointment_source_data, cls=DjangoJSONEncoder),
     }
