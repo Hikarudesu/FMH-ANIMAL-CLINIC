@@ -1387,6 +1387,7 @@ def vet_dashboard_view(request):
     from employees.models import StaffMember
     from notifications.models import Notification, FollowUp
     from records.models import MedicalRecord, RecordEntry
+    from django.db.models.functions import TruncMonth
 
     today = date.today()
     month_start = date(today.year, today.month, 1)
@@ -1593,34 +1594,61 @@ def vet_dashboard_view(request):
                 )
 
     # ═══════════════════════════════════════════════════════════════════════
-    # CHART 3 — WEEKLY WORKLOAD  (bar chart, Mon–Sun)
+    # CHART 3 — MONTHLY COMPLETED CONSULTATIONS
     # ═══════════════════════════════════════════════════════════════════════
-    # Index 0 = Monday … 6 = Sunday
 
-    weekly_workload = [0] * 7
+    consultation_year = today.year if today.month >= 6 else today.year - 1
+    consultation_end_month = today.month if today.month >= 6 else 12
+    consultation_period_end = (
+        today if today.month >= 6
+        else date(consultation_year, 12, 31)
+    )
+    monthly_consultation_months = list(range(6, consultation_end_month + 1))
+    monthly_consultation_labels = [
+        date(consultation_year, month, 1).strftime('%b')
+        for month in monthly_consultation_months
+    ]
+    monthly_consultations_period = (
+        f'June–{consultation_period_end.strftime("%B")} {consultation_year}'
+    )
+    month_counts = {month: 0 for month in monthly_consultation_months}
+
     if staff_profile and not appt_restricted_no_branch:
-        # Monday-aligned start of the current week
-        py_dow = today.weekday()                   # Mon=0 … Sun=6
-        start_of_week = today - timedelta(days=py_dow)
-        end_of_week = start_of_week + timedelta(days=6)
-
-        # Single aggregate query for the whole week for this branch
-        week_daily = (
-            Appointment.objects.filter(
-                pet__isnull=False,
-                appointment_date__gte=start_of_week,
-                appointment_date__lte=end_of_week,
-                **appt_filter
-            )
-            .exclude(status='CANCELLED')
-            .values('appointment_date')
-            .annotate(cnt=Count('id'))
+        matching_vet_record = (
+            Q(vet=staff_profile) |
+            Q(vet__isnull=True, record__vet=staff_profile)
         )
-        for row in week_daily:
-            # Convert DB date → Mon-based index (Mon=0, Sun=6)
-            d = row['appointment_date']
-            idx = d.weekday()
-            weekly_workload[idx] = row['cnt']
+        consultation_entries = (
+            RecordEntry.objects.filter(
+                appointment__status=Appointment.Status.COMPLETED,
+                appointment__preferred_vet=staff_profile,
+                appointment__pet__isnull=False,
+                appointment__appointment_date__gte=date(consultation_year, 6, 1),
+                appointment__appointment_date__lte=consultation_period_end,
+                **{
+                    f"appointment__{key}": value
+                    for key, value in appt_filter.items()
+                },
+                **{
+                    f"record__{key}": value
+                    for key, value in records_filter.items()
+                },
+            )
+            .filter(matching_vet_record)
+            .annotate(
+                month=TruncMonth('appointment__appointment_date')
+            )
+            .values('month')
+            .annotate(
+                count=Count('appointment_id', distinct=True)
+            )
+        )
+        for row in consultation_entries:
+            month_counts[row['month'].month] = row['count']
+
+    monthly_consultation_counts = [
+        month_counts[month] for month in monthly_consultation_months
+    ]
 
     # ── Average daily consultations (last 30 days) ───────────────────────
     # Divide by actual working days (days that had at least 1 appt), not always 30.
@@ -1672,7 +1700,9 @@ def vet_dashboard_view(request):
         # Charts
         'patient_status_distribution': patient_status_distribution,
         'consultation_reasons': consultation_reasons,
-        'weekly_workload': weekly_workload,
+        'monthly_consultation_labels': monthly_consultation_labels,
+        'monthly_consultation_counts': monthly_consultation_counts,
+        'monthly_consultations_period': monthly_consultations_period,
         # Dashboard supporting metrics
         'avg_daily_consultations': avg_daily_consultations,
         'new_patients_this_month': new_patients_this_month,

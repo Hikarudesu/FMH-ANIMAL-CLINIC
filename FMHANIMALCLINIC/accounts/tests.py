@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, time
+from datetime import date, datetime, time
 from urllib.parse import parse_qs, urlsplit
 
 from dateutil.relativedelta import relativedelta
@@ -392,6 +392,20 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, 'monthlyPerformanceChart')
                 self.assertContains(response, 'Recent Medical Records')
                 self.assertContains(response, 'No medical records have been recorded yet.')
+                dashboard_html = response.content.decode()
+                self.assertLess(
+                    dashboard_html.index('Your Completed Consultations'),
+                    dashboard_html.index('Appointment Types'),
+                )
+                self.assertLess(
+                    dashboard_html.index('Appointment Types'),
+                    dashboard_html.index('Patient Status'),
+                )
+                self.assertContains(response, 'charts-row-monthly')
+                self.assertContains(response, 'charts-row-supporting')
+                self.assertContains(response, 'chart-body-monthly')
+                self.assertContains(response, 'monthlyCompletedConsultationsChart')
+                self.assertNotContains(response, 'weeklyWorkloadChart')
 
     def test_veterinarian_dashboard_shows_recent_branch_medical_entries(self):
         from records.models import MedicalRecord, RecordEntry
@@ -472,6 +486,125 @@ class VetDashboardContentTests(TestCase):
         self.assertContains(response, 'mild seasonal itching')
         self.assertNotContains(response, 'Other Branch Patient')
         self.assertNotContains(response, 'Must not appear on the veterinarian dashboard.')
+
+    def test_monthly_consultation_chart_requires_matching_vet_and_counts_appointments_once(self):
+        from records.models import MedicalRecord, RecordEntry
+
+        today = timezone.localdate()
+        if today.month < 6:
+            self.skipTest('The June-to-current-month chart has no months before June.')
+
+        branch = Branch.objects.create(
+            name='Monthly Consultations Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        role = Role.objects.get(code='veterinarian')
+        user = get_user_model().objects.create_user(
+            username='vet-monthly-consultations',
+            email='vet-monthly-consultations@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        staff = StaffMember.objects.create(
+            first_name='Monthly',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=branch,
+            user=user,
+        )
+        other_user = get_user_model().objects.create_user(
+            username='other-monthly-vet',
+            email='other-monthly-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        other_vet = StaffMember.objects.create(
+            first_name='Other',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=branch,
+            user=other_user,
+        )
+        pet = Pet.objects.create(
+            branch=branch,
+            name='Monthly Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            vet=staff,
+            branch=branch,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        def create_completed_appointment(preferred_vet=staff):
+            return Appointment.objects.create(
+                owner_name='Monthly Patient Owner',
+                pet_name=pet.name,
+                pet=pet,
+                branch=branch,
+                preferred_vet=preferred_vet,
+                appointment_date=date(today.year, 6, 15),
+                appointment_time=time(9, 0),
+                status=Appointment.Status.COMPLETED,
+            )
+
+        assigned_appointment = create_completed_appointment()
+        RecordEntry.objects.create(
+            record=record,
+            appointment=assigned_appointment,
+            vet=staff,
+            date_recorded=date(today.year, 6, 15),
+        )
+        RecordEntry.objects.create(
+            record=record,
+            appointment=assigned_appointment,
+            vet=staff,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        fallback_appointment = create_completed_appointment()
+        RecordEntry.objects.create(
+            record=record,
+            appointment=fallback_appointment,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        mismatched_entry_appointment = create_completed_appointment()
+        RecordEntry.objects.create(
+            record=record,
+            appointment=mismatched_entry_appointment,
+            vet=other_vet,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        other_assigned_appointment = create_completed_appointment(other_vet)
+        RecordEntry.objects.create(
+            record=record,
+            appointment=other_assigned_appointment,
+            vet=staff,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('vet_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        labels = response.context['monthly_consultation_labels']
+        counts = response.context['monthly_consultation_counts']
+        self.assertEqual(labels[0], 'Jun')
+        self.assertEqual(counts[0], 2)
+        self.assertEqual(
+            len(labels),
+            today.month - 5,
+        )
 
 
 @override_settings(

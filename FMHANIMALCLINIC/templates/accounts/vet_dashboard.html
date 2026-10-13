@@ -140,22 +140,25 @@
 <!-- MAIN CHARTS GRID -->
 <div class="charts-section">
   
-  <!-- ROW 1: Weekly Workload & Appointment Types -->
-  <div class="charts-row">
-    <div class="chart-card-modern large">
+  <!-- ROW 1: Monthly Completed Consultations -->
+  <div class="charts-row charts-row-monthly">
+    <div class="chart-card-modern large chart-card-monthly">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Weekly Workload</span>
+          <span>Your Completed Consultations</span>
         </div>
-        <div class="chart-badge purple">This Week</div>
+        <div class="chart-badge purple">{{ monthly_consultations_period }}</div>
       </div>
-      <div class="chart-body">
-        <canvas id="weeklyWorkloadChart"></canvas>
+      <div class="chart-body chart-body-monthly">
+        <canvas id="monthlyCompletedConsultationsChart"></canvas>
       </div>
     </div>
-    
-    <div class="chart-card-modern">
+  </div>
+
+  <!-- ROW 2: Equal-sized supporting charts -->
+  <div class="charts-row charts-row-supporting">
+    <div class="chart-card-modern chart-card-supporting">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-pie-chart-alt-2'></i>
@@ -167,11 +170,7 @@
         <canvas id="appointmentTypesChart"></canvas>
       </div>
     </div>
-  </div>
-  
-  <!-- ROW 2: Patient Health Status -->
-  <div class="charts-row">
-    <div class="chart-card-modern">
+    <div class="chart-card-modern chart-card-supporting">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-heart-circle'></i>
@@ -590,14 +589,29 @@
     grid-template-columns: 1.5fr 1fr;
     gap: 24px;
   }
-  
-  .charts-row:nth-child(2) {
-    grid-template-columns: 1fr 1.5fr;
+
+  .charts-row-monthly {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .charts-row-supporting {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-card-monthly {
+    width: 100%;
+  }
+
+  .chart-body-monthly {
+    height: 360px;
+  }
+
+  .chart-card-supporting {
+    min-width: 0;
   }
   
   @media (max-width: 992px) {
-    .charts-row,
-    .charts-row:nth-child(2) {
+    .charts-row-supporting {
       grid-template-columns: 1fr;
     }
   }
@@ -1702,67 +1716,43 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════
-  // CHART 1: WEEKLY WORKLOAD (Bar Chart - This Week)
+  // CHART 1: MONTHLY COMPLETED CONSULTATIONS
   // ═══════════════════════════════════════════════════════════════════════
   
-  const weeklyWorkloadCtx = document.getElementById('weeklyWorkloadChart');
-  if (weeklyWorkloadCtx) {
-    // Generate this week's days labels
-    const today = new Date();
-    // Adjusted dayOfWeek for Mon-Sun array (Monday=0 ... Sunday=6)
-    let dayOfWeek = today.getDay() - 1;
-    if (dayOfWeek < 0) dayOfWeek = 6; 
-    
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek);
-    
-    const weekDays = [];
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
-    // Real workload data from backend (index 0=Mon, 6=Sun)
-    const workloadData = {{ weekly_workload|safe }};
-    
-    for (let i = 0; i < 7; i++) {
-      weekDays.push(dayNames[i]);
-    }
-    
-    const gradient = weeklyWorkloadCtx.getContext('2d').createLinearGradient(0, 0, 0, 280);
-    gradient.addColorStop(0, '#009688');
-    gradient.addColorStop(1, '#00bcd4');
+  const monthlyConsultationsCtx = document.getElementById('monthlyCompletedConsultationsChart');
+  if (monthlyConsultationsCtx) {
+    const consultationMonths = {{ monthly_consultation_labels|safe }};
+    const consultationCounts = {{ monthly_consultation_counts|safe }};
 
-    new Chart(weeklyWorkloadCtx, {
+    new Chart(monthlyConsultationsCtx, {
       type: 'bar',
       data: {
-        labels: weekDays,
+        labels: consultationMonths,
         datasets: [{
-          label: 'Appointments',
-          data: workloadData,
+          label: 'Completed consultations',
+          data: consultationCounts,
           backgroundColor: function(context) {
-            const index = context.dataIndex;
-            if (index === dayOfWeek) {
-              return '#009688';
-            }
-            return 'rgba(0, 150, 136, 0.5)';
+            return context.dataIndex === consultationMonths.length - 1
+              ? '#009688'
+              : 'rgba(0, 150, 136, 0.5)';
           },
-          borderRadius: 4,
+          borderRadius: 8,
           borderSkipped: 'bottom',
-          barThickness: 36,
-          maxBarThickness: 44
+          maxBarThickness: 64
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        plugins: { 
+        plugins: {
           legend: { display: false },
           tooltip: {
             ...commonTooltip,
             callbacks: {
-              title: function(items) {
-                const i = items[0].dataIndex;
-                if (i === dayOfWeek) return items[0].label + ' (Today)';
-                return items[0].label;
+              label: function(context) {
+                const count = context.parsed.y;
+                return `${count} completed consultation${count === 1 ? '' : 's'}`;
               }
             }
           }
@@ -1770,12 +1760,7 @@ document.addEventListener('DOMContentLoaded', function() {
         scales: {
           x: {
             grid: { display: false, drawBorder: false },
-            ticks: { 
-              font: { size: 12, weight: '600' },
-              callback: function(value, index) {
-                return index === dayOfWeek ? '🟢 ' + dayNames[index] : dayNames[index];
-              }
-            }
+            ticks: { font: { size: 12, weight: '600' } }
           },
           y: { 
             beginAtZero: true, 
@@ -1790,7 +1775,7 @@ document.addEventListener('DOMContentLoaded', function() {
           duration: 1500,
           easing: 'easeInOutCubic',
           delay(ctx) {
-            return ctx.type === 'data' ? ctx.dataIndex * 120 : 0;
+            return ctx.type === 'data' ? ctx.dataIndex * 100 : 0;
           }
         }
       }
