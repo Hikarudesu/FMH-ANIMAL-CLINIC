@@ -203,6 +203,12 @@
       <div class="ae-group" style="margin-bottom: 20px;">
         <label>Appointment Status *</label>
         {{ form.status }}
+        {% for error in form.status.errors %}
+        <small role="alert" style="display: block; margin-top: 6px; color: #b91c1c;">{{ error }}</small>
+        {% endfor %}
+        <small style="display: block; margin-top: 6px; color: var(--text-3);">
+          An appointment can only be marked completed on or after its scheduled date.
+        </small>
       </div>
 
       <div class="ae-meta" style="flex-direction: column; gap: 16px; border-top: none; padding: 0; background: transparent;">

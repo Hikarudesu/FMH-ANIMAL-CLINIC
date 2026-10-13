@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -11,6 +11,7 @@ from appointments.models import Appointment
 from appointments.forms import AdminQuickCreateForm, AppointmentEditForm
 from branches.models import Branch
 from employees.models import StaffMember
+from settings.models import ReasonForVisit
 
 
 class ExpiredAppointmentCleanupTests(TestCase):
@@ -276,3 +277,75 @@ class AppointmentEditVeterinarianOptionalTests(TestCase):
             form.fields['preferred_vet'].empty_label,
             '-- Any Available Vet --',
         )
+
+
+class AppointmentCompletionDateValidationTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Completion Date Branch')
+        self.reason = ReasonForVisit.objects.create(
+            name='General Consultation',
+            code='COMPLETION_TEST',
+        )
+        self.appointment = Appointment.objects.create(
+            owner_name='Test Owner',
+            owner_email='owner@example.com',
+            owner_phone='09123456789',
+            pet_name='Test Pet',
+            pet_species='Dog',
+            pet_sex='MALE',
+            branch=self.branch,
+            appointment_date=date(2026, 10, 14),
+            appointment_time=time(9),
+            reason_for_visit=self.reason,
+            status=Appointment.Status.CONFIRMED,
+        )
+
+    def completion_form(self, appointment_date):
+        return AppointmentEditForm(
+            data={
+                'owner_name': self.appointment.owner_name,
+                'owner_email': self.appointment.owner_email,
+                'owner_phone': self.appointment.owner_phone,
+                'owner_address': '',
+                'pet_name': self.appointment.pet_name,
+                'pet_species': self.appointment.pet_species,
+                'pet_breed': '',
+                'pet_dob': '',
+                'pet_sex': self.appointment.pet_sex,
+                'pet_color': '',
+                'pet_symptoms': '',
+                'branch': self.branch.pk,
+                'preferred_vet': '',
+                'appointment_date': appointment_date.isoformat(),
+                'appointment_time': '09:00',
+                'reason': self.reason.pk,
+                'status': Appointment.Status.COMPLETED,
+                'source': Appointment.Source.WALKIN,
+                'notes': '',
+            },
+            instance=self.appointment,
+        )
+
+    @patch('appointments.forms._check_double_booking')
+    @patch('appointments.forms.timezone.localdate')
+    def test_future_appointment_cannot_be_marked_completed(
+        self, mocked_localdate, _mocked_double_booking,
+    ):
+        mocked_localdate.return_value = date(2026, 10, 13)
+        form = self.completion_form(date(2026, 10, 14))
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            'This appointment cannot be marked completed before its scheduled date.',
+            form.errors['status'],
+        )
+
+    @patch('appointments.forms._check_double_booking')
+    @patch('appointments.forms.timezone.localdate')
+    def test_appointment_can_be_marked_completed_on_scheduled_date(
+        self, mocked_localdate, _mocked_double_booking,
+    ):
+        mocked_localdate.return_value = date(2026, 10, 14)
+        form = self.completion_form(date(2026, 10, 14))
+
+        self.assertTrue(form.is_valid(), form.errors)
