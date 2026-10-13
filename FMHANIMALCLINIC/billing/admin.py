@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from utils.admin import SoftDeleteAdminMixin
 from .models import Service, CustomerStatement
 
 
 @admin.register(Service)
-class ServiceAdmin(admin.ModelAdmin):
+class ServiceAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     """Admin configuration for Service."""
     list_display = ('name', 'price', 'cost', 'category', 'active')
     list_filter = ('active', 'category')

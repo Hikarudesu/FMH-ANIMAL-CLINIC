@@ -28,6 +28,7 @@ class Command(BaseCommand):
                 'cancel_expired_reservations',
                 'check_inventory_expiry_alerts',
                 'expire_pet_owner_accounts',
+                'purge_expired_archive_items',
             ):
                 output = StringIO()
                 try:

@@ -14,10 +14,63 @@ from accounts.models import ActivityLog
 from accounts.rbac_models import Module, ModulePermission, Role
 from branches.models import Branch
 from patients.models import Pet
-from .models import MedicalRecord
+from .models import MedicalFile, MedicalRecord, RecordEntry
 from .models import validate_laboratory_image, validate_medical_file
 from .views import _get_pdf_styles, _pdf_link_callback
 from settings.forms import MedicalRecordsSettingsForm
+
+
+class ArchiveSoftDeleteTests(TestCase):
+    def setUp(self):
+        self.pet = Pet.objects.create(
+            name='Archived Patient',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        self.record = MedicalRecord.objects.create(
+            pet=self.pet,
+            date_recorded='2026-10-13',
+        )
+        self.entry = RecordEntry.objects.create(
+            record=self.record,
+            date_recorded='2026-10-13',
+        )
+
+    def test_deleting_pet_archives_pet_record_and_visit_history(self):
+        self.pet.delete()
+
+        self.pet.refresh_from_db()
+        self.record.refresh_from_db()
+        self.entry.refresh_from_db()
+        self.assertTrue(self.pet.is_deleted)
+        self.assertFalse(self.pet.is_active)
+        self.assertTrue(self.record.is_deleted)
+        self.assertTrue(self.entry.is_deleted)
+        self.assertFalse(Pet.objects.filter(pk=self.pet.pk).exists())
+        self.assertFalse(MedicalRecord.objects.filter(pk=self.record.pk).exists())
+        self.assertTrue(Pet.all_objects.filter(pk=self.pet.pk).exists())
+
+    def test_restoring_pet_restores_history_archived_with_it(self):
+        self.pet.delete()
+        self.pet.restore()
+
+        self.pet.refresh_from_db()
+        self.record.refresh_from_db()
+        self.entry.refresh_from_db()
+        self.assertTrue(self.pet.is_active)
+        self.assertFalse(self.pet.is_deleted)
+        self.assertFalse(self.record.is_deleted)
+        self.assertFalse(self.entry.is_deleted)
+
+    def test_deleting_medical_record_archives_its_visit_entries(self):
+        self.record.delete()
+
+        self.record.refresh_from_db()
+        self.entry.refresh_from_db()
+        self.assertTrue(self.record.is_deleted)
+        self.assertTrue(self.entry.is_deleted)
+        self.assertFalse(RecordEntry.objects.filter(pk=self.entry.pk).exists())
+        self.assertTrue(RecordEntry.all_objects.filter(pk=self.entry.pk).exists())
 
 
 class MedicalRecordActivitySignalTests(SimpleTestCase):

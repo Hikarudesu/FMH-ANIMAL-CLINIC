@@ -428,7 +428,7 @@
           {% if user.is_admin_role %}
           <a
             href="{% url 'accounts:owner_archive' %}"
-            class="sidebar-link {% if request.resolver_match.url_name == 'owner_archive' %}active{% endif %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'owner_archive' or request.resolver_match.url_name == 'records_archive' %}active{% endif %}"
           >
             <i class="bx bx-archive"></i><span>Archive</span>
           </a>
@@ -631,7 +631,7 @@
               {% if user|is_admin %}
               <a
                 href="{% url 'accounts:owner_archive' %}"
-                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'owner_archive' %}active{% endif %}"
+                class="sidebar-submenu-link {% if request.resolver_match.url_name == 'owner_archive' or request.resolver_match.url_name == 'records_archive' %}active{% endif %}"
               >
                 <i class="bx bx-archive"></i><span>Archive</span>
               </a>
