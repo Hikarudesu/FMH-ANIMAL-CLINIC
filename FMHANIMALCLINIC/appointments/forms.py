@@ -923,6 +923,17 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
     def clean(self):
         """Validate appointment edit form - allow past dates for editing historical appointments."""
         cleaned_data = super().clean()
+
+        appointment_date = cleaned_data.get('appointment_date')
+        if (
+            cleaned_data.get('status') == Appointment.Status.COMPLETED
+            and appointment_date
+            and appointment_date > timezone.localdate()
+        ):
+            self.add_error(
+                'status',
+                'This appointment cannot be marked completed before its scheduled date.',
+            )
         
         # Handle MORNING/AFTERNOON markers for "any available vet" mode
         time_str = self.data.get('appointment_time')
