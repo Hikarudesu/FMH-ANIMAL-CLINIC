@@ -237,6 +237,12 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, f'January - December {current_year}')
         self.assertContains(response, 'Sales by Category')
         self.assertContains(response, 'This Month')
+        dashboard_html = response.content.decode()
+        self.assertLess(
+            dashboard_html.index('id="categorySalesChart"'),
+            dashboard_html.index('id="categorySalesDetails"'),
+        )
+        self.assertContains(response, 'category-sales-body')
         monthly_revenue = json.loads(response.context['monthly_revenue_data'])
         self.assertEqual(len(monthly_revenue), 12)
         self.assertEqual(monthly_revenue[5], {'month': 'June', 'revenue': 125.0})
@@ -417,6 +423,10 @@ class UserPortalDashboardTests(TestCase):
             ],
         )
         self.assertEqual(len(monthly_spending), 12)
+        self.assertContains(
+            response,
+            f'January–December {timezone.localdate().year}',
+        )
         appointment_history = json.loads(
             response.context['appointment_history_json']
         )

@@ -11,114 +11,152 @@
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
-      margin-bottom: 14px;
+      margin-bottom: 18px;
     }
 
     .soa-muted {
-      color: var(--text-secondary);
+      color: var(--text-2);
       font-size: 13px;
     }
 
     .soa-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+      gap: 18px;
     }
 
-    /* SIMPLE & COMPACT SOA CARD */
     .soa-card {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 252, 251, 0.98) 100%);
-      border: 1px solid rgba(0, 150, 136, 0.08);
-      border-radius: 16px;
-      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+      position: relative;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow-card);
       transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
       display: flex;
       flex-direction: column;
-      min-height: 170px;
+      min-width: 0;
     }
 
     .soa-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(0, 150, 136, 0.16);
-      box-shadow: 0 16px 28px rgba(15, 23, 42, 0.08);
+      transform: translateY(-3px);
+      border-color: rgba(var(--primary-rgb), 0.35);
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .soa-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 4px;
+      background: var(--primary-gradient);
     }
 
     .soa-card-top {
-      padding: 14px 16px 8px;
+      padding: 20px 20px 16px;
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .soa-identity {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .soa-icon {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(var(--primary-rgb), 0.15);
+      border-radius: 13px;
+      background: rgba(var(--primary-rgb), 0.09);
+      color: var(--primary);
+      font-size: 20px;
+    }
+
+    .soa-heading {
+      min-width: 0;
     }
 
     .soa-number {
-      font-size: 0.9rem;
+      overflow: hidden;
+      color: var(--text-1);
+      font-size: 0.92rem;
       font-weight: 800;
-      color: var(--text-primary);
-      margin: 0 0 4px 0;
-      letter-spacing: 0.01em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin: 0 0 5px;
+      letter-spacing: 0.015em;
     }
 
     .soa-date {
-      font-size: 0.72rem;
-      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text-2);
+      font-size: 0.75rem;
       font-weight: 600;
-      letter-spacing: 0.04em;
+    }
+
+    .soa-date i {
+      font-size: 14px;
     }
 
     .soa-status {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      flex: 0 0 auto;
       border-radius: 999px;
-      padding: 5px 12px;
-      font-size: 0.72rem;
+      padding: 6px 10px;
+      font-size: 0.68rem;
       font-weight: 700;
-      color: var(--primary, #009688);
-      background: rgba(0, 150, 136, 0.08);
-      border: 1px solid rgba(0, 150, 136, 0.16);
+      color: #087f5b;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      white-space: nowrap;
     }
 
     .soa-summary {
-      padding: 0 16px 10px;
+      padding: 16px 20px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 14px;
       flex-grow: 1;
     }
 
-    .soa-meta-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-
     .soa-meta-item {
-      background: rgba(0, 150, 136, 0.04);
-      border: 1px solid rgba(0, 150, 136, 0.08);
-      border-radius: 12px;
-      padding: 10px 12px;
+      min-width: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      gap: 14px;
     }
 
     .soa-meta-item .label {
-      color: var(--text-secondary);
+      color: var(--text-2);
       font-weight: 700;
-      font-size: 0.72rem;
-      letter-spacing: 0.04em;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
       flex: 0 0 auto;
     }
 
     .soa-meta-item .value {
+      min-width: 0;
+      overflow: hidden;
       font-weight: 700;
-      color: var(--text-primary);
-      font-size: 0.88rem;
+      color: var(--text-1);
+      font-size: 0.9rem;
       line-height: 1.25;
       text-align: right;
-      overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -126,64 +164,67 @@
     .soa-finance-strip {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
+      gap: 12px;
     }
 
     .soa-finance-chip {
-      border-radius: 12px;
-      padding: 10px 10px 9px;
-      background: rgba(15, 23, 42, 0.025);
-      border: 1px solid rgba(15, 23, 42, 0.06);
+      min-width: 0;
+      border-radius: 14px;
+      padding: 13px 14px;
+      background: var(--surface-light);
+      border: 1px solid var(--border);
     }
 
     .soa-finance-chip .label {
       display: block;
       font-size: 0.7rem;
       font-weight: 700;
-      color: var(--text-secondary);
+      color: var(--text-2);
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 4px;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
     }
 
     .soa-finance-chip .value {
       display: block;
-      font-size: 0.88rem;
+      overflow-wrap: anywhere;
+      font-size: 0.96rem;
       font-weight: 800;
-      color: var(--text-primary);
+      color: var(--text-1);
     }
 
     .soa-finance-chip.balance {
-      background: rgba(0, 150, 136, 0.08);
-      border-color: rgba(0, 150, 136, 0.14);
+      background: rgba(var(--primary-rgb), 0.08);
+      border-color: rgba(var(--primary-rgb), 0.18);
     }
 
     .soa-finance-chip.balance .value {
-      color: var(--primary, #009688);
+      color: var(--primary);
     }
 
     .soa-actions {
-      padding: 8px 16px 14px;
+      padding: 14px 20px 18px;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      border-top: 1px solid rgba(15, 23, 42, 0.06);
+      gap: 10px;
+      border-top: 1px solid var(--border);
     }
 
     .soa-btn {
+      min-width: 0;
       display: inline-flex;
       justify-content: center;
       align-items: center;
       gap: 6px;
-      border-radius: 12px;
-      padding: 9px 0;
+      border-radius: 11px;
+      padding: 10px 12px;
       font-size: 0.8rem;
       font-weight: 700;
       text-decoration: none;
       transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
       cursor: pointer;
-      border: 1px solid transparent;
-      min-height: 42px;
+      border: 1px solid var(--border);
+      min-height: 44px;
     }
 
     .soa-btn:hover {
@@ -191,35 +232,36 @@
     }
 
     .soa-btn-outline {
-      background: #fafafa;
-      color: var(--text-primary);
-      border-color: rgba(15, 23, 42, 0.1);
+      background: var(--surface);
+      color: var(--text-1);
     }
     
     .soa-btn-outline:hover {
-      background: rgba(0, 150, 136, 0.08);
-      border-color: rgba(0, 150, 136, 0.2);
-      color: var(--primary, #009688);
+      background: var(--surface-light);
+      border-color: var(--primary);
+      color: var(--primary);
     }
 
     .soa-btn-primary {
-      background: var(--primary, #009688);
+      background: var(--primary);
       color: #fff;
       box-shadow: 0 8px 18px rgba(0, 150, 136, 0.16);
+      border-color: var(--primary);
     }
 
     .soa-btn-primary:hover {
-      background: #00796b;
+      background: var(--primary-dark);
+      border-color: var(--primary-dark);
     }
 
     .soa-empty {
-      background: #f7fafb;
-      border: 1px dashed rgba(15, 23, 42, 0.12);
+      background: var(--surface);
+      border: 1px dashed var(--border-hover);
       border-radius: 18px;
       padding: 24px 20px;
       text-align: center;
-      color: var(--text-secondary);
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+      color: var(--text-2);
+      box-shadow: var(--shadow-card);
     }
 
     @media (max-width: 576px) {
@@ -228,27 +270,28 @@
         gap: 10px;
       }
       .soa-card-top {
-        padding: 12px 14px 8px;
+        padding: 16px;
       }
       .soa-summary {
-        padding: 4px 14px 10px;
+        padding: 14px 16px;
       }
       .soa-actions {
-        padding: 8px 14px 12px;
+        padding: 12px 16px 16px;
       }
-      .soa-number {
-        font-size: 0.98rem;
+      .soa-icon {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
       }
-      .soa-meta-grid,
-      .soa-finance-strip {
-        grid-template-columns: 1fr;
+      .soa-finance-chip {
+        padding: 11px;
       }
     }
   </style>
 
   {% include "components/page_hero.html" with title="Statement of Account" subtitle="View released statements and print official copies anytime." icon="bx-receipt" %}
 
-  <div class="card" style="padding: 16px;">
+  <div class="card" style="padding: 20px;">
     <div class="soa-subhead">
       <strong style="font-size: 1rem;">My Statements</strong>
       <span class="soa-muted">Released statements only</span>
@@ -259,18 +302,20 @@
         {% for statement in statements %}
         <article class="soa-card">
           <div class="soa-card-top">
-            <div>
+            <div class="soa-identity">
+              <span class="soa-icon" aria-hidden="true"><i class='bx bx-receipt'></i></span>
+              <div class="soa-heading">
               <p class="soa-number">{{ statement.statement_number }}</p>
+              <span class="soa-date"><i class='bx bx-calendar'></i> Issued {{ statement.date|date:"M d, Y" }}</span>
+              </div>
             </div>
             <span class="soa-status">{{ statement.get_status_display }}</span>
           </div>
 
           <aside class="soa-summary">
-            <div class="soa-meta-grid">
-              <div class="soa-meta-item">
-                <span class="label">Pet</span>
-                <span class="value">{{ statement.patient_name|default:"-" }}</span>
-              </div>
+            <div class="soa-meta-item">
+              <span class="label">Patient</span>
+              <span class="value">{{ statement.patient_name|default:"-" }}</span>
             </div>
             <div class="soa-finance-strip">
               <div class="soa-finance-chip">
