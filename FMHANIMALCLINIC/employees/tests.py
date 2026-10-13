@@ -72,6 +72,8 @@ class StaffAccountActivationTests(TestCase):
 
     def test_deactivation_saves_reason_and_emails_staff_member(self):
         self.client.force_login(self.admin)
+        self.user.email_verified = True
+        self.user.save(update_fields=['email_verified'])
         reason = 'Employment has ended.'
 
         response = self.client.post(
@@ -88,6 +90,20 @@ class StaffAccountActivationTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, [self.user.email])
         self.assertIn(reason, mail.outbox[0].body)
+
+    def test_deactivation_skips_reason_email_when_staff_email_is_unverified(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('employees:staff_edit', args=[self.user.pk]),
+            {'branch': '', 'inactive_reason': 'Employment has ended.'},
+            follow=True,
+        )
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertContains(response, 'email address is missing or unverified')
 
     def test_reactivation_clears_inactive_reason_without_sending_email(self):
         self.user.is_active = False
@@ -157,6 +173,8 @@ class StaffAccountActivationTests(TestCase):
         self.assertContains(response, 'Position eliminated.')
 
     def test_staff_deactivation_page_requires_and_saves_reason(self):
+        self.user.email_verified = True
+        self.user.save(update_fields=['email_verified'])
         self.client.force_login(self.admin)
 
         missing_reason_response = self.client.post(

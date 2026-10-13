@@ -199,7 +199,7 @@ def staff_edit(request, user_id):
         staff_profile.set_active(is_active)
 
         if is_being_deactivated:
-            if user.email:
+            if user.email and user.email_verified:
                 subject = 'Your FMH Animal Clinic staff account is inactive'
                 email_message = (
                     f'Hello {user.get_full_name() or user.username},\n\n'
@@ -223,7 +223,11 @@ def staff_edit(request, user_id):
                 else:
                     messages.warning(request, 'The account was made inactive, but the email could not be sent.')
             else:
-                messages.warning(request, 'The account was made inactive, but this staff member has no email address.')
+                messages.warning(
+                    request,
+                    'The account was made inactive, but the reason email was not sent because '
+                    'the staff email address is missing or unverified.',
+                )
 
         messages.success(request, f'{user.get_full_name()} profile updated successfully.')
         return redirect('employees:staff_list')
@@ -288,7 +292,7 @@ def staff_delete(request, pk):
                 member.user.inactive_reason = inactive_reason
                 member.user.save(update_fields=['inactive_reason'])
             member.set_active(False)
-            if member.user_id and member.user.email:
+            if member.user_id and member.user.email and member.user.email_verified:
                 try:
                     send_mail(
                         'Your FMH Animal Clinic staff account is inactive',
@@ -304,6 +308,12 @@ def staff_delete(request, pk):
                     )
                 except Exception:  # Email failure must not undo the account change.
                     messages.warning(request, 'The account was deactivated, but the email could not be sent.')
+            else:
+                messages.warning(
+                    request,
+                    'The account was deactivated, but the reason email was not sent because '
+                    'the staff email address is missing or unverified.',
+                )
             messages.success(
                 request, f'{member.full_name} has been deactivated.')
         else:

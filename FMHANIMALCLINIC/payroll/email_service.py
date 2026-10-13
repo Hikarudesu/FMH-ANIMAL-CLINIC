@@ -90,11 +90,13 @@ def send_payslip_email(payslip, *, force=False):
 
     Successful sends are idempotent. Failed sends remain retryable.
     """
-    recipient = (
-        payslip.employee.email
-        or (payslip.employee.user.email if payslip.employee.user_id else '')
-        or ''
-    ).strip().lower()
+    staff_user = payslip.employee.user if payslip.employee.user_id else None
+    if staff_user is None:
+        return False, 'Staff member needs a linked account to verify their email address.'
+    if not staff_user.email_verified:
+        return False, 'Staff member must verify their account email before a payslip can be sent.'
+
+    recipient = (staff_user.email or '').strip().lower()
     if not recipient:
         return False, 'Employee has no email address.'
 

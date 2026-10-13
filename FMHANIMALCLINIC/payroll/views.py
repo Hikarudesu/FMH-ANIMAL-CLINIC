@@ -2218,12 +2218,6 @@ def send_payslip_email(request, payslip_id):
         id=payslip_id
     )
 
-    # Check if employee has email
-    if not payslip.employee.email:
-        messages.error(
-            request, f'{payslip.employee.full_name} does not have an email address.')
-        return redirect('payroll:payslips', period_id=payslip.payroll_period.id)
-
     try:
         sent, reason = deliver_payslip_email(payslip, force=True)
         if not sent:
@@ -2231,17 +2225,18 @@ def send_payslip_email(request, payslip_id):
             return redirect('payroll:payslips', period_id=payslip.payroll_period.id)
 
         from payroll.models import PayrollAuditLog
+        recipient = payslip.employee.user.email
         PayrollAuditLog.log(
             user=request.user,
             action_type=PayrollAuditLog.ActionType.SYSTEM_EXPORT,
-            description=f"Sent payslip email to {payslip.employee.full_name} ({payslip.employee.email})",
+            description=f"Sent payslip email to {payslip.employee.full_name} ({recipient})",
             payslip=payslip,
             payroll_period=payslip.payroll_period,
             staff_member=payslip.employee,
-            metadata={'email': payslip.employee.email}
+            metadata={'email': recipient}
         )
 
-        messages.success(request, f'Payslip PDF sent to {payslip.employee.email}')
+        messages.success(request, f'Payslip PDF sent to {recipient}')
 
     except Exception as e:
         messages.error(request, f'Failed to send email: {str(e)}')

@@ -45,10 +45,17 @@ class EmailDeliveryTests(TestCase):
         send_mail_mock.assert_called_once()
 
     def test_payslip_delivery_is_idempotent(self):
+        staff_user = User.objects.create_user(
+            username='verified-payslip-staff',
+            email='employee@example.com',
+            password='A-secure-test-password-923!',
+            email_verified=True,
+        )
         staff = StaffMember.objects.create(
+            user=staff_user,
             first_name='Test',
             last_name='Employee',
-            email='employee@example.com',
+            email='different-profile-email@example.com',
             salary=Decimal('30000'),
             position=StaffMember.Position.RECEPTIONIST,
         )
@@ -70,9 +77,45 @@ class EmailDeliveryTests(TestCase):
             self.assertEqual((True, 'Already sent.'), send_payslip_email(payslip))
 
         self.assertEqual(send_mock.call_count, 1)
+        self.assertEqual(send_mock.call_args.kwargs['recipient_list'], [staff_user.email])
         self.assertEqual(
             PayslipEmailLog.objects.filter(payslip=payslip, status='SENT').count(), 1
         )
+
+    def test_payslip_email_requires_verified_staff_account_email(self):
+        staff_user = User.objects.create_user(
+            username='unverified-payslip-staff',
+            email='unverified@example.com',
+            password='A-secure-test-password-923!',
+            email_verified=False,
+        )
+        staff = StaffMember.objects.create(
+            user=staff_user,
+            first_name='Unverified',
+            last_name='Employee',
+            email='unverified@example.com',
+            salary=Decimal('30000'),
+            position=StaffMember.Position.RECEPTIONIST,
+        )
+        period = PayrollPeriod.objects.create(
+            month=9,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+            gross_pay=Decimal('15000'),
+            net_pay=Decimal('14500'),
+        )
+
+        with patch('payroll.email_service.send_notification_email') as send_mock:
+            sent, reason = send_payslip_email(payslip)
+
+        self.assertFalse(sent)
+        self.assertIn('verify their account email', reason)
+        send_mock.assert_not_called()
 
     def test_inquiry_endpoint_requires_csrf(self):
         client = Client(enforce_csrf_checks=True)
