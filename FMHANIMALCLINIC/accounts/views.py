@@ -1496,7 +1496,7 @@ def vet_dashboard_view(request):
                 **{f"record__{key}": value for key, value in records_filter.items()}
             )
             .select_related('record__pet', 'record__branch', 'vet')
-            .order_by('-date_recorded', '-created_at')[:5]
+            .order_by('-created_at', '-date_recorded')[:5]
         )
     else:
         recent_medical_records = RecordEntry.objects.none()

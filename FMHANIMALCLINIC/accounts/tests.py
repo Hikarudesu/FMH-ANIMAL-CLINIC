@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from urllib.parse import parse_qs, urlsplit
 
 from dateutil.relativedelta import relativedelta
@@ -243,6 +243,10 @@ class ReceptionistDashboardMetricsTests(TestCase):
             dashboard_html.index('id="categorySalesDetails"'),
         )
         self.assertContains(response, 'category-sales-body')
+        self.assertContains(response, 'category-sales-header')
+        self.assertContains(response, 'padding: 8px 16px 10px')
+        self.assertContains(response, 'width: min(100%, 148px)')
+        self.assertContains(response, 'min-height: 0')
         self.assertContains(response, '@container category-sales (max-width: 380px)')
         self.assertContains(response, '@media (max-width: 640px)')
         self.assertNotContains(response, 'Total sales this month')
@@ -427,6 +431,15 @@ class VetDashboardContentTests(TestCase):
             zip_code='1000',
         )
         role = Role.objects.get(code='veterinarian')
+        medical_records_module, _ = Module.objects.get_or_create(
+            code='medical_records',
+            defaults={'name': 'Medical Records'},
+        )
+        ModulePermission.objects.get_or_create(
+            role=role,
+            module=medical_records_module,
+            permission_type=ModulePermission.PermissionType.CREATE,
+        )
         user = get_user_model().objects.create_user(
             username='vet-recent-records',
             email='vet-recent-records@example.com',
@@ -454,11 +467,20 @@ class VetDashboardContentTests(TestCase):
             branch=branch,
             date_recorded=timezone.localdate(),
         )
-        RecordEntry.objects.create(
+        visible_entry = RecordEntry.objects.create(
             record=visible_record,
             vet=staff,
             date_recorded=timezone.localdate(),
             history_clinical_signs='Recent patient has mild seasonal itching.',
+        )
+        backdated_entry = RecordEntry.objects.create(
+            record=visible_record,
+            vet=staff,
+            date_recorded=timezone.localdate() - timedelta(days=30),
+            history_clinical_signs='Recently saved backdated visit.',
+        )
+        RecordEntry.objects.filter(pk=backdated_entry.pk).update(
+            created_at=timezone.now() + timedelta(minutes=1),
         )
 
         hidden_pet = Pet.objects.create(
@@ -484,8 +506,24 @@ class VetDashboardContentTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Visible Patient')
         self.assertContains(response, 'mild seasonal itching')
+        self.assertContains(response, 'Recently saved backdated visit.')
         self.assertNotContains(response, 'Other Branch Patient')
         self.assertNotContains(response, 'Must not appear on the veterinarian dashboard.')
+        self.assertContains(response, 'View All')
+        self.assertContains(response, 'New Record')
+        self.assertContains(response, reverse('records:admin_create'))
+        self.assertContains(
+            response,
+            reverse('records:admin_detail', args=[visible_record.pk]),
+        )
+        self.assertEqual(
+            response.context['recent_medical_records'][0].pk,
+            backdated_entry.pk,
+        )
+        self.assertNotEqual(
+            response.context['recent_medical_records'][0].pk,
+            visible_entry.pk,
+        )
 
     def test_monthly_consultation_chart_requires_matching_vet_and_counts_appointments_once(self):
         from records.models import MedicalRecord, RecordEntry

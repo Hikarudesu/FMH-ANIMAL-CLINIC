@@ -394,24 +394,28 @@
   height: 220px;
 }
 
+.chart-header.category-sales-header {
+  padding-block: 14px;
+}
+
 .chart-body.category-sales-body {
   height: auto;
-  padding: 16px;
+  padding: 8px 16px 10px;
   container: category-sales / inline-size;
 }
 
 .category-sales-content {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
   align-items: center;
-  gap: 16px;
-  min-height: 190px;
+  gap: 12px;
+  min-height: 0;
 }
 
 .category-sales-chart {
   position: relative;
   min-width: 0;
-  width: min(100%, 180px);
+  width: min(100%, 148px);
   aspect-ratio: 1;
   justify-self: center;
 }
@@ -423,7 +427,7 @@
 .category-sales-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
 }
 
 .category-sales-item {
@@ -464,16 +468,16 @@
 @container category-sales (max-width: 380px) {
   .category-sales-content {
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
+    gap: 8px;
     min-height: 0;
   }
 
   .category-sales-chart {
-    width: min(100%, 170px);
+    width: min(100%, 128px);
   }
 
   .category-sales-list {
-    gap: 8px;
+    gap: 6px;
   }
 }
 
@@ -1057,7 +1061,7 @@
     </div>
 
     <div class="chart-card-modern">
-      <div class="chart-header">
+      <div class="chart-header category-sales-header">
         <div class="chart-title">
           <i class='bx bx-category'></i>
           <span>Sales by Category</span>
