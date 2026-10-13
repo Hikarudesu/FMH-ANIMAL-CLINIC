@@ -198,7 +198,10 @@ class AdminPetForm(forms.ModelForm):
             is_branch_restricted = self.current_user.is_module_branch_restricted('patients')
             user_branch = getattr(self.current_user, 'branch', None)
             if is_branch_restricted and user_branch:
-                self.fields['branch'].queryset = Branch.objects.filter(pk=user_branch.pk)
+                self.fields['branch'].queryset = Branch.objects.filter(
+                    pk=user_branch.pk,
+                    is_active=True,
+                )
                 self.fields['branch'].initial = user_branch
                 self.fields['branch'].widget.attrs['readonly'] = True
                 self.fields['branch'].widget.attrs['style'] = 'pointer-events: none; background-color: #f3f4f6;'

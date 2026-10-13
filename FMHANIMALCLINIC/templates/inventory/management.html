@@ -83,11 +83,11 @@
             </thead>
             <tbody>
               {% for item in products %}
-              <tr class="searchable-row"
+              <tr class="searchable-row{% if not item.branch.is_active %} inactive-branch-item{% endif %}"
                   data-name="{{ item.name }}"
                   data-sku="{{ item.sku }}"
                   data-status="{{ item.status }}">
-                <td style="text-align: center; font-weight: 600; color: var(--text-1);">{{ item.name }}</td>
+                <td style="text-align: center; font-weight: 600; color: {% if item.branch.is_active %}var(--text-1){% else %}var(--text-3){% endif %}; opacity: {% if item.branch.is_active %}1{% else %}0.55{% endif %};">{{ item.name }}</td>
                 <td style="text-align: center; font-size: 0.8rem; color: var(--text-3);">{{ item.sku }}</td>
                 <td style="text-align: center;">
                     <span style="

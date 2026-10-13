@@ -438,7 +438,7 @@ def get_user_branches(user, module_code=None):
 
     # Branch-restricted users see only their branch
     if user.branch:
-        return Branch.objects.filter(pk=user.branch.pk)
+        return Branch.objects.filter(pk=user.branch.pk, is_active=True)
 
     return Branch.objects.none()
 

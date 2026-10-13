@@ -82,7 +82,7 @@ def staff_list(request):
     )
     positions = [(str(role_id), role_name) for role_id, role_name in role_positions]
 
-    branches = Branch.objects.all().order_by('name')
+    branches = Branch.objects.filter(is_active=True).order_by('name')
 
     return render(request, 'employees/staff_list.html', {
         'staff_users': staff_users,
@@ -164,7 +164,7 @@ def staff_edit(request, user_id):
         )
         branch = user.branch if permanent_position_locked else None
         if branch_id and not permanent_position_locked:
-            branch = Branch.objects.filter(pk=branch_id).first()
+            branch = Branch.objects.filter(pk=branch_id, is_active=True).first()
             if not branch:
                 messages.error(request, 'Please choose a valid branch.')
                 return render(request, 'employees/staff_edit.html', {

@@ -35,3 +35,6 @@ class BranchAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+    def has_delete_permission(self, request, obj=None):
+        return False
