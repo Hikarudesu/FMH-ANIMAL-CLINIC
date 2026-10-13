@@ -842,19 +842,6 @@
   </div>
 
   <div class="hero-stat-card">
-    <div class="hero-stat-icon emerald">
-      <i class='bx bx-money'></i>
-    </div>
-    <div class="hero-stat-content">
-      <span class="hero-stat-value">₱{{ annual_revenue|floatformat:0 }}</span>
-      <span class="hero-stat-label">Revenue This Year</span>
-      <div class="hero-stat-meta">
-        <span class="meta-item">{{ branch_name }} · {{ revenue_year|stringformat:"d" }}</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="hero-stat-card">
     <div class="hero-stat-icon blue">
       <i class='bx bx-cart'></i>
     </div>
@@ -863,6 +850,19 @@
       <span class="hero-stat-label">Sales Today</span>
       <div class="hero-stat-meta">
         <span class="meta-item">₱{{ weekly_revenue|floatformat:0 }} this week</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon emerald">
+      <i class='bx bx-money'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">₱{{ annual_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-label">Revenue This Year</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">{{ branch_name }} · {{ revenue_year|stringformat:"d" }}</span>
       </div>
     </div>
   </div>
@@ -967,97 +967,6 @@
     </div>
   </div>
 
-</div>
-
-<!-- TODAY'S SCHEDULE & LOW STOCK -->
-<div class="charts-row equal">
-  <!-- Today's Schedule -->
-  <div class="schedule-card">
-    <div class="schedule-header">
-      <div class="schedule-title">
-        <i class='bx bx-calendar'></i>
-        <span>Today's Schedule</span>
-      </div>
-      <a href="{% url 'appointments:admin_list' %}" class="schedule-link">
-        View All <i class='bx bx-right-arrow-alt'></i>
-      </a>
-    </div>
-    <div class="schedule-table-wrapper">
-      {% if todays_appointments %}
-      <table class="schedule-table">
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Patient</th>
-            <th>Reason</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for appointment in todays_appointments|slice:":6" %}
-          <tr>
-            <td class="schedule-time">{{ appointment.appointment_time_display }}</td>
-            <td>
-              <div class="schedule-patient">{{ appointment.pet.name }}</div>
-              <div class="schedule-owner">
-                {% if appointment.pet.owner %}
-                  {{ appointment.pet.owner.get_full_name|default:appointment.pet.owner.username }}
-                {% else %}
-                  {{ appointment.pet.guest_owner_name }} (Guest)
-                {% endif %}
-              </div>
-            </td>
-            <td class="schedule-reason">{{ appointment.reason_display|truncatewords:3 }}</td>
-            <td>
-              <span class="status-pill {{ appointment.status|lower }}">{{ appointment.get_status_display }}</span>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty-schedule">
-        <i class='bx bx-calendar-x'></i>
-        <p>No appointments scheduled for today</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Low Stock Products -->
-  <div class="stock-card">
-    <div class="chart-header">
-      <div class="chart-title">
-        <i class='bx bx-error-circle' style="color: #ef4444;"></i>
-        <span>Low Stock Alert</span>
-      </div>
-      <a href="{% url 'inventory:management' %}" class="schedule-link">
-        View Inventory <i class='bx bx-right-arrow-alt'></i>
-      </a>
-    </div>
-    <div class="chart-body" style="height: auto; padding-top: 16px;">
-      {% if low_stock_products %}
-      <div class="product-list">
-        {% for product in low_stock_products %}
-        <div class="low-stock-item">
-          <div class="low-stock-icon">
-            <i class='bx bx-package'></i>
-          </div>
-          <div class="low-stock-info">
-            <div class="low-stock-name">{{ product.name }}</div>
-            <div class="low-stock-qty">{{ product.stock_quantity }} left (min: {{ product.min_stock_level }})</div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="empty-schedule">
-        <i class='bx bx-check-circle' style="color: #10b981;"></i>
-        <p>All products are well stocked</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
 </div>
 
 <!-- RECENT SALES -->

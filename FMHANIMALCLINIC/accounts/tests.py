@@ -221,6 +221,15 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(monthly_revenue[8], {'month': 'September', 'revenue': 75.0})
         self.assertContains(response, 'Revenue This Year')
         self.assertContains(response, 'Inventory Value')
+        dashboard_html = response.content.decode()
+        self.assertLess(
+            dashboard_html.index("Today's Appointments"),
+            dashboard_html.index('Sales Today'),
+        )
+        self.assertLess(
+            dashboard_html.index('Sales Today'),
+            dashboard_html.index('Revenue This Year'),
+        )
         self.assertIsInstance(json.loads(response.context['category_sales']), list)
         self.assertNotContains(response, 'Appointment Status')
         self.assertNotContains(response, 'Booking Source')
@@ -278,7 +287,7 @@ class ReceptionistDashboardRoutingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
         self.assertContains(response, 'Weekly Workload')
-        self.assertContains(response, 'Weekly Revenue Trend')
+        self.assertContains(response, 'Monthly Revenue')
         self.assertNotContains(response, 'Booking Source')
         self.assertNotContains(response, 'Top 5 Selling Products')
         self.assertNotContains(response, 'Revenue by Branch')
