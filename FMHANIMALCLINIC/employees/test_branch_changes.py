@@ -375,6 +375,7 @@ class StaffBranchChangeTests(TestCase):
         self.assertIn(replacement.full_name, notice.message)
         email_mock.assert_called_once()
         self.assertEqual(email_mock.call_args.kwargs['recipient_list'], [owner.email])
+        self.assertTrue(email_mock.call_args.kwargs['force'])
 
         owner_client = Client()
         owner_client.force_login(owner)
@@ -394,6 +395,38 @@ class StaffBranchChangeTests(TestCase):
         self.assertContains(notifications_response, 'Appointment Rescheduled')
         self.assertIn(notice, notifications_response.context['notifications'])
         self.assertEqual(notifications_response.context['unread_notifications_count'], 0)
+
+    def test_preferred_vet_change_always_creates_a_fresh_unread_notification(self):
+        from notifications.utils import create_notification
+
+        user, staff, owner, appointment, replacement = self._create_appointment_with_changing_vet(
+            'fresh-notification', 'veterinarian',
+        )
+        self.client.force_login(user)
+
+        with patch('employees.branch_changes.send_notification_email', return_value=True):
+            with patch(
+                'employees.branch_changes.create_notification',
+                wraps=create_notification,
+            ) as create_notification_mock:
+                with self.captureOnCommitCallbacks(execute=True):
+                    response = self.client.post(
+                        reverse('accounts:profile'),
+                        self.profile_data(user, self.new_branch),
+                    )
+
+        self.assertEqual(response.status_code, 302)
+        create_notification_mock.assert_called_once()
+        self.assertEqual(
+            create_notification_mock.call_args.kwargs['dedupe_window_minutes'],
+            0,
+        )
+        notification = Notification.objects.get(
+            user=owner,
+            related_object_id=appointment.pk,
+            notification_type=Notification.NotificationType.APPOINTMENT_RESCHEDULED,
+        )
+        self.assertFalse(notification.is_read)
 
     def test_branch_change_falls_back_to_scheduled_vet_assistant(self):
         user, staff, owner, appointment, replacement = self._create_appointment_with_changing_vet(

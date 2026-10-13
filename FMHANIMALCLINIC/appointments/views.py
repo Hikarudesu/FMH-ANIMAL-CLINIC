@@ -46,6 +46,21 @@ def get_available_slots(vet_id=None, target_date=None, branch_id=None, exclude_a
 
 
 # ──────────────────────── PUBLIC BOOKING (no login) ────────────────────────
+def _scope_view_only_appointments(user, appointments):
+    """Limit pure VIEW roles to appointments assigned to their own staff profile."""
+    has_management_permission = any(
+        user.has_module_permission('appointments', permission)
+        for permission in ('CREATE', 'EDIT', 'DELETE')
+    )
+    if has_management_permission:
+        return appointments
+
+    staff = StaffMember.objects.filter(user=user).first()
+    if staff is None:
+        return appointments.none()
+    return appointments.filter(preferred_vet=staff)
+
+
 
 def public_book(request):
     """Public appointment booking — no login required."""
@@ -322,6 +337,7 @@ def admin_list(request):
 
     appointments = Appointment.objects.select_related(
         'branch', 'preferred_vet', 'user').all()
+    appointments = _scope_view_only_appointments(request.user, appointments)
 
     # Check if user is branch-restricted for appointments
     is_branch_restricted = request.user.is_module_branch_restricted('appointments')
@@ -458,6 +474,7 @@ def admin_calendar_api(request):
         appointment_date__gte=start,
         appointment_date__lte=end,
     ).select_related('branch', 'preferred_vet', 'pet', 'user').exclude(status='CANCELLED')
+    appointments = _scope_view_only_appointments(request.user, appointments)
 
     # Check if user is branch-restricted for appointments
     is_branch_restricted = request.user.is_module_branch_restricted('appointments')

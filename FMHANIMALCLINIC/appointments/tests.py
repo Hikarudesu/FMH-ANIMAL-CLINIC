@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import User
-from accounts.rbac_models import Role
+from accounts.rbac_models import Module, ModulePermission, Role
 from appointments.models import Appointment
 from appointments.forms import AdminQuickCreateForm, AppointmentEditForm
 from branches.models import Branch
@@ -123,6 +123,74 @@ class AppointmentTimeDisplayTests(TestCase):
 
         self.assertEqual(morning.appointment_time_display, 'Morning')
         self.assertEqual(afternoon.appointment_time_display, 'Afternoon')
+
+
+class ViewOnlyAppointmentScopeTests(TestCase):
+    def setUp(self):
+        self.old_branch = Branch.objects.create(name='Former Vet Branch')
+        self.current_branch = Branch.objects.create(name='Current Vet Branch')
+        self.role = Role.objects.create(
+            name='Appointments View Only',
+            code='appointments-view-only-test',
+            hierarchy_level=4,
+            is_staff_role=True,
+        )
+        appointments_module, _ = Module.objects.get_or_create(
+            code='appointments',
+            defaults={'name': 'Appointments'},
+        )
+        ModulePermission.objects.create(
+            role=self.role,
+            module=appointments_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        self.vet_user = User.objects.create_user(
+            username='view-only-former-vet',
+            email='view-only-former-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=self.role,
+            branch=self.current_branch,
+        )
+        self.vet = StaffMember.objects.create(
+            user=self.vet_user,
+            first_name='Former',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.current_branch,
+        )
+        self.own_appointment = Appointment.objects.create(
+            owner_name='Assigned Owner',
+            pet_name='Assigned Pet',
+            branch=self.old_branch,
+            preferred_vet=self.vet,
+            appointment_date=timezone.localdate() + timedelta(days=3),
+            appointment_time=time(9),
+        )
+        self.other_appointment = Appointment.objects.create(
+            owner_name='Other Owner',
+            pet_name='Other Pet',
+            branch=self.current_branch,
+            appointment_date=timezone.localdate() + timedelta(days=3),
+            appointment_time=time(10),
+        )
+        self.client.force_login(self.vet_user)
+
+    def test_view_only_role_sees_only_assigned_appointments_in_list_and_calendar(self):
+        list_response = self.client.get(reverse('appointments:admin_list'))
+        calendar_response = self.client.get(
+            reverse('appointments:admin_calendar_api'),
+            {
+                'year': (timezone.localdate() + timedelta(days=3)).year,
+                'month': (timezone.localdate() + timedelta(days=3)).month,
+            },
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        visible_list = list(list_response.context['appointments'].object_list)
+        self.assertEqual([appointment.pk for appointment in visible_list], [self.own_appointment.pk])
+        self.assertEqual(calendar_response.status_code, 200)
+        visible_calendar_ids = [event['id'] for event in calendar_response.json()['events']]
+        self.assertEqual(visible_calendar_ids, [self.own_appointment.pk])
 
 
 class InactiveStaffAppointmentOptionsTests(TestCase):

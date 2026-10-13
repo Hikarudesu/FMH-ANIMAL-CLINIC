@@ -1,5 +1,6 @@
 """Branch-change side effects for staff accounts."""
 
+import logging
 from datetime import time
 
 from django.db import transaction
@@ -13,6 +14,8 @@ from notifications.models import Notification
 from notifications.utils import create_notification, get_follow_up_owner
 
 from .models import RecurringSchedule, StaffMember, VetSchedule
+
+logger = logging.getLogger('fmh')
 
 
 def _move_future_schedules(staff, old_branch_id, new_branch):
@@ -138,19 +141,28 @@ def _notify_appointment_owner(
             notification_type=Notification.NotificationType.APPOINTMENT_RESCHEDULED,
             module_context=Notification.ModuleContext.APPOINTMENTS,
             related_object_id=appointment.pk,
+            dedupe_window_minutes=0,
         )
 
     recipient = (getattr(owner, 'email', '') or appointment.owner_email or '').strip()
     if recipient:
         subject = f'Update to {appointment.pet_name}\'s preferred veterinarian'
-        transaction.on_commit(
-            lambda recipient=recipient, message=message, subject=subject: send_notification_email(
+        def deliver_owner_email():
+            sent = send_notification_email(
                 subject=subject,
                 message=message,
                 recipient_list=[recipient],
-                fail_silently=True,
+                fail_silently=False,
+                force=True,
             )
-        )
+            if not sent:
+                logger.error(
+                    'Preferred-vet change email was not accepted for appointment %s, owner %s.',
+                    appointment.pk,
+                    recipient,
+                )
+
+        transaction.on_commit(deliver_owner_email)
 
 
 def _reassign_upcoming_appointments(staff, new_branch_id):
