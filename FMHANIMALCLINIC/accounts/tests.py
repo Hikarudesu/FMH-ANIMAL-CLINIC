@@ -38,6 +38,82 @@ from .lifecycle import (
     }
 )
 class ReceptionistDashboardMetricsTests(TestCase):
+    def test_receptionist_hero_cards_compare_matching_periods(self):
+        branch = Branch.objects.create(
+            name='Hero Comparison Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        role = Role.objects.get(code='receptionist')
+        receptionist = get_user_model().objects.create_user(
+            username='hero-comparison-receptionist',
+            email='hero-comparison-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        today = date.today()
+        previous_month_end = today.replace(day=1) - relativedelta(days=1)
+        previous_month_date = previous_month_end.replace(
+            day=min(today.day, previous_month_end.day)
+        )
+        previous_year_month_start = date(today.year - 1, today.month, 1)
+        previous_year_month_end = (
+            (previous_year_month_start.replace(day=28) + relativedelta(days=4))
+            .replace(day=1) - relativedelta(days=1)
+        )
+        previous_year_date = previous_year_month_start.replace(
+            day=min(today.day, previous_year_month_end.day)
+        )
+
+        def create_sale(sale_date, total):
+            sale = Sale.objects.create(
+                branch=branch,
+                total=total,
+                status=Sale.Status.COMPLETED,
+            )
+            sale.created_at = timezone.make_aware(
+                datetime.combine(sale_date, time(12, 0))
+            )
+            sale.save(update_fields=['created_at'])
+            return sale
+
+        create_sale(today, 100)
+        create_sale(today, 200)
+        create_sale(previous_month_date, 50)
+        create_sale(today - relativedelta(days=1), 25)
+        create_sale(previous_year_date, 500)
+
+        self.client.force_login(receptionist)
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['transactions_this_month'], 3)
+        self.assertEqual(
+            response.context['monthly_transactions_comparison']['text'],
+            '+200.0% vs last month',
+        )
+        self.assertEqual(response.context['todays_sales_count'], 2)
+        self.assertEqual(
+            response.context['daily_sales_comparison']['text'],
+            '+100.0% vs yesterday',
+        )
+        self.assertEqual(response.context['annual_revenue'], 375)
+        self.assertEqual(
+            response.context['annual_revenue_comparison']['text'],
+            '-25.0% vs last year',
+        )
+        self.assertContains(response, 'Transactions This Month')
+        self.assertContains(response, '+200.0% vs last month')
+        self.assertContains(response, '+100.0% vs yesterday')
+        self.assertContains(response, '-25.0% vs last year')
+        self.assertContains(response, 'Year-over-year comparison unavailable')
+        self.assertNotContains(response, 'On-hand ·')
+        self.assertNotContains(response, 'FMH Animal Clinic - Hero Comparison Branch')
+
     def test_receptionist_dashboard_charts_and_metrics_are_branch_scoped(self):
         branch = Branch.objects.create(
             name='Pilar Dashboard Branch',
@@ -260,7 +336,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, 'Inventory Value')
         dashboard_html = response.content.decode()
         self.assertLess(
-            dashboard_html.index("Today's Appointments"),
+            dashboard_html.index('Transactions This Month'),
             dashboard_html.index('Sales Today'),
         )
         self.assertLess(

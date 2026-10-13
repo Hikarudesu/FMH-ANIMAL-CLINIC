@@ -1736,6 +1736,19 @@ def receptionist_dashboard_view(request):
 
     today = date.today()
     yesterday = today - timedelta(days=1)
+    previous_month_end = today.replace(day=1) - timedelta(days=1)
+    previous_month_start = previous_month_end.replace(day=1)
+    previous_month_comparison_end = previous_month_end.replace(
+        day=min(today.day, previous_month_end.day)
+    )
+    previous_year_same_day = date(today.year - 1, today.month, 1)
+    previous_year_month_end = (
+        (previous_year_same_day.replace(day=28) + timedelta(days=4))
+        .replace(day=1) - timedelta(days=1)
+    )
+    previous_year_comparison_end = previous_year_same_day.replace(
+        day=min(today.day, previous_year_month_end.day)
+    )
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
     
@@ -1838,6 +1851,76 @@ def receptionist_dashboard_view(request):
     todays_sales_count = todays_sales.count()
     todays_revenue = sum(sale.total for sale in todays_sales) if todays_sales else 0
 
+    def comparison_summary(current_value, previous_value, period_label):
+        """Format a signed period-over-period change, guarding zero baselines."""
+        difference = current_value - previous_value
+        if previous_value == 0:
+            if difference > 0:
+                return {
+                    'text': f'New vs {period_label}',
+                    'style': 'success',
+                    'icon': 'bx-trending-up',
+                }
+            return {
+                'text': f'No change vs {period_label}',
+                'style': 'neutral',
+                'icon': 'bx-minus',
+            }
+
+        percentage = difference / previous_value * 100
+        if difference > 0:
+            style = 'success'
+            icon = 'bx-trending-up'
+            sign = '+'
+        elif difference < 0:
+            style = 'danger'
+            icon = 'bx-trending-down'
+            sign = '-'
+        else:
+            style = 'neutral'
+            icon = 'bx-minus'
+            sign = ''
+        return {
+            'text': f'{sign}{abs(percentage):.1f}% vs {period_label}',
+            'style': style,
+            'icon': icon,
+        }
+
+    if pos_restricted_no_branch:
+        transactions_this_month = 0
+        transactions_previous_month = 0
+        sales_yesterday_count = 0
+    else:
+        transactions_this_month = Sale.objects.filter(
+            created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(today)[1]),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        ).count()
+        transactions_previous_month = Sale.objects.filter(
+            created_at__range=(
+                get_day_bounds(previous_month_start)[0],
+                get_day_bounds(previous_month_comparison_end)[1],
+            ),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        ).count()
+        sales_yesterday_count = Sale.objects.filter(
+            created_at__range=get_day_bounds(yesterday),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        ).count()
+
+    monthly_transactions_comparison = comparison_summary(
+        transactions_this_month,
+        transactions_previous_month,
+        'last month',
+    )
+    daily_sales_comparison = comparison_summary(
+        todays_sales_count,
+        sales_yesterday_count,
+        'yesterday',
+    )
+
     # ── This week's statistics (branch-specific) ──
     if pos_restricted_no_branch:
         weekly_sales = Sale.objects.none()
@@ -1883,6 +1966,7 @@ def receptionist_dashboard_view(request):
     # ── Year-to-date revenue and customer mix (branch-specific) ──
     if pos_restricted_no_branch:
         annual_revenue = 0
+        previous_year_annual_revenue = 0
         annual_registered_revenue = 0
         annual_walkin_revenue = 0
         monthly_revenue_by_month = {}
@@ -1898,6 +1982,14 @@ def receptionist_dashboard_view(request):
         annual_revenue = year_to_date_sales.aggregate(
             total=Sum('total')
         )['total'] or 0
+        previous_year_annual_revenue = Sale.objects.filter(
+            created_at__range=(
+                get_day_bounds(date(today.year - 1, 1, 1))[0],
+                get_day_bounds(previous_year_comparison_end)[1],
+            ),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        ).aggregate(total=Sum('total'))['total'] or 0
         monthly_revenue_by_month = {
             item['month'].month: item['total'] or 0
             for item in year_to_date_sales.annotate(
@@ -1916,6 +2008,11 @@ def receptionist_dashboard_view(request):
         annual_walkin_revenue = annual_revenue_by_customer_type.get(
             Sale.CustomerType.WALKIN, 0
         )
+    annual_revenue_comparison = comparison_summary(
+        annual_revenue,
+        previous_year_annual_revenue,
+        'last year',
+    )
 
     monthly_revenue_data = [
         {
@@ -2228,10 +2325,14 @@ def receptionist_dashboard_view(request):
 
         # Sales stats
         'todays_sales_count': todays_sales_count,
+        'transactions_this_month': transactions_this_month,
+        'monthly_transactions_comparison': monthly_transactions_comparison,
+        'daily_sales_comparison': daily_sales_comparison,
         'todays_revenue': todays_revenue,
         'weekly_sales_count': weekly_sales_count,
         'weekly_revenue': weekly_revenue,
         'annual_revenue': annual_revenue,
+        'annual_revenue_comparison': annual_revenue_comparison,
         'annual_registered_revenue': annual_registered_revenue,
         'annual_walkin_revenue': annual_walkin_revenue,
         'revenue_year': today.year,

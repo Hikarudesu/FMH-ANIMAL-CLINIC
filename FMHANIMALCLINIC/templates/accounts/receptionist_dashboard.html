@@ -174,6 +174,7 @@
 .meta-item.success { color: #10b981; }
 .meta-item.warning { color: #f59e0b; }
 .meta-item.danger { color: #ef4444; }
+.meta-item.neutral { color: var(--text-3); }
 
 .meta-item i { font-size: 14px; }
 
@@ -940,14 +941,16 @@
 <div class="hero-stats">
   <div class="hero-stat-card">
     <div class="hero-stat-icon teal">
-      <i class='bx bx-calendar-check'></i>
+      <i class='bx bx-receipt'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ today_count }}</span>
-      <span class="hero-stat-label">Today's Appointments</span>
+      <span class="hero-stat-value">{{ transactions_this_month }}</span>
+      <span class="hero-stat-label">Transactions This Month</span>
       <div class="hero-stat-meta">
-        <span class="meta-item success"><i class='bx bx-check'></i> {{ today_confirmed }} confirmed</span>
-        <span class="meta-item warning"><i class='bx bx-time'></i> {{ today_pending }} pending</span>
+        <span class="meta-item comparison {{ monthly_transactions_comparison.style }}">
+          <i class='bx {{ monthly_transactions_comparison.icon }}'></i>
+          {{ monthly_transactions_comparison.text }}
+        </span>
       </div>
     </div>
   </div>
@@ -960,7 +963,10 @@
       <span class="hero-stat-value">{{ todays_sales_count }}</span>
       <span class="hero-stat-label">Sales Today</span>
       <div class="hero-stat-meta">
-        <span class="meta-item">₱{{ weekly_revenue|floatformat:0 }} this week</span>
+        <span class="meta-item comparison {{ daily_sales_comparison.style }}">
+          <i class='bx {{ daily_sales_comparison.icon }}'></i>
+          {{ daily_sales_comparison.text }}
+        </span>
       </div>
     </div>
   </div>
@@ -973,7 +979,10 @@
       <span class="hero-stat-value">₱{{ annual_revenue|floatformat:0 }}</span>
       <span class="hero-stat-label">Revenue This Year</span>
       <div class="hero-stat-meta">
-        <span class="meta-item">{{ branch_name }} · {{ revenue_year|stringformat:"d" }}</span>
+        <span class="meta-item comparison {{ annual_revenue_comparison.style }}">
+          <i class='bx {{ annual_revenue_comparison.icon }}'></i>
+          {{ annual_revenue_comparison.text }}
+        </span>
       </div>
     </div>
   </div>
@@ -986,7 +995,10 @@
       <span class="hero-stat-value">₱{{ total_inventory_value|floatformat:0 }}</span>
       <span class="hero-stat-label">Total Inventory Value</span>
       <div class="hero-stat-meta">
-        <span class="meta-item">On-hand · {{ branch_name }}</span>
+        <span class="meta-item comparison neutral">
+          <i class='bx bx-info-circle'></i>
+          Year-over-year comparison unavailable
+        </span>
       </div>
     </div>
   </div>
