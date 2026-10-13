@@ -1,10 +1,12 @@
 import secrets
 import string
 
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
+from utils.models import SoftDeleteModel
 from utils.validators import validate_image_file, IMAGE_UPLOAD_HELP_TEXT
 
 
@@ -14,7 +16,7 @@ def generate_pet_code():
     return ''.join(secrets.choice(alphabet) for _ in range(10))
 
 
-class Pet(models.Model):
+class Pet(SoftDeleteModel):
     """A pet that may belong to a registered portal user (owner) or a walk-in guest."""
 
     class Sex(models.TextChoices):
@@ -138,6 +140,70 @@ class Pet(models.Model):
     def __str__(self):
         owner_label = self.owner.username if self.owner else (self.guest_owner_name or 'Guest')
         return f'{self.name} ({self.species}) — {owner_label}'
+
+    @transaction.atomic
+    def delete(self, using=None, keep_parents=False):
+        """Retain the pet and its clinical history in the archive."""
+        if self.is_deleted:
+            return
+
+        deleted_at = timezone.now()
+        self.is_active = False
+        self.is_deleted = True
+        self.deleted_at = deleted_at
+        self.save(update_fields=['is_active', 'is_deleted', 'deleted_at'])
+
+        from records.models import MedicalFile, MedicalRecord, RecordEntry
+
+        record_ids = list(
+            MedicalRecord.all_objects.filter(
+                pet_id=self.pk,
+                is_deleted=False,
+            ).values_list('pk', flat=True)
+        )
+        MedicalRecord.all_objects.filter(pk__in=record_ids).update(
+            is_deleted=True,
+            deleted_at=deleted_at,
+        )
+        RecordEntry.all_objects.filter(
+            record_id__in=record_ids,
+            is_deleted=False,
+        ).update(is_deleted=True, deleted_at=deleted_at)
+        MedicalFile.all_objects.filter(
+            record_id__in=record_ids,
+            is_deleted=False,
+        ).update(is_deleted=True, deleted_at=deleted_at)
+
+    @transaction.atomic
+    def restore(self):
+        """Restore the pet and records archived as part of its deletion."""
+        deleted_at = self.deleted_at
+        self.is_active = True
+        self.is_deleted = False
+        self.deleted_at = None
+        self.save(update_fields=['is_active', 'is_deleted', 'deleted_at'])
+        if deleted_at:
+            from records.models import MedicalFile, MedicalRecord, RecordEntry
+
+            record_ids = list(MedicalRecord.all_objects.filter(
+                pet_id=self.pk,
+                is_deleted=True,
+                deleted_at=deleted_at,
+            ).values_list('pk', flat=True))
+            MedicalRecord.all_objects.filter(pk__in=record_ids).update(
+                is_deleted=False,
+                deleted_at=None,
+            )
+            RecordEntry.all_objects.filter(
+                record_id__in=record_ids,
+                is_deleted=True,
+                deleted_at=deleted_at,
+            ).update(is_deleted=False, deleted_at=None)
+            MedicalFile.all_objects.filter(
+                record_id__in=record_ids,
+                is_deleted=True,
+                deleted_at=deleted_at,
+            ).update(is_deleted=False, deleted_at=None)
 
     @property
     def status_display(self):

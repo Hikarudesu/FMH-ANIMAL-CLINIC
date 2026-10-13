@@ -903,9 +903,8 @@ def medical_file_delete(request, file_id):
         action=MedicalFileAccessLog.Action.DELETE, success=True,
         ip_address=request.META.get('REMOTE_ADDR'),
     )
-    medical_file.file.delete(save=False)
     medical_file.delete()
-    messages.success(request, 'Medical file deleted.')
+    messages.success(request, 'Medical file moved to the archive for 30 days.')
     return redirect('records:admin_detail', pk=record_id)
 
 

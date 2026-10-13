@@ -2,6 +2,7 @@
 Django Administration config for the Records application.
 """
 from django.contrib import admin
+from utils.admin import SoftDeleteAdminMixin
 from .models import MedicalFile, MedicalFileAccessLog, MedicalRecord, RecordEntry
 
 
@@ -14,7 +15,7 @@ class RecordEntryInline(admin.TabularInline):
 
 
 @admin.register(MedicalRecord)
-class MedicalRecordAdmin(admin.ModelAdmin):
+class MedicalRecordAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     """Admin interface customization for the MedicalRecord model."""
     list_display = ('pet', 'vet', 'branch', 'date_recorded', 'treatment')
     list_filter = ('branch', 'vet', 'date_recorded')
@@ -24,7 +25,7 @@ class MedicalRecordAdmin(admin.ModelAdmin):
 
 
 @admin.register(RecordEntry)
-class RecordEntryAdmin(admin.ModelAdmin):
+class RecordEntryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     """Admin interface customization for the RecordEntry model."""
     list_display = ('record', 'date_recorded', 'vet', 'weight', 'temperature', 'action_required')
     list_filter = ('date_recorded', 'vet', 'action_required')
@@ -32,7 +33,7 @@ class RecordEntryAdmin(admin.ModelAdmin):
 
 
 @admin.register(MedicalFile)
-class MedicalFileAdmin(admin.ModelAdmin):
+class MedicalFileAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('original_name', 'record', 'file_type', 'uploaded_by', 'uploaded_at')
     list_filter = ('file_type', 'uploaded_at')
     search_fields = ('original_name', 'record__pet__name', 'sha256')

@@ -468,17 +468,13 @@ def edit_pet_view(request, pk):
 
 @login_required
 def delete_pet_view(request, pk):
-    """Delete a pet (user portal) — permanently removes the record and all linked data."""
+    """Soft-delete a pet and retain its linked clinical history in the archive."""
     pet = get_object_or_404(Pet, pk=pk, owner=request.user)
 
     if request.method == 'POST':
-        from appointments.models import Appointment
         name = pet.name
-        # Explicitly delete linked appointments first (Appointment.pet uses SET_NULL,
-        # so they would otherwise survive as orphaned rows in the database).
-        Appointment.objects.filter(pet=pet).delete()
-        pet.delete()  # MedicalRecord cascades automatically via on_delete=CASCADE
-        messages.success(request, f'{name} has been permanently removed.')
+        pet.delete()
+        messages.success(request, f'{name} was moved to the archive for 30 days.')
         return redirect('patients:my_pets')
     return render(request, 'patients/pet_confirm_delete.html', {'pet': pet})
 
@@ -778,17 +774,13 @@ def admin_edit_pet_view(request, pk):
 @login_required
 @module_permission_required('patients', 'DELETE')
 def admin_delete_pet_view(request, pk):
-    """Delete a pet from the Admin portal — permanently removes the record and all linked data."""
+    """Soft-delete a patient and retain its linked clinical history in the archive."""
     pet = get_object_or_404(Pet, pk=pk)
 
     if request.method == 'POST':
-        from appointments.models import Appointment
         name = pet.name
-        # Explicitly delete linked appointments first (Appointment.pet uses SET_NULL,
-        # so they would otherwise survive as orphaned rows in the database).
-        Appointment.objects.filter(pet=pet).delete()
-        pet.delete()  # MedicalRecord cascades automatically via on_delete=CASCADE
-        messages.success(request, f'{name} has been permanently deleted from the system.')
+        pet.delete()
+        messages.success(request, f'{name} was moved to the archive for 30 days.')
         return redirect('patients:admin_list')
     return redirect('patients:admin_list')
 

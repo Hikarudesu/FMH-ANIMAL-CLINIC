@@ -5,6 +5,11 @@
 {% block content %}
 {% include "components/page_hero.html" with title="Pet Owner Archive" subtitle="Retained accounts and records for deactivated pet owners" icon="bx-archive" %}
 
+<nav class="archive-tabs" aria-label="Archive sections">
+  <a class="archive-tab is-active" href="{% url 'accounts:owner_archive' %}">Pet Owner Archive</a>
+  <a class="archive-tab" href="{% url 'accounts:records_archive' %}">Records Archive</a>
+</nav>
+
 <div class="c-filter-bar">
   <div class="c-filter-bar__glow"></div>
   <form method="get" class="c-filter-bar__form archive-filter-form" role="search">
@@ -138,6 +143,9 @@
     gap: 12px;
     flex-wrap: nowrap;
   }
+  .archive-tabs { display:flex; gap:6px; margin:0 0 18px; border-bottom:1px solid var(--border); }
+  .archive-tab { padding:11px 15px; color:var(--text-2); font-size:13px; font-weight:600; text-decoration:none; border-bottom:2px solid transparent; }
+  .archive-tab.is-active { color:var(--primary); border-color:var(--primary); }
   .archive-filters {
     display: grid;
     grid-template-columns: minmax(180px, 1.15fr) minmax(140px, 1fr) minmax(140px, 1fr) auto auto;

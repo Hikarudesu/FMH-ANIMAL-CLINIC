@@ -2,11 +2,12 @@
 Admin configuration for the inventory application.
 """
 from django.contrib import admin
+from utils.admin import SoftDeleteAdminMixin
 from .models import Product, StockAdjustment, Reservation, StockTransfer
 
 
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     """Admin configuration for Product model."""
     list_display = ('name', 'branch', 'item_type', 'unit_of_measurement', 'sale_type', 'price',
                     'stock_quantity', 'is_available', 'updated_at')

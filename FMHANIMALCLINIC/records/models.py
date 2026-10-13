@@ -8,15 +8,17 @@ import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 from patients.models import Pet
 from employees.models import StaffMember
 from branches.models import Branch
+from utils.models import SoftDeleteModel
 
 
-class MedicalRecord(models.Model):
+class MedicalRecord(SoftDeleteModel):
     """
     Represents a specific medical record/visit history item attached to a Pet.
     """
@@ -51,8 +53,6 @@ class MedicalRecord(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    objects = models.Manager()
-
     class Meta:
         """Meta options for MedicalRecord model."""
         ordering = ['-date_recorded', '-created_at']
@@ -65,13 +65,48 @@ class MedicalRecord(models.Model):
     def __str__(self):
         return f"Record for {self.pet.name} on {self.date_recorded}"
 
+    @transaction.atomic
+    def delete(self, using=None, keep_parents=False):
+        """Soft-delete the record and its visit history and attachments together."""
+        if self.is_deleted:
+            return
+        deleted_at = timezone.now()
+        self.is_deleted = True
+        self.deleted_at = deleted_at
+        self.save(update_fields=['is_deleted', 'deleted_at'])
+        RecordEntry.all_objects.filter(
+            record_id=self.pk,
+            is_deleted=False,
+        ).update(is_deleted=True, deleted_at=deleted_at)
+        MedicalFile.all_objects.filter(
+            record_id=self.pk,
+            is_deleted=False,
+        ).update(is_deleted=True, deleted_at=deleted_at)
+
+    @transaction.atomic
+    def restore(self):
+        """Restore visit history and attachments archived with this record."""
+        deleted_at = self.deleted_at
+        super().restore()
+        if deleted_at:
+            RecordEntry.all_objects.filter(
+                record_id=self.pk,
+                is_deleted=True,
+                deleted_at=deleted_at,
+            ).update(is_deleted=False, deleted_at=None)
+            MedicalFile.all_objects.filter(
+                record_id=self.pk,
+                is_deleted=True,
+                deleted_at=deleted_at,
+            ).update(is_deleted=False, deleted_at=None)
+
     @property
     def latest_entry(self):
         """Return the most recent RecordEntry for this record."""
         return self.entries.order_by('-date_recorded', '-created_at').first()
 
 
-class RecordEntry(models.Model):
+class RecordEntry(SoftDeleteModel):
     """
     Represents a single visit/consultation entry on a pet's medical record card.
     Multiple entries can belong to one MedicalRecord (one card per pet).
@@ -114,8 +149,6 @@ class RecordEntry(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    objects = models.Manager()
 
     class Meta:
         """Meta options for RecordEntry model."""
@@ -197,7 +230,7 @@ def get_laboratory_type_options():
     return normalized or ['Laboratory Result']
 
 
-class MedicalFile(models.Model):
+class MedicalFile(SoftDeleteModel):
     """Private laboratory, imaging, and external medical document."""
     class FileType(models.TextChoices):
         LAB = 'LAB', 'Laboratory Result'
@@ -232,16 +265,6 @@ class MedicalFile(models.Model):
             self.file.seek(0)
         self.original_name = self.original_name or os.path.basename(self.file.name)
         super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        """Delete the stored file from storage before deleting the DB row."""
-        if self.file:
-            try:
-                self.file.delete(save=False)
-            except Exception:
-                pass
-        return super().delete(*args, **kwargs)
-
 
 class MedicalFileAccessLog(models.Model):
     """Immutable audit trail for medical-file access attempts."""

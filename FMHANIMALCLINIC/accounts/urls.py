@@ -26,6 +26,12 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile'),
     path('profile/deactivate/', views.request_owner_deactivation, name='request_owner_deactivation'),
     path('owner-archive/', archive_views.owner_archive, name='owner_archive'),
+    path('records-archive/', archive_views.records_archive, name='records_archive'),
+    path(
+        'records-archive/<str:kind>/<int:pk>/restore/',
+        archive_views.restore_archived_record,
+        name='restore_archived_record',
+    ),
     path('profile/resend-verification/', views.resend_email_verification, name='resend_email_verification'),
     path('create-account/', views.admin_create_account, name='admin_create_account'),
 
