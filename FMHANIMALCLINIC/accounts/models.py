@@ -90,6 +90,13 @@ class User(AbstractUser):
             return self.assigned_role.is_staff_role
         return False
 
+    def is_receptionist(self):
+        """Return True for receptionist roles, including the legacy cashier role."""
+        return bool(
+            self.assigned_role
+            and self.assigned_role.code in ('receptionist', 'cashier')
+        )
+
     def is_pet_owner(self):
         """Returns True if the user is a pet owner (not a staff member)."""
         if self.is_superuser:

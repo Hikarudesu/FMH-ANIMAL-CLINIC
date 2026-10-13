@@ -67,7 +67,7 @@
             </div>
             <div class="nav-dropdown-divider"></div>
             {% if request.user.is_clinic_staff %}
-              <a href="{% url 'admin_dashboard' %}" class="nav-dropdown-item"><i class='bx bxs-dashboard'></i> Dashboard</a>
+              <a href="{% if request.user.is_receptionist %}{% url 'receptionist_dashboard' %}{% else %}{% url 'admin_dashboard' %}{% endif %}" class="nav-dropdown-item"><i class='bx bxs-dashboard'></i> Dashboard</a>
             {% else %}
               <a href="{% url 'user_dashboard' %}" class="nav-dropdown-item"><i class='bx bxs-dashboard'></i> Dashboard</a>
               <a href="{% url 'patients:my_pets' %}" class="nav-dropdown-item"><i class='bx bxs-dog'></i> My Pets</a>
@@ -126,7 +126,7 @@
     <a href="{% url 'appointments:public_book' %}" class="btn btn-red btn-full">Book Appointment</a>
     {% if request.user.is_authenticated %}
       {% if request.user.is_clinic_staff %}
-        <a href="{% url 'admin_dashboard' %}" class="btn btn-primary btn-full">Dashboard</a>
+        <a href="{% if request.user.is_receptionist %}{% url 'receptionist_dashboard' %}{% else %}{% url 'admin_dashboard' %}{% endif %}" class="btn btn-primary btn-full">Dashboard</a>
       {% else %}
         <a href="{% url 'user_dashboard' %}" class="btn btn-primary btn-full">Dashboard</a>
       {% endif %}

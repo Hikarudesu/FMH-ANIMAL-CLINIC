@@ -60,81 +60,74 @@
 
 .hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
+  gap: 16px;
   margin-bottom: 28px;
 }
 
-@media (max-width: 1200px) {
-  .hero-stats { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 640px) {
-  .hero-stats { grid-template-columns: 1fr; }
+.hero-stat-stack {
+  display: grid;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .hero-stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 24px;
+  background: #fff;
+  border: 1px solid #e2e5ec;
+  border-radius: 18px;
+  padding: 22px;
   display: flex;
-  align-items: flex-start;
-  gap: 18px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hero-stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
-  opacity: 0;
-  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  box-shadow: 0 2px 5px rgba(18, 25, 38, 0.08);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .hero-stat-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
-  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(18, 25, 38, 0.1);
 }
 
-.hero-stat-card:hover::before {
-  opacity: 1;
+.hero-stat-featured {
+  min-height: 380px;
+  padding: 26px;
+  align-items: stretch;
+}
+
+.hero-stat-featured .hero-stat-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.hero-stat-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .hero-stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hero-stat-icon i {
-  font-size: 26px;
+  font-size: 22px;
   color: white;
 }
 
-.hero-stat-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+.hero-stat-icon.teal { background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); }
 .hero-stat-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
 .hero-stat-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
 .hero-stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
 .hero-stat-icon.emerald { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
 .hero-stat-icon.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-
-.hero-stat-card:hover .hero-stat-icon {
-  transform: scale(1.1) rotate(-5deg);
-}
 
 .hero-stat-content {
   flex: 1;
@@ -145,33 +138,61 @@
 }
 
 .hero-stat-value {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
-  color: var(--text-1);
-  letter-spacing: -1px;
+  color: #111318;
+  letter-spacing: -0.7px;
   line-height: 1.1;
 }
 
 .hero-stat-label {
   font-size: 13px;
-  color: var(--text-3);
+  color: #20242c;
   font-weight: 500;
+}
+
+.hero-stat-heading .hero-stat-label {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.hero-stat-featured .hero-stat-value {
+  margin-top: 12px;
+  font-size: clamp(38px, 5vw, 58px);
+  letter-spacing: -2px;
+}
+
+.hero-stat-description {
+  color: #30343b;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.hero-stat-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: auto;
+  padding-top: 24px;
+  color: #343941;
+  font-size: 13px;
 }
 
 .hero-stat-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  margin-top: 2px;
 }
 
 .meta-item {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  color: var(--text-3);
+  color: #626a75;
 }
 
 .meta-item.success { color: #10b981; }
@@ -179,6 +200,19 @@
 .meta-item.danger { color: #ef4444; }
 
 .meta-item i { font-size: 14px; }
+
+@media (max-width: 900px) {
+  .hero-stats { grid-template-columns: 1fr; }
+  .hero-stat-stack { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto; }
+  .hero-stat-stack .hero-stat-card { align-items: flex-start; padding: 18px; }
+}
+
+@media (max-width: 640px) {
+  .hero-stat-stack { grid-template-columns: 1fr; }
+  .hero-stat-stack .hero-stat-card { align-items: center; }
+  .hero-stat-featured { min-height: 310px; }
+  .hero-stat-heading .hero-stat-label { font-size: 20px; }
+}
 
 /* ═══════════════════════════════════════════════ */
 /* ACTION TASKS BANNER */
@@ -390,12 +424,12 @@
   position: relative;
 }
 
-.chart-body.revenue-trend-body {
+.chart-body.appointment-volume-body {
   height: 380px;
 }
 
 @media (max-width: 700px) {
-  .chart-body.revenue-trend-body {
+  .chart-body.appointment-volume-body {
     height: 300px;
   }
 }
@@ -841,61 +875,63 @@
 
 <!-- HERO STATS ROW -->
 <div class="hero-stats">
-  <div class="hero-stat-card">
-    <div class="hero-stat-icon teal">
-      <i class='bx bx-calendar-check'></i>
-    </div>
+  <div class="hero-stat-card hero-stat-featured">
     <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ today_count }}</span>
-      <span class="hero-stat-label">Today's Appointments</span>
-      <div class="hero-stat-meta">
-        <span class="meta-item success"><i class='bx bx-check'></i> {{ today_confirmed }} confirmed</span>
-        <span class="meta-item warning"><i class='bx bx-time'></i> {{ today_pending }} pending</span>
+      <div class="hero-stat-heading">
+        <span class="hero-stat-icon purple">
+          <i class='bx bx-line-chart'></i>
+        </span>
+        <span class="hero-stat-label">Sales Revenue This Year</span>
       </div>
-    </div>
-  </div>
-
-  <div class="hero-stat-card">
-    <div class="hero-stat-icon emerald">
-      <i class='bx bx-money'></i>
-    </div>
-    <div class="hero-stat-content">
       <span class="hero-stat-value">₱{{ annual_revenue|floatformat:0 }}</span>
-      <span class="hero-stat-label">Sales Revenue This Year</span>
-      <div class="hero-stat-meta">
-        <span class="meta-item">Year to date · {{ revenue_year }}</span>
-        <span class="meta-item">Registered Customers: ₱{{ annual_registered_revenue|floatformat:0 }}</span>
-        <span class="meta-item">Walk-in Customers: ₱{{ annual_walkin_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-description">Completed sales, year to date</span>
+      <span class="hero-stat-description">{{ branch_name }}</span>
+      <div class="hero-stat-footer">
+        <span>{{ branch_name }}</span>
+        <span>Completed sales, year to date</span>
       </div>
     </div>
   </div>
 
-  <div class="hero-stat-card">
-    <div class="hero-stat-icon blue">
-      <i class='bx bx-cart'></i>
-    </div>
-    <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ todays_sales_count }}</span>
-      <span class="hero-stat-label">Sales Today</span>
-      <div class="hero-stat-meta">
-        <span class="meta-item">₱{{ weekly_revenue|floatformat:0 }} this week</span>
+  <div class="hero-stat-stack">
+    <div class="hero-stat-card">
+      <div class="hero-stat-icon teal">
+        <i class='bx bx-user-check'></i>
+      </div>
+      <div class="hero-stat-content">
+        <span class="hero-stat-value">{{ active_staff }}</span>
+        <span class="hero-stat-label">Active Staff</span>
+        <div class="hero-stat-meta">
+          <span class="meta-item success"><i class='bx bx-check-circle'></i> {{ active_staff }} of {{ total_staff }} active</span>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="hero-stat-card">
-    <div class="hero-stat-icon {% if low_stock_count > 0 %}red{% else %}purple{% endif %}">
-      <i class='bx bx-package'></i>
+    <div class="hero-stat-card">
+      <div class="hero-stat-icon emerald">
+        <i class='bx bx-wallet'></i>
+      </div>
+      <div class="hero-stat-content">
+        <span class="hero-stat-value">₱{{ total_inventory_value|floatformat:0 }}</span>
+        <span class="hero-stat-label">Total Inventory Value</span>
+        <div class="hero-stat-meta">
+          <span class="meta-item">{{ branch_name }}</span>
+          <span class="meta-item">Estimated at selling price</span>
+        </div>
+      </div>
     </div>
-    <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ low_stock_count }}</span>
-      <span class="hero-stat-label">Low Stock Items</span>
-      <div class="hero-stat-meta">
-        {% if low_stock_count > 0 %}
-        <span class="meta-item danger"><i class='bx bx-error'></i> Needs restock</span>
-        {% else %}
-        <span class="meta-item success"><i class='bx bx-check'></i> Stock OK</span>
-        {% endif %}
+
+    <div class="hero-stat-card">
+      <div class="hero-stat-icon blue">
+        <i class='bx bx-calendar-check'></i>
+      </div>
+      <div class="hero-stat-content">
+        <span class="hero-stat-value">{{ completed_visits_this_month }}</span>
+        <span class="hero-stat-label">Completed Visits This Month</span>
+        <div class="hero-stat-meta">
+          <span class="meta-item">{{ branch_name }}</span>
+          <span class="meta-item">{{ scheduled_appointments_this_month }} scheduled</span>
+        </div>
       </div>
     </div>
   </div>
@@ -930,37 +966,17 @@
 <!-- MAIN CHARTS SECTION -->
 <div class="charts-section">
   
-  <!-- ROW 1: Branch Revenue Trend -->
+  <!-- ROW 1: Today's Appointment Volume -->
   <div class="charts-row full-width">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-line-chart'></i>
-          <span>FMH Animal Clinic{% if user_branch %} - {{ user_branch.name }}{% endif %} Revenue Trend</span>
-        </div>
-        <div class="chart-badge emerald">{{ revenue_trend_period }}</div>
-      </div>
-      <div class="chart-body revenue-trend-body">
-        <canvas id="monthlyRevenueChart"></canvas>
-        <div id="monthlyRevenueEmpty" class="chart-empty-state" style="display: none;">
-          <i class='bx bx-bar-chart-alt-2'></i>
-          <span>No completed sales from {{ revenue_trend_period }}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ROW 2: Today's Appointment Flow & Sales by Item Type -->
-  <div class="charts-row">
-    <div class="chart-card-modern">
-      <div class="chart-header">
-        <div class="chart-title">
           <i class='bx bx-time-five'></i>
-          <span>Today's Appointment Flow</span>
+          <span>Hourly Appointment Volume / Peak Traffic Today</span>
         </div>
-        <div class="chart-badge blue">Pending &amp; Confirmed</div>
+        <div class="chart-badge blue">Pending &amp; Confirmed · Today</div>
       </div>
-      <div class="chart-body">
+      <div class="chart-body appointment-volume-body">
         <canvas id="appointmentHourlyChart"></canvas>
         <div id="appointmentHourlyEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-calendar-x'></i>
@@ -968,27 +984,27 @@
         </div>
       </div>
     </div>
-    
+  </div>
+
+  <!-- ROW 2: Sales and Booking Insights -->
+  <div class="charts-row three-col">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-category'></i>
-          <span>Sales by Item Type</span>
+          <span>Most-Ordered Product Categories</span>
         </div>
-        <div class="chart-badge purple">This Week</div>
+        <div class="chart-badge purple">{% if user_branch %}{{ user_branch.name }}{% else %}No branch assigned{% endif %} · This Week</div>
       </div>
       <div class="chart-body">
         <canvas id="categorySalesChart"></canvas>
         <div id="categorySalesEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-category'></i>
-          <span>No sales data this week</span>
+          <span>No product orders this week</span>
         </div>
       </div>
     </div>
-  </div>
-  
-  <!-- ROW 3: Booking Source & Top 5 Selling Products -->
-  <div class="charts-row">
+
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
@@ -1005,7 +1021,7 @@
         </div>
       </div>
     </div>
-    
+
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
@@ -1293,7 +1309,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Graceful fallback when Chart.js CDN is unavailable
   if (typeof Chart === 'undefined') {
     [
-      ['monthlyRevenueChart', 'monthlyRevenueEmpty'],
       ['appointmentHourlyChart', 'appointmentHourlyEmpty'],
       ['topProductsChart', 'topProductsEmpty'],
       ['categorySalesChart', 'categorySalesEmpty'],
@@ -1304,78 +1319,13 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 1. BRANCH REVENUE TREND (June-December)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const monthlyRevenueCtx = document.getElementById('monthlyRevenueChart');
-  if (monthlyRevenueCtx) {
-    const revenueData = {{ revenue_trend_data|safe }};
-    if (revenueData.some(item => item.revenue > 0)) {
-      const context = monthlyRevenueCtx.getContext('2d');
-      const revenueGradient = context.createLinearGradient(0, 0, 0, 300);
-      revenueGradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
-      revenueGradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
-
-      new Chart(monthlyRevenueCtx, {
-        type: 'line',
-        data: {
-          labels: revenueData.map(item => item.month),
-          datasets: [{
-            label: 'Revenue',
-            data: revenueData.map(item => item.revenue),
-            borderColor: '#10b981',
-            backgroundColor: revenueGradient,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: '#10b981',
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              ...commonTooltip,
-              callbacks: {
-                label: context => `Revenue: ₱${Number(context.raw).toLocaleString()}`
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
-            },
-            y: {
-              beginAtZero: true,
-              grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: {
-                color: '#94a3b8',
-                callback: value => `₱${Number(value).toLocaleString()}`
-              }
-            }
-          }
-        }
-      });
-    } else {
-      showEmptyState('monthlyRevenueChart', 'monthlyRevenueEmpty');
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // 2. TODAY'S APPOINTMENT FLOW (Pending and Confirmed by Hour)
+  // 1. TODAY'S APPOINTMENT VOLUME BY HOUR
   // ═══════════════════════════════════════════════════════════════════════
 
   const appointmentHourlyCtx = document.getElementById('appointmentHourlyChart');
   if (appointmentHourlyCtx) {
     const hourlyData = {{ appointment_hourly_data|safe }};
-    if (hourlyData.length > 0) {
+    if (hourlyData.some(item => item.count > 0)) {
       new Chart(appointmentHourlyCtx, {
         type: 'bar',
         data: {
@@ -1383,7 +1333,8 @@ document.addEventListener('DOMContentLoaded', function() {
           datasets: [{
             label: 'Scheduled appointments',
             data: hourlyData.map(item => item.count),
-            backgroundColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.82)',
+            hoverBackgroundColor: '#2563eb',
             borderRadius: 6,
             borderSkipped: false
           }]
@@ -1475,90 +1426,50 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 4. SALES BY ITEM TYPE DOUGHNUT CHART
+  // 4. MOST-ORDERED PRODUCT CATEGORIES
   // ═══════════════════════════════════════════════════════════════════════
 
   const categorySalesCtx = document.getElementById('categorySalesChart');
   if (categorySalesCtx) {
-    const categoryData = {{ category_sales|safe }};
+    const categoryData = {{ product_category_orders|safe }};
     const hasData = categoryData && categoryData.length > 0;
-    
-    const categoryColors = {
-      'SERVICE': '#8b5cf6',
-      'PRODUCT': '#3b82f6',
-      'MEDICATION': '#10b981'
-    };
-    
-    const categoryLabels = {
-      'SERVICE': 'Services',
-      'PRODUCT': 'Products',
-      'MEDICATION': 'Medications'
-    };
-    
+
     if (hasData) {
-      const total = categoryData.reduce((sum, c) => sum + c.total, 0);
-      
       new Chart(categorySalesCtx, {
-        type: 'doughnut',
+        type: 'bar',
         data: {
-          labels: categoryData.map(c => categoryLabels[c.type] || c.type),
+          labels: categoryData.map(category => category.category),
           datasets: [{
-            data: categoryData.map(c => c.total),
-            backgroundColor: categoryData.map(c => categoryColors[c.type] || '#94a3b8'),
-            borderColor: '#ffffff',
-            borderWidth: 3,
-            hoverOffset: 10
+            label: 'Units ordered',
+            data: categoryData.map(category => category.units_sold),
+            backgroundColor: 'rgba(139, 92, 246, 0.82)',
+            hoverBackgroundColor: '#7c3aed',
+            borderRadius: 6,
+            borderSkipped: false
           }]
         },
         options: {
+          indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
-          cutout: '60%',
-          animation: {
-            animateRotate: true,
-            animateScale: true,
-            duration: 1500,
-            easing: 'easeInOutCubic',
-            delay: (context) => context.dataIndex * 150
-          },
           plugins: {
-            legend: {
-              display: true,
-              position: 'bottom',
-              labels: {
-                padding: 16,
-                usePointStyle: true,
-                pointStyle: 'circle',
-                font: { size: 11, weight: '600' },
-                color: isGlobalDark ? '#ffffff' : '#64748b',
-                generateLabels: function(chart) {
-                  const data = chart.data;
-                  return data.labels.map((label, i) => {
-                    const value = data.datasets[0].data[i];
-                    const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
-                    return {
-                      text: `${label}: ₱${value.toLocaleString()} (${pct}%)`,
-                      fillStyle: data.datasets[0].backgroundColor[i],
-                      strokeStyle: data.datasets[0].backgroundColor[i],
-                      lineWidth: 0,
-                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
-                      color: isGlobalDark ? '#ffffff' : '#64748b',
-                      pointStyle: 'circle',
-                      hidden: false,
-                      index: i
-                    };
-                  });
-                }
-              }
-            },
+            legend: { display: false },
             tooltip: {
               ...commonTooltip,
               callbacks: {
-                label: ctx => {
-                  const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                  return `₱${ctx.raw.toLocaleString()} (${pct}%)`;
-                }
+                label: context => `${context.raw} units ordered`
               }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: { precision: 0, stepSize: 1, color: '#94a3b8' }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
             }
           }
         }

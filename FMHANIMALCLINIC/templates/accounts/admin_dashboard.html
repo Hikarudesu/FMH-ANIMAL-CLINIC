@@ -30,6 +30,19 @@
   
   <div class="hero-stat-card">
     <div class="hero-stat-icon purple">
+      <i class='bx bx-group'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ total_users }}</span>
+      <span class="hero-stat-label">Total User Accounts</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">All registered users across the clinic</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon emerald">
       <i class='bx bx-line-chart'></i>
     </div>
     <div class="hero-stat-content">
@@ -58,19 +71,6 @@
     </div>
   </div>
 
-  <div class="hero-stat-card">
-    <div class="hero-stat-icon blue">
-      <i class='bx bx-calendar-check'></i>
-    </div>
-    <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ completed_visits_this_month }}</span>
-      <span class="hero-stat-label">Completed Visits This Month</span>
-      <div class="hero-stat-meta">
-        <span class="meta-item">{{ dashboard_scope_label }}</span>
-        <span class="meta-item">{{ scheduled_appointments_this_month }} scheduled</span>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- ALERT BANNER (if needed) -->
@@ -196,7 +196,7 @@
     <div class="insight-card">
       <div class="insight-header">
         <i class='bx bx-package'></i>
-        <span>Top Products</span>
+        <span>Top Products by Units Sold · {{ sales_insights_scope_label }}</span>
       </div>
       <div class="product-sales">
         {% if top_products %}
@@ -220,7 +220,7 @@
     <div class="insight-card">
       <div class="insight-header">
         <i class='bx bx-star'></i>
-        <span>Top Services</span>
+        <span>Top Services by Completed Sales · {{ sales_insights_scope_label }}</span>
       </div>
       <div class="service-list-modern">
         {% if service_breakdown %}

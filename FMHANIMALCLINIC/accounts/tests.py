@@ -16,7 +16,7 @@ from accounts.models import ActivityLog
 from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermission
 from branches.models import Branch
 from appointments.models import Appointment
-from billing.models import CustomerStatement
+from billing.models import CustomerStatement, Service
 from employees.models import StaffMember
 from inventory.models import Product, StockAdjustment
 from pos.models import Sale, SaleItem
@@ -36,8 +36,8 @@ from .lifecycle import (
         },
     }
 )
-class ReceptionistDashboardRevenueTrendTests(TestCase):
-    def test_revenue_trend_shows_june_to_december_for_assigned_branch(self):
+class ReceptionistDashboardMetricsTests(TestCase):
+    def test_hourly_appointments_and_revenue_summary_are_branch_scoped(self):
         branch = Branch.objects.create(
             name='Pilar Dashboard Branch',
             phone_number='09123456789',
@@ -54,12 +54,7 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
             state='NCR',
             zip_code='1000',
         )
-        role = Role.objects.create(
-            name='Dashboard Receptionist',
-            code='dashboard_receptionist',
-            hierarchy_level=1,
-            is_staff_role=True,
-        )
+        role = Role.objects.get(code='receptionist')
         receptionist = get_user_model().objects.create_user(
             username='revenue-trend-receptionist',
             email='revenue-trend-receptionist@example.com',
@@ -67,6 +62,69 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
             assigned_role=role,
             branch=branch,
         )
+
+        def create_staff(username, first_name, last_name, branch, is_active=True):
+            staff_user = get_user_model().objects.create_user(
+                username=username,
+                password='A-secure-test-password-923!',
+                assigned_role=role,
+                branch=branch,
+            )
+            return StaffMember.objects.create(
+                first_name=first_name,
+                last_name=last_name,
+                position=StaffMember.Position.RECEPTIONIST,
+                branch=branch,
+                is_active=is_active,
+                user=staff_user,
+            )
+
+        create_staff(
+            'pilar-active-staff', 'Pilar', 'Active', branch, is_active=True
+        )
+        create_staff(
+            'pilar-inactive-staff', 'Pilar', 'Inactive', branch, is_active=False
+        )
+        create_staff(
+            'other-branch-staff', 'Other', 'Branch', other_branch, is_active=True
+        )
+        branch_product = Product.objects.create(
+            name='Pilar inventory',
+            item_type='Product',
+            price=30,
+            stock_quantity=2,
+            branch=branch,
+        )
+        branch_medication = Product.objects.create(
+            name='Pilar medication',
+            item_type='Medication',
+            price=0,
+            stock_quantity=2,
+            branch=branch,
+        )
+        other_branch_product = Product.objects.create(
+            name='Other branch inventory',
+            item_type='Medication',
+            price=100,
+            stock_quantity=10,
+            branch=other_branch,
+        )
+        today = timezone.localdate()
+        for appointment_branch, appointment_hour, appointment_status in (
+            (branch, 9, Appointment.Status.PENDING),
+            (branch, 9, Appointment.Status.CONFIRMED),
+            (branch, 17, Appointment.Status.CONFIRMED),
+            (branch, 11, Appointment.Status.COMPLETED),
+            (other_branch, 10, Appointment.Status.PENDING),
+        ):
+            Appointment.objects.create(
+                owner_name='Dashboard Owner',
+                pet_name='Dashboard Pet',
+                branch=appointment_branch,
+                appointment_date=today,
+                appointment_time=time(appointment_hour, 0),
+                status=appointment_status,
+            )
         current_year = timezone.localdate().year
 
         for sale_branch, month, amount, status, customer_type in (
@@ -98,48 +156,132 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
             )
             sale.save(update_fields=['created_at'])
 
+        category_sale = Sale.objects.create(
+            branch=branch,
+            total=0,
+            status=Sale.Status.COMPLETED,
+        )
+        SaleItem.objects.create(
+            sale=category_sale,
+            item_type=SaleItem.ItemType.PRODUCT,
+            product=branch_product,
+            name=branch_product.name,
+            unit_price=0,
+            quantity=3,
+        )
+        SaleItem.objects.create(
+            sale=category_sale,
+            item_type=SaleItem.ItemType.MEDICATION,
+            product=branch_medication,
+            name=branch_medication.name,
+            unit_price=0,
+            quantity=4,
+        )
+        other_branch_category_sale = Sale.objects.create(
+            branch=other_branch,
+            total=0,
+            status=Sale.Status.COMPLETED,
+        )
+        SaleItem.objects.create(
+            sale=other_branch_category_sale,
+            item_type=SaleItem.ItemType.MEDICATION,
+            product=other_branch_product,
+            name=other_branch_product.name,
+            unit_price=0,
+            quantity=12,
+        )
+
         self.client.force_login(receptionist)
         response = self.client.get(reverse('accounts:receptionist_dashboard'))
 
         self.assertEqual(response.status_code, 200)
+        hourly_data = json.loads(response.context['appointment_hourly_data'])
+        self.assertEqual(len(hourly_data), 10)
+        self.assertEqual(hourly_data[0], {'hour': '8 AM', 'count': 0})
+        self.assertEqual(hourly_data[1], {'hour': '9 AM', 'count': 2})
+        self.assertEqual(hourly_data[2], {'hour': '10 AM', 'count': 0})
+        self.assertEqual(hourly_data[-1], {'hour': '5 PM', 'count': 1})
         self.assertEqual(
-            json.loads(response.context['revenue_trend_data']),
+            json.loads(response.context['product_category_orders']),
             [
-                {'month': 'Jun', 'revenue': 125.0},
-                {'month': 'Jul', 'revenue': 0},
-                {'month': 'Aug', 'revenue': 0},
-                {'month': 'Sep', 'revenue': 75.0},
-                {'month': 'Oct', 'revenue': 0},
-                {'month': 'Nov', 'revenue': 0},
-                {'month': 'Dec', 'revenue': 0},
+                {'category': 'Medication', 'units_sold': 4},
+                {'category': 'Product', 'units_sold': 3},
             ],
         )
-        self.assertEqual(
-            response.context['revenue_trend_period'],
-            f'June - December {current_year}',
-        )
-        self.assertEqual(response.context['annual_revenue'], 200)
+        self.assertContains(response, 'Most-Ordered Product Categories')
+        self.assertContains(response, 'Pilar Dashboard Branch · This Week')
+        self.assertNotContains(response, 'Sales by Item Type')
+        self.assertEqual(response.context['annual_revenue'], 290)
         self.assertEqual(response.context['annual_registered_revenue'], 125)
-        self.assertEqual(response.context['annual_walkin_revenue'], 75)
-        self.assertContains(response, f'June - December {current_year}')
-        self.assertContains(response, 'id="monthlyRevenueChart"')
+        self.assertEqual(response.context['annual_walkin_revenue'], 165)
+        self.assertContains(response, 'Hourly Appointment Volume / Peak Traffic Today')
+        self.assertContains(response, 'id="appointmentHourlyChart"')
+        self.assertNotContains(response, 'monthlyRevenueChart')
         self.assertContains(response, 'Sales Revenue This Year')
-        self.assertContains(response, "Today's Appointments")
-        self.assertContains(response, 'Sales Today')
-        self.assertContains(response, 'Low Stock Items')
-        self.assertContains(response, 'Registered Customers')
-        self.assertContains(response, 'Walk-in Customers')
         self.assertContains(
             response,
-            'grid-template-columns: repeat(4, 1fr)',
+            'grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr)',
         )
         self.assertContains(response, '<div class="hero-stats">')
         self.assertNotContains(response, 'receptionist-hero-stats')
-        self.assertNotContains(response, 'hero-stat-featured')
-        self.assertNotContains(response, 'hero-stat-compact')
+        self.assertContains(response, 'hero-stat-card hero-stat-featured')
+        self.assertContains(response, '<div class="hero-stat-stack">')
         self.assertEqual(response.content.count(b'class="hero-stat-card'), 4)
-        self.assertNotContains(response, 'hero-stat-side')
+        self.assertContains(response, 'Completed sales, year to date')
+        self.assertContains(response, 'Active Staff')
+        self.assertContains(response, 'Total Inventory Value')
+        self.assertContains(response, 'Estimated at selling price')
+        self.assertContains(response, 'Completed Visits This Month')
+        self.assertContains(response, '1 of 2 active')
+        self.assertEqual(response.context['active_staff'], 1)
+        self.assertEqual(response.context['total_staff'], 2)
+        self.assertEqual(response.context['total_inventory_value'], 60)
+        self.assertEqual(response.context['completed_visits_this_month'], 0)
+        self.assertEqual(response.context['scheduled_appointments_this_month'], 0)
         self.assertNotContains(response, 'Last 7 Days')
+        self.assertContains(
+            response,
+            f'href="{reverse("accounts:receptionist_dashboard")}"',
+        )
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class ReceptionistDashboardRoutingTests(TestCase):
+    def setUp(self):
+        role = Role.objects.get(code='receptionist')
+        self.receptionist = get_user_model().objects.create_user(
+            username='dashboard-route-receptionist',
+            email='dashboard-route-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+        )
+        self.client.force_login(self.receptionist)
+
+    def test_receptionist_login_and_admin_dashboard_route_use_receptionist_dashboard(self):
+        expected_url = reverse('accounts:receptionist_dashboard')
+
+        login_response = self.client.get(reverse('accounts:login_page'))
+        admin_response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertRedirects(login_response, expected_url)
+        self.assertRedirects(admin_response, expected_url)
+
+    def test_receptionist_dashboard_route_renders_receptionist_content(self):
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
+        self.assertContains(response, 'Hourly Appointment Volume / Peak Traffic Today')
+        self.assertContains(response, 'Most-Ordered Product Categories')
+        self.assertNotContains(response, 'Revenue by Branch')
+        self.assertNotContains(response, 'Most Appointed Branches')
 
 
 @override_settings(
@@ -339,6 +481,123 @@ class AdminDashboardQuickInsightsTests(TestCase):
         self.assertNotContains(response, 'Branch Performance')
         self.assertIn('top_products', response.context)
         self.assertIn('service_breakdown', response.context)
+        self.assertContains(response, 'Top Products by Units Sold')
+        self.assertContains(response, 'Top Services by Completed Sales')
+        self.assertContains(response, 'All branches')
+        self.assertContains(response, 'Total User Accounts')
+
+    def test_total_user_accounts_card_is_second_in_admin_dashboard(self):
+        admin = get_user_model().objects.create_superuser(
+            username='user-count-admin',
+            email='user-count-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        get_user_model().objects.create_user(
+            username='user-count-owner',
+            email='user-count-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_users'], 2)
+        dashboard_html = response.content.decode()
+        hero_stats = dashboard_html.split('<div class="hero-stats">', 1)[1].split(
+            '<!-- ALERT BANNER', 1
+        )[0]
+        self.assertLess(
+            hero_stats.index('Active Staff'),
+            hero_stats.index('Total User Accounts'),
+        )
+        self.assertLess(
+            hero_stats.index('Total User Accounts'),
+            hero_stats.index('Sales Revenue This Year'),
+        )
+
+    def test_quick_insights_aggregate_completed_sales_across_all_branches(self):
+        admin = get_user_model().objects.create_superuser(
+            username='cross-branch-insights-admin',
+            email='cross-branch-insights-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        branches = [
+            Branch.objects.create(
+                name=f'Insights Branch {index}',
+                phone_number=f'0912345678{index}',
+                address=f'{index} Clinic Street',
+                city='Manila',
+                state='NCR',
+                zip_code='1000',
+            )
+            for index in (1, 2)
+        ]
+        products = [
+            Product.objects.create(
+                name='Popular Product',
+                branch=branch,
+                price=100,
+            )
+            for branch in branches
+        ]
+        wellness_service = Service.objects.create(
+            name='Wellness Examination',
+            price=500,
+        )
+
+        for branch, product, quantity in zip(branches, products, (2, 3)):
+            sale = Sale.objects.create(
+                branch=branch,
+                status=Sale.Status.COMPLETED,
+            )
+            SaleItem.objects.create(
+                sale=sale,
+                item_type=SaleItem.ItemType.PRODUCT,
+                product=product,
+                name=product.name,
+                unit_price=product.price,
+                quantity=quantity,
+            )
+            SaleItem.objects.create(
+                sale=sale,
+                item_type=SaleItem.ItemType.SERVICE,
+                service=wellness_service,
+                name=wellness_service.name,
+                unit_price=wellness_service.price,
+            )
+
+        voided_sale = Sale.objects.create(
+            branch=branches[1],
+            status=Sale.Status.VOIDED,
+        )
+        SaleItem.objects.create(
+            sale=voided_sale,
+            item_type=SaleItem.ItemType.PRODUCT,
+            product=products[1],
+            name=products[1].name,
+            unit_price=products[1].price,
+            quantity=100,
+        )
+
+        self.client.force_login(admin)
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['top_products'][0]['name'],
+            'Popular Product',
+        )
+        self.assertEqual(response.context['top_products'][0]['units_sold'], 5)
+        self.assertEqual(
+            response.context['service_breakdown'][0]['name'],
+            'Wellness Examination',
+        )
+        self.assertEqual(
+            response.context['service_breakdown'][0]['usage_count'],
+            2,
+        )
+        self.assertEqual(response.context['sales_insights_scope_label'], 'All branches')
 
     def test_inventory_hero_stat_sums_stock_value_across_active_branches(self):
         admin = get_user_model().objects.create_superuser(
@@ -391,7 +650,7 @@ class AdminDashboardQuickInsightsTests(TestCase):
         )
         self.assertContains(response, 'Total Inventory Value')
         self.assertContains(response, 'Sales Revenue This Year')
-        self.assertContains(response, 'Completed Visits This Month')
+        self.assertContains(response, 'Total User Accounts')
         self.assertContains(response, 'Across 3 Active Branches')
         self.assertNotContains(response, '0 low stock')
         self.assertNotContains(response, 'Month to date')
