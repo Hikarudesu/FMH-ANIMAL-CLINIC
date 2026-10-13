@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import module_permission_required
 from .models import Branch
@@ -58,20 +60,11 @@ def branch_update(request, pk):
     branch = get_object_or_404(Branch, pk=pk)
     
     if request.method == 'POST':
-        branch_was_active = branch.is_active
         form = BranchForm(request.POST, instance=branch)
         if form.is_valid():
-            submitted_is_active = request.POST.get('is_active') == 'on'
-            is_deactivation = branch_was_active and not submitted_is_active
-            if is_deactivation and request.POST.get('confirm_deactivation') != 'on':
-                messages.warning(request, 'Confirm that you want to make this branch inactive.')
-            else:
-                branch = form.save(commit=False)
-                branch.is_active = submitted_is_active
-                branch.save()
-                form.save_m2m()
-                messages.success(request, f"Branch '{branch.name}' was updated successfully.")
-                return redirect('branches:list')
+            branch = form.save()
+            messages.success(request, f"Branch '{branch.name}' was updated successfully.")
+            return redirect('branches:list')
     else:
         form = BranchForm(instance=branch)
 
@@ -80,6 +73,29 @@ def branch_update(request, pk):
         'action': 'Edit',
         'branch': branch,
     })
+
+
+@login_required
+@module_permission_required('branches', 'EDIT')
+@require_POST
+def branch_toggle_status(request, pk):
+    """Activate or deactivate a branch from the branch list."""
+    branch = get_object_or_404(Branch, pk=pk)
+
+    if branch.is_active:
+        if request.POST.get('confirm_deactivation') != 'on':
+            messages.warning(request, 'Confirm that you want to make this branch inactive.')
+            return redirect(f"{reverse('branches:list')}?status=active")
+        branch.is_active = False
+        success_message = f"Branch '{branch.name}' is now inactive."
+    else:
+        branch.is_active = True
+        success_message = f"Branch '{branch.name}' is now active."
+
+    branch.save(update_fields=['is_active', 'updated_at'])
+    messages.success(request, success_message)
+    status = 'active' if branch.is_active else 'inactive'
+    return redirect(f"{reverse('branches:list')}?status={status}")
 
 
 @login_required

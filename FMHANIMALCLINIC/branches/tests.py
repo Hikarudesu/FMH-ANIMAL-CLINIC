@@ -27,32 +27,6 @@ class BranchStatusManagementTests(TestCase):
             is_active=is_active,
         )
 
-    def branch_update_data(self, *, confirmed=False):
-        data = {
-            'name': self.active_branch.name,
-            'branch_code': '',
-            'clinic_license_number': '',
-            'phone_number': self.active_branch.phone_number,
-            'email': '',
-            'address': self.active_branch.address,
-            'city': self.active_branch.city,
-            'state': self.active_branch.state,
-            'zip_code': self.active_branch.zip_code,
-            'operating_hours': '',
-            'is_active': '',
-            'google_maps_embed_url': '',
-            'google_maps_link': '',
-            'facebook_url': '',
-            'instagram_url': '',
-            'messenger_url': '',
-            'tiktok_url': '',
-            'display_order': '0',
-            'badge_label': '',
-        }
-        if confirmed:
-            data['confirm_deactivation'] = 'on'
-        return data
-
     def test_branch_list_tabs_filter_active_and_inactive_branches(self):
         active_response = self.client.get(reverse('branches:list'), {'status': 'active'})
         inactive_response = self.client.get(reverse('branches:list'), {'status': 'inactive'})
@@ -65,29 +39,52 @@ class BranchStatusManagementTests(TestCase):
         self.assertEqual(active_response.context['inactive_count'], 1)
         self.assertContains(active_response, 'Active Branches')
         self.assertContains(active_response, 'Inactive Branches')
+        self.assertContains(active_response, 'Make branch inactive')
+        self.assertContains(inactive_response, 'Reactivate branch')
+        self.assertNotContains(active_response, 'openDeleteModal')
 
-    def test_deactivation_requires_confirmation_and_confirmation_modal_is_rendered(self):
-        edit_url = reverse('branches:edit', args=[self.active_branch.pk])
-        edit_response = self.client.get(edit_url)
-        self.assertContains(edit_response, 'branchDeactivationModal')
-        self.assertContains(edit_response, 'Are you sure you want to make')
-
-        response = self.client.post(edit_url, self.branch_update_data())
-
-        self.assertEqual(response.status_code, 200)
-        self.active_branch.refresh_from_db()
-        self.assertTrue(self.active_branch.is_active)
-        self.assertContains(response, 'Confirm that you want to make this branch inactive.')
-
-    def test_confirmed_deactivation_moves_branch_to_inactive_tab(self):
-        response = self.client.post(
+    def test_branch_create_and_edit_forms_do_not_expose_active_checkbox(self):
+        create_response = self.client.get(reverse('branches:add'))
+        edit_response = self.client.get(
             reverse('branches:edit', args=[self.active_branch.pk]),
-            self.branch_update_data(confirmed=True),
+        )
+
+        self.assertEqual(create_response.status_code, 200)
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertNotContains(create_response, 'name="is_active"')
+        self.assertNotContains(edit_response, 'name="is_active"')
+
+    def test_deactivation_requires_confirmation(self):
+        response = self.client.post(
+            reverse('branches:toggle_status', args=[self.active_branch.pk]),
         )
 
         self.assertEqual(response.status_code, 302)
+        self.active_branch.refresh_from_db()
+        self.assertTrue(self.active_branch.is_active)
+        warning_response = self.client.get(response['Location'])
+        self.assertContains(warning_response, 'Confirm that you want to make this branch inactive.')
+
+    def test_confirmed_deactivation_moves_branch_to_inactive_tab(self):
+        response = self.client.post(
+            reverse('branches:toggle_status', args=[self.active_branch.pk]),
+            {'confirm_deactivation': 'on'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/branches/?status=inactive')
         self.active_branch.refresh_from_db()
         self.assertFalse(self.active_branch.is_active)
 
         inactive_response = self.client.get(reverse('branches:list'), {'status': 'inactive'})
         self.assertEqual(list(inactive_response.context['branches']), [self.active_branch, self.inactive_branch])
+
+    def test_inactive_branch_can_be_reactivated_without_deactivation_confirmation(self):
+        response = self.client.post(
+            reverse('branches:toggle_status', args=[self.inactive_branch.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/branches/?status=active')
+        self.inactive_branch.refresh_from_db()
+        self.assertTrue(self.inactive_branch.is_active)

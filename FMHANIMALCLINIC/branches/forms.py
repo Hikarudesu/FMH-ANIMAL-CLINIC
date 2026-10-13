@@ -12,7 +12,7 @@ class BranchForm(FormControlMixin, forms.ModelForm):
             'name', 'branch_code', 'clinic_license_number',
             'phone_number', 'email',
             'address', 'city', 'state', 'zip_code',
-            'operating_hours', 'is_active',
+            'operating_hours',
             'google_maps_embed_url', 'google_maps_link',
             'facebook_url', 'instagram_url', 'messenger_url', 'tiktok_url',
             'display_order', 'badge_label',
@@ -35,7 +35,6 @@ class BranchForm(FormControlMixin, forms.ModelForm):
             'state': forms.TextInput(attrs={'placeholder': 'State/Province'}),
             'zip_code': forms.TextInput(attrs={'placeholder': 'Zip/Postal Code'}),
             'operating_hours': forms.Textarea(attrs={'rows': 3, 'placeholder': 'e.g. Mon-Fri: 8am-6pm, Sat: 9am-2pm'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
             'google_maps_embed_url': forms.URLInput(attrs={
                 'placeholder': 'https://www.google.com/maps/embed?pb=...',
                 'help_text': 'Go to Google Maps → Share → Embed a map → Copy the src URL'
