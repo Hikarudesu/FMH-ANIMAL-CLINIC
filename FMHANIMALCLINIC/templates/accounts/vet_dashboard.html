@@ -202,81 +202,6 @@
   </div>
 </div>
 
-<!-- QUICK INSIGHTS GRID -->
-<div class="insights-section">
-  <div class="section-title">
-    <i class='bx bx-bulb'></i>
-    <span>Clinical Insights</span>
-  </div>
-  
-  <div class="insights-grid">
-    <!-- Patient Flow -->
-    <div class="insight-card">
-      <div class="insight-header">
-        <i class='bx bx-user-voice'></i>
-        <span>Patient Flow</span>
-      </div>
-      <div class="insight-metrics">
-        <div class="metric-item">
-          <span class="metric-value success">{{ new_patients_this_month }}</span>
-          <span class="metric-label">New</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value blue">{{ total_patients_this_month }}</span>
-          <span class="metric-label">Total Seen</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value purple">{% if avg_daily_consultations %}{{ avg_daily_consultations }}{% else %}&mdash;{% endif %}</span>
-          <span class="metric-label">Avg/Day</span>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Clinical Activity -->
-    <div class="insight-card">
-      <div class="insight-header">
-        <i class='bx bx-plus-medical'></i>
-        <span>Clinical Activity <small style="font-weight:500;font-size:11px;color:var(--text-3);">(This Month)</small></span>
-      </div>
-      <div class="service-list-modern">
-        {% if clinical_activities %}
-          {% for activity in clinical_activities %}
-          <div class="service-row">
-            <span class="service-rank">#{{ forloop.counter }}</span>
-            <span class="service-name">{{ activity.reason_for_visit__name }}</span>
-            <span class="service-count">{{ activity.count }}</span>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="no-data">No data available</div>
-        {% endif %}
-      </div>
-    </div>
-    
-    <!-- Workload Summary -->
-    <div class="insight-card">
-      <div class="insight-header">
-        <i class='bx bx-stats'></i>
-        <span>Monthly Summary</span>
-      </div>
-      <div class="insight-metrics">
-        <div class="metric-item">
-          <span class="metric-value orange">{{ consultations_this_month }}</span>
-          <span class="metric-label">Completed</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value blue">{{ medical_records_this_month }}</span>
-          <span class="metric-label">Records</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-value danger">{{ cancelled_this_month }}</span>
-          <span class="metric-label">Cancelled</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- TODAY'S SCHEDULE & APPOINTMENTS (MY APPOINTMENTS) -->
 {% if user.assigned_role.code != 'assistant_veterinarian' %}
 <div class="schedule-section">
@@ -933,14 +858,6 @@
   .chart-body.tall { height: 320px; }
   .chart-body.wide { height: 260px; }
 
-  /* ═══════════════════════════════════════════════ */
-  /* INSIGHTS SECTION */
-  /* ═══════════════════════════════════════════════ */
-  
-  .insights-section {
-    margin-bottom: 32px;
-  }
-  
   .section-title {
     display: flex;
     align-items: center;
@@ -989,149 +906,6 @@
   .section-badge.warning {
     background: rgba(245, 158, 11, 0.1);
     color: #f59e0b;
-  }
-  
-  .insights-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-  
-  @media (max-width: 1100px) {
-    .insights-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-  
-  @media (max-width: 700px) {
-    .insights-grid { grid-template-columns: 1fr; }
-  }
-  
-  .insight-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 24px;
-    transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: var(--shadow-card);
-  }
-  
-  .insight-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 40px rgba(0, 150, 136, 0.08);
-    border-color: var(--primary);
-  }
-  
-  .insight-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 18px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--border);
-  }
-  
-  .insight-header i {
-    font-size: 20px;
-    color: var(--primary);
-  }
-  
-  .insight-header span {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-1);
-  }
-  
-  .insight-metrics {
-    display: flex;
-    gap: 16px;
-    justify-content: space-between;
-  }
-  
-  .metric-item {
-    flex: 1;
-    text-align: center;
-    padding: 14px 8px;
-    background: var(--bg);
-    border-radius: 12px;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .metric-item:hover {
-    transform: translateY(-2px);
-  }
-  
-  .metric-value {
-    display: block;
-    font-size: 26px;
-    font-weight: 800;
-    margin-bottom: 4px;
-    letter-spacing: -1px;
-  }
-  
-  .metric-value.success { color: #10b981; }
-  .metric-value.blue { color: #3b82f6; }
-  .metric-value.purple { color: #8b5cf6; }
-  .metric-value.orange { color: #f59e0b; }
-  
-  .metric-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  /* Service List Modern Styles */
-  .service-list-modern {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .service-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: var(--bg);
-    border-radius: 10px;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .service-row:hover {
-    transform: translateX(4px);
-    background: rgba(0, 150, 136, 0.05);
-  }
-  
-  .service-rank {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--primary);
-    color: white;
-    font-size: 11px;
-    font-weight: 700;
-    border-radius: 8px;
-  }
-  
-  .service-name {
-    flex: 1;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-1);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .service-count {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--primary);
-    padding: 4px 10px;
-    background: rgba(0, 150, 136, 0.1);
-    border-radius: 8px;
   }
   
   .no-data {
@@ -1900,9 +1674,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Section titles
-    document.querySelectorAll('.insights-section > .section-title').forEach(el => {
-      el.classList.add('dash-fade', 'from-left');
-    });
     document.querySelectorAll('.schedule-section > .section-title').forEach(el => {
       el.classList.add('dash-fade', 'from-left');
     });
@@ -1914,11 +1685,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.querySelectorAll('.followups-section > .section-title').forEach(el => {
       el.classList.add('dash-fade', 'from-left');
-    });
-    
-    // Insight cards — staggered
-    document.querySelectorAll('.insight-card').forEach((card, i) => {
-      card.classList.add('dash-fade', `stagger-${i + 1}`);
     });
     
     // Schedule sections — whole section fades in as one unit
