@@ -1014,23 +1014,6 @@
 <!-- HERO STATS ROW -->
 <div class="hero-stats">
   <div class="hero-stat-card dash-fade fade-up stagger-1">
-    <div class="hero-stat-icon teal">
-      <i class='bx bxs-dog'></i>
-    </div>
-    <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ pet_count|default:"0" }}</span>
-      <span class="hero-stat-label">My Pets</span>
-      <div class="hero-stat-meta">
-        {% if pet_species_breakdown %}
-        <span class="meta-item">
-          {% for species in pet_species_breakdown|slice:":2" %}{{ species.species }}{% if not forloop.last %}, {% endif %}{% endfor %}
-        </span>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-  
-  <div class="hero-stat-card dash-fade fade-up stagger-2">
     <div class="hero-stat-icon blue">
       <i class='bx bx-calendar-check'></i>
     </div>
@@ -1044,7 +1027,7 @@
     </div>
   </div>
   
-  <div class="hero-stat-card dash-fade fade-up stagger-3">
+  <div class="hero-stat-card dash-fade fade-up stagger-2">
     <div class="hero-stat-icon orange">
       <i class='bx bx-bell'></i>
     </div>
@@ -1061,6 +1044,19 @@
     </div>
   </div>
   
+  <div class="hero-stat-card dash-fade fade-up stagger-3">
+    <div class="hero-stat-icon teal">
+      <i class='bx bx-receipt'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ completed_transaction_count|default:"0" }}</span>
+      <span class="hero-stat-label">Completed Transactions</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">All-time purchases</span>
+      </div>
+    </div>
+  </div>
+
   <div class="hero-stat-card dash-fade fade-up stagger-4">
     <div class="hero-stat-icon purple">
       <i class='bx bx-wallet'></i>

@@ -210,10 +210,17 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(workload[timezone.localdate().weekday()], 4)
         self.assertContains(response, 'Weekly Workload')
         self.assertContains(response, 'id="weeklyWorkloadChart"')
-        self.assertContains(response, 'id="weeklyRevenueChart"')
-        self.assertContains(response, 'FMH Animal Clinic - Pilar Revenue Trend')
+        self.assertContains(response, 'id="monthlyRevenueChart"')
+        self.assertContains(response, 'Monthly Revenue')
+        self.assertContains(response, f'January - December {current_year}')
         self.assertContains(response, 'Sales by Category')
-        self.assertEqual(len(json.loads(response.context['weekly_revenue_data'])), 7)
+        monthly_revenue = json.loads(response.context['monthly_revenue_data'])
+        self.assertEqual(len(monthly_revenue), 12)
+        self.assertEqual(monthly_revenue[5], {'month': 'June', 'revenue': 125.0})
+        self.assertEqual(monthly_revenue[6], {'month': 'July', 'revenue': 0.0})
+        self.assertEqual(monthly_revenue[8], {'month': 'September', 'revenue': 75.0})
+        self.assertContains(response, 'Revenue This Year')
+        self.assertContains(response, 'Inventory Value')
         self.assertIsInstance(json.loads(response.context['category_sales']), list)
         self.assertNotContains(response, 'Appointment Status')
         self.assertNotContains(response, 'Booking Source')
@@ -377,6 +384,13 @@ class UserPortalDashboardTests(TestCase):
         self.assertEqual(monthly_spending[6], {'month': 'Jul', 'total': 999.0})
         self.assertEqual(monthly_spending[11], {'month': 'Dec', 'total': 0.0})
         self.assertEqual(response.context['monthly_spending_year'], current_year)
+        self.assertEqual(response.context['completed_transaction_count'], 5)
+        self.assertContains(response, 'Completed Transactions')
+        dashboard_html = response.content.decode()
+        self.assertLess(
+            dashboard_html.index('Pending Follow-ups'),
+            dashboard_html.index('Completed Transactions'),
+        )
 
     def test_spending_breakdown_uses_completed_sales_linked_to_owner(self):
         owner_branch = Branch.objects.create(
