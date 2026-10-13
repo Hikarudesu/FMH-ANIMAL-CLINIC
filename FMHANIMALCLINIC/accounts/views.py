@@ -467,6 +467,11 @@ def user_dashboard_view(request):
         status='COMPLETED',
         **branch_filter,
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    completed_transaction_count = Sale.objects.filter(
+        customer=request.user,
+        status=Sale.Status.COMPLETED,
+        **branch_filter,
+    ).count()
     
     # Spending breakdown by service category
     spending_by_category = SaleItem.objects.filter(
@@ -567,6 +572,7 @@ def user_dashboard_view(request):
         # Financial data
         'total_spent_this_year': total_spent_this_year,
         'total_spent_all_time': total_spent_all_time,
+        'completed_transaction_count': completed_transaction_count,
         'spending_breakdown': spending_breakdown,
         'spending_breakdown_json': json.dumps(
             spending_breakdown, cls=DjangoJSONEncoder

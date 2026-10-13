@@ -384,6 +384,13 @@ class UserPortalDashboardTests(TestCase):
         self.assertEqual(monthly_spending[6], {'month': 'Jul', 'total': 999.0})
         self.assertEqual(monthly_spending[11], {'month': 'Dec', 'total': 0.0})
         self.assertEqual(response.context['monthly_spending_year'], current_year)
+        self.assertEqual(response.context['completed_transaction_count'], 5)
+        self.assertContains(response, 'Completed Transactions')
+        dashboard_html = response.content.decode()
+        self.assertLess(
+            dashboard_html.index('Pending Follow-ups'),
+            dashboard_html.index('Completed Transactions'),
+        )
 
     def test_spending_breakdown_uses_completed_sales_linked_to_owner(self):
         owner_branch = Branch.objects.create(
