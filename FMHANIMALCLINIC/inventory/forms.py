@@ -40,7 +40,7 @@ class ProductForm(FormControlMixin, forms.ModelForm):
         if user and not is_superadmin:
             branch = _user_branch(user)
             self.fields['branch'].queryset = (
-                Branch.objects.filter(pk=branch.pk)
+                Branch.objects.filter(pk=branch.pk, is_active=True)
                 if branch else Branch.objects.none()
             )
             if branch:
@@ -139,7 +139,7 @@ class StockAdjustmentForm(FormControlMixin, forms.ModelForm):
         user_branch = _user_branch(user) if branch_restricted else None
         if branch_restricted:
             self.fields['branch'].queryset = (
-                Branch.objects.filter(pk=user_branch.pk)
+                Branch.objects.filter(pk=user_branch.pk, is_active=True)
                 if user_branch else Branch.objects.none()
             )
             if user_branch:

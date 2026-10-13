@@ -1405,9 +1405,9 @@ def payroll_vets(request):
     """View all employees with their payroll information."""
     today = date.today()
 
-    # Get all branches for filter dropdown
+    # Get all active branches for filter dropdown
     from branches.models import Branch
-    branches = Branch.objects.all().order_by('name')
+    branches = Branch.objects.filter(is_active=True).order_by('name')
 
     # Current period payslips
     current_period = PayrollPeriod.objects.filter(

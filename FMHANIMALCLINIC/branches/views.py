@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
@@ -83,39 +85,26 @@ def branch_toggle_status(request, pk):
     branch = get_object_or_404(Branch, pk=pk)
 
     if branch.is_active:
-        if request.POST.get('confirm_deactivation') != 'on':
-            messages.warning(request, 'Confirm that you want to make this branch inactive.')
+        if (
+            request.POST.get('confirm_deactivation') != 'on'
+            or request.POST.get('confirm_deactivation_final') != 'on'
+        ):
+            messages.warning(request, 'Complete both confirmations to make this branch inactive.')
             return redirect(f"{reverse('branches:list')}?status=active")
-        branch.is_active = False
+        from employees.models import StaffMember
+
+        with transaction.atomic():
+            branch.is_active = False
+            branch.save(update_fields=['is_active', 'updated_at'])
+            get_user_model().objects.filter(branch=branch).update(branch=None)
+            StaffMember.objects.filter(branch=branch).update(branch=None)
         success_message = f"Branch '{branch.name}' is now inactive."
     else:
         branch.is_active = True
         success_message = f"Branch '{branch.name}' is now active."
 
-    branch.save(update_fields=['is_active', 'updated_at'])
+    if branch.is_active:
+        branch.save(update_fields=['is_active', 'updated_at'])
     messages.success(request, success_message)
     status = 'active' if branch.is_active else 'inactive'
     return redirect(f"{reverse('branches:list')}?status={status}")
-
-
-@login_required
-@module_permission_required('branches', 'DELETE')
-def branch_delete(request, pk):
-    """View to handle branch deletion logic with confirmation."""
-    branch = get_object_or_404(Branch, pk=pk)
-    
-    if request.method == 'POST':
-        # Protect deletion if there are dependents (optional but good practice)
-        # Assuming staff members might be assigned, checking before delete or catching exception:
-        try:
-            branch_name = branch.name
-            branch.delete()
-            messages.success(request, f"Branch '{branch_name}' was deleted.")
-            return redirect('branches:list')
-        except Exception as e:
-            messages.error(request, f"Cannot delete branch: {e}")
-            return redirect('branches:list')
-
-    return render(request, 'branches/branch_confirm_delete.html', {
-        'branch': branch
-    })

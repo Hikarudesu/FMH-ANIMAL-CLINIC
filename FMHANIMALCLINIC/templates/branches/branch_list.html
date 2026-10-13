@@ -84,6 +84,7 @@
               <form method="post" action="{% url 'branches:toggle_status' branch.pk %}" style="display: inline-flex;">
                 {% csrf_token %}
                 <input type="hidden" name="confirm_deactivation" value="">
+                <input type="hidden" name="confirm_deactivation_final" value="">
                 <button type="{% if branch.is_active %}button{% else %}submit{% endif %}"
                         class="action-btn{% if branch.is_active %} danger{% endif %}"
                         title="{% if branch.is_active %}Make branch inactive{% else %}Reactivate branch{% endif %}"
@@ -388,9 +389,24 @@ function closeBranchDeactivationModal() {
   branchFormPendingDeactivation = null;
 }
 
-function confirmBranchDeactivation() {
+function closeFinalBranchDeactivationModal() {
+  document.getElementById('finalDeactivateBranchModal').classList.remove('active');
+  branchFormPendingDeactivation = null;
+}
+
+function continueBranchDeactivation() {
   if (!branchFormPendingDeactivation) return;
   branchFormPendingDeactivation.querySelector('[name="confirm_deactivation"]').value = 'on';
+  document.getElementById('deactivateBranchModal').classList.remove('active');
+  document.getElementById('finalDeactivateBranchName').textContent =
+    document.getElementById('deactivateBranchName').textContent;
+  document.getElementById('finalDeactivateBranchModal').classList.add('active');
+}
+
+function confirmBranchDeactivation() {
+  if (!branchFormPendingDeactivation) return;
+  branchFormPendingDeactivation.querySelector('[name="confirm_deactivation_final"]').value = 'on';
+  closeFinalBranchDeactivationModal();
   branchFormPendingDeactivation.requestSubmit();
 }
 </script>
@@ -410,7 +426,27 @@ function confirmBranchDeactivation() {
     </div>
     <div class="modal-footer">
       <button type="button" class="btn-cancel" onclick="closeBranchDeactivationModal()">Cancel</button>
-      <button type="button" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;" onclick="confirmBranchDeactivation()">Yes, Make Inactive</button>
+      <button type="button" class="btn-submit" onclick="continueBranchDeactivation()">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="finalDeactivateBranchModal" role="alertdialog" aria-modal="true" aria-labelledby="finalDeactivateBranchTitle">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 id="finalDeactivateBranchTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Final Confirmation</h3>
+      <button type="button" class="modal-close" onclick="closeFinalBranchDeactivationModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-building-house' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Make <span id="finalDeactivateBranchName"></span> inactive?</h4>
+      <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+        Are you really sure? The branch's user and staff accounts will become branchless. Its inventory and history will be retained.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeFinalBranchDeactivationModal()">Cancel</button>
+      <button type="button" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;" onclick="confirmBranchDeactivation()">Yes, Really Make Inactive</button>
     </div>
   </div>
 </div>

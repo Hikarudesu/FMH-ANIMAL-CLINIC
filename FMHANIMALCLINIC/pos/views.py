@@ -40,7 +40,7 @@ def checkout(request):
     """Main POS checkout interface."""
     branch = getattr(request.user, 'branch', None)
     if not branch:
-        branch = Branch.objects.first()
+        branch = Branch.objects.filter(is_active=True).order_by('name').first()
 
     # Discard abandoned carts, then restore only this cashier's active sale.
     Sale.objects.filter(
@@ -585,7 +585,7 @@ def abandon_sale(request, sale_id):
 def sales_list(request):
     """View list of sales - always restricted to user's branch (POS is branch-restricted)."""
     # POS is always branch-restricted - only show sales from user's branch
-    branch = getattr(request.user, 'branch', None) or Branch.objects.first()
+    branch = getattr(request.user, 'branch', None) or Branch.objects.filter(is_active=True).order_by('name').first()
     sales = Sale.objects.filter(branch=branch).exclude(
         status=Sale.Status.PENDING)
 
@@ -677,7 +677,7 @@ def search_items(request):
     category = request.GET.get('category', 'all')
     branch = getattr(request.user, 'branch', None)
     if not branch:
-        branch = Branch.objects.first()
+        branch = Branch.objects.filter(is_active=True).order_by('name').first()
 
     results = []
 

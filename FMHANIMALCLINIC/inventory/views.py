@@ -119,7 +119,7 @@ def catalog_view(request):
     else:
         selected_branch = branches.filter(pk=user_branch.pk).first() if user_branch else None
 
-    products = Product.objects.exclude(
+    products = Product.objects.filter(branch__is_active=True).exclude(
         item_type='Medication').select_related('branch')
 
     if staff_branch_restricted and not user_branch:

@@ -125,7 +125,7 @@ def owner_archive(request):
     return render(request, 'accounts/owner_archive.html', {
         'page_obj': page_obj,
         'archived_owners': archived_owners,
-        'branches': Branch.objects.order_by('name'),
+        'branches': Branch.objects.filter(is_active=True).order_by('name'),
         'search_query': search_query,
         'selected_branch': branch_id,
         'date_from': date_from,
