@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
@@ -94,10 +95,15 @@ def branch_toggle_status(request, pk):
             return redirect(f"{reverse('branches:list')}?status=active")
 
         with transaction.atomic():
-            replacement_branch = Branch.objects.filter(is_active=True).exclude(pk=branch.pk).order_by('name').first()
-            if replacement_branch:
-                VetSchedule.objects.filter(branch=branch).update(branch=replacement_branch)
-                RecurringSchedule.objects.filter(branch=branch).update(branch=replacement_branch)
+            branchless_staff_ids = list(
+                StaffMember.objects.filter(branch=branch).values_list('pk', flat=True)
+            )
+            VetSchedule.objects.filter(
+                Q(branch=branch) | Q(staff_id__in=branchless_staff_ids)
+            ).delete()
+            RecurringSchedule.objects.filter(
+                Q(branch=branch) | Q(staff_id__in=branchless_staff_ids)
+            ).delete()
             branch.is_active = False
             branch.save(update_fields=['is_active', 'updated_at'])
             get_user_model().objects.filter(branch=branch).update(branch=None)

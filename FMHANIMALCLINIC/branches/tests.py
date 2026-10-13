@@ -161,7 +161,7 @@ class BranchStatusManagementTests(TestCase):
         self.inactive_branch.refresh_from_db()
         self.assertTrue(self.inactive_branch.is_active)
 
-    def test_deactivating_branch_moves_existing_schedules_to_an_active_branch(self):
+    def test_deactivating_branch_deletes_schedules_for_branchless_staff(self):
         replacement_branch = self.create_branch('Replacement Active Branch', is_active=True)
         user = get_user_model().objects.create_user(
             username='schedule-branch-owner',
@@ -195,6 +195,24 @@ class BranchStatusManagementTests(TestCase):
             effective_from=date(2026, 10, 1),
             effective_until=date(2026, 10, 31),
         )
+        other_branch_schedule = VetSchedule.objects.create(
+            staff=staff,
+            date=date(2026, 10, 21),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+            branch=replacement_branch,
+        )
+        other_branch_recurring = RecurringSchedule.objects.create(
+            staff=staff,
+            branch=replacement_branch,
+            day_of_week=RecurringSchedule.DayOfWeek.TUESDAY,
+            start_time=time(8, 0),
+            end_time=time(12, 0),
+            shift_type=VetSchedule.ShiftType.GENERAL,
+            is_active=True,
+            effective_from=date(2026, 10, 1),
+            effective_until=date(2026, 10, 31),
+        )
 
         response = self.client.post(
             reverse('branches:toggle_status', args=[self.active_branch.pk]),
@@ -207,10 +225,14 @@ class BranchStatusManagementTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.active_branch.refresh_from_db()
         self.assertFalse(self.active_branch.is_active)
-        vet_schedule.refresh_from_db()
-        recurring_schedule.refresh_from_db()
-        self.assertEqual(vet_schedule.branch, replacement_branch)
-        self.assertEqual(recurring_schedule.branch, replacement_branch)
+        staff.refresh_from_db()
+        self.assertIsNone(staff.branch)
+        self.assertFalse(VetSchedule.objects.filter(
+            pk__in=[vet_schedule.pk, other_branch_schedule.pk],
+        ).exists())
+        self.assertFalse(RecurringSchedule.objects.filter(
+            pk__in=[recurring_schedule.pk, other_branch_recurring.pk],
+        ).exists())
 
     def test_inactive_branches_are_excluded_from_archive_and_payroll_dropdowns(self):
         active_branch = self.create_branch('Alpha Branch', is_active=True)
