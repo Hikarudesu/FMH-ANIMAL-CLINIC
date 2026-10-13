@@ -846,12 +846,10 @@
       <i class='bx bx-money'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">₱{{ todays_revenue|floatformat:0 }}</span>
-      <span class="hero-stat-label">Today's Revenue</span>
+      <span class="hero-stat-value">₱{{ annual_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-label">Revenue This Year</span>
       <div class="hero-stat-meta">
-        <span class="meta-item {% if revenue_diff_pct >= 0 %}success{% else %}danger{% endif %}">
-          <i class='bx bx-trending-{% if revenue_diff_pct >= 0 %}up{% else %}down{% endif %}'></i> {% if revenue_diff_pct >= 0 %}+{% endif %}{{ revenue_diff_pct|floatformat:1 }}% vs yesterday
-        </span>
+        <span class="meta-item">{{ branch_name }} · {{ revenue_year|stringformat:"d" }}</span>
       </div>
     </div>
   </div>
@@ -874,14 +872,10 @@
       <i class='bx bx-package'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ low_stock_count }}</span>
-      <span class="hero-stat-label">Low Stock Items</span>
+      <span class="hero-stat-value">₱{{ total_inventory_value|floatformat:0 }}</span>
+      <span class="hero-stat-label">Total Inventory Value</span>
       <div class="hero-stat-meta">
-        {% if low_stock_count > 0 %}
-        <span class="meta-item danger"><i class='bx bx-error'></i> Needs restock</span>
-        {% else %}
-        <span class="meta-item success"><i class='bx bx-check'></i> Stock OK</span>
-        {% endif %}
+        <span class="meta-item">On-hand · {{ branch_name }}</span>
       </div>
     </div>
   </div>
@@ -916,21 +910,21 @@
 <!-- MAIN CHARTS SECTION -->
 <div class="charts-section">
 
-  <!-- ROW 1: Weekly Revenue Trend (Line Chart) - Full Width -->
+  <!-- ROW 1: Monthly Revenue Trend (Line Chart) - Full Width -->
   <div class="charts-row">
     <div class="chart-card-modern large">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-line-chart'></i>
-          <span>FMH Animal Clinic - Pilar Revenue Trend</span>
+          <span>Monthly Revenue · {{ branch_name }}</span>
         </div>
-        <div class="chart-badge emerald">Last 7 Days</div>
+        <div class="chart-badge emerald">January - December {{ revenue_year|stringformat:"d" }}</div>
       </div>
       <div class="chart-body tall">
-        <canvas id="weeklyRevenueChart"></canvas>
-        <div id="weeklyRevenueEmpty" class="chart-empty-state" style="display: none;">
+        <canvas id="monthlyRevenueChart"></canvas>
+        <div id="monthlyRevenueEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-line-chart'></i>
-          <span>No revenue data for this period</span>
+          <span>No revenue data for this year</span>
         </div>
       </div>
     </div>
@@ -1243,7 +1237,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Graceful fallback when Chart.js CDN is unavailable
   if (typeof Chart === 'undefined') {
     [
-      ['weeklyRevenueChart', 'weeklyRevenueEmpty'],
+      ['monthlyRevenueChart', 'monthlyRevenueEmpty'],
       ['weeklyWorkloadChart', 'weeklyWorkloadEmpty'],
       ['categorySalesChart', 'categorySalesEmpty']
     ].forEach(([chartId, emptyId]) => showEmptyState(chartId, emptyId));
@@ -1252,22 +1246,22 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 1. WEEKLY REVENUE LINE CHART
+  // 1. MONTHLY REVENUE LINE CHART
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-  const weeklyRevenueCtx = document.getElementById('weeklyRevenueChart');
-  if (weeklyRevenueCtx) {
-    const weeklyData = {{ weekly_revenue_data|safe }};
-    const hasData = weeklyData && weeklyData.some(d => d.revenue > 0);
+  const monthlyRevenueCtx = document.getElementById('monthlyRevenueChart');
+  if (monthlyRevenueCtx) {
+    const monthlyData = {{ monthly_revenue_data|safe }};
+    const hasData = monthlyData && monthlyData.some(d => d.revenue > 0);
 
     if (hasData) {
-      new Chart(weeklyRevenueCtx, {
+      new Chart(monthlyRevenueCtx, {
         type: 'line',
         data: {
-          labels: weeklyData.map(d => d.date),
+          labels: monthlyData.map(d => d.month),
           datasets: [{
             label: 'Revenue',
-            data: weeklyData.map(d => d.revenue),
+            data: monthlyData.map(d => d.revenue),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             borderWidth: 3,
@@ -1315,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     } else {
-      showEmptyState('weeklyRevenueChart', 'weeklyRevenueEmpty');
+      showEmptyState('monthlyRevenueChart', 'monthlyRevenueEmpty');
     }
   }
 

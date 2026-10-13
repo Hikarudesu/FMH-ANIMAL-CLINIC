@@ -1801,6 +1801,7 @@ def receptionist_dashboard_view(request):
     from employees.models import StaffMember
     from notifications.models import Notification
     from inventory.models import Product, StockAdjustment
+    from django.db.models.functions import TruncMonth
 
     today = date.today()
     yesterday = today - timedelta(days=1)
@@ -1918,27 +1919,12 @@ def receptionist_dashboard_view(request):
     weekly_sales_count = weekly_sales.count()
     weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
 
-    weekly_revenue_data = []
-    for days_ago in range(6, -1, -1):
-        day = today - timedelta(days=days_ago)
-        if pos_restricted_no_branch:
-            day_revenue = 0
-        else:
-            day_revenue = Sale.objects.filter(
-                created_at__range=get_day_bounds(day),
-                status=Sale.Status.COMPLETED,
-                **sale_filter,
-            ).aggregate(total=Sum('total'))['total'] or 0
-        weekly_revenue_data.append({
-            'date': day.strftime('%a'),
-            'revenue': float(day_revenue),
-        })
-
     # ── Year-to-date revenue and customer mix (branch-specific) ──
     if pos_restricted_no_branch:
         annual_revenue = 0
         annual_registered_revenue = 0
         annual_walkin_revenue = 0
+        monthly_revenue_by_month = {}
     else:
         year_to_date_sales = Sale.objects.filter(
             created_at__range=(
@@ -1951,6 +1937,12 @@ def receptionist_dashboard_view(request):
         annual_revenue = year_to_date_sales.aggregate(
             total=Sum('total')
         )['total'] or 0
+        monthly_revenue_by_month = {
+            item['month'].month: item['total'] or 0
+            for item in year_to_date_sales.annotate(
+                month=TruncMonth('created_at')
+            ).values('month').annotate(total=Sum('total'))
+        }
         annual_revenue_by_customer_type = {
             item['customer_type']: item['total'] or 0
             for item in year_to_date_sales.values('customer_type').annotate(
@@ -1963,6 +1955,14 @@ def receptionist_dashboard_view(request):
         annual_walkin_revenue = annual_revenue_by_customer_type.get(
             Sale.CustomerType.WALKIN, 0
         )
+
+    monthly_revenue_data = [
+        {
+            'month': date(today.year, month, 1).strftime('%B'),
+            'revenue': float(monthly_revenue_by_month.get(month, 0)),
+        }
+        for month in range(1, 13)
+    ]
 
     # ── Pending tasks (branch-specific) ──
     if appt_restricted_no_branch:
@@ -2316,8 +2316,8 @@ def receptionist_dashboard_view(request):
         'checked_in_today': checked_in_today,
         
         # NEW: Revenue & Product Analytics
-        'weekly_revenue_data': json.dumps(
-            weekly_revenue_data, cls=DjangoJSONEncoder
+        'monthly_revenue_data': json.dumps(
+            monthly_revenue_data, cls=DjangoJSONEncoder
         ),
         'category_sales': json.dumps(category_sales, cls=DjangoJSONEncoder),
         'low_stock_products': low_stock_products,
