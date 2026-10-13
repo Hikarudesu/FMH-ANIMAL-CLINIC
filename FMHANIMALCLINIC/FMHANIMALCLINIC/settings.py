@@ -51,6 +51,9 @@ warnings.filterwarnings(
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+IS_RAILWAY_DEPLOYMENT = bool(
+    os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RAILWAY_SERVICE_NAME')
+)
 
 
 def _resolve_runtime_path(default_path, env_name, fallback_dir_name):
@@ -350,9 +353,15 @@ LOGGING = {
 # Email Configuration (Gmail SMTP for OTP)
 # =============================================================================
 
-# Use console backend for development (prints emails to terminal)
-# Switch to SMTP backend for production
-if DEBUG:
+# Use the console backend only for local development. A Railway deployment must
+# use its configured delivery backend even when DEBUG is accidentally enabled.
+configured_email_backend = os.environ.get('EMAIL_BACKEND', '').strip()
+if configured_email_backend and not (
+    IS_RAILWAY_DEPLOYMENT
+    and configured_email_backend == 'django.core.mail.backends.console.EmailBackend'
+):
+    EMAIL_BACKEND = configured_email_backend
+elif DEBUG and not IS_RAILWAY_DEPLOYMENT:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 elif os.environ.get('BREVO_API_KEY'):
     EMAIL_BACKEND = 'notifications.backends.BrevoAPIEmailBackend'

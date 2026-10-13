@@ -3,6 +3,7 @@
 import logging
 from datetime import time
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -152,6 +153,7 @@ def _notify_appointment_owner(
                 subject=subject,
                 message=message,
                 recipient_list=[recipient],
+                from_email=settings.DEFAULT_FROM_EMAIL,
                 fail_silently=False,
                 force=True,
             )

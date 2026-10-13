@@ -2,6 +2,7 @@ from datetime import time, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -376,6 +377,7 @@ class StaffBranchChangeTests(TestCase):
         email_mock.assert_called_once()
         self.assertEqual(email_mock.call_args.kwargs['recipient_list'], [owner.email])
         self.assertTrue(email_mock.call_args.kwargs['force'])
+        self.assertEqual(email_mock.call_args.kwargs['from_email'], settings.DEFAULT_FROM_EMAIL)
 
         owner_client = Client()
         owner_client.force_login(owner)
