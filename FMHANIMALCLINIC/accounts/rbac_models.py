@@ -53,6 +53,7 @@ class SpecialPermissionCodes:
     # ─── Schedule Management ───────────────────────────────────
     MANAGE_OWN_SCHEDULE = 'can_manage_own_schedule'
     MANAGE_OTHERS_SCHEDULE = 'can_manage_others_schedule'
+    PERMANENT_POSITION = 'permanent_position'
 
     # ─── Payroll ───────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ class SpecialPermissionCodes:
         'can_access_admin_dashboard': 2,
         'can_manage_own_schedule': 3,
         'can_manage_others_schedule': 4,
+        'permanent_position': 5,
         'can_access_stock_monitor': 6,
         'can_request_stock_transfer': 7,
         'can_access_pos': 8,

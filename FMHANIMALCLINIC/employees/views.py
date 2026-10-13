@@ -5,12 +5,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.mail import send_mail
+from django.db import transaction
 from django.http import JsonResponse
 from django.db.models import Q
 from django.utils import timezone
 
 from accounts.decorators import module_permission_required, special_permission_required, admin_only
-from accounts.rbac_models import Role
+from accounts.rbac_models import Role, SpecialPermissionCodes
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule, RecurringSchedule, SCHEDULE_LOOKAHEAD_DAYS
 from employees.forms import StaffMemberForm, VetScheduleForm, RecurringScheduleForm
@@ -157,8 +158,12 @@ def staff_edit(request, user_id):
         branch_id = request.POST.get('branch', '').strip()
         is_active = request.POST.get('is_active') == 'on'
         deactivation_reason = request.POST.get('inactive_reason', '').strip()
-        branch = None
-        if branch_id:
+        old_branch_id = user.branch_id
+        permanent_position_locked = user.has_role_special_permission(
+            SpecialPermissionCodes.PERMANENT_POSITION,
+        )
+        branch = user.branch if permanent_position_locked else None
+        if branch_id and not permanent_position_locked:
             branch = Branch.objects.filter(pk=branch_id).first()
             if not branch:
                 messages.error(request, 'Please choose a valid branch.')
@@ -166,6 +171,7 @@ def staff_edit(request, user_id):
                     'edited_user': user,
                     'staff_profile': staff_profile,
                     'branches': Branch.objects.filter(is_active=True),
+                    'permanent_position_locked': permanent_position_locked,
                 })
 
         is_being_deactivated = user.is_active and not is_active
@@ -175,28 +181,38 @@ def staff_edit(request, user_id):
                 'edited_user': user,
                 'staff_profile': staff_profile,
                 'branches': Branch.objects.filter(is_active=True),
+                'permanent_position_locked': permanent_position_locked,
             })
 
-        user.branch = branch
-        user.is_active = is_active
-        update_fields = ['branch', 'is_active']
-        if is_being_deactivated:
-            user.inactive_reason = deactivation_reason
-            update_fields.append('inactive_reason')
-        elif is_active and user.inactive_reason:
-            user.inactive_reason = ''
-            update_fields.append('inactive_reason')
-        user.save(update_fields=update_fields)
+        with transaction.atomic():
+            user.branch = branch
+            user.is_active = is_active
+            update_fields = ['branch', 'is_active']
+            if is_being_deactivated:
+                user.inactive_reason = deactivation_reason
+                update_fields.append('inactive_reason')
+            elif is_active and user.inactive_reason:
+                user.inactive_reason = ''
+                update_fields.append('inactive_reason')
+            user.save(update_fields=update_fields)
 
-        if is_active and staff_profile.is_deleted:
-            staff_profile.restore()
-        staff_profile.branch = branch
-        update_fields = ['branch']
-        if request.user.is_superuser or getattr(getattr(request.user, 'assigned_role', None), 'hierarchy_level', 0) >= 10:
-            staff_profile.biometric_id = request.POST.get('biometric_id', '').strip() or None
-            update_fields.append('biometric_id')
-        staff_profile.save(update_fields=update_fields)
-        staff_profile.set_active(is_active)
+            if is_active and staff_profile.is_deleted:
+                staff_profile.restore()
+            staff_profile.branch = branch
+            update_fields = ['branch']
+            if request.user.is_superuser or getattr(getattr(request.user, 'assigned_role', None), 'hierarchy_level', 0) >= 10:
+                staff_profile.biometric_id = request.POST.get('biometric_id', '').strip() or None
+                update_fields.append('biometric_id')
+            staff_profile.save(update_fields=update_fields)
+            staff_profile.set_active(is_active)
+
+            if old_branch_id != user.branch_id:
+                from employees.branch_changes import apply_staff_branch_change
+
+                apply_staff_branch_change(user, old_branch_id, branch)
+
+        if permanent_position_locked and branch_id and branch_id != str(old_branch_id or ''):
+            messages.info(request, 'This staff role has Permanent Position; the assigned branch was not changed.')
 
         if is_being_deactivated:
             if user.email and user.email_verified:
@@ -236,6 +252,9 @@ def staff_edit(request, user_id):
         'edited_user': user,
         'staff_profile': staff_profile,
         'branches': Branch.objects.filter(is_active=True),
+        'permanent_position_locked': user.has_role_special_permission(
+            SpecialPermissionCodes.PERMANENT_POSITION,
+        ),
     })
 
 

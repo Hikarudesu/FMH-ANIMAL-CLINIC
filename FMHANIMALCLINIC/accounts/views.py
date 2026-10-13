@@ -17,6 +17,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -289,6 +290,16 @@ def select_branch_view(request):
         branch_id = request.POST.get('branch_id')
         if branch_id:
             branch = get_object_or_404(Branch, id=branch_id, is_active=True)
+            if (
+                request.user.branch_id
+                and request.user.has_role_special_permission('permanent_position')
+                and branch.pk != request.user.branch_id
+            ):
+                messages.error(
+                    request,
+                    'Your role has Permanent Position, so your assigned branch cannot be changed.',
+                )
+                return redirect('accounts:profile')
             request.user.branch = branch
             request.user.save(update_fields=['branch'])
             messages.success(
@@ -577,10 +588,16 @@ def profile_view(request):
     from .forms import UserProfileUpdateForm
     if request.method == 'POST':
         old_email = request.user.email
+        old_branch_id = request.user.branch_id
         form = UserProfileUpdateForm(
             request.POST, request.FILES, instance=request.user)
         if form.is_valid():
-            user = form.save()
+            with transaction.atomic():
+                user = form.save()
+                if old_branch_id != user.branch_id:
+                    from employees.branch_changes import apply_staff_branch_change
+
+                    apply_staff_branch_change(user, old_branch_id, user.branch)
             if user.email.casefold() != old_email.casefold():
                 try:
                     _send_email_verification(request, user)

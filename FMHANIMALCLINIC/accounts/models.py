@@ -136,6 +136,14 @@ class User(AbstractUser):
 
         return False
 
+    def has_role_special_permission(self, permission_code):
+        """Check only permissions explicitly assigned to this user's role."""
+        if not self.assigned_role_id:
+            return False
+        return self.assigned_role.special_permissions.filter(
+            permission__code=permission_code,
+        ).exists()
+
     def can_manage_other_schedules(self):
         """Return True when the user can manage schedules for other staff."""
         if self.is_superuser:

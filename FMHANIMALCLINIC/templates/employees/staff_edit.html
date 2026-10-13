@@ -45,12 +45,16 @@
             </div>
             <div class="detail-content">
               <label>Branch</label>
-              <select name="branch" class="admin-input">
+              <select name="branch" class="admin-input" {% if permanent_position_locked %}disabled{% endif %}>
                 <option value="">— No Branch Assigned —</option>
                 {% for branch in branches %}
                 <option value="{{ branch.id }}" {% if edited_user.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
                 {% endfor %}
               </select>
+              {% if permanent_position_locked %}
+              <input type="hidden" name="branch" value="{{ edited_user.branch_id|default:'' }}">
+              <small class="form-hint">This role has Permanent Position; the assigned branch cannot be changed.</small>
+              {% endif %}
             </div>
           </div>
 

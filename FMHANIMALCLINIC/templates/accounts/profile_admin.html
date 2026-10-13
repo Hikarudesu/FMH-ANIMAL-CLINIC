@@ -348,6 +348,7 @@
             {{ form.branch }}
             <label for="{{ form.branch.id_for_label }}">Clinic Branch <span aria-hidden="true">*</span></label>
             {% if form.branch.errors %}<small class="field-error">{{ form.branch.errors.as_text }}</small>{% endif %}
+            {% if form.branch.help_text %}<small class="field-hint">{{ form.branch.help_text }}</small>{% endif %}
           </div>
           <div class="floating-field full-width">
             <div class="field-icon"><i class='bx bx-map'></i></div>

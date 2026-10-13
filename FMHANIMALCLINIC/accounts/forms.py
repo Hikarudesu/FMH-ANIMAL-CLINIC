@@ -5,7 +5,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from FMHANIMALCLINIC.form_mixins import FormControlMixin, validate_philippines_phone
 from .models import User
-from .rbac_models import Role
+from .rbac_models import Role, SpecialPermissionCodes
 from branches.models import Branch
 
 
@@ -172,6 +172,16 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
         self.fields['address'].required = False
         self.fields['profile_picture'].widget.clear_checkbox_label = 'Remove current photo'
         self.fields['profile_picture'].widget.input_text = 'Choose photo'
+        if (
+            self.instance.pk
+            and self.instance.has_role_special_permission(
+                SpecialPermissionCodes.PERMANENT_POSITION,
+            )
+        ):
+            self.fields['branch'].disabled = True
+            self.fields['branch'].help_text = (
+                'Your role has Permanent Position, so your assigned branch cannot be changed.'
+            )
 
     def save(self, commit=True):
         user = super().save(commit=False)
