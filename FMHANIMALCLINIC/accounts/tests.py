@@ -423,6 +423,10 @@ class UserPortalDashboardTests(TestCase):
             ],
         )
         self.assertEqual(len(monthly_spending), 12)
+        self.assertContains(
+            response,
+            f'January–December {timezone.localdate().year}',
+        )
         appointment_history = json.loads(
             response.context['appointment_history_json']
         )
