@@ -53,7 +53,7 @@
               </select>
               {% if permanent_position_locked %}
               <input type="hidden" name="branch" value="{{ edited_user.branch_id|default:'' }}">
-              <small class="form-hint">This role has Permanent Position; the assigned branch cannot be changed.</small>
+              <small class="form-hint">Permanent Position keeps this active branch assignment fixed. A new branch can be selected if this branch becomes inactive.</small>
               {% endif %}
             </div>
           </div>

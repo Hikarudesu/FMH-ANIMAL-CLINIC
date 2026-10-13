@@ -151,6 +151,15 @@ class User(AbstractUser):
             permission__code=permission_code,
         ).exists()
 
+    @property
+    def permanent_position_branch_locked(self):
+        """Whether Permanent Position currently protects an active branch assignment."""
+        return bool(
+            self.branch_id
+            and self.branch.is_active
+            and self.has_role_special_permission('permanent_position')
+        )
+
     def can_manage_other_schedules(self):
         """Return True when the user can manage schedules for other staff."""
         if self.is_superuser:

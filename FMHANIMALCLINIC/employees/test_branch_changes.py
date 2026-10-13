@@ -151,6 +151,152 @@ class StaffBranchChangeTests(TestCase):
         self.assertEqual(staff.branch_id, self.old_branch.pk)
         self.assertContains(response, 'Permanent Position')
 
+    def test_permanent_position_without_branch_can_set_one_branch_once(self):
+        user, staff = self.create_staff(
+            'permanent-unassigned-staff',
+            'permanent-unassigned-role',
+            None,
+            StaffMember.Position.RECEPTIONIST,
+            (SpecialPermissionCodes.PERMANENT_POSITION,),
+        )
+        self.client.force_login(user)
+
+        first_response = self.client.post(
+            reverse('accounts:profile'),
+            self.profile_data(user, self.new_branch),
+        )
+        self.assertEqual(first_response.status_code, 302)
+        user.refresh_from_db()
+        staff.refresh_from_db()
+        self.assertEqual(user.branch_id, self.new_branch.pk)
+        self.assertEqual(staff.branch_id, self.new_branch.pk)
+
+        second_response = self.client.post(
+            reverse('accounts:profile'),
+            self.profile_data(user, self.old_branch),
+        )
+        self.assertEqual(second_response.status_code, 302)
+        user.refresh_from_db()
+        staff.refresh_from_db()
+        self.assertEqual(user.branch_id, self.new_branch.pk)
+        self.assertEqual(staff.branch_id, self.new_branch.pk)
+
+    def test_permanent_position_can_change_from_inactive_branch(self):
+        user, staff = self.create_staff(
+            'permanent-inactive-branch-staff',
+            'permanent-inactive-branch-role',
+            self.old_branch,
+            StaffMember.Position.RECEPTIONIST,
+            (SpecialPermissionCodes.PERMANENT_POSITION,),
+        )
+        self.old_branch.is_active = False
+        self.old_branch.save(update_fields=['is_active'])
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse('accounts:profile'),
+            self.profile_data(user, self.new_branch),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        user.refresh_from_db()
+        staff.refresh_from_db()
+        self.assertEqual(user.branch_id, self.new_branch.pk)
+        self.assertEqual(staff.branch_id, self.new_branch.pk)
+
+    def test_assigning_permanent_role_preserves_existing_branch(self):
+        user, staff = self.create_staff(
+            'branch-preserved-on-role-change',
+            'branch-preserved-before-permanent',
+            self.old_branch,
+            StaffMember.Position.RECEPTIONIST,
+        )
+        permanent_role = self.create_role(
+            'assigned-permanent-role',
+            (SpecialPermissionCodes.PERMANENT_POSITION,),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('accounts:assign_user_role', args=[user.pk]),
+            {'role_id': permanent_role.pk},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        user.refresh_from_db()
+        staff.refresh_from_db()
+        self.assertEqual(user.branch_id, self.old_branch.pk)
+        self.assertEqual(staff.branch_id, self.old_branch.pk)
+
+    def test_staff_edit_allows_first_branch_for_permanent_position(self):
+        user, staff = self.create_staff(
+            'staff-edit-first-branch',
+            'staff-edit-first-branch-role',
+            None,
+            StaffMember.Position.RECEPTIONIST,
+            (SpecialPermissionCodes.PERMANENT_POSITION,),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('employees:staff_edit', args=[user.pk]),
+            {'branch': str(self.new_branch.pk), 'is_active': 'on'},
+            follow=True,
+        )
+
+        user.refresh_from_db()
+        staff.refresh_from_db()
+        self.assertEqual(user.branch_id, self.new_branch.pk)
+        self.assertEqual(staff.branch_id, self.new_branch.pk)
+        self.assertNotContains(response, 'This role has Permanent Position; the assigned branch cannot be changed.')
+
+    def test_branch_picker_allows_first_permanent_assignment_then_locks_it(self):
+        user, _staff = self.create_staff(
+            'branch-picker-first-assignment',
+            'branch-picker-permanent-role',
+            None,
+            StaffMember.Position.RECEPTIONIST,
+            (SpecialPermissionCodes.PERMANENT_POSITION,),
+        )
+        self.client.force_login(user)
+
+        first_response = self.client.post(
+            reverse('accounts:select_branch'),
+            {'branch_id': self.new_branch.pk},
+        )
+        self.assertEqual(first_response.status_code, 302)
+        user.refresh_from_db()
+        self.assertEqual(user.branch_id, self.new_branch.pk)
+
+        second_response = self.client.post(
+            reverse('accounts:select_branch'),
+            {'branch_id': self.old_branch.pk},
+        )
+        self.assertEqual(second_response.status_code, 302)
+        user.refresh_from_db()
+        self.assertEqual(user.branch_id, self.new_branch.pk)
+
+    def test_branch_picker_allows_permanent_replacement_after_branch_inactivation(self):
+        user, _staff = self.create_staff(
+            'branch-picker-inactive-branch',
+            'branch-picker-inactive-role',
+            self.old_branch,
+            StaffMember.Position.RECEPTIONIST,
+            (SpecialPermissionCodes.PERMANENT_POSITION,),
+        )
+        self.old_branch.is_active = False
+        self.old_branch.save(update_fields=['is_active'])
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse('accounts:select_branch'),
+            {'branch_id': self.new_branch.pk},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        user.refresh_from_db()
+        self.assertEqual(user.branch_id, self.new_branch.pk)
+
     def test_profile_change_moves_future_and_recurring_schedules_only_with_permission(self):
         user, staff = self.create_staff(
             'schedule-owner',

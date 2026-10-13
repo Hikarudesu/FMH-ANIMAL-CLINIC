@@ -291,8 +291,7 @@ def select_branch_view(request):
         if branch_id:
             branch = get_object_or_404(Branch, id=branch_id, is_active=True)
             if (
-                request.user.branch_id
-                and request.user.has_role_special_permission('permanent_position')
+                request.user.permanent_position_branch_locked
                 and branch.pk != request.user.branch_id
             ):
                 messages.error(

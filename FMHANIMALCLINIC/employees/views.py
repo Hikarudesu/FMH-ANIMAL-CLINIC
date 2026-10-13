@@ -159,9 +159,7 @@ def staff_edit(request, user_id):
         is_active = request.POST.get('is_active') == 'on'
         deactivation_reason = request.POST.get('inactive_reason', '').strip()
         old_branch_id = user.branch_id
-        permanent_position_locked = user.has_role_special_permission(
-            SpecialPermissionCodes.PERMANENT_POSITION,
-        )
+        permanent_position_locked = user.permanent_position_branch_locked
         branch = user.branch if permanent_position_locked else None
         if branch_id and not permanent_position_locked:
             branch = Branch.objects.filter(pk=branch_id, is_active=True).first()
@@ -252,9 +250,7 @@ def staff_edit(request, user_id):
         'edited_user': user,
         'staff_profile': staff_profile,
         'branches': Branch.objects.filter(is_active=True),
-        'permanent_position_locked': user.has_role_special_permission(
-            SpecialPermissionCodes.PERMANENT_POSITION,
-        ),
+        'permanent_position_locked': user.permanent_position_branch_locked,
     })
 
 
