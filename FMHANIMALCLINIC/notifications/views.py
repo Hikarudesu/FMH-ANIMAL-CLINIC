@@ -128,6 +128,7 @@ def get_allowed_notification_types_for_user(user):
             Notification.NotificationType.APPOINTMENT,
             Notification.NotificationType.APPOINTMENT_REMINDER_1,
             Notification.NotificationType.APPOINTMENT_REMINDER_2,
+            Notification.NotificationType.APPOINTMENT_RESCHEDULED,
             Notification.NotificationType.FOLLOW_UP,
             Notification.NotificationType.MEDICAL_RECORD_UPDATE,
             Notification.NotificationType.PRODUCT_RESERVATION,

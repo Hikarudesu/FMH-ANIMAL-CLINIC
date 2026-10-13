@@ -1,5 +1,7 @@
 """Branch-change side effects for staff accounts."""
 
+from datetime import time
+
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -26,8 +28,16 @@ def _move_future_schedules(staff, old_branch_id, new_branch):
             branch=new_branch,
             date=schedule.date,
             start_time=schedule.start_time,
-        ).exclude(pk=schedule.pk).exists()
+        ).exclude(pk=schedule.pk).order_by('pk').first()
         if duplicate:
+            duplicate.end_time = max(duplicate.end_time, schedule.end_time)
+            duplicate.is_available = duplicate.is_available or schedule.is_available
+            merged_notes = [note for note in (duplicate.notes, schedule.notes) if note]
+            duplicate.notes = '\n'.join(dict.fromkeys(merged_notes))
+            duplicate.shift_type = schedule.shift_type
+            duplicate.save(update_fields=[
+                'end_time', 'is_available', 'notes', 'shift_type',
+            ])
             schedule.delete()
         else:
             schedule.branch = new_branch
@@ -88,24 +98,36 @@ def _available_replacement(appointment, former_vet_id):
     return None
 
 
-def _notify_appointment_owner(appointment, former_vet_name, replacement):
+def _notify_appointment_owner(
+    appointment,
+    former_vet_name,
+    replacement,
+    original_appointment_time,
+):
     owner = get_follow_up_owner(appointment)
     branch_name = appointment.branch.name
-    appointment_when = (
-        f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
-        f"{appointment.appointment_time.strftime('%I:%M %p')}"
-    )
     if replacement:
         update = f'Your appointment is now assigned to {replacement.full_name}.'
+        timing = (
+            f"Your appointment remains at {branch_name} on "
+            f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
+            f"{appointment.appointment_time.strftime('%I:%M %p')}; its time is unchanged."
+        )
     else:
         update = (
-            'We could not assign a replacement veterinarian yet. The clinic will contact you '
-            'about coverage for your appointment.'
+            'There is no veterinarian or vet assistant scheduled at your appointment branch '
+            'for this day, so your appointment is now set to Any Available Vet. '
+            f'Your original {original_appointment_time.strftime("%I:%M %p")} booking has been '
+            f'moved to the {appointment.time_display()} flexible slot '
+            f'({appointment.appointment_time.strftime("%I:%M %p")}).'
+        )
+        timing = (
+            f"Your appointment remains at {branch_name} on "
+            f"{appointment.appointment_date.strftime('%B %d, %Y')}."
         )
     message = (
         f'Your preferred veterinarian, {former_vet_name}, has temporarily changed branches. '
-        f'{update} Your appointment remains at {branch_name} on {appointment_when}; '
-        'the date and time have not changed.'
+        f'{update} {timing}'
     )
 
     if owner:
@@ -148,10 +170,24 @@ def _reassign_upcoming_appointments(staff, new_branch_id):
     changed = 0
     for appointment in appointments:
         former_vet_name = staff.full_name
+        original_appointment_time = appointment.appointment_time
         replacement = _available_replacement(appointment, staff.pk)
         appointment.preferred_vet = replacement
-        appointment.save(update_fields=['preferred_vet', 'updated_at'])
-        _notify_appointment_owner(appointment, former_vet_name, replacement)
+        update_fields = ['preferred_vet', 'updated_at']
+        if replacement is None:
+            appointment.appointment_time = (
+                time(8, 0)
+                if original_appointment_time < time(12, 0)
+                else time(13, 0)
+            )
+            update_fields.append('appointment_time')
+        appointment.save(update_fields=update_fields)
+        _notify_appointment_owner(
+            appointment,
+            former_vet_name,
+            replacement,
+            original_appointment_time,
+        )
         changed += 1
     return changed
 
