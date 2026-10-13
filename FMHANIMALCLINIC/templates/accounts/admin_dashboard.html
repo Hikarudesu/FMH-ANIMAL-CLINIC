@@ -1083,6 +1083,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.charts-row').forEach(row => {
       const cards = row.querySelectorAll('.chart-card-modern');
       cards.forEach((card, i) => {
+        if (card.querySelector('#revenueChart')) {
+          card.classList.add('dash-fade', 'from-right', 'stagger-2');
+          return;
+        }
         card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
         if (i > 0) card.classList.add('stagger-2');
       });
