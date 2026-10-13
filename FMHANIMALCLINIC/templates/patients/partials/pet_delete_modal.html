@@ -1,34 +1,53 @@
-<div class="pet-delete-overlay" id="petDeleteModal" aria-hidden="true">
-  <section class="pet-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="petDeleteTitle" aria-describedby="petDeleteMessage" tabindex="-1">
-    <button class="pet-delete-close" type="button" aria-label="Close" data-pet-delete-close><i class="bx bx-x"></i></button>
-    <span class="pet-delete-icon" aria-hidden="true"><i class="bx bx-archive-in"></i></span>
-    <h2 id="petDeleteTitle">Move <span id="petDeleteName"></span> to Archive?</h2>
-    <p id="petDeleteMessage">This pet and its medical history will be kept in the Archive for 30 days, then permanently deleted.</p>
+<div class="modal-overlay" id="petDeleteModal" aria-hidden="true">
+  <div class="modal-content" role="alertdialog" aria-modal="true" aria-labelledby="petDeleteTitle" aria-describedby="petDeleteMessage" tabindex="-1" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 id="petDeleteTitle" style="color: var(--accent);"><i class="bx bx-error-circle"></i> Archive Patient</h3>
+      <button class="modal-close" type="button" aria-label="Close" data-pet-delete-close>&times;</button>
+    </div>
     <form id="petDeleteForm" method="post">
       {% csrf_token %}
-      <div class="pet-delete-actions">
-        <button type="button" class="pet-delete-cancel" data-pet-delete-close>Cancel</button>
-        <button type="submit" class="pet-delete-confirm"><i class="bx bx-trash"></i> Move to Archive</button>
+      <div class="modal-body" style="text-align: center; padding-top: 30px;">
+        <i class="bx bx-info-circle" style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Move <span id="petDeleteName"></span> to Archive?</h4>
+        <p id="petDeleteMessage" style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+          This pet and its medical history will be kept in the Archive for 30 days, then permanently deleted.
+        </p>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+        <button type="button" class="btn-cancel" data-pet-delete-close>Cancel</button>
+        <button type="submit" class="btn-submit">Move to Archive</button>
       </div>
     </form>
-  </section>
+  </div>
 </div>
 
 <style>
   button.pet-delete-trigger { font: inherit; cursor: pointer; }
-  .pet-delete-overlay { position:fixed; inset:0; z-index:1200; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(15, 25, 30, .58); }
-  .pet-delete-overlay.is-open { display:flex; }
-  .pet-delete-dialog { position:relative; width:min(100%, 430px); padding:30px; background:var(--surface, #fff); color:var(--text-1, #1d292e); box-shadow:0 22px 70px rgba(0,0,0,.24); animation:petDeleteEnter .18s ease-out; }
-  .pet-delete-close { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:36px; height:36px; border:0; background:transparent; color:var(--text-3, #64747a); font-size:22px; cursor:pointer; }
-  .pet-delete-icon { display:grid; place-items:center; width:44px; height:44px; margin-bottom:17px; background:#e7f3ef; color:#18745e; font-size:22px; }
-  .pet-delete-dialog h2 { margin:0 28px 9px 0; font-size:19px; line-height:1.35; }
-  .pet-delete-dialog p { margin:0; color:var(--text-2, #56656a); font-size:13px; line-height:1.6; }
-  .pet-delete-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
-  .pet-delete-actions button { min-height:40px; padding:0 14px; border:1px solid var(--border, #dce3e5); background:var(--surface, #fff); color:var(--text-1, #1d292e); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
-  .pet-delete-actions .pet-delete-confirm { display:inline-flex; align-items:center; gap:7px; border-color:#b64235; background:#b64235; color:#fff; }
-  .pet-delete-confirm i { font-size:16px; }
-  @keyframes petDeleteEnter { from { opacity:0; transform:translateY(8px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
-  @media (max-width:480px) { .pet-delete-dialog { padding:25px 21px; } .pet-delete-actions { flex-direction:column-reverse; } .pet-delete-actions button { width:100%; } }
+  .modal-footer .btn-cancel, .modal-footer .btn-submit {
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:6px !important;
+    padding:8px 16px !important;
+    border-radius:var(--radius-sm, 6px) !important;
+    font-size:.85rem !important;
+    font-weight:600 !important;
+    cursor:pointer !important;
+    transition:all .2s cubic-bezier(.4, 0, .2, 1) !important;
+    text-decoration:none !important;
+  }
+  .modal-footer .btn-cancel {
+    border:1px solid var(--border) !important;
+    background:var(--surface) !important;
+    color:var(--text-1) !important;
+  }
+  .modal-footer .btn-cancel:hover { border-color:var(--border-hover) !important; background:var(--bg) !important; }
+  .modal-footer .btn-submit {
+    border:1px solid var(--accent) !important;
+    background:var(--accent) !important;
+    color:#fff !important;
+    box-shadow:0 4px 12px rgba(230, 57, 70, .25) !important;
+  }
+  .modal-footer .btn-submit:hover { opacity:.95 !important; transform:translateY(-1px) !important; box-shadow:0 6px 16px rgba(230, 57, 70, .35) !important; }
 </style>
 
 <script>
@@ -36,13 +55,13 @@
   const overlay = document.getElementById('petDeleteModal');
   if (!overlay) return;
 
-  const dialog = overlay.querySelector('.pet-delete-dialog');
+  const dialog = overlay.querySelector('.modal-content');
   const form = document.getElementById('petDeleteForm');
   const name = document.getElementById('petDeleteName');
   let previousTrigger = null;
 
   function closeModal() {
-    overlay.classList.remove('is-open');
+    overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
     previousTrigger?.focus();
@@ -53,7 +72,7 @@
       previousTrigger = trigger;
       form.action = trigger.dataset.deleteUrl;
       name.textContent = trigger.dataset.petName;
-      overlay.classList.add('is-open');
+      overlay.classList.add('active');
       overlay.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
       dialog.focus();
@@ -67,7 +86,7 @@
     if (event.target === overlay) closeModal();
   });
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && overlay.classList.contains('is-open')) closeModal();
+    if (event.key === 'Escape' && overlay.classList.contains('active')) closeModal();
   });
 })();
 </script>
