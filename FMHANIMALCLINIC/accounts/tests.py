@@ -243,6 +243,10 @@ class ReceptionistDashboardMetricsTests(TestCase):
             dashboard_html.index('id="categorySalesDetails"'),
         )
         self.assertContains(response, 'category-sales-body')
+        self.assertContains(response, '@container category-sales (max-width: 520px)')
+        self.assertContains(response, '@media (max-width: 640px)')
+        self.assertNotContains(response, 'Total sales this month')
+        self.assertNotContains(response, 'category-sales-total')
         monthly_revenue = json.loads(response.context['monthly_revenue_data'])
         self.assertEqual(len(monthly_revenue), 12)
         self.assertEqual(monthly_revenue[5], {'month': 'June', 'revenue': 125.0})

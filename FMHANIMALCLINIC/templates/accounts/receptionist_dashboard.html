@@ -353,15 +353,18 @@
 }
 
 .chart-title span {
+  color: var(--text-color, var(--text-1));
   font-size: 15px;
-  font-weight: 700;
-    color: var(--text-color, var(--text-1));
+  font-weight: 600;
+}
+
+.chart-badge {
   display: inline-flex;
   align-items: center;
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -392,60 +395,43 @@
 }
 
 .chart-body.category-sales-body {
-  height: 280px;
+  height: auto;
+  min-height: 280px;
+  padding: clamp(16px, 2.5vw, 24px);
+  container: category-sales / inline-size;
 }
 
 .category-sales-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: center;
-  gap: 20px;
-  height: 100%;
+  gap: clamp(16px, 2.5vw, 24px);
+  min-height: 232px;
 }
 
 .category-sales-chart {
   position: relative;
   min-width: 0;
-  height: 100%;
+  width: min(100%, 240px);
+  aspect-ratio: 1;
+  justify-self: center;
 }
 
 .category-sales-details {
   min-width: 0;
 }
 
-.category-sales-total {
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.category-sales-total-label {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.category-sales-total-value {
-  color: var(--text-1);
-  font-size: 22px;
-  font-weight: 800;
-}
-
 .category-sales-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .category-sales-item {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .category-sales-dot {
@@ -458,7 +444,7 @@
   display: block;
   color: var(--text-1);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .category-sales-count {
@@ -471,23 +457,57 @@
 .category-sales-amount {
   color: var(--text-1);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   text-align: right;
+  white-space: nowrap;
 }
 
-@media (max-width: 640px) {
-  .chart-body.category-sales-body {
-    height: auto;
-    min-height: 380px;
-  }
-
+@container category-sales (max-width: 520px) {
   .category-sales-content {
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
+    gap: 16px;
   }
 
   .category-sales-chart {
-    height: 200px;
+    width: min(100%, 210px);
+  }
+}
+
+@media (max-width: 640px) {
+  .category-sales-content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .category-sales-chart {
+    width: min(100%, 210px);
+  }
+
+  .category-sales-list {
+    gap: 12px;
+  }
+
+  .category-sales-item {
+    gap: 10px;
+  }
+
+  .chart-header {
+    gap: 8px;
+    padding: 16px;
+  }
+
+  .chart-title {
+    gap: 8px;
+  }
+
+  .chart-title span {
+    font-size: 14px;
+  }
+
+  .chart-badge {
+    padding: 5px 10px;
+    font-size: 10px;
   }
 }
 
@@ -1412,17 +1432,6 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       const categoryDetails = document.getElementById('categorySalesDetails');
       if (categoryDetails) {
-        const totalBlock = document.createElement('div');
-        totalBlock.className = 'category-sales-total';
-        const totalLabel = document.createElement('span');
-        totalLabel.className = 'category-sales-total-label';
-        totalLabel.textContent = 'Total sales this month';
-        const totalValue = document.createElement('span');
-        totalValue.className = 'category-sales-total-value';
-        totalValue.textContent = `₱${currencyFormatter.format(total)}`;
-        totalBlock.append(totalLabel, totalValue);
-        categoryDetails.appendChild(totalBlock);
-
         const detailList = document.createElement('div');
         detailList.className = 'category-sales-list';
         categoryData.forEach(category => {
