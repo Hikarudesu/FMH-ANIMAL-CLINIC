@@ -19,6 +19,7 @@ from appointments.models import Appointment
 from billing.models import CustomerStatement, Service
 from employees.models import StaffMember
 from inventory.models import Product, StockAdjustment
+from patients.models import Pet
 from pos.models import Sale, SaleItem
 from .forms import PetOwnerRegistrationForm
 from .lifecycle import (
@@ -126,16 +127,6 @@ class ReceptionistDashboardMetricsTests(TestCase):
                 status=appointment_status,
             )
         current_year = timezone.localdate().year
-        previous_month_date = today - relativedelta(months=1)
-        for appointment_branch in (branch, other_branch):
-            Appointment.objects.create(
-                owner_name='Dashboard Owner',
-                pet_name='Dashboard Pet',
-                branch=appointment_branch,
-                appointment_date=previous_month_date,
-                appointment_time=time(10, 0),
-                status=Appointment.Status.CONFIRMED,
-            )
 
         for sale_branch, month, amount, status, customer_type in (
             (
@@ -187,6 +178,25 @@ class ReceptionistDashboardMetricsTests(TestCase):
             unit_price=0,
             quantity=4,
         )
+        prior_month_category_sale = Sale.objects.create(
+            branch=branch,
+            total=0,
+            status=Sale.Status.COMPLETED,
+        )
+        prior_month_category_sale.created_at = timezone.now() - relativedelta(
+            months=1
+        )
+        prior_month_category_sale.save(update_fields=['created_at'])
+        SaleItem.objects.create(
+            sale=prior_month_category_sale,
+            item_type=SaleItem.ItemType.PRODUCT,
+            product=branch_product,
+            name=branch_product.name,
+            unit_price=0,
+            quantity=99,
+        )
+        prior_month_category_sale.total = 0
+        prior_month_category_sale.save(update_fields=['total'])
         other_branch_category_sale = Sale.objects.create(
             branch=other_branch,
             total=0,
@@ -214,20 +224,19 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(response.context['annual_revenue'], 290)
         self.assertEqual(response.context['annual_registered_revenue'], 125)
         self.assertEqual(response.context['annual_walkin_revenue'], 165)
+        workload = json.loads(response.context['monthly_appointments'])
+        self.assertEqual(len(workload), 6)
+        self.assertEqual(workload[-1]['month'], today.strftime('%b %Y'))
+        self.assertEqual(workload[-1]['count'], 4)
+        self.assertEqual(sum(month['count'] for month in workload), 4)
         self.assertContains(response, 'Monthly Appointments')
+        self.assertContains(response, 'Last 6 months')
         self.assertContains(response, 'id="monthlyAppointmentsChart"')
-        monthly_appointments = json.loads(
-            response.context['monthly_appointments']
-        )
-        self.assertEqual(len(monthly_appointments), 6)
-        self.assertEqual(monthly_appointments[-1]['count'], 4)
-        self.assertEqual(monthly_appointments[-2]['count'], 1)
-        self.assertContains(response, 'This Month')
-        self.assertContains(response, 'Same period last month')
         self.assertContains(response, 'id="monthlyRevenueChart"')
         self.assertContains(response, 'Monthly Revenue')
         self.assertContains(response, f'January - December {current_year}')
         self.assertContains(response, 'Sales by Category')
+        self.assertContains(response, 'This Month')
         monthly_revenue = json.loads(response.context['monthly_revenue_data'])
         self.assertEqual(len(monthly_revenue), 12)
         self.assertEqual(monthly_revenue[5], {'month': 'June', 'revenue': 125.0})
@@ -244,7 +253,14 @@ class ReceptionistDashboardMetricsTests(TestCase):
             dashboard_html.index('Sales Today'),
             dashboard_html.index('Revenue This Year'),
         )
-        self.assertIsInstance(json.loads(response.context['category_sales']), list)
+        category_sales = json.loads(response.context['category_sales'])
+        self.assertEqual(
+            {item['type']: item['count'] for item in category_sales},
+            {
+                SaleItem.ItemType.PRODUCT: 1,
+                SaleItem.ItemType.MEDICATION: 1,
+            },
+        )
         self.assertNotContains(response, 'Appointment Status')
         self.assertNotContains(response, 'Booking Source')
         self.assertNotContains(response, 'Top 5 Selling Products')
@@ -261,71 +277,13 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(response.context['total_inventory_value'], 60)
         self.assertEqual(response.context['completed_visits_this_month'], 0)
         self.assertEqual(response.context['scheduled_appointments_this_month'], 0)
+        self.assertContains(response, 'Front Desk')
+        self.assertContains(response, 'New Appointment')
+        self.assertContains(response, 'New Sale')
         self.assertContains(
             response,
             f'href="{reverse("accounts:receptionist_dashboard")}"',
         )
-
-    def test_monthly_revenue_comparison_uses_same_period_and_branch(self):
-        branch = Branch.objects.create(
-            name='Monthly Revenue Comparison Branch',
-            phone_number='09123456789',
-            address='1 Clinic Street',
-            city='Pilar',
-            state='Cavite',
-            zip_code='4101',
-        )
-        other_branch = Branch.objects.create(
-            name='Other Monthly Revenue Branch',
-            phone_number='09123456780',
-            address='2 Clinic Street',
-            city='Manila',
-            state='NCR',
-            zip_code='1000',
-        )
-        role = Role.objects.get(code='receptionist')
-        receptionist = get_user_model().objects.create_user(
-            username='monthly-revenue-receptionist',
-            email='monthly-revenue-receptionist@example.com',
-            password='A-secure-test-password-923!',
-            assigned_role=role,
-            branch=branch,
-        )
-        today = timezone.localdate()
-        comparison_date = today - relativedelta(months=1)
-        current_sale_date = today.replace(day=min(today.day, 5))
-
-        for sale_branch, sale_date, amount in (
-            (branch, current_sale_date, 125),
-            (branch, comparison_date, 75),
-            (other_branch, current_sale_date, 900),
-            (other_branch, comparison_date, 900),
-        ):
-            sale = Sale.objects.create(
-                branch=sale_branch,
-                total=amount,
-                status=Sale.Status.COMPLETED,
-            )
-            sale.created_at = timezone.make_aware(
-                datetime(
-                    sale_date.year, sale_date.month, sale_date.day, 12, 0
-                )
-            )
-            sale.save(update_fields=['created_at'])
-
-        self.client.force_login(receptionist)
-        response = self.client.get(reverse('accounts:receptionist_dashboard'))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['revenue_this_month'], 125)
-        self.assertEqual(
-            response.context['revenue_same_period_last_month'], 75
-        )
-        self.assertAlmostEqual(
-            response.context['revenue_monthly_change_pct'],
-            (125 - 75) / 75 * 100,
-        )
-
 
 @override_settings(
     STORAGES={
@@ -361,11 +319,63 @@ class ReceptionistDashboardRoutingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
         self.assertContains(response, 'Monthly Appointments')
+        self.assertContains(response, 'Front Desk')
         self.assertContains(response, 'Monthly Revenue')
         self.assertNotContains(response, 'Booking Source')
         self.assertNotContains(response, 'Top 5 Selling Products')
         self.assertNotContains(response, 'Revenue by Branch')
         self.assertNotContains(response, 'Most Appointed Branches')
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class VetDashboardContentTests(TestCase):
+    def test_veterinarian_and_assistant_dashboards_omit_clinical_insights(self):
+        branch = Branch.objects.create(
+            name='Vet Dashboard Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+
+        for role_code, dashboard_title in (
+            ('veterinarian', 'Veterinarian Dashboard'),
+            ('assistant_veterinarian', 'Vet Assistant Dashboard'),
+        ):
+            with self.subTest(role=role_code):
+                role, _ = Role.objects.get_or_create(
+                    code=role_code,
+                    defaults={
+                        'name': role_code.replace('_', ' ').title(),
+                        'hierarchy_level': 5,
+                        'is_staff_role': True,
+                    },
+                )
+                user = get_user_model().objects.create_user(
+                    username=f'{role_code}-dashboard-content',
+                    email=f'{role_code}-dashboard-content@example.com',
+                    password='A-secure-test-password-923!',
+                    assigned_role=role,
+                    branch=branch,
+                )
+                self.client.force_login(user)
+
+                response = self.client.get(reverse('vet_dashboard'))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, dashboard_title)
+                self.assertNotContains(response, 'Clinical Insights')
+                self.assertNotContains(response, 'Patient Flow')
+                self.assertNotContains(response, 'Clinical Activity')
+                self.assertNotContains(response, 'Monthly Summary')
 
 
 @override_settings(
@@ -390,7 +400,7 @@ class UserPortalDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         for context_key in (
             'monthly_spending_json',
-            'appointment_status_json',
+            'appointment_history_json',
             'spending_breakdown_json',
         ):
             with self.subTest(context_key=context_key):
@@ -407,6 +417,13 @@ class UserPortalDashboardTests(TestCase):
             ],
         )
         self.assertEqual(len(monthly_spending), 12)
+        appointment_history = json.loads(
+            response.context['appointment_history_json']
+        )
+        self.assertEqual(len(appointment_history), 6)
+        self.assertTrue(
+            all(month['count'] == 0 for month in appointment_history)
+        )
         self.assertNotIn(b'const monthlySpending = ;', response.content)
         self.assertNotContains(response, 'Visits Per Pet')
         self.assertNotContains(response, 'visitsPerPetChart')
@@ -415,12 +432,110 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotContains(response, 'petHealthChart')
         self.assertIn('appointment-history-row', response.content.decode())
         self.assertContains(response, 'Monthly Spending')
+        self.assertContains(response, 'Appointment History')
+        self.assertContains(response, 'Completed appointments per month')
+        self.assertNotContains(response, 'Appointment Status')
+        self.assertNotContains(response, 'appointmentStatusChart')
+        self.assertNotContains(response, 'page-hero-actions')
         self.assertNotContains(response, 'Pet Health at a Glance')
         self.assertNotContains(response, 'Quick Insights')
         self.assertNotContains(response, 'Reservations')
         self.assertNotContains(response, 'This Month')
         self.assertNotIn('pet_species_json', response.context)
         self.assertNotIn('pet_health_list', response.context)
+
+    def test_appointment_history_shows_branch_scoped_completed_visits_for_six_months(self):
+        today = timezone.localdate()
+        owner_branch = Branch.objects.create(
+            name='Appointment History Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        other_branch = Branch.objects.create(
+            name='Other Appointment History Branch',
+            phone_number='09123456789',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        owner = get_user_model().objects.create_user(
+            username='appointment-history-owner',
+            email='appointment-history-owner@example.com',
+            password='A-secure-test-password-923!',
+            branch=owner_branch,
+        )
+        pet = Pet.objects.create(
+            owner=owner,
+            branch=owner_branch,
+            name='History Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        first_month = today.replace(day=1) - relativedelta(months=5)
+        for offset in range(6):
+            appointment_date = first_month + relativedelta(months=offset)
+            Appointment.objects.create(
+                owner_name=owner.get_full_name() or owner.username,
+                pet_name=pet.name,
+                pet=pet,
+                branch=owner_branch,
+                appointment_date=appointment_date,
+                appointment_time=time(9, 0),
+                status=Appointment.Status.COMPLETED,
+                user=owner,
+            )
+
+        Appointment.objects.create(
+            owner_name=owner.username,
+            pet_name=pet.name,
+            pet=pet,
+            branch=owner_branch,
+            appointment_date=today.replace(day=1),
+            appointment_time=time(10, 0),
+            status=Appointment.Status.PENDING,
+            user=owner,
+        )
+        Appointment.objects.create(
+            owner_name=owner.username,
+            pet_name=pet.name,
+            pet=pet,
+            branch=other_branch,
+            appointment_date=today.replace(day=1),
+            appointment_time=time(11, 0),
+            status=Appointment.Status.COMPLETED,
+            user=owner,
+        )
+        Appointment.objects.create(
+            owner_name=owner.username,
+            pet_name=pet.name,
+            pet=pet,
+            branch=owner_branch,
+            appointment_date=first_month - relativedelta(months=1),
+            appointment_time=time(12, 0),
+            status=Appointment.Status.COMPLETED,
+            user=owner,
+        )
+
+        self.client.force_login(owner)
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        appointment_history = json.loads(
+            response.context['appointment_history_json']
+        )
+        self.assertEqual(len(appointment_history), 6)
+        self.assertEqual(
+            appointment_history[0]['month'],
+            first_month.strftime('%b %Y'),
+        )
+        self.assertEqual(
+            [month['count'] for month in appointment_history],
+            [1, 1, 1, 1, 1, 1],
+        )
 
     def test_monthly_spending_chart_aggregates_current_year_completed_sales(self):
         owner = get_user_model().objects.create_user(

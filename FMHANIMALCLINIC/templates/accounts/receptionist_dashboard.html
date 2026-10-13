@@ -5,6 +5,10 @@
 
 {% block content %}
 
+{% url 'appointments:admin_list' as appt_url %}
+{% url 'pos:checkout' as pos_url %}
+{% include "components/page_hero.html" with title="Front Desk" icon="bx-desktop" subtitle=branch_name action_url=appt_url action_label="New Appointment" action_icon="bx-calendar-plus" action_url_2=pos_url action_label_2="New Sale" action_icon_2="bx-cart-add" %}
+
 <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <!-- MODERN RECEPTIONIST DASHBOARD -->
 <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
@@ -387,49 +391,6 @@
 
 .chart-body.short {
   height: 220px;
-}
-
-.monthly-revenue-comparison {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 0 24px 20px;
-}
-
-.monthly-revenue-comparison-item {
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-secondary);
-}
-
-.monthly-revenue-comparison-label {
-  display: block;
-  color: var(--text-3);
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.monthly-revenue-comparison-value {
-  display: block;
-  color: var(--text-1);
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.monthly-revenue-comparison-note {
-  display: block;
-  color: var(--text-2);
-  font-size: 11px;
-  margin-top: 5px;
-}
-
-@media (max-width: 520px) {
-  .monthly-revenue-comparison {
-    grid-template-columns: 1fr;
-    padding: 0 16px 16px;
-  }
 }
 
 /* Empty State for Charts */
@@ -976,41 +937,13 @@
           <i class='bx bx-bar-chart-alt-2'></i>
           <span>Monthly Appointments</span>
         </div>
-        <div class="chart-badge blue">Last 6 months · current month to date</div>
+        <div class="chart-badge blue">Last 6 months</div>
       </div>
       <div class="chart-body">
         <canvas id="monthlyAppointmentsChart"></canvas>
         <div id="monthlyAppointmentsEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-calendar-x'></i>
-          <span>No appointment data for these months</span>
-        </div>
-      </div>
-      <div class="monthly-revenue-comparison">
-        <div class="monthly-revenue-comparison-item">
-          <span class="monthly-revenue-comparison-label">
-            This Month · through {{ today|date:"M j" }}
-          </span>
-          <strong class="monthly-revenue-comparison-value">
-            ₱{{ revenue_this_month|floatformat:0 }}
-          </strong>
-          <span class="monthly-revenue-comparison-note">
-            {% if revenue_monthly_change_pct != None %}
-              {% if revenue_monthly_change_pct >= 0 %}+{% endif %}{{ revenue_monthly_change_pct|floatformat:1 }}% vs same period last month
-            {% elif revenue_this_month > 0 %}
-              No revenue in the same period last month
-            {% else %}
-              No revenue in either period
-            {% endif %}
-          </span>
-        </div>
-        <div class="monthly-revenue-comparison-item">
-          <span class="monthly-revenue-comparison-label">
-            Same period last month · through {{ previous_revenue_period_end|date:"M j" }}
-          </span>
-          <strong class="monthly-revenue-comparison-value">
-            ₱{{ revenue_same_period_last_month|floatformat:0 }}
-          </strong>
-          <span class="monthly-revenue-comparison-note">Completed sales · {{ branch_name }}</span>
+          <span>No appointments in the last 6 months</span>
         </div>
       </div>
     </div>
@@ -1021,13 +954,13 @@
           <i class='bx bx-category'></i>
           <span>Sales by Category</span>
         </div>
-        <div class="chart-badge purple">This Week</div>
+        <div class="chart-badge purple">This Month</div>
       </div>
       <div class="chart-body">
         <canvas id="categorySalesChart"></canvas>
         <div id="categorySalesEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-category'></i>
-          <span>No category data this week</span>
+          <span>No category data this month</span>
         </div>
       </div>
     </div>
@@ -1289,16 +1222,16 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 2. MONTHLY APPOINTMENT TREND
+  // 2. SIX-MONTH APPOINTMENT WORKLOAD
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   const monthlyAppointmentsCtx = document.getElementById('monthlyAppointmentsChart');
   if (monthlyAppointmentsCtx) {
     const appointmentData = {{ monthly_appointments|safe }};
-    const appointmentGradient = monthlyAppointmentsCtx.getContext('2d')
+    const workloadGradient = monthlyAppointmentsCtx.getContext('2d')
       .createLinearGradient(0, 0, 0, 280);
-    appointmentGradient.addColorStop(0, '#009688');
-    appointmentGradient.addColorStop(1, '#00bcd4');
+    workloadGradient.addColorStop(0, '#009688');
+    workloadGradient.addColorStop(1, '#00bcd4');
 
     if (appointmentData.some(month => month.count > 0)) {
       new Chart(monthlyAppointmentsCtx, {
@@ -1308,11 +1241,10 @@ document.addEventListener('DOMContentLoaded', function() {
           datasets: [{
             label: 'Appointments',
             data: appointmentData.map(month => month.count),
-            backgroundColor: context => context.dataIndex === appointmentData.length - 1
-              ? '#009688'
-              : appointmentGradient,
+            backgroundColor: workloadGradient,
             borderRadius: 4,
             borderSkipped: 'bottom',
+            barThickness: 36,
             maxBarThickness: 44
           }]
         },

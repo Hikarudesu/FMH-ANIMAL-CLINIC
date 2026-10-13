@@ -350,7 +350,6 @@ def user_dashboard_view(request):
     from pos.models import Sale, SaleItem
     from decimal import Decimal
     import json
-    from dateutil.relativedelta import relativedelta
     from django.db.models.functions import TruncMonth
 
     today = date.today()
@@ -431,21 +430,32 @@ def user_dashboard_view(request):
         for month in range(1, 13)
     ]
 
-    appointment_status_counts = Appointment.objects.filter(
-        user=request.user,
-        pet__isnull=False,
-        appointment_date__range=[today - timedelta(days=89), today],
-        **appt_branch_filter,
-    ).values('status').annotate(count=Count('id'))
-    appointment_status_labels = dict(Appointment.Status.choices)
-    appointment_status_data = [
+    appointment_history_starts = [
+        get_month_offset(today, months_back)
+        for months_back in range(5, -1, -1)
+    ]
+    appointment_history_totals = {
+        (item['month'].year, item['month'].month): item['count']
+        for item in Appointment.objects.filter(
+            user=request.user,
+            pet__isnull=False,
+            status=Appointment.Status.COMPLETED,
+            appointment_date__range=(appointment_history_starts[0], today),
+            **appt_branch_filter,
+        ).annotate(
+            month=TruncMonth('appointment_date')
+        ).values('month').annotate(
+            count=Count('id')
+        )
+    }
+    appointment_history = [
         {
-            'status': appointment_status_labels.get(
-                item['status'], item['status'].replace('_', ' ').title()
+            'month': month_start.strftime('%b %Y'),
+            'count': appointment_history_totals.get(
+                (month_start.year, month_start.month), 0
             ),
-            'count': item['count'],
         }
-        for item in appointment_status_counts
+        for month_start in appointment_history_starts
     ]
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -565,8 +575,8 @@ def user_dashboard_view(request):
             monthly_spending, cls=DjangoJSONEncoder
         ),
         'monthly_spending_year': today.year,
-        'appointment_status_json': json.dumps(
-            appointment_status_data, cls=DjangoJSONEncoder
+        'appointment_history_json': json.dumps(
+            appointment_history, cls=DjangoJSONEncoder
         ),
         
         # Financial data
@@ -1663,10 +1673,6 @@ def vet_dashboard_view(request):
 
 
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # INSIGHT CARDS
-    # ═══════════════════════════════════════════════════════════════════════
-
     # ── Average daily consultations (last 30 days) ───────────────────────
     # Divide by actual working days (days that had at least 1 appt), not always 30.
     if staff_profile and not appt_restricted_no_branch:
@@ -1682,70 +1688,21 @@ def vet_dashboard_view(request):
     else:
         avg_daily_consultations = 0
 
-    # ── Patient Flow (this month) ────────────────────────────────────────
+    # ── New patients this month ─────────────────────────────────────────
     if staff_profile and not patients_restricted_no_branch:
-        # Count pets strictly registered this month belonging to the branch's universe (up to today)
         new_patients_this_month = vet_pet_qs.filter(
             created_at__range=[month_start, today + timedelta(days=1)]
         ).count()
-
-        # Total unique patients seen this month for the entire branch (including upcoming)
-        total_patients_this_month = Appointment.objects.filter(
-            appointment_date__range=[month_start, month_end],
-            pet__isnull=False,
-            **appt_filter,
-        ).exclude(status='CANCELLED').values('pet').distinct().count()
     else:
         new_patients_this_month = 0
-        total_patients_this_month = 0
 
-    # ── Clinical Activity (this month) ───────────────────────────────────
-    # Uses ALL non-cancelled appointments this month (not just completed)
-    # so that pending/confirmed appointments are also counted for the entire branch.
-    _month_appts_all = Appointment.objects.none()
-    _month_appts_completed = Appointment.objects.none()
-    if staff_profile and not appt_restricted_no_branch:
-        _base_filter = dict(
-            appointment_date__range=[month_start, month_end],
-            pet__isnull=False,
-            **appt_filter
-        )
-
-        _month_appts_all = Appointment.objects.filter(
-            **_base_filter
-        ).exclude(status='CANCELLED')
-
-        _month_appts_completed = Appointment.objects.filter(
-            status='COMPLETED', **_base_filter
-        )
-
-    clinical_activities = list(
-        _month_appts_all.exclude(reason_for_visit__isnull=True)
-        .values('reason_for_visit__name')
-        .annotate(count=Count('id'))
-        .order_by('-count')[:3]
-    )
-
-    # ── Monthly Summary ──────────────────────────────────────────────────
     if staff_profile and not records_restricted_no_branch:
         medical_records_this_month = MedicalRecord.objects.filter(
             **records_filter,
             date_recorded__range=[month_start, month_end],
         ).count()
-
-        consultations_this_month = _month_appts_completed.count()
-
-        # Branch-level cancelled: any appt at this vet's branch OR assigned to this vet
-        cancelled_this_month = Appointment.objects.filter(
-            appointment_date__range=[month_start, month_end],
-            status='CANCELLED',
-            pet__isnull=False,
-            **appt_filter,
-        ).distinct().count()
     else:
         medical_records_this_month = 0
-        consultations_this_month = 0
-        cancelled_this_month = 0
 
     # ═══════════════════════════════════════════════════════════════════════
     # RENDER
@@ -1774,14 +1731,10 @@ def vet_dashboard_view(request):
         'monthly_labels': monthly_labels,
         'monthly_registered': monthly_registered,
         'monthly_walkin': monthly_walkin,
-        # Insight cards
+        # Dashboard supporting metrics
         'avg_daily_consultations': avg_daily_consultations,
         'new_patients_this_month': new_patients_this_month,
-        'total_patients_this_month': total_patients_this_month,
-        'clinical_activities': clinical_activities,
         'medical_records_this_month': medical_records_this_month,
-        'consultations_this_month': consultations_this_month,
-        'cancelled_this_month': cancelled_this_month,
         # Meta
         'staff_profile': staff_profile,
         'today': today,
@@ -1884,12 +1837,6 @@ def receptionist_dashboard_view(request):
     month_start = today.replace(day=1)
     next_month_start = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
     month_end = next_month_start - timedelta(days=1)
-    previous_month_start = month_start - timedelta(days=1)
-    previous_month_start = previous_month_start.replace(day=1)
-    previous_month_end = month_start - timedelta(days=1)
-    previous_revenue_period_end = previous_month_start + timedelta(
-        days=min(today.day, previous_month_end.day) - 1
-    )
     if appt_restricted_no_branch:
         completed_visits_this_month = 0
         scheduled_appointments_this_month = 0
@@ -1906,33 +1853,6 @@ def receptionist_dashboard_view(request):
             pet__isnull=False,
             **appt_filter,
         ).count()
-
-    monthly_appointment_starts = [
-        get_month_offset(today, months_back)
-        for months_back in range(5, -1, -1)
-    ]
-    appointments_by_month = {}
-    if not appt_restricted_no_branch:
-        appointments_by_month = {
-            item['month'].month: item['count']
-            for item in Appointment.objects.filter(
-                appointment_date__range=(monthly_appointment_starts[0], today),
-                **appt_filter,
-            ).exclude(
-                status=Appointment.Status.CANCELLED,
-            ).annotate(
-                month=TruncMonth('appointment_date')
-            ).values('month').annotate(
-                count=Count('id'),
-            )
-        }
-    monthly_appointments = [
-        {
-            'month': month_start.strftime('%b %Y'),
-            'count': appointments_by_month.get(month_start.month, 0),
-        }
-        for month_start in monthly_appointment_starts
-    ]
 
     # ── Today's sales statistics (branch-specific) ──
     if pos_restricted_no_branch:
@@ -1957,6 +1877,36 @@ def receptionist_dashboard_view(request):
         )
     weekly_sales_count = weekly_sales.count()
     weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
+
+    # ─── APPOINTMENT WORKLOAD (last six months, branch-specific) ───
+    monthly_appointment_starts = [
+        get_month_offset(today, months_back)
+        for months_back in range(5, -1, -1)
+    ]
+    appointments_by_month = {}
+    if not appt_restricted_no_branch:
+        appointments_by_month = {
+            (item['month'].year, item['month'].month): item['count']
+            for item in Appointment.objects.filter(
+                appointment_date__range=(monthly_appointment_starts[0], today),
+                **appt_filter,
+            ).exclude(
+                status=Appointment.Status.CANCELLED,
+            ).annotate(
+                month=TruncMonth('appointment_date')
+            ).values('month').annotate(
+                count=Count('id'),
+            )
+        }
+    monthly_appointments = [
+        {
+            'month': month_start.strftime('%b %Y'),
+            'count': appointments_by_month.get(
+                (month_start.year, month_start.month), 0
+            ),
+        }
+        for month_start in monthly_appointment_starts
+    ]
 
     # ── Year-to-date revenue and customer mix (branch-specific) ──
     if pos_restricted_no_branch:
@@ -2190,34 +2140,6 @@ def receptionist_dashboard_view(request):
         if yesterdays_revenue > 0 else 0
     )
 
-    if pos_restricted_no_branch:
-        revenue_this_month = 0
-        revenue_same_period_last_month = 0
-    else:
-        revenue_this_month = Sale.objects.filter(
-            created_at__range=(
-                get_day_bounds(month_start)[0],
-                get_day_bounds(today)[1],
-            ),
-            status=Sale.Status.COMPLETED,
-            **sale_filter,
-        ).aggregate(total=Sum('total'))['total'] or 0
-        revenue_same_period_last_month = Sale.objects.filter(
-            created_at__range=(
-                get_day_bounds(previous_month_start)[0],
-                get_day_bounds(previous_revenue_period_end)[1],
-            ),
-            status=Sale.Status.COMPLETED,
-            **sale_filter,
-        ).aggregate(total=Sum('total'))['total'] or 0
-    revenue_monthly_change_pct = (
-        (
-            (float(revenue_this_month) - float(revenue_same_period_last_month))
-            / float(revenue_same_period_last_month)
-        ) * 100
-        if revenue_same_period_last_month > 0 else None
-    )
-
     # Payment method breakdown (branch-specific)
     if pos_restricted_no_branch:
         payment_method_breakdown_query = []
@@ -2267,14 +2189,14 @@ def receptionist_dashboard_view(request):
             **product_branch_filter
         ).count()
 
-    # ─── SALES BY ITEM CATEGORY (This Week, own branch) ───
+    # ─── SALES BY ITEM CATEGORY (This Month, own branch) ───
     if pos_restricted_no_branch:
         category_sales = []
     else:
         category_sales_query = SaleItem.objects.filter(
             sale__created_at__range=(
-                get_day_bounds(week_start)[0],
-                get_day_bounds(week_end)[1],
+                get_day_bounds(month_start)[0],
+                get_day_bounds(today)[1],
             ),
             sale__status=Sale.Status.COMPLETED,
             **sale_own_branch_filter,
@@ -2319,7 +2241,6 @@ def receptionist_dashboard_view(request):
         # Branch info
         'user_branch': user_branch,
         'branch_name': user_branch.name if user_branch else 'All Branches',
-        'today': today,
         
         # Appointment stats
         'today_count': today_count,
@@ -2342,10 +2263,6 @@ def receptionist_dashboard_view(request):
         'annual_registered_revenue': annual_registered_revenue,
         'annual_walkin_revenue': annual_walkin_revenue,
         'revenue_year': today.year,
-        'revenue_this_month': revenue_this_month,
-        'revenue_same_period_last_month': revenue_same_period_last_month,
-        'revenue_monthly_change_pct': revenue_monthly_change_pct,
-        'previous_revenue_period_end': previous_revenue_period_end,
         'registered_sales_today': float(registered_sales_today) if registered_sales_today else 0,
         'walkin_sales_today': float(walkin_sales_today) if walkin_sales_today else 0,
 

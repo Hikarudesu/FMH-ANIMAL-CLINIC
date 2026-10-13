@@ -1000,9 +1000,7 @@
 {% endif %}
 
 <!-- Page Hero -->
-{% url 'appointments:portal_book' as book_appointment_url %}
-{% url 'patients:add_pet' as register_pet_url %}
-{% include "components/page_hero.html" with title="Dashboard" subtitle="Welcome back! Here's an overview of your pet care" icon="bxs-dashboard" action_url=book_appointment_url action_label="Book Appointment" action_icon="bx-calendar-plus" action_url_2=register_pet_url action_label_2="Register Pet" action_icon_2="bx-plus-circle" %}
+{% include "components/page_hero.html" with title="Dashboard" subtitle="Welcome back! Here's an overview of your pet care" icon="bxs-dashboard" %}
 
 <!-- Branch Badge -->
 {% if user.branch %}
@@ -1140,18 +1138,19 @@
     </div>
   </div>
   
-  <!-- ROW 2: Appointment Status & Spending -->
+  <!-- ROW 2: Appointment History & Spending -->
   <div class="charts-row equal">
     <div class="chart-card-modern dash-fade fade-up stagger-3">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-pie-chart-alt-2'></i>
-          <span>Appointment Status</span>
+          <i class='bx bx-calendar-check'></i>
+          <span>Appointment History</span>
         </div>
-        <div class="chart-badge blue">Last 90 Days</div>
+        <div class="chart-badge blue">Last 6 Months</div>
       </div>
+      <p class="chart-description">Completed appointments per month</p>
       <div class="chart-body">
-        <canvas id="appointmentStatusChart"></canvas>
+        <canvas id="appointmentHistoryChart"></canvas>
       </div>
     </div>
     
@@ -1498,86 +1497,44 @@ if (monthlySpendingCtx) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 2. APPOINTMENT STATUS PIE CHART
+// 2. SIX-MONTH APPOINTMENT HISTORY
 // ═══════════════════════════════════════════════════════════════════════════
 
-const appointmentStatusCtx = document.getElementById('appointmentStatusChart');
-if (appointmentStatusCtx) {
-  const statusData = {{ appointment_status_json|safe }};
-  
-  const statusColors = {
-    'Pending': '#f59e0b',
-    'Confirmed': '#10b981',
-    'Completed': '#6366f1',
-    'Cancelled': '#ef4444'
-  };
-  
-  const labels = statusData.map(d => d.status);
-  const data = statusData.map(d => d.count);
-  const colors = labels.map(l => statusColors[l] || '#94a3b8');
-  const total = data.reduce((a, b) => a + b, 0);
-  
-  new Chart(appointmentStatusCtx, {
-    type: 'pie',
+const appointmentHistoryCtx = document.getElementById('appointmentHistoryChart');
+if (appointmentHistoryCtx) {
+  const appointmentHistory = {{ appointment_history_json|safe }};
+
+  new Chart(appointmentHistoryCtx, {
+    type: 'bar',
     data: {
-      labels: labels,
+      labels: appointmentHistory.map(month => month.month),
       datasets: [{
-        data: data,
-        backgroundColor: colors,
-        borderWidth: 2,
-        borderColor: '#ffffff',
-        hoverOffset: 12,
-        hoverBorderWidth: 3
+        label: 'Completed appointments',
+        data: appointmentHistory.map(month => month.count),
+        backgroundColor: 'rgba(59, 130, 246, 0.75)',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
+        borderRadius: 8,
+        maxBarThickness: 44
       }]
     },
     options: {
       ...commonOptions,
-      plugins: {
-        ...commonOptions.plugins,
-        legend: {
-          display: true,
-          position: 'bottom',
-          labels: {
-            padding: 16,
-            usePointStyle: true,
-            pointStyle: 'circle',
-            font: { size: 11, weight: '600' },
-            color: isGlobalDark ? '#ffffff' : '#64748b',
-            generateLabels: function(chart) {
-              const data = chart.data;
-              return data.labels.map((label, i) => {
-                const value = data.datasets[0].data[i];
-                const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
-                return {
-                  text: `${label}: ${value} (${pct}%)`,
-                  fillStyle: data.datasets[0].backgroundColor[i],
-                  strokeStyle: data.datasets[0].backgroundColor[i],
-                  lineWidth: 0,
-                  fontColor: isGlobalDark ? '#ffffff' : '#64748b',
-                  color: isGlobalDark ? '#ffffff' : '#64748b',
-                  pointStyle: 'circle',
-                  hidden: false,
-                  index: i
-                };
-              });
-            }
-          }
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { precision: 0, color: isGlobalDark ? '#ffffff' : '#64748b' },
+          grid: { color: isGlobalDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }
         },
-        tooltip: {
-          ...commonTooltip,
-          callbacks: {
-            label: ctx => {
-              const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-              return `${ctx.label}: ${ctx.raw} (${pct}%)`;
-            }
-          }
+        x: {
+          ticks: { color: isGlobalDark ? '#ffffff' : '#64748b', font: { size: 11 } },
+          grid: { display: false },
+          border: { display: false }
         }
       },
-      animation: {
-        animateRotate: true,
-        animateScale: true,
-        duration: 2000,
-        easing: 'easeInOutQuart'
+      plugins: {
+        ...commonOptions.plugins,
+        legend: { display: false }
       }
     }
   });
