@@ -405,9 +405,18 @@ function continueBranchDeactivation() {
 
 function confirmBranchDeactivation() {
   if (!branchFormPendingDeactivation) return;
-  branchFormPendingDeactivation.querySelector('[name="confirm_deactivation_final"]').value = 'on';
+
+  const form = branchFormPendingDeactivation;
+  form.querySelector('[name="confirm_deactivation"]').value = 'on';
+  form.querySelector('[name="confirm_deactivation_final"]').value = 'on';
+
   closeFinalBranchDeactivationModal();
-  branchFormPendingDeactivation.requestSubmit();
+
+  if (typeof form.requestSubmit === 'function') {
+    form.requestSubmit();
+  } else {
+    form.submit();
+  }
 }
 </script>
 
