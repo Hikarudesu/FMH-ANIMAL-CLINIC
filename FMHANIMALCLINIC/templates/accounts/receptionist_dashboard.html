@@ -389,49 +389,6 @@
   height: 220px;
 }
 
-.monthly-revenue-comparison {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 0 24px 20px;
-}
-
-.monthly-revenue-comparison-item {
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-secondary);
-}
-
-.monthly-revenue-comparison-label {
-  display: block;
-  color: var(--text-3);
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.monthly-revenue-comparison-value {
-  display: block;
-  color: var(--text-1);
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.monthly-revenue-comparison-note {
-  display: block;
-  color: var(--text-2);
-  font-size: 11px;
-  margin-top: 5px;
-}
-
-@media (max-width: 520px) {
-  .monthly-revenue-comparison {
-    grid-template-columns: 1fr;
-    padding: 0 16px 16px;
-  }
-}
-
 /* Empty State for Charts */
 .chart-empty-state {
   display: flex;
@@ -968,49 +925,21 @@
     </div>
   </div>
 
-  <!-- ROW 2: Monthly Appointments & Sales by Category -->
+  <!-- ROW 2: Weekly Workload & Sales by Category -->
   <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Monthly Appointments</span>
+          <span>Weekly Workload</span>
         </div>
-        <div class="chart-badge blue">Last 6 months · current month to date</div>
+        <div class="chart-badge blue">This Week</div>
       </div>
       <div class="chart-body">
-        <canvas id="monthlyAppointmentsChart"></canvas>
-        <div id="monthlyAppointmentsEmpty" class="chart-empty-state" style="display: none;">
+        <canvas id="weeklyWorkloadChart"></canvas>
+        <div id="weeklyWorkloadEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-calendar-x'></i>
-          <span>No appointment data for these months</span>
-        </div>
-      </div>
-      <div class="monthly-revenue-comparison">
-        <div class="monthly-revenue-comparison-item">
-          <span class="monthly-revenue-comparison-label">
-            This Month · through {{ today|date:"M j" }}
-          </span>
-          <strong class="monthly-revenue-comparison-value">
-            ₱{{ revenue_this_month|floatformat:0 }}
-          </strong>
-          <span class="monthly-revenue-comparison-note">
-            {% if revenue_monthly_change_pct != None %}
-              {% if revenue_monthly_change_pct >= 0 %}+{% endif %}{{ revenue_monthly_change_pct|floatformat:1 }}% vs same period last month
-            {% elif revenue_this_month > 0 %}
-              No revenue in the same period last month
-            {% else %}
-              No revenue in either period
-            {% endif %}
-          </span>
-        </div>
-        <div class="monthly-revenue-comparison-item">
-          <span class="monthly-revenue-comparison-label">
-            Same period last month · through {{ previous_revenue_period_end|date:"M j" }}
-          </span>
-          <strong class="monthly-revenue-comparison-value">
-            ₱{{ revenue_same_period_last_month|floatformat:0 }}
-          </strong>
-          <span class="monthly-revenue-comparison-note">Completed sales · {{ branch_name }}</span>
+          <span>No appointments scheduled this week</span>
         </div>
       </div>
     </div>
@@ -1213,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof Chart === 'undefined') {
     [
       ['monthlyRevenueChart', 'monthlyRevenueEmpty'],
-      ['monthlyAppointmentsChart', 'monthlyAppointmentsEmpty'],
+      ['weeklyWorkloadChart', 'weeklyWorkloadEmpty'],
       ['categorySalesChart', 'categorySalesEmpty']
     ].forEach(([chartId, emptyId]) => showEmptyState(chartId, emptyId));
     startDashAnimations();
@@ -1289,30 +1218,33 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 2. MONTHLY APPOINTMENT TREND
+  // 2. WEEKLY APPOINTMENT WORKLOAD
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-  const monthlyAppointmentsCtx = document.getElementById('monthlyAppointmentsChart');
-  if (monthlyAppointmentsCtx) {
-    const appointmentData = {{ monthly_appointments|safe }};
-    const appointmentGradient = monthlyAppointmentsCtx.getContext('2d')
+  const weeklyWorkloadCtx = document.getElementById('weeklyWorkloadChart');
+  if (weeklyWorkloadCtx) {
+    const workloadData = {{ weekly_workload|safe }};
+    const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const todayWeekdayIndex = {{ today_weekday_index }};
+    const workloadGradient = weeklyWorkloadCtx.getContext('2d')
       .createLinearGradient(0, 0, 0, 280);
-    appointmentGradient.addColorStop(0, '#009688');
-    appointmentGradient.addColorStop(1, '#00bcd4');
+    workloadGradient.addColorStop(0, '#009688');
+    workloadGradient.addColorStop(1, '#00bcd4');
 
-    if (appointmentData.some(month => month.count > 0)) {
-      new Chart(monthlyAppointmentsCtx, {
+    if (workloadData.some(count => count > 0)) {
+      new Chart(weeklyWorkloadCtx, {
         type: 'bar',
         data: {
-          labels: appointmentData.map(month => month.month),
+          labels: weekDays,
           datasets: [{
             label: 'Appointments',
-            data: appointmentData.map(month => month.count),
-            backgroundColor: context => context.dataIndex === appointmentData.length - 1
+            data: workloadData,
+            backgroundColor: context => context.dataIndex === todayWeekdayIndex
               ? '#009688'
-              : appointmentGradient,
+              : workloadGradient,
             borderRadius: 4,
             borderSkipped: 'bottom',
+            barThickness: 36,
             maxBarThickness: 44
           }]
         },
@@ -1323,7 +1255,12 @@ document.addEventListener('DOMContentLoaded', function() {
           plugins: {
             legend: { display: false },
             tooltip: {
-              ...commonTooltip
+              ...commonTooltip,
+              callbacks: {
+                title: items => items[0].dataIndex === todayWeekdayIndex
+                  ? items[0].label + ' (Today)'
+                  : items[0].label
+              }
             }
           },
           scales: {
@@ -1343,7 +1280,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     } else {
-      showEmptyState('monthlyAppointmentsChart', 'monthlyAppointmentsEmpty');
+      showEmptyState('weeklyWorkloadChart', 'weeklyWorkloadEmpty');
     }
   }
 

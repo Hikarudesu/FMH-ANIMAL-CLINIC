@@ -1884,12 +1884,6 @@ def receptionist_dashboard_view(request):
     month_start = today.replace(day=1)
     next_month_start = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
     month_end = next_month_start - timedelta(days=1)
-    previous_month_start = month_start - timedelta(days=1)
-    previous_month_start = previous_month_start.replace(day=1)
-    previous_month_end = month_start - timedelta(days=1)
-    previous_revenue_period_end = previous_month_start + timedelta(
-        days=min(today.day, previous_month_end.day) - 1
-    )
     if appt_restricted_no_branch:
         completed_visits_this_month = 0
         scheduled_appointments_this_month = 0
@@ -1906,33 +1900,6 @@ def receptionist_dashboard_view(request):
             pet__isnull=False,
             **appt_filter,
         ).count()
-
-    monthly_appointment_starts = [
-        get_month_offset(today, months_back)
-        for months_back in range(5, -1, -1)
-    ]
-    appointments_by_month = {}
-    if not appt_restricted_no_branch:
-        appointments_by_month = {
-            item['month'].month: item['count']
-            for item in Appointment.objects.filter(
-                appointment_date__range=(monthly_appointment_starts[0], today),
-                **appt_filter,
-            ).exclude(
-                status=Appointment.Status.CANCELLED,
-            ).annotate(
-                month=TruncMonth('appointment_date')
-            ).values('month').annotate(
-                count=Count('id'),
-            )
-        }
-    monthly_appointments = [
-        {
-            'month': month_start.strftime('%b %Y'),
-            'count': appointments_by_month.get(month_start.month, 0),
-        }
-        for month_start in monthly_appointment_starts
-    ]
 
     # ── Today's sales statistics (branch-specific) ──
     if pos_restricted_no_branch:
@@ -1957,6 +1924,20 @@ def receptionist_dashboard_view(request):
         )
     weekly_sales_count = weekly_sales.count()
     weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
+
+    # ─── WEEKLY APPOINTMENT WORKLOAD (Mon-Sun, branch-specific) ───
+    weekly_workload = [0] * 7
+    if not appt_restricted_no_branch:
+        workload_by_day = Appointment.objects.filter(
+            appointment_date__range=(week_start, week_end),
+            **appt_filter,
+        ).exclude(
+            status=Appointment.Status.CANCELLED,
+        ).values('appointment_date').annotate(
+            count=Count('id'),
+        )
+        for item in workload_by_day:
+            weekly_workload[item['appointment_date'].weekday()] = item['count']
 
     # ── Year-to-date revenue and customer mix (branch-specific) ──
     if pos_restricted_no_branch:
@@ -2190,34 +2171,6 @@ def receptionist_dashboard_view(request):
         if yesterdays_revenue > 0 else 0
     )
 
-    if pos_restricted_no_branch:
-        revenue_this_month = 0
-        revenue_same_period_last_month = 0
-    else:
-        revenue_this_month = Sale.objects.filter(
-            created_at__range=(
-                get_day_bounds(month_start)[0],
-                get_day_bounds(today)[1],
-            ),
-            status=Sale.Status.COMPLETED,
-            **sale_filter,
-        ).aggregate(total=Sum('total'))['total'] or 0
-        revenue_same_period_last_month = Sale.objects.filter(
-            created_at__range=(
-                get_day_bounds(previous_month_start)[0],
-                get_day_bounds(previous_revenue_period_end)[1],
-            ),
-            status=Sale.Status.COMPLETED,
-            **sale_filter,
-        ).aggregate(total=Sum('total'))['total'] or 0
-    revenue_monthly_change_pct = (
-        (
-            (float(revenue_this_month) - float(revenue_same_period_last_month))
-            / float(revenue_same_period_last_month)
-        ) * 100
-        if revenue_same_period_last_month > 0 else None
-    )
-
     # Payment method breakdown (branch-specific)
     if pos_restricted_no_branch:
         payment_method_breakdown_query = []
@@ -2319,7 +2272,6 @@ def receptionist_dashboard_view(request):
         # Branch info
         'user_branch': user_branch,
         'branch_name': user_branch.name if user_branch else 'All Branches',
-        'today': today,
         
         # Appointment stats
         'today_count': today_count,
@@ -2342,10 +2294,6 @@ def receptionist_dashboard_view(request):
         'annual_registered_revenue': annual_registered_revenue,
         'annual_walkin_revenue': annual_walkin_revenue,
         'revenue_year': today.year,
-        'revenue_this_month': revenue_this_month,
-        'revenue_same_period_last_month': revenue_same_period_last_month,
-        'revenue_monthly_change_pct': revenue_monthly_change_pct,
-        'previous_revenue_period_end': previous_revenue_period_end,
         'registered_sales_today': float(registered_sales_today) if registered_sales_today else 0,
         'walkin_sales_today': float(walkin_sales_today) if walkin_sales_today else 0,
 
@@ -2383,9 +2331,8 @@ def receptionist_dashboard_view(request):
         'low_stock_threshold': get_inventory_low_stock_threshold(),
         
         # Receptionist dashboard chart data
-        'monthly_appointments': json.dumps(
-            monthly_appointments, cls=DjangoJSONEncoder
-        ),
+        'weekly_workload': json.dumps(weekly_workload, cls=DjangoJSONEncoder),
+        'today_weekday_index': today.weekday(),
         'appointment_hourly_data': json.dumps(hourly_distribution, cls=DjangoJSONEncoder),
     }
 

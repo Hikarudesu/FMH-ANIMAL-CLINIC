@@ -126,16 +126,6 @@ class ReceptionistDashboardMetricsTests(TestCase):
                 status=appointment_status,
             )
         current_year = timezone.localdate().year
-        previous_month_date = today - relativedelta(months=1)
-        for appointment_branch in (branch, other_branch):
-            Appointment.objects.create(
-                owner_name='Dashboard Owner',
-                pet_name='Dashboard Pet',
-                branch=appointment_branch,
-                appointment_date=previous_month_date,
-                appointment_time=time(10, 0),
-                status=Appointment.Status.CONFIRMED,
-            )
 
         for sale_branch, month, amount, status, customer_type in (
             (
@@ -214,16 +204,12 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(response.context['annual_revenue'], 290)
         self.assertEqual(response.context['annual_registered_revenue'], 125)
         self.assertEqual(response.context['annual_walkin_revenue'], 165)
-        self.assertContains(response, 'Monthly Appointments')
-        self.assertContains(response, 'id="monthlyAppointmentsChart"')
-        monthly_appointments = json.loads(
-            response.context['monthly_appointments']
-        )
-        self.assertEqual(len(monthly_appointments), 6)
-        self.assertEqual(monthly_appointments[-1]['count'], 4)
-        self.assertEqual(monthly_appointments[-2]['count'], 1)
-        self.assertContains(response, 'This Month')
-        self.assertContains(response, 'Same period last month')
+        workload = json.loads(response.context['weekly_workload'])
+        self.assertEqual(len(workload), 7)
+        self.assertEqual(sum(workload), 4)
+        self.assertEqual(workload[today.weekday()], 4)
+        self.assertContains(response, 'Weekly Workload')
+        self.assertContains(response, 'id="weeklyWorkloadChart"')
         self.assertContains(response, 'id="monthlyRevenueChart"')
         self.assertContains(response, 'Monthly Revenue')
         self.assertContains(response, f'January - December {current_year}')
@@ -266,67 +252,6 @@ class ReceptionistDashboardMetricsTests(TestCase):
             f'href="{reverse("accounts:receptionist_dashboard")}"',
         )
 
-    def test_monthly_revenue_comparison_uses_same_period_and_branch(self):
-        branch = Branch.objects.create(
-            name='Monthly Revenue Comparison Branch',
-            phone_number='09123456789',
-            address='1 Clinic Street',
-            city='Pilar',
-            state='Cavite',
-            zip_code='4101',
-        )
-        other_branch = Branch.objects.create(
-            name='Other Monthly Revenue Branch',
-            phone_number='09123456780',
-            address='2 Clinic Street',
-            city='Manila',
-            state='NCR',
-            zip_code='1000',
-        )
-        role = Role.objects.get(code='receptionist')
-        receptionist = get_user_model().objects.create_user(
-            username='monthly-revenue-receptionist',
-            email='monthly-revenue-receptionist@example.com',
-            password='A-secure-test-password-923!',
-            assigned_role=role,
-            branch=branch,
-        )
-        today = timezone.localdate()
-        comparison_date = today - relativedelta(months=1)
-        current_sale_date = today.replace(day=min(today.day, 5))
-
-        for sale_branch, sale_date, amount in (
-            (branch, current_sale_date, 125),
-            (branch, comparison_date, 75),
-            (other_branch, current_sale_date, 900),
-            (other_branch, comparison_date, 900),
-        ):
-            sale = Sale.objects.create(
-                branch=sale_branch,
-                total=amount,
-                status=Sale.Status.COMPLETED,
-            )
-            sale.created_at = timezone.make_aware(
-                datetime(
-                    sale_date.year, sale_date.month, sale_date.day, 12, 0
-                )
-            )
-            sale.save(update_fields=['created_at'])
-
-        self.client.force_login(receptionist)
-        response = self.client.get(reverse('accounts:receptionist_dashboard'))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['revenue_this_month'], 125)
-        self.assertEqual(
-            response.context['revenue_same_period_last_month'], 75
-        )
-        self.assertAlmostEqual(
-            response.context['revenue_monthly_change_pct'],
-            (125 - 75) / 75 * 100,
-        )
-
-
 @override_settings(
     STORAGES={
         'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
@@ -360,7 +285,7 @@ class ReceptionistDashboardRoutingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
-        self.assertContains(response, 'Monthly Appointments')
+        self.assertContains(response, 'Weekly Workload')
         self.assertContains(response, 'Monthly Revenue')
         self.assertNotContains(response, 'Booking Source')
         self.assertNotContains(response, 'Top 5 Selling Products')
