@@ -243,7 +243,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
             dashboard_html.index('id="categorySalesDetails"'),
         )
         self.assertContains(response, 'category-sales-body')
-        self.assertContains(response, '@container category-sales (max-width: 520px)')
+        self.assertContains(response, '@container category-sales (max-width: 380px)')
         self.assertContains(response, '@media (max-width: 640px)')
         self.assertNotContains(response, 'Total sales this month')
         self.assertNotContains(response, 'category-sales-total')
@@ -390,6 +390,88 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, "This Week's Schedule")
                 self.assertNotContains(response, 'Upcoming Appointments')
                 self.assertNotContains(response, 'monthlyPerformanceChart')
+                self.assertContains(response, 'Recent Medical Records')
+                self.assertContains(response, 'No medical records have been recorded yet.')
+
+    def test_veterinarian_dashboard_shows_recent_branch_medical_entries(self):
+        from records.models import MedicalRecord, RecordEntry
+
+        branch = Branch.objects.create(
+            name='Recent Records Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        other_branch = Branch.objects.create(
+            name='Other Recent Records Branch',
+            phone_number='09123456780',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        role = Role.objects.get(code='veterinarian')
+        user = get_user_model().objects.create_user(
+            username='vet-recent-records',
+            email='vet-recent-records@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        staff = StaffMember.objects.create(
+            first_name='Recent',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=branch,
+            user=user,
+        )
+
+        visible_pet = Pet.objects.create(
+            branch=branch,
+            name='Visible Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        visible_record = MedicalRecord.objects.create(
+            pet=visible_pet,
+            vet=staff,
+            branch=branch,
+            date_recorded=timezone.localdate(),
+        )
+        RecordEntry.objects.create(
+            record=visible_record,
+            vet=staff,
+            date_recorded=timezone.localdate(),
+            history_clinical_signs='Recent patient has mild seasonal itching.',
+        )
+
+        hidden_pet = Pet.objects.create(
+            branch=other_branch,
+            name='Other Branch Patient',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        hidden_record = MedicalRecord.objects.create(
+            pet=hidden_pet,
+            branch=other_branch,
+            date_recorded=timezone.localdate(),
+        )
+        RecordEntry.objects.create(
+            record=hidden_record,
+            date_recorded=timezone.localdate(),
+            history_clinical_signs='Must not appear on the veterinarian dashboard.',
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('vet_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Visible Patient')
+        self.assertContains(response, 'mild seasonal itching')
+        self.assertNotContains(response, 'Other Branch Patient')
+        self.assertNotContains(response, 'Must not appear on the veterinarian dashboard.')
 
 
 @override_settings(

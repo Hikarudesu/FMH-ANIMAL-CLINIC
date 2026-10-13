@@ -186,6 +186,46 @@
   </div>
 </div>
 
+<!-- RECENT MEDICAL RECORDS -->
+<section class="recent-records-section">
+  <div class="section-title">
+    <i class='bx bx-notepad'></i>
+    <span>Recent Medical Records</span>
+    <a href="{% url 'records:admin_list' %}" class="section-link">
+      View All <i class='bx bx-right-arrow-alt'></i>
+    </a>
+  </div>
+  <div class="recent-records-card">
+    {% if recent_medical_records %}
+    <div class="recent-records-list">
+      {% for entry in recent_medical_records %}
+      <a class="recent-record-row" href="{% url 'records:admin_detail' entry.record.pk %}">
+        <span class="recent-record-icon"><i class='bx bx-plus-medical'></i></span>
+        <span class="recent-record-info">
+          <span class="recent-record-pet">{{ entry.record.pet.name }}</span>
+          <span class="recent-record-meta">
+            {{ entry.record.pet.species }} · {{ entry.date_recorded|date:"M j, Y" }}
+            {% if entry.vet %}· Dr. {{ entry.vet.first_name }} {{ entry.vet.last_name }}{% endif %}
+          </span>
+          {% if entry.history_clinical_signs %}
+          <span class="recent-record-summary">{{ entry.history_clinical_signs|truncatechars:110 }}</span>
+          {% elif entry.treatment %}
+          <span class="recent-record-summary">{{ entry.treatment|truncatechars:110 }}</span>
+          {% endif %}
+        </span>
+        <i class='bx bx-chevron-right recent-record-arrow'></i>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="recent-records-empty">
+      <i class='bx bx-folder-open'></i>
+      <p>No medical records have been recorded yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
 <!-- PENDING FOLLOW-UPS SECTION -->
 {% if follow_ups %}
 <div class="followups-section">
@@ -1035,6 +1075,114 @@
   /* FOLLOW-UPS SECTION */
   /* ═══════════════════════════════════════════════ */
   
+  .recent-records-section {
+    margin-bottom: 28px;
+  }
+
+  .recent-records-card {
+    padding: 0 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .recent-records-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recent-record-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 0;
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: padding 0.2s ease, background-color 0.2s ease;
+  }
+
+  .recent-record-row:last-child {
+    border-bottom: 0;
+  }
+
+  .recent-record-row:hover {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .recent-record-icon {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 42px;
+    border-radius: 12px;
+    color: var(--primary);
+    background: rgba(0, 150, 136, 0.1);
+  }
+
+  .recent-record-icon i {
+    font-size: 19px;
+  }
+
+  .recent-record-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .recent-record-pet {
+    overflow: hidden;
+    color: var(--text-1);
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .recent-record-meta,
+  .recent-record-summary {
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: 12px;
+    text-overflow: ellipsis;
+  }
+
+  .recent-record-summary {
+    white-space: nowrap;
+  }
+
+  .recent-record-arrow {
+    flex: 0 0 auto;
+    color: var(--text-3);
+    font-size: 20px;
+  }
+
+  .recent-records-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 30px 16px;
+    color: var(--text-3);
+    text-align: center;
+  }
+
+  .recent-records-empty i {
+    color: var(--primary);
+    font-size: 28px;
+  }
+
+  .recent-records-empty p {
+    margin: 0;
+    font-size: 13px;
+  }
+
   .followups-section {
     margin-bottom: 28px;
   }

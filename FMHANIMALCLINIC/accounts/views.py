@@ -1489,6 +1489,17 @@ def vet_dashboard_view(request):
     else:
         medical_records_count = 0
 
+    if staff_profile and not records_restricted_no_branch:
+        recent_medical_records = (
+            RecordEntry.objects.filter(
+                **{f"record__{key}": value for key, value in records_filter.items()}
+            )
+            .select_related('record__pet', 'record__branch', 'vet')
+            .order_by('-date_recorded', '-created_at')[:5]
+        )
+    else:
+        recent_medical_records = RecordEntry.objects.none()
+
     # Completed appointments assigned to this veterinarian remain actionable
     # until a matching medical-record entry is saved for the visit date.
     pending_medical_records = []
@@ -1653,6 +1664,7 @@ def vet_dashboard_view(request):
         'completed_consultations': completed_consultations,
         'medical_records_count': medical_records_count,
         'pending_medical_records': pending_medical_records,
+        'recent_medical_records': recent_medical_records,
         # Lists
         'follow_ups': follow_ups,
         'follow_up_count': follow_up_count,
