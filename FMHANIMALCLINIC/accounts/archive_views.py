@@ -23,6 +23,20 @@ from pos.models import Sale
 from records.models import MedicalFile, MedicalRecord, RecordEntry
 
 ARCHIVE_RETENTION_DAYS = 30
+ARCHIVE_TYPE_FILTERS = (
+    ('', 'All record types'),
+    ('pet', 'Pets / patients'),
+    ('medical_record', 'Medical records'),
+    ('record_entry', 'Visit history'),
+    ('medical_file', 'Medical files'),
+    ('product', 'Inventory items'),
+    ('service', 'Clinic services'),
+)
+ARCHIVE_RETENTION_FILTERS = (
+    ('', 'All retention states'),
+    ('restorable', 'Restorable'),
+    ('expired', 'Past 30 days'),
+)
 
 
 @login_required
@@ -149,20 +163,44 @@ def owner_archive(request):
 def records_archive(request):
     """List soft-deleted operational and clinical records for superadmins."""
     search_query = request.GET.get('q', '').strip()
+    selected_type = request.GET.get('type', '').strip()
+    selected_retention = request.GET.get('retention', '').strip()
+    deleted_from = request.GET.get('deleted_from', '').strip()
+    deleted_to = request.GET.get('deleted_to', '').strip()
+    deleted_from_value = parse_date(deleted_from)
+    deleted_to_value = parse_date(deleted_to)
+    valid_types = {value for value, _ in ARCHIVE_TYPE_FILTERS}
+    valid_retention_states = {value for value, _ in ARCHIVE_RETENTION_FILTERS}
+    if selected_type not in valid_types:
+        selected_type = ''
+    if selected_retention not in valid_retention_states:
+        selected_retention = ''
+
+    now = timezone.now()
+    retention_cutoff = now - timedelta(days=ARCHIVE_RETENTION_DAYS)
+
+    def filtered_archived(model, kind):
+        queryset = model.all_objects.filter(is_deleted=True)
+        if selected_type and selected_type != kind:
+            return queryset.none()
+        if deleted_from_value:
+            queryset = queryset.filter(deleted_at__date__gte=deleted_from_value)
+        if deleted_to_value:
+            queryset = queryset.filter(deleted_at__date__lte=deleted_to_value)
+        if selected_retention == 'restorable':
+            queryset = queryset.filter(deleted_at__gt=retention_cutoff)
+        elif selected_retention == 'expired':
+            queryset = queryset.filter(deleted_at__lte=retention_cutoff)
+        return queryset
+
     items = []
 
-    products = Product.all_objects.filter(is_deleted=True).select_related('branch')
-    services = Service.all_objects.filter(is_deleted=True)
-    pets = Pet.all_objects.filter(is_deleted=True).select_related('owner')
-    medical_records = MedicalRecord.all_objects.filter(
-        is_deleted=True,
-    ).select_related('pet')
-    entries = RecordEntry.all_objects.filter(
-        is_deleted=True,
-    ).select_related('record__pet')
-    files = MedicalFile.all_objects.filter(
-        is_deleted=True,
-    ).select_related('record__pet')
+    products = filtered_archived(Product, 'product').select_related('branch')
+    services = filtered_archived(Service, 'service')
+    pets = filtered_archived(Pet, 'pet').select_related('owner')
+    medical_records = filtered_archived(MedicalRecord, 'medical_record').select_related('pet')
+    entries = filtered_archived(RecordEntry, 'record_entry').select_related('record__pet')
+    files = filtered_archived(MedicalFile, 'medical_file').select_related('record__pet')
 
     if search_query:
         products = products.filter(
@@ -255,7 +293,6 @@ def records_archive(request):
             'object_id': medical_file.pk,
         })
 
-    now = timezone.now()
     for item in items:
         item['expires_at'] = item['deleted_at'] + timedelta(days=ARCHIVE_RETENTION_DAYS)
         item['days_remaining'] = max((item['expires_at'] - now).days, 0)
@@ -266,6 +303,12 @@ def records_archive(request):
         'page_obj': page_obj,
         'archive_items': page_obj.object_list,
         'search_query': search_query,
+        'selected_type': selected_type,
+        'selected_retention': selected_retention,
+        'deleted_from': deleted_from,
+        'deleted_to': deleted_to,
+        'archive_type_filters': ARCHIVE_TYPE_FILTERS,
+        'archive_retention_filters': ARCHIVE_RETENTION_FILTERS,
         'archive_count': page_obj.paginator.count,
         'retention_days': ARCHIVE_RETENTION_DAYS,
     })

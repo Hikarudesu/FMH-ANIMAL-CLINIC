@@ -10,10 +10,35 @@
   <a class="archive-tab is-active" href="{% url 'accounts:records_archive' %}">Records Archive</a>
 </nav>
 
-<form class="records-archive-search" method="get" role="search">
-  <label for="records-archive-query">Search archived records</label>
-  <input id="records-archive-query" type="search" name="q" value="{{ search_query }}" placeholder="Name, code, service, or visit details">
-  <button type="submit" aria-label="Search"><i class="bx bx-search"></i></button>
+<form class="records-archive-filters" method="get" role="search">
+  <label class="records-archive-field records-archive-search-field" for="records-archive-query">
+    <span>Search</span>
+    <input id="records-archive-query" type="search" name="q" value="{{ search_query }}" placeholder="Name, code, service, or visit details">
+  </label>
+  <label class="records-archive-field" for="records-archive-type">
+    <span>Record type</span>
+    <select id="records-archive-type" name="type">
+      {% for value, label in archive_type_filters %}<option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="records-archive-field" for="records-archive-retention">
+    <span>Retention</span>
+    <select id="records-archive-retention" name="retention">
+      {% for value, label in archive_retention_filters %}<option value="{{ value }}" {% if selected_retention == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="records-archive-field" for="records-archive-from">
+    <span>Deleted from</span>
+    <input id="records-archive-from" type="date" name="deleted_from" value="{{ deleted_from }}">
+  </label>
+  <label class="records-archive-field" for="records-archive-to">
+    <span>Deleted to</span>
+    <input id="records-archive-to" type="date" name="deleted_to" value="{{ deleted_to }}">
+  </label>
+  <button class="records-archive-filter-submit" type="submit" aria-label="Apply filters"><i class="bx bx-filter-alt"></i><span>Apply</span></button>
+  {% if search_query or selected_type or selected_retention or deleted_from or deleted_to %}
+  <a class="records-archive-filter-clear" href="{% url 'accounts:records_archive' %}">Clear</a>
+  {% endif %}
 </form>
 
 <div class="records-archive-summary">
@@ -42,19 +67,21 @@
       <strong>{% if item.days_remaining == 0 %}Expires today{% else %}{{ item.days_remaining }} day{{ item.days_remaining|pluralize }} left{% endif %}</strong>
       <small>Permanent deletion {{ item.expires_at|date:"M j, Y" }}</small>
     </div>
+    {% if item.days_remaining > 0 %}
     <form method="post" action="{% url 'accounts:restore_archived_record' item.kind item.object_id %}">
       {% csrf_token %}
       <button class="records-archive-restore" type="submit" title="Restore {{ item.title }}"><i class="bx bx-undo"></i><span>Restore</span></button>
     </form>
+    {% else %}<span class="records-archive-expired">Expired</span>{% endif %}
   </article>
   {% endfor %}
 </div>
 
 {% if page_obj.has_other_pages %}
 <nav class="archive-pagination" aria-label="Archive pages">
-  {% if page_obj.has_previous %}<a href="?q={{ search_query|urlencode }}&page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+  {% if page_obj.has_previous %}<a href="?q={{ search_query|urlencode }}&type={{ selected_type|urlencode }}&retention={{ selected_retention|urlencode }}&deleted_from={{ deleted_from|urlencode }}&deleted_to={{ deleted_to|urlencode }}&page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
   <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-  {% if page_obj.has_next %}<a href="?q={{ search_query|urlencode }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+  {% if page_obj.has_next %}<a href="?q={{ search_query|urlencode }}&type={{ selected_type|urlencode }}&retention={{ selected_retention|urlencode }}&deleted_from={{ deleted_from|urlencode }}&deleted_to={{ deleted_to|urlencode }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}
 </nav>
 {% endif %}
 {% else %}
@@ -65,10 +92,12 @@
   .archive-tabs { display:flex; gap:6px; margin:0 0 18px; border-bottom:1px solid var(--border); }
   .archive-tab { padding:11px 15px; color:var(--text-2); font-size:13px; font-weight:600; text-decoration:none; border-bottom:2px solid transparent; }
   .archive-tab.is-active { color:var(--primary); border-color:var(--primary); }
-  .records-archive-search { display:flex; align-items:center; gap:10px; margin:0 0 15px; padding:10px 12px; border:1px solid var(--border); background:var(--surface); }
-  .records-archive-search label { color:var(--text-2); font-size:12px; font-weight:600; white-space:nowrap; }
-  .records-archive-search input { flex:1; min-width:0; padding:9px 10px; border:1px solid var(--border); background:var(--surface); color:var(--text-1); font:inherit; }
-  .records-archive-search button { width:38px; height:38px; border:0; background:var(--primary); color:#fff; font-size:18px; cursor:pointer; }
+  .records-archive-filters { display:grid; grid-template-columns:minmax(190px,2fr) repeat(4,minmax(130px,1fr)) auto auto; align-items:end; gap:10px; margin:0 0 15px; padding:12px; border:1px solid var(--border); background:var(--surface); }
+  .records-archive-field { display:grid; gap:5px; min-width:0; color:var(--text-2); font-size:11px; font-weight:600; }
+  .records-archive-field input, .records-archive-field select { width:100%; min-width:0; height:38px; padding:0 9px; border:1px solid var(--border); border-radius:4px; background:var(--surface); color:var(--text-1); font:inherit; font-size:12px; }
+  .records-archive-filter-submit, .records-archive-filter-clear { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:38px; padding:0 12px; border:1px solid var(--primary); background:var(--primary); color:#fff; font:inherit; font-size:12px; font-weight:600; text-decoration:none; cursor:pointer; }
+  .records-archive-filter-submit i { font-size:16px; }
+  .records-archive-filter-clear { border-color:var(--border); background:var(--surface); color:var(--text-2); }
   .records-archive-summary { display:flex; justify-content:space-between; gap:10px; margin:0 0 8px; color:var(--text-3); font-size:12px; }
   .records-archive-list { border-top:1px solid var(--border); }
   .records-archive-row { display:grid; grid-template-columns:40px minmax(180px,1fr) minmax(190px,auto) auto; align-items:center; gap:14px; padding:14px 10px; border-bottom:1px solid var(--border); }
@@ -81,16 +110,22 @@
   .records-archive-retention strong { color:#a33a28; font-size:12px; }
   .records-archive-restore { display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:0 11px; border:1px solid var(--border); background:var(--surface); color:var(--text-1); font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
   .records-archive-restore i { font-size:16px; }
+  .records-archive-expired { color:#a33a28; font-size:12px; font-weight:700; }
   .archive-pagination { display:flex; align-items:center; justify-content:center; gap:16px; padding:18px; color:var(--text-2); font-size:13px; }
   .archive-pagination a { color:var(--primary); }
   .archive-empty { padding:36px; text-align:center; }
   .archive-empty > i { color:var(--primary); font-size:34px; }
+  @media (max-width:980px) {
+    .records-archive-filters { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .records-archive-search-field { grid-column:span 2; }
+  }
   @media (max-width:760px) {
     .records-archive-row { grid-template-columns:36px minmax(0,1fr) auto; gap:10px; }
     .records-archive-retention { grid-column:2 / -1; }
     .records-archive-row form { grid-column:2 / -1; }
-    .records-archive-search { flex-wrap:wrap; }
-    .records-archive-search label { width:100%; }
+    .records-archive-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .records-archive-search-field { grid-column:1 / -1; }
+    .records-archive-filter-submit, .records-archive-filter-clear { width:100%; }
     .records-archive-summary { flex-direction:column; }
   }
 </style>

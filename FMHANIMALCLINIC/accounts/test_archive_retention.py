@@ -80,6 +80,35 @@ class RecordsArchiveTests(TestCase):
         self.assertContains(response, 'Archived Medicine')
         self.assertContains(response, 'Archived Grooming')
 
+    def test_records_archive_filters_by_type_date_and_retention(self):
+        product = Product.objects.create(
+            name='Filtered Medicine',
+            branch=self.branch,
+            price=25,
+        )
+        service = Service.objects.create(name='Expired Filtered Service')
+        product.delete()
+        service.delete()
+        Service.all_objects.filter(pk=service.pk).update(
+            deleted_at=timezone.now() - timedelta(days=31),
+        )
+        today = timezone.localdate().isoformat()
+
+        response = self.client.get(
+            reverse('accounts:records_archive'),
+            {
+                'type': 'product',
+                'retention': 'restorable',
+                'deleted_from': today,
+                'deleted_to': today,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['archive_count'], 1)
+        self.assertContains(response, 'Filtered Medicine')
+        self.assertNotContains(response, 'Expired Filtered Service')
+
     def test_archive_restore_recovers_pet_and_its_clinical_history(self):
         pet = Pet.objects.create(
             name='Restorable Patient',
