@@ -1806,8 +1806,6 @@ def receptionist_dashboard_view(request):
     yesterday = today - timedelta(days=1)
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
-    last_week_start = week_start - timedelta(days=7)
-    last_week_end = week_start - timedelta(days=1)
     
     # Get the receptionist's assigned branch
     user_branch = request.user.branch
@@ -2043,40 +2041,19 @@ def receptionist_dashboard_view(request):
             **appt_filter
         ).count()
 
-    # ─── APPOINTMENT STATUS (This Week vs Last Week, branch-specific) ───
-    if appt_restricted_no_branch:
-        status_counts_this_week = []
-        status_counts_last_week = []
-    else:
-        status_counts_this_week = Appointment.objects.filter(
+    # ─── WEEKLY APPOINTMENT WORKLOAD (Mon-Sun, branch-specific) ───
+    weekly_workload = [0] * 7
+    if not appt_restricted_no_branch:
+        workload_by_day = Appointment.objects.filter(
             appointment_date__range=(week_start, week_end),
-            pet__isnull=False,
             **appt_filter,
-        ).values('status').annotate(count=Count('id'))
-        status_counts_last_week = Appointment.objects.filter(
-            appointment_date__range=(last_week_start, last_week_end),
-            pet__isnull=False,
-            **appt_filter,
-        ).values('status').annotate(count=Count('id'))
-
-    appointment_status_counts = {}
-    for item in status_counts_this_week:
-        appointment_status_counts[item['status']] = {
-            'this_week': item['count'],
-            'last_week': 0,
-        }
-    for item in status_counts_last_week:
-        appointment_status_counts.setdefault(
-            item['status'], {'this_week': 0, 'last_week': 0}
-        )['last_week'] = item['count']
-    appointment_status_data = [
-        {
-            'status': status,
-            'this_week': counts['this_week'],
-            'last_week': counts['last_week'],
-        }
-        for status, counts in appointment_status_counts.items()
-    ]
+        ).exclude(
+            status=Appointment.Status.CANCELLED,
+        ).values('appointment_date').annotate(
+            count=Count('id'),
+        )
+        for item in workload_by_day:
+            weekly_workload[item['appointment_date'].weekday()] = item['count']
 
     # ─── TODAY'S SCHEDULED APPOINTMENTS BY HOUR (branch-specific) ───
     if appt_restricted_no_branch:
@@ -2105,12 +2082,6 @@ def receptionist_dashboard_view(request):
             'count': appointments_by_hour.get(hour, 0),
         }
         for hour in range(first_appointment_hour, last_appointment_hour + 1)
-    ]
-
-    # ─── WALK-IN VS PORTAL APPOINTMENTS DATA (This Week, branch-specific) ───
-    appointment_source_data = [
-        {'source': 'Walk-in', 'count': walkin_week},
-        {'source': 'Online Booking', 'count': portal_week}
     ]
 
     # Registered vs Walk-in sales (today, branch-specific)
@@ -2225,24 +2196,6 @@ def receptionist_dashboard_view(request):
             **appt_filter
         ).count()
 
-    # ─── TOP SELLING PRODUCTS (This Week, own branch) ───
-    if pos_restricted_no_branch:
-        top_products = []
-    else:
-        top_products_query = SaleItem.objects.filter(
-            sale__created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
-            sale__status='COMPLETED',
-            item_type='PRODUCT',
-            product__isnull=False,
-            **sale_own_branch_filter
-        ).values('product__name').annotate(
-            total_qty=Sum('quantity'),
-            total_sales=Sum(F('quantity') * F('unit_price'))
-        ).order_by('-total_qty')[:5]
-        top_products = list(top_products_query)
-    for product in top_products:
-        product['total_sales'] = float(product['total_sales']) if product['total_sales'] else 0
-
     # ─── LOW STOCK PRODUCTS (own branch) ───
     if inventory_restricted_no_branch:
         low_stock_products = Product.objects.none()
@@ -2261,30 +2214,10 @@ def receptionist_dashboard_view(request):
             **product_branch_filter
         ).count()
 
-    # ─── MOST-ORDERED PRODUCT CATEGORIES (This Week, own branch) ───
+    # ─── SALES BY ITEM CATEGORY (This Week, own branch) ───
     if pos_restricted_no_branch:
-        product_category_orders = []
         category_sales = []
     else:
-        product_category_orders_query = SaleItem.objects.filter(
-            sale__created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
-            sale__status=Sale.Status.COMPLETED,
-            item_type__in=(SaleItem.ItemType.PRODUCT, SaleItem.ItemType.MEDICATION),
-            product__isnull=False,
-            **sale_own_branch_filter
-        ).values('product__item_type').annotate(
-            units_sold=Sum('quantity'),
-        ).order_by('-units_sold', 'product__item_type')
-        
-        product_category_orders = []
-        product_category_labels = dict(Product.ITEM_TYPE_CHOICES)
-        for item in product_category_orders_query:
-            category = item['product__item_type']
-            product_category_orders.append({
-                'category': product_category_labels.get(category, category),
-                'units_sold': item['units_sold'],
-            })
-
         category_sales_query = SaleItem.objects.filter(
             sale__created_at__range=(
                 get_day_bounds(week_start)[0],
@@ -2386,21 +2319,15 @@ def receptionist_dashboard_view(request):
         'weekly_revenue_data': json.dumps(
             weekly_revenue_data, cls=DjangoJSONEncoder
         ),
-        'top_products': json.dumps(top_products, cls=DjangoJSONEncoder),
         'category_sales': json.dumps(category_sales, cls=DjangoJSONEncoder),
         'low_stock_products': low_stock_products,
         'low_stock_count': low_stock_count,
         'low_stock_threshold': get_inventory_low_stock_threshold(),
-        'product_category_orders': json.dumps(
-            product_category_orders, cls=DjangoJSONEncoder
-        ),
         
         # Receptionist dashboard chart data
-        'appointment_status_data': json.dumps(
-            appointment_status_data, cls=DjangoJSONEncoder
-        ),
+        'weekly_workload': json.dumps(weekly_workload, cls=DjangoJSONEncoder),
+        'today_weekday_index': today.weekday(),
         'appointment_hourly_data': json.dumps(hourly_distribution, cls=DjangoJSONEncoder),
-        'appointment_source_data': json.dumps(appointment_source_data, cls=DjangoJSONEncoder),
     }
 
     return render(request, 'accounts/receptionist_dashboard.html', context)

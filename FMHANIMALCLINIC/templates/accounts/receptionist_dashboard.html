@@ -846,7 +846,7 @@
       <i class='bx bx-money'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">â‚±{{ todays_revenue|floatformat:0 }}</span>
+      <span class="hero-stat-value">₱{{ todays_revenue|floatformat:0 }}</span>
       <span class="hero-stat-label">Today's Revenue</span>
       <div class="hero-stat-meta">
         <span class="meta-item {% if revenue_diff_pct >= 0 %}success{% else %}danger{% endif %}">
@@ -864,7 +864,7 @@
       <span class="hero-stat-value">{{ todays_sales_count }}</span>
       <span class="hero-stat-label">Sales Today</span>
       <div class="hero-stat-meta">
-        <span class="meta-item">â‚±{{ weekly_revenue|floatformat:0 }} this week</span>
+        <span class="meta-item">₱{{ weekly_revenue|floatformat:0 }} this week</span>
       </div>
     </div>
   </div>
@@ -922,7 +922,7 @@
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-line-chart'></i>
-          <span>{{ branch_name }} Revenue Trend</span>
+          <span>FMH Animal Clinic - Pilar Revenue Trend</span>
         </div>
         <div class="chart-badge emerald">Last 7 Days</div>
       </div>
@@ -936,21 +936,21 @@
     </div>
   </div>
 
-  <!-- ROW 2: Appointment Status (Area) & Top Products (Vertical Bar) -->
+  <!-- ROW 2: Weekly Workload & Sales by Category -->
   <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Appointment Status</span>
+          <span>Weekly Workload</span>
         </div>
         <div class="chart-badge blue">This Week</div>
       </div>
       <div class="chart-body">
-        <canvas id="appointmentStatusChart"></canvas>
-        <div id="appointmentStatusEmpty" class="chart-empty-state" style="display: none;">
+        <canvas id="weeklyWorkloadChart"></canvas>
+        <div id="weeklyWorkloadEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-calendar-x'></i>
-          <span>No appointments this week</span>
+          <span>No appointments scheduled this week</span>
         </div>
       </div>
     </div>
@@ -973,42 +973,6 @@
     </div>
   </div>
 
-  <!-- ROW 3: Category Sales (Doughnut) & Top 5 Selling Products (Pie) -->
-  <div class="charts-row">
-    <div class="chart-card-modern">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-globe'></i>
-          <span>Booking Source</span>
-        </div>
-        <div class="chart-badge teal">This Week</div>
-      </div>
-      <div class="chart-body">
-        <canvas id="appointmentSourceChart"></canvas>
-        <div id="appointmentSourceEmpty" class="chart-empty-state" style="display: none;">
-          <i class='bx bx-globe'></i>
-          <span>No appointments this week</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="chart-card-modern">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-pie-chart-alt-2'></i>
-          <span>Top 5 Selling Products</span>
-        </div>
-        <div class="chart-badge orange">This Week</div>
-      </div>
-      <div class="chart-body">
-        <canvas id="topProductsChart"></canvas>
-        <div id="topProductsEmpty" class="chart-empty-state" style="display: none;">
-          <i class='bx bx-trophy'></i>
-          <span>No product sales this week</span>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- TODAY'S SCHEDULE & LOW STOCK -->
@@ -1129,7 +1093,7 @@
             <div class="sale-meta">{{ sale.transaction_id }} Â· {{ sale.created_at|date:"M j, g:i A" }}</div>
           </div>
           <div class="sale-amount {% if sale.status == 'REFUNDED' %}refunded{% endif %}">
-            {% if sale.status == 'REFUNDED' %}-{% endif %}â‚±{{ sale.total|floatformat:2 }}
+            {% if sale.status == 'REFUNDED' %}-{% endif %}₱{{ sale.total|floatformat:2 }}
           </div>
           <span class="status-pill {{ sale.status|lower }}">{{ sale.get_status_display }}</span>
         </div>
@@ -1280,10 +1244,8 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof Chart === 'undefined') {
     [
       ['weeklyRevenueChart', 'weeklyRevenueEmpty'],
-      ['appointmentStatusChart', 'appointmentStatusEmpty'],
-      ['topProductsChart', 'topProductsEmpty'],
-      ['categorySalesChart', 'categorySalesEmpty'],
-      ['appointmentSourceChart', 'appointmentSourceEmpty']
+      ['weeklyWorkloadChart', 'weeklyWorkloadEmpty'],
+      ['categorySalesChart', 'categorySalesEmpty']
     ].forEach(([chartId, emptyId]) => showEmptyState(chartId, emptyId));
     startDashAnimations();
     return;
@@ -1331,7 +1293,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tooltip: {
               ...commonTooltip,
               callbacks: {
-                label: ctx => `â‚±${ctx.raw.toLocaleString()}`
+                label: ctx => `₱${ctx.raw.toLocaleString()}`
               }
             }
           },
@@ -1346,7 +1308,7 @@ document.addEventListener('DOMContentLoaded', function() {
               ticks: {
                 font: { size: 11 },
                 color: '#94a3b8',
-                callback: val => 'â‚±' + (val >= 1000 ? (val/1000).toFixed(0) + 'K' : val)
+                callback: val => '₱' + (val >= 1000 ? (val/1000).toFixed(0) + 'K' : val)
               }
             }
           }
@@ -1358,105 +1320,48 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 2. APPOINTMENT STATUS DISTRIBUTION (Bar Chart)
+  // 2. WEEKLY APPOINTMENT WORKLOAD
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-  const appointmentStatusCtx = document.getElementById('appointmentStatusChart');
-  if (appointmentStatusCtx) {
-    const statusData = {{ appointment_status_data|safe }};
-    const hasData = statusData && statusData.length > 0;
+  const weeklyWorkloadCtx = document.getElementById('weeklyWorkloadChart');
+  if (weeklyWorkloadCtx) {
+    const workloadData = {{ weekly_workload|safe }};
+    const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const todayWeekdayIndex = {{ today_weekday_index }};
+    const workloadGradient = weeklyWorkloadCtx.getContext('2d')
+      .createLinearGradient(0, 0, 0, 280);
+    workloadGradient.addColorStop(0, '#009688');
+    workloadGradient.addColorStop(1, '#00bcd4');
 
-    // Using single green similar to the Admin bar chart, or the specific status colors:
-    const statusColors = {
-      'PENDING': '#f59e0b',
-      'CONFIRMED': '#3b82f6',
-      'COMPLETED': '#10b981',
-      'CANCELLED': '#ef4444',
-      'NO_SHOW': '#6b7280'
-    };
-
-    const statusLabels = {
-      'PENDING': 'Pending',
-      'CONFIRMED': 'Confirmed',
-      'COMPLETED': 'Completed',
-      'CANCELLED': 'Cancelled',
-      'NO_SHOW': 'No Show'
-    };
-
-    if (hasData) {
-      // Create gradient for this week
-      const thisWeekGradient = appointmentStatusCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-      thisWeekGradient.addColorStop(0, '#10b981');
-      thisWeekGradient.addColorStop(1, '#059669');
-
-      // Create gradient for last week
-      const lastWeekGradient = appointmentStatusCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-      lastWeekGradient.addColorStop(0, '#94a3b8');
-      lastWeekGradient.addColorStop(1, '#64748b');
-
-      new Chart(appointmentStatusCtx, {
+    if (workloadData.some(count => count > 0)) {
+      new Chart(weeklyWorkloadCtx, {
         type: 'bar',
         data: {
-          labels: statusData.map(s => statusLabels[s.status] || s.status),
-          datasets: [
-            {
-              label: 'This Week',
-              data: statusData.map(s => s.this_week),
-              backgroundColor: thisWeekGradient,
-              borderRadius: 0,
-              borderSkipped: false,
-              barPercentage: 0.7,
-              categoryPercentage: 0.8
-            },
-            {
-              label: 'Last Week',
-              data: statusData.map(s => s.last_week),
-              backgroundColor: lastWeekGradient,
-              borderRadius: 0,
-              borderSkipped: false,
-              barPercentage: 0.7,
-              categoryPercentage: 0.8
-            }
-          ]
+          labels: weekDays,
+          datasets: [{
+            label: 'Appointments',
+            data: workloadData,
+            backgroundColor: context => context.dataIndex === todayWeekdayIndex
+              ? '#009688'
+              : workloadGradient,
+            borderRadius: 4,
+            borderSkipped: 'bottom',
+            barThickness: 36,
+            maxBarThickness: 44
+          }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
-          animation: {
-            duration: 1500,
-            easing: 'easeInOutCubic',
-            delay: (context) => context.dataIndex * 150
-          },
           plugins: {
-            legend: {
-              position: 'top',
-              align: 'end',
-              labels: {
-                usePointStyle: true,
-                pointStyle: 'rectRounded',
-                padding: 20,
-                font: { size: 12, weight: '600' }
-              }
-            },
+            legend: { display: false },
             tooltip: {
               ...commonTooltip,
               callbacks: {
-                label: function(context) {
-                  const label = context.dataset.label;
-                  const value = context.raw;
-                  const otherDataset = context.chart.data.datasets[context.datasetIndex === 0 ? 1 : 0];
-                  const otherValue = otherDataset.data[context.dataIndex];
-                  const diff = value - otherValue;
-                  const diffPercent = otherValue > 0 ? ((diff / otherValue) * 100).toFixed(1) : 0;
-                  const arrow = diff >= 0 ? 'â†‘' : 'â†“';
-                  const color = diff >= 0 ? 'ðŸŸ¢' : 'ðŸ”´';
-
-                  if (context.datasetIndex === 0) {
-                    return `${label}: ${value} ${color} ${arrow}${Math.abs(diffPercent)}%`;
-                  }
-                  return `${label}: ${value}`;
-                }
+                title: items => items[0].dataIndex === todayWeekdayIndex
+                  ? items[0].label + ' (Today)'
+                  : items[0].label
               }
             }
           },
@@ -1464,11 +1369,7 @@ document.addEventListener('DOMContentLoaded', function() {
             y: {
               beginAtZero: true,
               grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: {
-                font: { size: 11 },
-                color: '#94a3b8',
-                stepSize: 1
-              }
+              ticks: { precision: 0, stepSize: 1, color: '#94a3b8' }
             },
             x: {
               grid: { display: false },
@@ -1481,74 +1382,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     } else {
-      showEmptyState('appointmentStatusChart', 'appointmentStatusEmpty');
+      showEmptyState('weeklyWorkloadChart', 'weeklyWorkloadEmpty');
     }
   }
-
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 3. TOP PRODUCTS PIE CHART
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-  const topProductsCtx = document.getElementById('topProductsChart');
-  if (topProductsCtx) {
-    const productsData = {{ top_products|safe }};
-    const hasData = productsData && productsData.length > 0;
-
-    // Five distinct colors for pie chart segments
-    const productColors = ['#f59e0b', '#fb923c', '#fbbf24', '#3b82f6', '#10b981'];
-
-    if (hasData) {
-      new Chart(topProductsCtx, {
-        type: 'pie',
-        data: {
-          labels: productsData.map(p => p.product__name ? p.product__name.substring(0, 15) + (p.product__name.length > 15 ? '...' : '') : 'Unknown'),
-          datasets: [{
-            label: 'Units Sold',
-            data: productsData.map(p => p.total_qty),
-            backgroundColor: productColors.slice(0, productsData.length),
-            borderWidth: 2,
-            borderColor: '#ffffff',
-            hoverOffset: 4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: {
-            duration: 1500,
-            easing: 'easeInOutCubic',
-            animateScale: true,
-            animateRotate: true
-          },
-          plugins: {
-            legend: {
-              position: 'right',
-              labels: {
-                usePointStyle: true,
-                padding: 20,
-                font: { size: 12 }
-              }
-            },
-            tooltip: {
-              ...commonTooltip,
-              callbacks: {
-                label: ctx => {
-                  const data = productsData[ctx.dataIndex];
-                  return `${ctx.raw} units (â‚±${data.total_sales.toLocaleString()})`;
-                }
-              }
-            }
-          }
-        }
-      });
-    } else {
-      showEmptyState('topProductsChart', 'topProductsEmpty');
-    }
-  }
-
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // 4. CATEGORY SALES DOUGHNUT CHART
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   const categorySalesCtx = document.getElementById('categorySalesChart');
   if (categorySalesCtx) {
@@ -1609,7 +1445,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const value = data.datasets[0].data[i];
                     const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
                     return {
-                      text: `${label}: â‚±${value.toLocaleString()} (${pct}%)`,
+                      text: `${label}: ₱${value.toLocaleString()} (${pct}%)`,
                       fillStyle: data.datasets[0].backgroundColor[i],
                       strokeStyle: data.datasets[0].backgroundColor[i],
                       lineWidth: 0,
@@ -1628,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', function() {
               callbacks: {
                 label: ctx => {
                   const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                  return `â‚±${ctx.raw.toLocaleString()} (${pct}%)`;
+                  return `₱${ctx.raw.toLocaleString()} (${pct}%)`;
                 }
               }
             }
@@ -1642,88 +1478,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // 5. APPOINTMENT SOURCE PIE CHART (Walk-in vs Online Booking)
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-  const appointmentSourceCtx = document.getElementById('appointmentSourceChart');
-  if (appointmentSourceCtx) {
-    const sourceData = {{ appointment_source_data|safe }};
-    const hasData = sourceData && sourceData.some(s => s.count > 0);
-
-    const sourceColors = {
-      'Walk-in': '#f59e0b',
-      'Online Booking': '#3b82f6'
-    };
-
-    if (hasData) {
-      const total = sourceData.reduce((sum, s) => sum + s.count, 0);
-
-      new Chart(appointmentSourceCtx, {
-        type: 'bar',
-        data: {
-          labels: sourceData.map(s => s.source),
-          datasets: [{
-            label: 'Appointments',
-            data: sourceData.map(s => s.count),
-            backgroundColor: sourceData.map(s => sourceColors[s.source] || '#94a3b8'),
-            borderRadius: 8,
-            borderSkipped: false
-          }]
-        },
-        options: {
-          indexAxis: 'y',
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: {
-            duration: 1500,
-            easing: 'easeInOutCubic',
-            delay: (context) => context.dataIndex * 150
-          },
-          plugins: {
-            legend: {
-              display: false
-            },
-            tooltip: {
-              ...commonTooltip,
-              callbacks: {
-                label: ctx => {
-                  const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                  return `${ctx.raw} appointments (${pct}%)`;
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: {
-                color: isGlobalDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                drawBorder: false
-              },
-              ticks: {
-                font: { size: 12 },
-                color: isGlobalDark ? '#94a3b8' : '#64748b',
-                stepSize: 1
-              }
-            },
-            y: {
-              grid: {
-                display: false,
-                drawBorder: false
-              },
-              ticks: {
-                font: { size: 12, weight: '500' },
-                color: isGlobalDark ? '#f8fafc' : '#334155'
-              }
-            }
-          }
-        }
-      });
-    } else {
-      showEmptyState('appointmentSourceChart', 'appointmentSourceEmpty');
-    }
-  }
-
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // START ANIMATIONS AFTER CHARTS ARE READY
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   startDashAnimations();

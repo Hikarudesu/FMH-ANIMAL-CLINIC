@@ -201,25 +201,27 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(hourly_data[1], {'hour': '9 AM', 'count': 2})
         self.assertEqual(hourly_data[2], {'hour': '10 AM', 'count': 0})
         self.assertEqual(hourly_data[-1], {'hour': '5 PM', 'count': 1})
-        self.assertEqual(
-            json.loads(response.context['product_category_orders']),
-            [
-                {'category': 'Medication', 'units_sold': 4},
-                {'category': 'Product', 'units_sold': 3},
-            ],
-        )
         self.assertEqual(response.context['annual_revenue'], 290)
         self.assertEqual(response.context['annual_registered_revenue'], 125)
         self.assertEqual(response.context['annual_walkin_revenue'], 165)
-        self.assertContains(response, 'Appointment Status')
-        self.assertContains(response, 'id="appointmentStatusChart"')
+        workload = json.loads(response.context['weekly_workload'])
+        self.assertEqual(len(workload), 7)
+        self.assertEqual(sum(workload), 4)
+        self.assertEqual(workload[timezone.localdate().weekday()], 4)
+        self.assertContains(response, 'Weekly Workload')
+        self.assertContains(response, 'id="weeklyWorkloadChart"')
         self.assertContains(response, 'id="weeklyRevenueChart"')
+        self.assertContains(response, 'FMH Animal Clinic - Pilar Revenue Trend')
         self.assertContains(response, 'Sales by Category')
         self.assertEqual(len(json.loads(response.context['weekly_revenue_data'])), 7)
-        self.assertIsInstance(
-            json.loads(response.context['appointment_status_data']), list
-        )
         self.assertIsInstance(json.loads(response.context['category_sales']), list)
+        self.assertNotContains(response, 'Appointment Status')
+        self.assertNotContains(response, 'Booking Source')
+        self.assertNotContains(response, 'Top 5 Selling Products')
+        self.assertNotContains(response, 'appointmentSourceChart')
+        self.assertNotContains(response, 'topProductsChart')
+        self.assertContains(response, '₱')
+        self.assertNotContains(response, 'â‚±')
         self.assertNotContains(response, 'Hourly Appointment Volume / Peak Traffic Today')
         self.assertNotContains(response, 'Most-Ordered Product Categories')
         self.assertContains(response, '<div class="hero-stats">')
@@ -268,8 +270,10 @@ class ReceptionistDashboardRoutingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
-        self.assertContains(response, 'Appointment Status')
+        self.assertContains(response, 'Weekly Workload')
         self.assertContains(response, 'Weekly Revenue Trend')
+        self.assertNotContains(response, 'Booking Source')
+        self.assertNotContains(response, 'Top 5 Selling Products')
         self.assertNotContains(response, 'Revenue by Branch')
         self.assertNotContains(response, 'Most Appointed Branches')
 
