@@ -277,7 +277,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(response.context['total_inventory_value'], 60)
         self.assertEqual(response.context['completed_visits_this_month'], 0)
         self.assertEqual(response.context['scheduled_appointments_this_month'], 0)
-        self.assertContains(response, 'Front Desk')
+        self.assertContains(response, 'Front Desk Dashboard')
         self.assertNotContains(response, 'page-hero-actions')
         self.assertContains(
             response,
@@ -318,7 +318,7 @@ class ReceptionistDashboardRoutingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
         self.assertContains(response, 'Monthly Appointments')
-        self.assertContains(response, 'Front Desk')
+        self.assertContains(response, 'Front Desk Dashboard')
         self.assertContains(response, 'Monthly Revenue')
         self.assertNotContains(response, 'Booking Source')
         self.assertNotContains(response, 'Top 5 Selling Products')
@@ -528,7 +528,13 @@ class UserPortalDashboardTests(TestCase):
         page_hero = response.content.decode().split(
             '<div class="page-hero">', 1
         )[1].split('</div>\n</div>', 1)[0]
-        self.assertIn('branch-badge-modern', page_hero)
+        self.assertIn('page-hero-branch-badge', page_hero)
+        self.assertLess(
+            page_hero.index('page-hero-branch-badge'),
+            page_hero.index('page-hero-actions')
+            if 'page-hero-actions' in page_hero
+            else len(page_hero),
+        )
         appointment_history = json.loads(
             response.context['appointment_history_json']
         )

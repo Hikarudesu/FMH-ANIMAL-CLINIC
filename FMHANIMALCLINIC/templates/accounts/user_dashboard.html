@@ -939,12 +939,20 @@
     margin-bottom: 24px;
   }
 
-  .page-hero .branch-badge-modern {
-    margin: 14px 0 0;
+  .page-hero .page-hero-branch-badge {
+    flex-shrink: 0;
+    margin: 0 0 0 auto;
     background: rgba(255, 255, 255, 0.14);
     border-color: rgba(255, 255, 255, 0.35);
     color: #fff;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .page-hero .page-hero-branch-badge {
+      align-self: flex-start;
+      margin: 0;
+    }
   }
   
   .branch-badge-modern i {
