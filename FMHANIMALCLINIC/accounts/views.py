@@ -718,6 +718,7 @@ def admin_dashboard_view(request):
     # ── Staff ──
     total_staff = StaffMember.objects.count()
     active_staff = StaffMember.objects.filter(is_active=True).count()
+    total_users = User.objects.count()
 
     # ── Branches ──
     branches = Branch.objects.filter(is_active=True)
@@ -976,9 +977,15 @@ def admin_dashboard_view(request):
         pet__isnull=False
     ).values('user').distinct().count()
 
-    # Top services and products (completed sales, within the admin's branch scope)
+    # Top services and products in completed sales, scoped to this admin.
     sales_scope_filter = (
         {} if request.user.is_admin_role() else {'sale__branch': request.user.branch}
+    )
+    sales_insights_scope_label = (
+        'All branches'
+        if request.user.is_admin_role()
+        else request.user.branch.name if request.user.branch_id
+        else 'No branch assigned'
     )
     service_sales_scope_filter = {
         f'sale_items__{field}': value
@@ -990,6 +997,7 @@ def admin_dashboard_view(request):
     service_breakdown_query = services_q.annotate(
         usage_count=Count(
             'sale_items__sale',
+            distinct=True,
             filter=Q(
                 sale_items__sale__status='COMPLETED',
                 **service_sales_scope_filter,
@@ -1245,6 +1253,7 @@ def admin_dashboard_view(request):
         'patient_count': patient_count,
         'total_staff': total_staff,
         'active_staff': active_staff,
+        'total_users': total_users,
         'branches': branches,
         'recent_appointments': recent_appointments,
         'unread_notif_count': unread_notif_count,
@@ -1274,6 +1283,7 @@ def admin_dashboard_view(request):
         'returning_customers_this_week': returning_customers_this_week,
         'service_breakdown': service_breakdown,
         'top_products': top_products,
+        'sales_insights_scope_label': sales_insights_scope_label,
         'payment_method_stats': payment_method_stats_list,
         'payment_method_stats_json': payment_method_stats_json,
         'pet_health_stats': pet_health_stats,
@@ -1772,7 +1782,6 @@ def receptionist_dashboard_view(request):
     from patients.models import Pet
     from pos.models import Sale, Payment, SaleItem
     from employees.models import StaffMember
-    from django.db.models.functions import TruncMonth
     from notifications.models import Notification
     from inventory.models import Product, StockAdjustment
 
@@ -1922,35 +1931,6 @@ def receptionist_dashboard_view(request):
             Sale.CustomerType.WALKIN, 0
         )
 
-    # ── Revenue trend (June-December, branch-specific) ──
-    revenue_trend_start = date(today.year, 6, 1)
-    revenue_trend_end = date(today.year, 12, 31)
-    if pos_restricted_no_branch:
-        revenue_by_month = {}
-    else:
-        revenue_by_month = {
-            item['sale_month'].month: float(item['total'] or 0)
-            for item in Sale.objects.filter(
-                created_at__range=(
-                    get_day_bounds(revenue_trend_start)[0],
-                    get_day_bounds(revenue_trend_end)[1],
-                ),
-                status='COMPLETED',
-                **sale_filter
-            ).annotate(
-                sale_month=TruncMonth('created_at')
-            ).values('sale_month').annotate(
-                total=Sum('total')
-            ).order_by('sale_month')
-        }
-    revenue_trend_data = [
-        {
-            'month': date(today.year, month, 1).strftime('%b'),
-            'revenue': revenue_by_month.get(month, 0),
-        }
-        for month in range(6, 13)
-    ]
-
     # ── Pending tasks (branch-specific) ──
     if appt_restricted_no_branch:
         pending_appointments = 0
@@ -2030,26 +2010,32 @@ def receptionist_dashboard_view(request):
 
     # ─── TODAY'S SCHEDULED APPOINTMENTS BY HOUR (branch-specific) ───
     if appt_restricted_no_branch:
-        hourly_distribution = []
+        appointments_by_hour = {}
     else:
-        hourly_distribution = Appointment.objects.filter(
+        hourly_counts = Appointment.objects.filter(
             appointment_date=today,
-            pet__isnull=False,
-            status__in=['PENDING', 'CONFIRMED'],
+            status__in=(Appointment.Status.PENDING, Appointment.Status.CONFIRMED),
             **appt_filter
         ).values('appointment_time__hour').annotate(
             count=Count('id')
         ).order_by('appointment_time__hour')
-        hourly_distribution = [
-            {
-                'hour': (
-                    f"{item['appointment_time__hour'] % 12 or 12} "
-                    f"{'AM' if item['appointment_time__hour'] < 12 else 'PM'}"
-                ),
-                'count': item['count'],
-            }
-            for item in hourly_distribution
-        ]
+        appointments_by_hour = {
+            item['appointment_time__hour']: item['count']
+            for item in hourly_counts
+        }
+
+    first_appointment_hour = min([8, *appointments_by_hour])
+    last_appointment_hour = max([17, *appointments_by_hour])
+    hourly_distribution = [
+        {
+            'hour': (
+                f"{hour % 12 or 12} "
+                f"{'AM' if hour < 12 else 'PM'}"
+            ),
+            'count': appointments_by_hour.get(hour, 0),
+        }
+        for hour in range(first_appointment_hour, last_appointment_hour + 1)
+    ]
 
     # ─── WALK-IN VS PORTAL APPOINTMENTS DATA (This Week, branch-specific) ───
     appointment_source_data = [
@@ -2205,25 +2191,27 @@ def receptionist_dashboard_view(request):
             **product_branch_filter
         ).count()
 
-    # ─── PRODUCT CATEGORY SALES (This Week, own branch) ───
+    # ─── MOST-ORDERED PRODUCT CATEGORIES (This Week, own branch) ───
     if pos_restricted_no_branch:
-        category_sales = []
+        product_category_orders = []
     else:
-        category_sales_query = SaleItem.objects.filter(
+        product_category_orders_query = SaleItem.objects.filter(
             sale__created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
-            sale__status='COMPLETED',
+            sale__status=Sale.Status.COMPLETED,
+            item_type__in=(SaleItem.ItemType.PRODUCT, SaleItem.ItemType.MEDICATION),
+            product__isnull=False,
             **sale_own_branch_filter
-        ).values('item_type').annotate(
-            count=Count('id'),
-            total=Sum(F('quantity') * F('unit_price'))
-        ).order_by('-total')
+        ).values('product__item_type').annotate(
+            units_sold=Sum('quantity'),
+        ).order_by('-units_sold', 'product__item_type')
         
-        category_sales = []
-        for item in category_sales_query:
-            category_sales.append({
-                'type': item['item_type'],
-                'count': item['count'],
-                'total': float(item['total']) if item['total'] else 0
+        product_category_orders = []
+        product_category_labels = dict(Product.ITEM_TYPE_CHOICES)
+        for item in product_category_orders_query:
+            category = item['product__item_type']
+            product_category_orders.append({
+                'category': product_category_labels.get(category, category),
+                'units_sold': item['units_sold'],
             })
 
     # ─── HOURLY SALES TREND (Today, branch-specific) ───
@@ -2276,8 +2264,6 @@ def receptionist_dashboard_view(request):
         'annual_registered_revenue': annual_registered_revenue,
         'annual_walkin_revenue': annual_walkin_revenue,
         'revenue_year': today.year,
-        'revenue_trend_data': json.dumps(revenue_trend_data, cls=DjangoJSONEncoder),
-        'revenue_trend_period': f'June - December {today.year}',
         'registered_sales_today': float(registered_sales_today) if registered_sales_today else 0,
         'walkin_sales_today': float(walkin_sales_today) if walkin_sales_today else 0,
 
@@ -2310,7 +2296,9 @@ def receptionist_dashboard_view(request):
         'low_stock_products': low_stock_products,
         'low_stock_count': low_stock_count,
         'low_stock_threshold': get_inventory_low_stock_threshold(),
-        'category_sales': json.dumps(category_sales, cls=DjangoJSONEncoder),
+        'product_category_orders': json.dumps(
+            product_category_orders, cls=DjangoJSONEncoder
+        ),
         
         # Receptionist dashboard chart data
         'appointment_hourly_data': json.dumps(hourly_distribution, cls=DjangoJSONEncoder),

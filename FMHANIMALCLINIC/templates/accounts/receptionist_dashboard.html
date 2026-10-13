@@ -424,12 +424,12 @@
   position: relative;
 }
 
-.chart-body.revenue-trend-body {
+.chart-body.appointment-volume-body {
   height: 380px;
 }
 
 @media (max-width: 700px) {
-  .chart-body.revenue-trend-body {
+  .chart-body.appointment-volume-body {
     height: 300px;
   }
 }
@@ -966,37 +966,17 @@
 <!-- MAIN CHARTS SECTION -->
 <div class="charts-section">
   
-  <!-- ROW 1: Branch Revenue Trend -->
+  <!-- ROW 1: Today's Appointment Volume -->
   <div class="charts-row full-width">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-line-chart'></i>
-          <span>FMH Animal Clinic{% if user_branch %} - {{ user_branch.name }}{% endif %} Revenue Trend</span>
-        </div>
-        <div class="chart-badge emerald">{{ revenue_trend_period }}</div>
-      </div>
-      <div class="chart-body revenue-trend-body">
-        <canvas id="monthlyRevenueChart"></canvas>
-        <div id="monthlyRevenueEmpty" class="chart-empty-state" style="display: none;">
-          <i class='bx bx-bar-chart-alt-2'></i>
-          <span>No completed sales from {{ revenue_trend_period }}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ROW 2: Today's Appointment Flow & Sales by Item Type -->
-  <div class="charts-row">
-    <div class="chart-card-modern">
-      <div class="chart-header">
-        <div class="chart-title">
           <i class='bx bx-time-five'></i>
-          <span>Today's Appointment Flow</span>
+          <span>Hourly Appointment Volume / Peak Traffic Today</span>
         </div>
-        <div class="chart-badge blue">Pending &amp; Confirmed</div>
+        <div class="chart-badge blue">Pending &amp; Confirmed · Today</div>
       </div>
-      <div class="chart-body">
+      <div class="chart-body appointment-volume-body">
         <canvas id="appointmentHourlyChart"></canvas>
         <div id="appointmentHourlyEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-calendar-x'></i>
@@ -1004,27 +984,27 @@
         </div>
       </div>
     </div>
-    
+  </div>
+
+  <!-- ROW 2: Sales and Booking Insights -->
+  <div class="charts-row three-col">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-category'></i>
-          <span>Sales by Item Type</span>
+          <span>Most-Ordered Product Categories</span>
         </div>
-        <div class="chart-badge purple">This Week</div>
+        <div class="chart-badge purple">{% if user_branch %}{{ user_branch.name }}{% else %}No branch assigned{% endif %} · This Week</div>
       </div>
       <div class="chart-body">
         <canvas id="categorySalesChart"></canvas>
         <div id="categorySalesEmpty" class="chart-empty-state" style="display: none;">
           <i class='bx bx-category'></i>
-          <span>No sales data this week</span>
+          <span>No product orders this week</span>
         </div>
       </div>
     </div>
-  </div>
-  
-  <!-- ROW 3: Booking Source & Top 5 Selling Products -->
-  <div class="charts-row">
+
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
@@ -1041,7 +1021,7 @@
         </div>
       </div>
     </div>
-    
+
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
@@ -1329,7 +1309,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Graceful fallback when Chart.js CDN is unavailable
   if (typeof Chart === 'undefined') {
     [
-      ['monthlyRevenueChart', 'monthlyRevenueEmpty'],
       ['appointmentHourlyChart', 'appointmentHourlyEmpty'],
       ['topProductsChart', 'topProductsEmpty'],
       ['categorySalesChart', 'categorySalesEmpty'],
@@ -1340,78 +1319,13 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 1. BRANCH REVENUE TREND (June-December)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const monthlyRevenueCtx = document.getElementById('monthlyRevenueChart');
-  if (monthlyRevenueCtx) {
-    const revenueData = {{ revenue_trend_data|safe }};
-    if (revenueData.some(item => item.revenue > 0)) {
-      const context = monthlyRevenueCtx.getContext('2d');
-      const revenueGradient = context.createLinearGradient(0, 0, 0, 300);
-      revenueGradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
-      revenueGradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
-
-      new Chart(monthlyRevenueCtx, {
-        type: 'line',
-        data: {
-          labels: revenueData.map(item => item.month),
-          datasets: [{
-            label: 'Revenue',
-            data: revenueData.map(item => item.revenue),
-            borderColor: '#10b981',
-            backgroundColor: revenueGradient,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: '#10b981',
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              ...commonTooltip,
-              callbacks: {
-                label: context => `Revenue: ₱${Number(context.raw).toLocaleString()}`
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
-            },
-            y: {
-              beginAtZero: true,
-              grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: {
-                color: '#94a3b8',
-                callback: value => `₱${Number(value).toLocaleString()}`
-              }
-            }
-          }
-        }
-      });
-    } else {
-      showEmptyState('monthlyRevenueChart', 'monthlyRevenueEmpty');
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // 2. TODAY'S APPOINTMENT FLOW (Pending and Confirmed by Hour)
+  // 1. TODAY'S APPOINTMENT VOLUME BY HOUR
   // ═══════════════════════════════════════════════════════════════════════
 
   const appointmentHourlyCtx = document.getElementById('appointmentHourlyChart');
   if (appointmentHourlyCtx) {
     const hourlyData = {{ appointment_hourly_data|safe }};
-    if (hourlyData.length > 0) {
+    if (hourlyData.some(item => item.count > 0)) {
       new Chart(appointmentHourlyCtx, {
         type: 'bar',
         data: {
@@ -1419,7 +1333,8 @@ document.addEventListener('DOMContentLoaded', function() {
           datasets: [{
             label: 'Scheduled appointments',
             data: hourlyData.map(item => item.count),
-            backgroundColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.82)',
+            hoverBackgroundColor: '#2563eb',
             borderRadius: 6,
             borderSkipped: false
           }]
@@ -1511,90 +1426,50 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 4. SALES BY ITEM TYPE DOUGHNUT CHART
+  // 4. MOST-ORDERED PRODUCT CATEGORIES
   // ═══════════════════════════════════════════════════════════════════════
 
   const categorySalesCtx = document.getElementById('categorySalesChart');
   if (categorySalesCtx) {
-    const categoryData = {{ category_sales|safe }};
+    const categoryData = {{ product_category_orders|safe }};
     const hasData = categoryData && categoryData.length > 0;
-    
-    const categoryColors = {
-      'SERVICE': '#8b5cf6',
-      'PRODUCT': '#3b82f6',
-      'MEDICATION': '#10b981'
-    };
-    
-    const categoryLabels = {
-      'SERVICE': 'Services',
-      'PRODUCT': 'Products',
-      'MEDICATION': 'Medications'
-    };
-    
+
     if (hasData) {
-      const total = categoryData.reduce((sum, c) => sum + c.total, 0);
-      
       new Chart(categorySalesCtx, {
-        type: 'doughnut',
+        type: 'bar',
         data: {
-          labels: categoryData.map(c => categoryLabels[c.type] || c.type),
+          labels: categoryData.map(category => category.category),
           datasets: [{
-            data: categoryData.map(c => c.total),
-            backgroundColor: categoryData.map(c => categoryColors[c.type] || '#94a3b8'),
-            borderColor: '#ffffff',
-            borderWidth: 3,
-            hoverOffset: 10
+            label: 'Units ordered',
+            data: categoryData.map(category => category.units_sold),
+            backgroundColor: 'rgba(139, 92, 246, 0.82)',
+            hoverBackgroundColor: '#7c3aed',
+            borderRadius: 6,
+            borderSkipped: false
           }]
         },
         options: {
+          indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
-          cutout: '60%',
-          animation: {
-            animateRotate: true,
-            animateScale: true,
-            duration: 1500,
-            easing: 'easeInOutCubic',
-            delay: (context) => context.dataIndex * 150
-          },
           plugins: {
-            legend: {
-              display: true,
-              position: 'bottom',
-              labels: {
-                padding: 16,
-                usePointStyle: true,
-                pointStyle: 'circle',
-                font: { size: 11, weight: '600' },
-                color: isGlobalDark ? '#ffffff' : '#64748b',
-                generateLabels: function(chart) {
-                  const data = chart.data;
-                  return data.labels.map((label, i) => {
-                    const value = data.datasets[0].data[i];
-                    const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
-                    return {
-                      text: `${label}: ₱${value.toLocaleString()} (${pct}%)`,
-                      fillStyle: data.datasets[0].backgroundColor[i],
-                      strokeStyle: data.datasets[0].backgroundColor[i],
-                      lineWidth: 0,
-                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
-                      color: isGlobalDark ? '#ffffff' : '#64748b',
-                      pointStyle: 'circle',
-                      hidden: false,
-                      index: i
-                    };
-                  });
-                }
-              }
-            },
+            legend: { display: false },
             tooltip: {
               ...commonTooltip,
               callbacks: {
-                label: ctx => {
-                  const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                  return `₱${ctx.raw.toLocaleString()} (${pct}%)`;
-                }
+                label: context => `${context.raw} units ordered`
               }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: { precision: 0, stepSize: 1, color: '#94a3b8' }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
             }
           }
         }
