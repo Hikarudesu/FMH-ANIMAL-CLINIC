@@ -1771,6 +1771,7 @@ def receptionist_dashboard_view(request):
     from appointments.models import Appointment
     from patients.models import Pet
     from pos.models import Sale, Payment, SaleItem
+    from employees.models import StaffMember
     from django.db.models.functions import TruncMonth
     from notifications.models import Notification
     from inventory.models import Product, StockAdjustment
@@ -1814,6 +1815,25 @@ def receptionist_dashboard_view(request):
     inventory_restricted_no_branch = not user_branch
     patients_restricted_no_branch = not user_branch
 
+    # Summary metrics shown in the receptionist dashboard are branch-scoped.
+    if user_branch:
+        branch_staff = StaffMember.objects.filter(branch=user_branch)
+        inventory_products = Product.objects.filter(branch=user_branch)
+        total_staff = branch_staff.count()
+        active_staff = branch_staff.filter(is_active=True).count()
+        total_inventory_value = inventory_products.aggregate(
+            total=Sum(
+                ExpressionWrapper(
+                    F('stock_quantity') * F('price'),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                )
+            )
+        )['total'] or Decimal('0.00')
+    else:
+        total_staff = 0
+        active_staff = 0
+        total_inventory_value = Decimal('0.00')
+
     # ── Today's appointments (branch-specific) ──
     if appt_restricted_no_branch:
         todays_appointments = Appointment.objects.none()
@@ -1827,6 +1847,26 @@ def receptionist_dashboard_view(request):
     today_count = todays_appointments.count()
     today_confirmed = todays_appointments.filter(status='CONFIRMED').count()
     today_pending = todays_appointments.filter(status='PENDING').count()
+
+    month_start = today.replace(day=1)
+    next_month_start = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_end = next_month_start - timedelta(days=1)
+    if appt_restricted_no_branch:
+        completed_visits_this_month = 0
+        scheduled_appointments_this_month = 0
+    else:
+        completed_visits_this_month = Appointment.objects.filter(
+            appointment_date__range=(month_start, today),
+            status=Appointment.Status.COMPLETED,
+            pet__isnull=False,
+            **appt_filter,
+        ).count()
+        scheduled_appointments_this_month = Appointment.objects.filter(
+            appointment_date__range=(today, month_end),
+            status__in=(Appointment.Status.PENDING, Appointment.Status.CONFIRMED),
+            pet__isnull=False,
+            **appt_filter,
+        ).count()
 
     # ── Today's sales statistics (branch-specific) ──
     if pos_restricted_no_branch:
@@ -2219,6 +2259,11 @@ def receptionist_dashboard_view(request):
         'today_count': today_count,
         'today_confirmed': today_confirmed,
         'today_pending': today_pending,
+        'total_staff': total_staff,
+        'active_staff': active_staff,
+        'total_inventory_value': total_inventory_value,
+        'completed_visits_this_month': completed_visits_this_month,
+        'scheduled_appointments_this_month': scheduled_appointments_this_month,
         'pending_appointments': pending_appointments,
         'pending_reservations': pending_reservations,
 

@@ -67,6 +67,44 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
             assigned_role=role,
             branch=branch,
         )
+
+        def create_staff(username, first_name, last_name, branch, is_active=True):
+            staff_user = get_user_model().objects.create_user(
+                username=username,
+                password='A-secure-test-password-923!',
+                assigned_role=role,
+                branch=branch,
+            )
+            return StaffMember.objects.create(
+                first_name=first_name,
+                last_name=last_name,
+                position=StaffMember.Position.RECEPTIONIST,
+                branch=branch,
+                is_active=is_active,
+                user=staff_user,
+            )
+
+        create_staff(
+            'pilar-active-staff', 'Pilar', 'Active', branch, is_active=True
+        )
+        create_staff(
+            'pilar-inactive-staff', 'Pilar', 'Inactive', branch, is_active=False
+        )
+        create_staff(
+            'other-branch-staff', 'Other', 'Branch', other_branch, is_active=True
+        )
+        Product.objects.create(
+            name='Pilar inventory',
+            price=30,
+            stock_quantity=2,
+            branch=branch,
+        )
+        Product.objects.create(
+            name='Other branch inventory',
+            price=100,
+            stock_quantity=10,
+            branch=other_branch,
+        )
         current_year = timezone.localdate().year
 
         for sale_branch, month, amount, status, customer_type in (
@@ -124,21 +162,26 @@ class ReceptionistDashboardRevenueTrendTests(TestCase):
         self.assertContains(response, f'June - December {current_year}')
         self.assertContains(response, 'id="monthlyRevenueChart"')
         self.assertContains(response, 'Sales Revenue This Year')
-        self.assertContains(response, "Today's Appointments")
-        self.assertContains(response, 'Sales Today')
-        self.assertContains(response, 'Low Stock Items')
-        self.assertContains(response, 'Registered Customers')
-        self.assertContains(response, 'Walk-in Customers')
         self.assertContains(
             response,
-            'grid-template-columns: repeat(4, 1fr)',
+            'grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr)',
         )
         self.assertContains(response, '<div class="hero-stats">')
         self.assertNotContains(response, 'receptionist-hero-stats')
-        self.assertNotContains(response, 'hero-stat-featured')
-        self.assertNotContains(response, 'hero-stat-compact')
+        self.assertContains(response, 'hero-stat-card hero-stat-featured')
+        self.assertContains(response, '<div class="hero-stat-stack">')
         self.assertEqual(response.content.count(b'class="hero-stat-card'), 4)
-        self.assertNotContains(response, 'hero-stat-side')
+        self.assertContains(response, 'Completed sales, year to date')
+        self.assertContains(response, 'Active Staff')
+        self.assertContains(response, 'Total Inventory Value')
+        self.assertContains(response, 'Estimated at selling price')
+        self.assertContains(response, 'Completed Visits This Month')
+        self.assertContains(response, '1 of 2 active')
+        self.assertEqual(response.context['active_staff'], 1)
+        self.assertEqual(response.context['total_staff'], 2)
+        self.assertEqual(response.context['total_inventory_value'], 60)
+        self.assertEqual(response.context['completed_visits_this_month'], 0)
+        self.assertEqual(response.context['scheduled_appointments_this_month'], 0)
         self.assertNotContains(response, 'Last 7 Days')
 
 
