@@ -13,6 +13,11 @@ Usage:
         {{ title }}
       </h1>
       {% if subtitle %}<p>{{ subtitle|safe }}</p>{% endif %}
+      {% if show_branch_badge and user.branch %}
+      <div class="branch-badge-modern">
+        <i class='bx bx-map-pin'></i> {{ user.branch.name }} — {{ user.branch.city }}
+      </div>
+      {% endif %}
     </div>
     {% if action_url or action_url_2 or action_button or action_button_label %}
     <div class="page-hero-actions">

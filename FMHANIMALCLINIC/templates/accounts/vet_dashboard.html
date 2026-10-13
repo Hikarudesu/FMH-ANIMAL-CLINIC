@@ -7,9 +7,7 @@
 {% block content %}
 
 <!-- Page Header -->
-{% url 'appointments:admin_list' as appt_url %}
-{% url 'patients:admin_list' as patient_url %}
-{% include "components/page_hero.html" with title=dashboard_title|default:"Veterinarian Dashboard" icon="bx-plus-medical" subtitle="Manage your patients, appointments, and schedule" action_url=appt_url action_label="View Appointments" action_icon="bx-calendar-plus" action_url_2=patient_url action_label_2="View Patients" action_icon_2="bxs-dog" %}
+{% include "components/page_hero.html" with title=dashboard_title|default:"Veterinarian Dashboard" icon="bx-plus-medical" subtitle="Manage your patients, appointments, and schedule" %}
 
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <!-- MODERN VET DASHBOARD - REDESIGNED TO MATCH ADMIN/USER PORTAL -->

@@ -278,8 +278,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(response.context['completed_visits_this_month'], 0)
         self.assertEqual(response.context['scheduled_appointments_this_month'], 0)
         self.assertContains(response, 'Front Desk')
-        self.assertContains(response, 'New Appointment')
-        self.assertContains(response, 'New Sale')
+        self.assertNotContains(response, 'page-hero-actions')
         self.assertContains(
             response,
             f'href="{reverse("accounts:receptionist_dashboard")}"',
@@ -372,6 +371,7 @@ class VetDashboardContentTests(TestCase):
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, dashboard_title)
+                self.assertNotContains(response, 'page-hero-actions')
                 self.assertNotContains(response, 'Clinical Insights')
                 self.assertNotContains(response, 'Patient Flow')
                 self.assertNotContains(response, 'Clinical Activity')
@@ -433,7 +433,7 @@ class UserPortalDashboardTests(TestCase):
         self.assertIn('appointment-history-row', response.content.decode())
         self.assertContains(response, 'Monthly Spending')
         self.assertContains(response, 'Appointment History')
-        self.assertContains(response, 'Completed appointments per month')
+        self.assertContains(response, 'Completed visits per month')
         self.assertNotContains(response, 'Appointment Status')
         self.assertNotContains(response, 'appointmentStatusChart')
         self.assertNotContains(response, 'page-hero-actions')
@@ -524,6 +524,11 @@ class UserPortalDashboardTests(TestCase):
         response = self.client.get(reverse('accounts:user_dashboard'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Appointment History Branch')
+        page_hero = response.content.decode().split(
+            '<div class="page-hero">', 1
+        )[1].split('</div>\n</div>', 1)[0]
+        self.assertIn('branch-badge-modern', page_hero)
         appointment_history = json.loads(
             response.context['appointment_history_json']
         )

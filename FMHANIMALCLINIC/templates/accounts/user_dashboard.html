@@ -388,6 +388,14 @@
     color: var(--text-color, var(--text-1));
   }
 
+  .chart-description {
+    padding: 14px 24px 0;
+    margin: 0;
+    color: var(--text-3);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
   [data-theme="dark"] .chart-title span {
     color: #ffffff !important;
   }
@@ -930,6 +938,14 @@
     color: var(--primary);
     margin-bottom: 24px;
   }
+
+  .page-hero .branch-badge-modern {
+    margin: 14px 0 0;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+  }
   
   .branch-badge-modern i {
     font-size: 16px;
@@ -1000,14 +1016,7 @@
 {% endif %}
 
 <!-- Page Hero -->
-{% include "components/page_hero.html" with title="Dashboard" subtitle="Welcome back! Here's an overview of your pet care" icon="bxs-dashboard" %}
-
-<!-- Branch Badge -->
-{% if user.branch %}
-<div class="branch-badge-modern">
-  <i class='bx bx-map-pin'></i> {{ user.branch.name }} — {{ user.branch.city }}
-</div>
-{% endif %}
+{% include "components/page_hero.html" with title="Dashboard" subtitle="Welcome back! Here's an overview of your pet care" icon="bxs-dashboard" show_branch_badge=True %}
 
 <!-- HERO STATS ROW -->
 <div class="hero-stats">
@@ -1148,7 +1157,7 @@
         </div>
         <div class="chart-badge blue">Last 6 Months</div>
       </div>
-      <p class="chart-description">Completed appointments per month</p>
+      <p class="chart-description">Completed visits per month</p>
       <div class="chart-body">
         <canvas id="appointmentHistoryChart"></canvas>
       </div>
