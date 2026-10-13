@@ -552,23 +552,23 @@
 
 <!-- Delete Patient Modal -->
 <div class="modal-overlay" id="deletePetModal">
-  <div class="modal-content" style="max-width: 480px;">
+  <div class="modal-content" role="alertdialog" aria-modal="true" aria-labelledby="deletePetTitle" style="max-width: 480px;">
     <div class="modal-header">
-      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Delete Patient</h3>
+      <h3 id="deletePetTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Archive Patient</h3>
       <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
     </div>
     <form id="deletePetForm" method="post" action="">
       {% csrf_token %}
       <div class="modal-body" style="text-align: center; padding-top: 30px;">
         <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
-        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="deletePetName"></span>?</h4>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Move <span id="deletePetName"></span> to Archive?</h4>
         <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
-          Are you completely sure you want to delete this patient? This action cannot be undone.
+          This patient and its medical history will be kept in the Archive for 30 days, then permanently deleted.
         </p>
       </div>
       <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
         <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
-        <button type="submit" class="btn-submit">Yes, Delete Patient</button>
+        <button type="submit" class="btn-submit">Move to Archive</button>
       </div>
     </form>
   </div>

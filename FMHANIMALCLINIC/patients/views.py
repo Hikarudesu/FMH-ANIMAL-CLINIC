@@ -476,7 +476,7 @@ def delete_pet_view(request, pk):
         pet.delete()
         messages.success(request, f'{name} was moved to the archive for 30 days.')
         return redirect('patients:my_pets')
-    return render(request, 'patients/pet_confirm_delete.html', {'pet': pet})
+    return redirect('patients:my_pets')
 
 
 @login_required

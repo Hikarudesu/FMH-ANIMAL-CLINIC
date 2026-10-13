@@ -286,9 +286,9 @@
         <i class='bx bx-file-blank'></i> Medical Record
       </a>
       {% endif %}
-      <a href="{% url 'patients:delete_pet' pet.pk %}" class="upd-hero-btn ghost">
+      <button type="button" class="upd-hero-btn ghost pet-delete-trigger" data-delete-url="{% url 'patients:delete_pet' pet.pk %}" data-pet-name="{{ pet.name }}">
         <i class='bx bx-trash'></i> Remove
-      </a>
+      </button>
     </div>
   </div>
 </div>
@@ -441,4 +441,5 @@
 
 </div>
 
+{% include 'patients/partials/pet_delete_modal.html' %}
 {% endblock %}

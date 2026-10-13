@@ -177,3 +177,35 @@ class BranchRestrictedPatientListTests(TestCase):
             [pet.pk for pet in response.context['pets']],
             [self.pet.pk],
         )
+
+
+class PetDeleteConfirmationModalTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(
+            username='pet-delete-owner',
+            email='pet-delete-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.pet = Pet.objects.create(
+            owner=self.owner,
+            name='Modal Patient',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        self.client.force_login(self.owner)
+
+    def test_delete_url_redirects_instead_of_showing_confirmation_page(self):
+        response = self.client.get(reverse('patients:delete_pet', args=[self.pet.pk]))
+
+        self.assertRedirects(response, reverse('patients:my_pets'))
+
+    def test_owner_pet_pages_render_the_delete_modal(self):
+        list_response = self.client.get(reverse('patients:my_pets'))
+        detail_response = self.client.get(
+            reverse('patients:user_pet_detail', args=[self.pet.pk]),
+        )
+
+        self.assertContains(list_response, 'petDeleteModal')
+        self.assertContains(list_response, 'data-pet-name="Modal Patient"')
+        self.assertContains(detail_response, 'petDeleteModal')
+        self.assertContains(detail_response, 'data-pet-name="Modal Patient"')

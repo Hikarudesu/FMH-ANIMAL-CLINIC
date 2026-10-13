@@ -791,9 +791,9 @@ border-color: var(--primary);
           <a href="{% url 'patients:edit_pet' pet.pk %}" class="premium-action-btn edit" title="Edit">
             <i class='bx bx-edit'></i>
           </a>
-          <a href="{% url 'patients:delete_pet' pet.pk %}" class="premium-action-btn delete" title="Delete">
+          <button type="button" class="premium-action-btn delete pet-delete-trigger" title="Delete" data-delete-url="{% url 'patients:delete_pet' pet.pk %}" data-pet-name="{{ pet.name }}" aria-label="Delete {{ pet.name }}">
             <i class='bx bx-trash'></i>
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -847,9 +847,9 @@ border-color: var(--primary);
           <a href="{% url 'patients:edit_pet' pet.pk %}" class="premium-action-btn inactive-edit" title="Edit">
             <i class='bx bx-edit'></i>
           </a>
-          <a href="{% url 'patients:delete_pet' pet.pk %}" class="premium-action-btn inactive-delete" title="Delete">
+          <button type="button" class="premium-action-btn inactive-delete pet-delete-trigger" title="Delete" data-delete-url="{% url 'patients:delete_pet' pet.pk %}" data-pet-name="{{ pet.name }}" aria-label="Delete {{ pet.name }}">
             <i class='bx bx-trash'></i>
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -1225,5 +1225,7 @@ border-color: var(--primary);
   });
 })();
 </script>
+
+{% include 'patients/partials/pet_delete_modal.html' %}
 
 {% endblock %}
