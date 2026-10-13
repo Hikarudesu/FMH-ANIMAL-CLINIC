@@ -169,7 +169,7 @@
     </div>
   </div>
   
-  <!-- ROW 2: Patient Health Status & Monthly Performance -->
+  <!-- ROW 2: Patient Health Status -->
   <div class="charts-row">
     <div class="chart-card-modern">
       <div class="chart-header">
@@ -183,189 +183,7 @@
         <canvas id="patientHealthChart"></canvas>
       </div>
     </div>
-    
-    <div class="chart-card-modern large">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-line-chart'></i>
-          <span>Monthly Performance</span>
-        </div>
-        <div class="chart-badge orange">Last 6 Months</div>
-      </div>
-      <p class="chart-description">Total number of patient visits per month</p>
-      <div class="chart-body">
-        <canvas id="monthlyPerformanceChart"></canvas>
-      </div>
-    </div>
   </div>
-</div>
-
-<!-- TODAY'S SCHEDULE & APPOINTMENTS (MY APPOINTMENTS) -->
-{% if user.assigned_role.code != 'assistant_veterinarian' %}
-<div class="schedule-section">
-  <div class="section-title">
-    <i class='bx bx-user-pin'></i>
-    <span>My Appointments &amp; Any Available Vet Today</span>
-    <a href="{% url 'appointments:admin_list' %}" class="section-link">View All <i class='bx bx-right-arrow-alt'></i></a>
-  </div>
-  
-  <div class="schedule-table-wrapper">
-    {% if todays_appointments %}
-    <table class="schedule-table">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Patient</th>
-          <th>Owner</th>
-          <th>Reason</th>
-          <th>Branch</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for appt in todays_appointments %}
-        <tr>
-          <td>
-            <span class="time-badge">{{ appt.appointment_time_display }}</span>
-          </td>
-          <td>
-            <div class="patient-info">
-              <i class='bx bxs-dog'></i>
-              <span>
-                {{ appt.pet_name }}
-                {% if not appt.preferred_vet %}
-                <small style="display:block; color:var(--text-3);">Any Available Vet</small>
-                {% endif %}
-              </span>
-            </div>
-          </td>
-          <td>{{ appt.owner_name }}</td>
-          <td><span class="reason-tag">{{ appt.reason_display }}</span></td>
-          <td><span class="branch-tag">{{ appt.branch.name }}</span></td>
-          <td><span class="status-pill {{ appt.status|lower }}">{{ appt.get_status_display }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-schedule">
-      <i class='bx bx-calendar-check'></i>
-      <h4>No appointments assigned to you today</h4>
-      <p>Your schedule is clear for today. Enjoy your break!</p>
-    </div>
-    {% endif %}
-  </div>
-</div>
-{% endif %}
-
-<!-- THIS WEEK'S SCHEDULE SECTION -->
-<div class="schedule-section">
-  <div class="section-title">
-    <i class='bx bx-calendar-week'></i>
-    <span>This Week's Schedule</span>
-    <a href="{% url 'employees:schedule' %}" class="section-link">Full Schedule <i class='bx bx-right-arrow-alt'></i></a>
-  </div>
-  
-  <div class="schedule-table-wrapper">
-    {% if this_week_schedule %}
-    <table class="schedule-table">
-      <thead>
-        <tr>
-          <th>Day</th>
-          <th>Date</th>
-          <th>Start Time</th>
-          <th>End Time</th>
-          <th>Branch</th>
-          <th>Shift</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for schedule in this_week_schedule %}
-        <tr>
-          <td>
-            <span class="day-name {% if schedule.date|is_today %}today{% endif %}">
-              {{ schedule.date|date:"l" }}
-              {% if schedule.date|is_today %}<span class="today-indicator">Today</span>{% endif %}
-            </span>
-          </td>
-          <td>
-            <span class="date-badge">{{ schedule.date|date:"M j, Y" }}</span>
-          </td>
-          <td>
-            <span class="time-badge">{{ schedule.start_time|time:"g:i A" }}</span>
-          </td>
-          <td>
-            <span class="time-badge">{{ schedule.end_time|time:"g:i A" }}</span>
-          </td>
-          <td><span class="branch-tag">{{ schedule.branch.name }}</span></td>
-          <td><span class="shift-pill {{ schedule.shift_type|lower }}">{{ schedule.get_shift_type_display }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-schedule">
-      <i class='bx bx-calendar-x'></i>
-      <h4>No schedule this week</h4>
-      <p>Your schedule for this week has not been set yet.</p>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-<!-- UPCOMING APPOINTMENTS SECTION - Table Format -->
-<div class="schedule-section upcoming-section">
-  <div class="section-title">
-    <i class='bx bx-calendar-event'></i>
-    <span>Upcoming Appointments</span>
-    <span class="section-badge">{{ upcoming_count }} in next 7 days</span>
-  </div>
-
-  {% if upcoming_appointments %}
-  <div class="schedule-table-wrapper">
-    <table class="modern-dashboard-table">
-      <thead>
-        <tr>
-          <th>Date & Time</th>
-          <th>Patient</th>
-          <th>Owner</th>
-          <th>Branch</th>
-          <th>Reason</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for appt in upcoming_appointments %}
-        <tr>
-          <td>
-            <div class="table-date-time">
-              <strong>{{ appt.appointment_date|date:"M d, Y" }}</strong>
-              <span class="table-subtext"><i class='bx bx-time'></i> {{ appt.appointment_time_display }}</span>
-            </div>
-          </td>
-          <td>
-            <div class="table-patient-cell">
-              <span>{{ appt.pet_name }}</span>
-            </div>
-          </td>
-          <td>{{ appt.owner_name }}</td>
-          <td><span class="branch-tag small">{{ appt.branch.name }}</span></td>
-          <td><span class="reason-tag small">{{ appt.reason_display }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty-modern-card dash-fade visible" style="padding: 24px; text-align: left;">
-    <div style="text-align: center; padding: 20px 0 30px;">
-      <div class="empty-icon success" style="margin: 0 auto 16px;">
-        <i class='bx bx-check-circle'></i>
-      </div>
-      <h4 style="margin-bottom: 8px;">All caught up!</h4>
-      <p style="margin: 0; color: var(--text-light);">No upcoming appointments scheduled for the next 7 days.</p>
-    </div>
-  </div>
-  {% endif %}
 </div>
 
 <!-- PENDING FOLLOW-UPS SECTION -->
@@ -917,24 +735,6 @@
   /* SCHEDULE SECTION */
   /* ═══════════════════════════════════════════════ */
   
-  .schedule-section,
-  .week-schedule-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: var(--shadow-card);
-    margin-bottom: 28px;
-  }
-  
-  .schedule-section > .section-title,
-  .week-schedule-section > .section-title {
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 0;
-    background: transparent !important;
-  }
-  
   .schedule-table-wrapper {
     padding: 0;
     overflow-x: auto;
@@ -1134,14 +934,6 @@
     color: var(--text-3);
   }
 
-  /* ═══════════════════════════════════════════════ */
-  /* UPCOMING APPOINTMENTS SECTION */
-  /* ═══════════════════════════════════════════════ */
-  
-  .upcoming-section {
-    margin-bottom: 28px;
-  }
-  
   .upcoming-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1672,36 +1464,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Section titles
-    document.querySelectorAll('.schedule-section > .section-title').forEach(el => {
-      el.classList.add('dash-fade', 'from-left');
-    });
-    document.querySelectorAll('.week-schedule-section > .section-title').forEach(el => {
-      el.classList.add('dash-fade', 'from-left');
-    });
-    document.querySelectorAll('.upcoming-section > .section-title').forEach(el => {
-      el.classList.add('dash-fade', 'from-left');
-    });
     document.querySelectorAll('.followups-section > .section-title').forEach(el => {
       el.classList.add('dash-fade', 'from-left');
-    });
-    
-    // Schedule sections — whole section fades in as one unit
-    document.querySelectorAll('.schedule-section').forEach(el => {
-      el.classList.add('dash-fade');
     });
     
     // Table wrappers — fade in the whole table together (no per-row stagger)
     document.querySelectorAll('.schedule-table-wrapper').forEach(wrapper => {
       wrapper.classList.add('dash-fade');
-    });
-    
-    // Upcoming timeline — fade the whole timeline container as one unit
-    document.querySelectorAll('.upcoming-modern').forEach(el => {
-      el.classList.add('dash-fade');
-    });
-    
-    document.querySelectorAll('.upcoming-timeline').forEach(timeline => {
-      timeline.classList.add('dash-fade');
     });
     
     // Followup list — fade the whole list as one unit
@@ -2074,84 +1843,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // CHART 4: MONTHLY PERFORMANCE (Line Graph)
-  // Shows number of unique patients per month
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const monthlyPerformanceCtx = document.getElementById('monthlyPerformanceChart');
-  if (monthlyPerformanceCtx) {
-    const months         = {{ monthly_labels|safe }};
-    const registeredData = {{ monthly_registered|safe }};
-    const walkinData     = {{ monthly_walkin|safe }};
-
-    new Chart(monthlyPerformanceCtx, {
-      type: 'line',
-      data: {
-        labels: months,
-        datasets: [
-          {
-            label: 'Portal (Online)',
-            data: registeredData,
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            borderColor: '#10b981',
-            borderWidth: 3,
-            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
-            pointBorderColor: '#10b981',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            fill: true,
-            tension: 0.4
-          },
-          {
-            label: 'Walk-ins',
-            data: walkinData,
-            backgroundColor: 'rgba(56, 189, 248, 0.1)',
-            borderColor: '#38bdf8',
-            borderWidth: 3,
-            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
-            pointBorderColor: '#38bdf8',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            fill: true,
-            tension: 0.4
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-            labels: { usePointStyle: true, boxWidth: 8, font: { family: "'Inter', sans-serif", size: 12 } }
-          },
-          tooltip: commonTooltip
-        },
-        scales: {
-          x: {
-            grid: { display: false, drawBorder: false },
-            ticks: { font: { size: 12, weight: '500' } }
-          },
-          y: {
-            beginAtZero: true,
-            grid: { color: isGlobalDark ? '#334155' : '#e2e8f0', drawBorder: false, borderDash: [5,5] },
-            ticks: { font: { size: 11 }, precision: 0 }
-          }
-        },
-        animation: {
-          duration: 1400,
-          easing: 'easeInOutCubic',
-          delay(ctx) { return ctx.type === 'data' ? ctx.dataIndex * 100 : 0; }
-        }
-      }
-    });
   }
 
   // Start all animations after charts are ready

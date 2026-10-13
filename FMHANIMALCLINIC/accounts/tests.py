@@ -382,6 +382,10 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, 'Patient Flow')
                 self.assertNotContains(response, 'Clinical Activity')
                 self.assertNotContains(response, 'Monthly Summary')
+                self.assertNotContains(response, 'My Appointments &amp; Any Available Vet Today')
+                self.assertNotContains(response, "This Week's Schedule")
+                self.assertNotContains(response, 'Upcoming Appointments')
+                self.assertNotContains(response, 'monthlyPerformanceChart')
 
 
 @override_settings(
@@ -712,6 +716,62 @@ class AdminDashboardQuickInsightsTests(TestCase):
         self.assertContains(response, 'Top Services by Completed Sales')
         self.assertContains(response, 'All branches')
         self.assertContains(response, 'Total User Accounts')
+
+    def test_monthly_performance_chart_replaces_combined_revenue_chart(self):
+        admin = get_user_model().objects.create_superuser(
+            username='monthly-performance-admin',
+            email='monthly-performance-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        first_branch = Branch.objects.create(
+            name='Monthly Performance Branch One',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        second_branch = Branch.objects.create(
+            name='Monthly Performance Branch Two',
+            phone_number='09123456780',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        today = timezone.localdate()
+        for name, branch, source in (
+            ('Portal Patient One', first_branch, Pet.Source.PORTAL),
+            ('Portal Patient Two', second_branch, Pet.Source.PORTAL),
+            ('Walk-in Patient One', first_branch, Pet.Source.WALKIN),
+            ('Walk-in Patient Two', second_branch, Pet.Source.WALKIN),
+        ):
+            pet = Pet.objects.create(
+                branch=branch,
+                name=name,
+                species='Dog',
+                sex=Pet.Sex.MALE,
+                source=source,
+            )
+            pet.created_at = timezone.make_aware(
+                datetime.combine(today, time(12, 0))
+            )
+            pet.save(update_fields=['created_at'])
+
+        self.client.force_login(admin)
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        performance = json.loads(response.context['monthly_performance_data'])
+        self.assertEqual(len(performance['labels']), 6)
+        self.assertEqual(performance['labels'][-1], today.strftime('%b'))
+        self.assertEqual(performance['portal'][-1], 2)
+        self.assertEqual(performance['walkin'][-1], 2)
+        self.assertContains(response, 'Monthly Performance')
+        self.assertContains(response, 'New patient registrations by source')
+        self.assertContains(response, 'id="adminMonthlyPerformanceChart"')
+        self.assertNotContains(response, 'Combined Revenue Across All Branches')
+        self.assertNotContains(response, 'id="revenueChart"')
 
     def test_total_user_accounts_card_is_second_in_admin_dashboard(self):
         admin = get_user_model().objects.create_superuser(
