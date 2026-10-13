@@ -1851,20 +1851,23 @@ def receptionist_dashboard_view(request):
     todays_sales_count = todays_sales.count()
     todays_revenue = sum(sale.total for sale in todays_sales) if todays_sales else 0
 
-    def comparison_summary(current_value, previous_value, period_label):
+    def comparison_summary(current_value, previous_value, period_label, currency=False):
         """Format a signed period-over-period change, guarding zero baselines."""
         difference = current_value - previous_value
         if previous_value == 0:
-            if difference > 0:
+            if difference == 0:
                 return {
-                    'text': f'New vs {period_label}',
-                    'style': 'success',
-                    'icon': 'bx-trending-up',
+                    'text': f'No change vs {period_label}',
+                    'style': 'neutral',
+                    'icon': 'bx-minus',
                 }
+            sign = '+' if difference > 0 else '-'
+            amount = f'{abs(difference):,.0f}'
+            value = f'₱{amount}' if currency else amount
             return {
-                'text': f'No change vs {period_label}',
-                'style': 'neutral',
-                'icon': 'bx-minus',
+                'text': f'{sign}{value} vs {period_label}',
+                'style': 'success' if difference > 0 else 'danger',
+                'icon': 'bx-trending-up' if difference > 0 else 'bx-trending-down',
             }
 
         percentage = difference / previous_value * 100
@@ -2012,6 +2015,7 @@ def receptionist_dashboard_view(request):
         annual_revenue,
         previous_year_annual_revenue,
         'last year',
+        currency=True,
     )
 
     monthly_revenue_data = [

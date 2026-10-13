@@ -114,6 +114,50 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertNotContains(response, 'On-hand ·')
         self.assertNotContains(response, 'FMH Animal Clinic - Hero Comparison Branch')
 
+    def test_receptionist_comparisons_show_absolute_increase_when_baseline_is_zero(self):
+        branch = Branch.objects.create(
+            name='Zero Baseline Comparison Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        receptionist = get_user_model().objects.create_user(
+            username='zero-baseline-receptionist',
+            email='zero-baseline-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=Role.objects.get(code='receptionist'),
+            branch=branch,
+        )
+        sale = Sale.objects.create(
+            branch=branch,
+            total=125,
+            status=Sale.Status.COMPLETED,
+        )
+        sale.created_at = timezone.make_aware(
+            datetime.combine(date.today(), time(12, 0))
+        )
+        sale.save(update_fields=['created_at'])
+
+        self.client.force_login(receptionist)
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['monthly_transactions_comparison']['text'],
+            '+1 vs last month',
+        )
+        self.assertEqual(
+            response.context['daily_sales_comparison']['text'],
+            '+1 vs yesterday',
+        )
+        self.assertEqual(
+            response.context['annual_revenue_comparison']['text'],
+            '+₱125 vs last year',
+        )
+        self.assertNotContains(response, 'New vs')
+
     def test_receptionist_dashboard_charts_and_metrics_are_branch_scoped(self):
         branch = Branch.objects.create(
             name='Pilar Dashboard Branch',
@@ -320,10 +364,12 @@ class ReceptionistDashboardMetricsTests(TestCase):
         )
         self.assertContains(response, 'category-sales-body')
         self.assertContains(response, 'category-sales-header')
-        self.assertContains(response, 'padding: 8px 16px 10px')
-        self.assertContains(response, 'width: min(100%, 148px)')
+        self.assertContains(response, 'padding: 10px 18px 12px')
+        self.assertContains(response, 'width: min(100%, 164px)')
         self.assertContains(response, 'min-height: 0')
-        self.assertContains(response, '@container category-sales (max-width: 380px)')
+        self.assertContains(response, '.charts-row.appointments-category-row')
+        self.assertContains(response, '@container category-sales (max-width: 260px)')
+        self.assertContains(response, '@media (max-width: 760px)')
         self.assertContains(response, '@media (max-width: 640px)')
         self.assertNotContains(response, 'Total sales this month')
         self.assertNotContains(response, 'category-sales-total')

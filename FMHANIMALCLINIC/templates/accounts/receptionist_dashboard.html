@@ -295,11 +295,24 @@
   grid-template-columns: repeat(3, 1fr);
 }
 
+.charts-row.appointments-category-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 @media (max-width: 1024px) {
   .charts-row,
   .charts-row:nth-child(odd),
   .charts-row.equal { grid-template-columns: 1fr; }
   .charts-row.three-col { grid-template-columns: 1fr; }
+  .charts-row.appointments-category-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .charts-row.appointments-category-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .chart-card-modern {
@@ -401,22 +414,33 @@
 
 .chart-body.category-sales-body {
   height: auto;
-  padding: 8px 16px 10px;
+  padding: 10px 18px 12px;
   container: category-sales / inline-size;
+}
+
+.appointments-category-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  margin-top: 8px;
+}
+
+.monthly-appointments-card .chart-body {
+  height: 260px;
+  padding-top: 30px;
 }
 
 .category-sales-content {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: minmax(104px, 0.85fr) minmax(0, 1.15fr);
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-height: 0;
 }
 
 .category-sales-chart {
   position: relative;
   min-width: 0;
-  width: min(100%, 148px);
+  width: min(100%, 164px);
   aspect-ratio: 1;
   justify-self: center;
 }
@@ -466,15 +490,14 @@
   white-space: nowrap;
 }
 
-@container category-sales (max-width: 380px) {
+@container category-sales (max-width: 260px) {
   .category-sales-content {
     grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-    min-height: 0;
+    gap: 6px;
   }
 
   .category-sales-chart {
-    width: min(100%, 128px);
+    width: min(100%, 112px);
   }
 
   .category-sales-list {
@@ -1054,8 +1077,8 @@
   </div>
 
   <!-- ROW 2: Monthly Appointments & Sales by Category -->
-  <div class="charts-row">
-    <div class="chart-card-modern">
+  <div class="charts-row appointments-category-row">
+    <div class="chart-card-modern monthly-appointments-card">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-bar-chart-alt-2'></i>
