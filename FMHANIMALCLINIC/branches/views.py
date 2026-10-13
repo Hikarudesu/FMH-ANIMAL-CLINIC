@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.decorators import module_permission_required
+from employees.models import RecurringSchedule, StaffMember, VetSchedule
 from .models import Branch
 from .forms import BranchForm
 
@@ -91,9 +92,12 @@ def branch_toggle_status(request, pk):
         ):
             messages.warning(request, 'Complete both confirmations to make this branch inactive.')
             return redirect(f"{reverse('branches:list')}?status=active")
-        from employees.models import StaffMember
 
         with transaction.atomic():
+            replacement_branch = Branch.objects.filter(is_active=True).exclude(pk=branch.pk).order_by('name').first()
+            if replacement_branch:
+                VetSchedule.objects.filter(branch=branch).update(branch=replacement_branch)
+                RecurringSchedule.objects.filter(branch=branch).update(branch=replacement_branch)
             branch.is_active = False
             branch.save(update_fields=['is_active', 'updated_at'])
             get_user_model().objects.filter(branch=branch).update(branch=None)

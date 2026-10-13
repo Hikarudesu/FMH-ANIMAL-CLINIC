@@ -1,3 +1,5 @@
+from datetime import date, time
+
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
@@ -6,7 +8,7 @@ from django.urls import NoReverseMatch, reverse
 
 from branches.admin import BranchAdmin
 from branches.models import Branch
-from employees.models import StaffMember
+from employees.models import RecurringSchedule, StaffMember, VetSchedule
 from inventory.models import Product
 
 
@@ -158,6 +160,57 @@ class BranchStatusManagementTests(TestCase):
         self.assertEqual(response['Location'], '/branches/?status=active')
         self.inactive_branch.refresh_from_db()
         self.assertTrue(self.inactive_branch.is_active)
+
+    def test_deactivating_branch_moves_existing_schedules_to_an_active_branch(self):
+        replacement_branch = self.create_branch('Replacement Active Branch', is_active=True)
+        user = get_user_model().objects.create_user(
+            username='schedule-branch-owner',
+            email='schedule-branch-owner@example.com',
+            password='A-secure-test-password-923!',
+            branch=self.active_branch,
+        )
+        staff = StaffMember.objects.create(
+            user=user,
+            first_name='Schedule',
+            last_name='Owner',
+            email=user.email,
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.active_branch,
+        )
+        vet_schedule = VetSchedule.objects.create(
+            staff=staff,
+            date=date(2026, 10, 20),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+            branch=self.active_branch,
+        )
+        recurring_schedule = RecurringSchedule.objects.create(
+            staff=staff,
+            branch=self.active_branch,
+            day_of_week=RecurringSchedule.DayOfWeek.MONDAY,
+            start_time=time(8, 0),
+            end_time=time(12, 0),
+            shift_type=VetSchedule.ShiftType.GENERAL,
+            is_active=True,
+            effective_from=date(2026, 10, 1),
+            effective_until=date(2026, 10, 31),
+        )
+
+        response = self.client.post(
+            reverse('branches:toggle_status', args=[self.active_branch.pk]),
+            {
+                'confirm_deactivation': 'on',
+                'confirm_deactivation_final': 'on',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.active_branch.refresh_from_db()
+        self.assertFalse(self.active_branch.is_active)
+        vet_schedule.refresh_from_db()
+        recurring_schedule.refresh_from_db()
+        self.assertEqual(vet_schedule.branch, replacement_branch)
+        self.assertEqual(recurring_schedule.branch, replacement_branch)
 
     def test_inactive_branches_are_excluded_from_archive_and_payroll_dropdowns(self):
         active_branch = self.create_branch('Alpha Branch', is_active=True)
