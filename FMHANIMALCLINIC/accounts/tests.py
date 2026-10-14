@@ -112,7 +112,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, '-25.0% vs last year')
         self.assertContains(response, 'Year-over-year comparison unavailable')
         self.assertNotContains(response, 'On-hand ·')
-        self.assertNotContains(response, 'FMH Animal Clinic - Hero Comparison Branch')
+        self.assertContains(response, 'FMH Animal Clinic - Hero Comparison Branch')
 
     def test_receptionist_comparisons_show_absolute_increase_when_baseline_is_zero(self):
         branch = Branch.objects.create(
@@ -354,7 +354,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, 'id="monthlyAppointmentsChart"')
         self.assertContains(response, 'id="monthlyRevenueChart"')
         self.assertContains(response, 'Monthly Revenue')
-        self.assertContains(response, f'January - December {current_year}')
+        self.assertContains(response, f'Jan - Dec {current_year}')
         self.assertContains(response, 'Sales by Category')
         self.assertContains(response, 'This Month')
         self.assertContains(response, 'container-type: inline-size')
@@ -367,9 +367,12 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, 'category-sales-body')
         self.assertContains(response, 'category-sales-header')
         self.assertContains(response, 'padding: 10px 18px 12px')
-        self.assertContains(response, 'width: min(100%, 164px)')
+        self.assertContains(response, 'width: min(100%, 148px)')
         self.assertContains(response, 'min-height: 0')
-        self.assertContains(response, '.charts-row.appointments-category-row')
+        self.assertContains(response, '.charts-row.revenue-category-row')
+        self.assertContains(response, '.charts-row.appointments-sales-row')
+        self.assertContains(response, '<strong>Front Desk Dashboard</strong>')
+        self.assertNotContains(response, 'class="page-hero"')
         self.assertContains(response, '@container category-sales (max-width: 260px)')
         self.assertContains(response, '@media (max-width: 760px)')
         self.assertContains(response, '@media (max-width: 640px)')
