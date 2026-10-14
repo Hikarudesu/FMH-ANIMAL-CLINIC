@@ -829,7 +829,18 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotIn('visits_per_pet_json', response.context)
         self.assertNotContains(response, 'Pet Health Overview')
         self.assertNotContains(response, 'petHealthChart')
-        self.assertIn('appointment-history-row', response.content.decode())
+        dashboard_html = response.content.decode()
+        self.assertIn('appointment-history-row', dashboard_html)
+        self.assertIn('spending-activity-row', dashboard_html)
+        self.assertLess(
+            dashboard_html.index('Monthly Spending'),
+            dashboard_html.index('Appointment History'),
+        )
+        self.assertLess(
+            dashboard_html.index('Spending Breakdown'),
+            dashboard_html.index('Recent Activity'),
+        )
+        self.assertNotIn('chart-card-modern dash-fade', dashboard_html)
         self.assertContains(response, 'Monthly Spending')
         self.assertContains(response, 'Appointment History')
         self.assertContains(response, 'Completed visits per month')

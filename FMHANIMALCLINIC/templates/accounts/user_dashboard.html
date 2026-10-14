@@ -77,6 +77,15 @@
   .dash-fade.stagger-5 { transition-delay: 0.40s; }
   .dash-fade.stagger-6 { transition-delay: 0.48s; }
 
+  .portal-content {
+    padding: 18px;
+  }
+
+  .page-hero {
+    padding: 22px 24px;
+    margin-bottom: 18px;
+  }
+
   /* ═══════════════════════════════════════════════ */
   /* HERO STATS ROW */
   /* ═══════════════════════════════════════════════ */
@@ -84,8 +93,8 @@
   .hero-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    margin-bottom: 28px;
+    gap: 14px;
+    margin-bottom: 18px;
   }
   
   @media (max-width: 1200px) {
@@ -99,11 +108,11 @@
   .hero-stat-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 24px;
+    border-radius: 16px;
+    padding: 16px;
     display: flex;
     align-items: flex-start;
-    gap: 18px;
+    gap: 12px;
     position: relative;
     overflow: hidden;
     box-shadow: var(--shadow-card);
@@ -111,15 +120,15 @@
   }
   
   .hero-stat-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
     border-color: var(--primary);
   }
   
   .hero-stat-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -128,7 +137,7 @@
   }
   
   .hero-stat-icon i {
-    font-size: 26px;
+    font-size: 21px;
     color: white;
   }
   
@@ -151,7 +160,7 @@
   }
   
   .hero-stat-value {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 800;
     color: var(--text-1);
     letter-spacing: -1px;
@@ -159,7 +168,7 @@
   }
   
   .hero-stat-label {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-3);
     font-weight: 500;
   }
@@ -167,15 +176,15 @@
   .hero-stat-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 8px;
+    gap: 6px;
+    margin-top: 5px;
   }
   
   .meta-item {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--text-3);
   }
@@ -184,7 +193,7 @@
   .meta-item.warning { color: #f59e0b; }
   .meta-item.danger { color: #ef4444; }
   
-  .meta-item i { font-size: 14px; }
+  .meta-item i { font-size: 12px; }
 
   /* ═══════════════════════════════════════════════ */
   /* ALERT BANNER MODERN */
@@ -193,12 +202,12 @@
   .alert-banner-modern {
     background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
     border: 1px solid #fcd34d;
-    border-radius: 16px;
-    padding: 18px 24px;
-    margin-bottom: 28px;
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 12px;
     position: relative;
     box-shadow: var(--shadow-card);
   }
@@ -209,10 +218,10 @@
   }
   
   .alert-icon {
-    width: 48px;
-    height: 48px;
+    width: 38px;
+    height: 38px;
     background: #f59e0b;
-    border-radius: 14px;
+    border-radius: 11px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -224,7 +233,7 @@
   }
   
   .alert-icon i {
-    font-size: 24px;
+    font-size: 20px;
     color: white;
   }
   
@@ -294,14 +303,14 @@
   .charts-section {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    margin-bottom: 32px;
+    gap: 16px;
+    margin-bottom: 22px;
   }
   
   .charts-row {
     display: grid;
     grid-template-columns: 1.5fr 1fr;
-    gap: 24px;
+    gap: 16px;
   }
   
   .charts-row.equal {
@@ -309,35 +318,44 @@
   }
 
   .charts-row.appointment-history-row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   }
 
-  .appointment-history-row .chart-body {
-    height: 380px;
+  .charts-row.spending-activity-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
   }
-  
-  .charts-row:nth-child(2) {
-    grid-template-columns: 1fr 1.5fr;
+
+  .charts-row.upcoming-only-row {
+    grid-template-columns: minmax(0, 1fr);
   }
   
   @media (max-width: 992px) {
     .charts-row,
-    .charts-row:nth-child(2),
-    .charts-row.equal {
+    .charts-row.equal,
+    .charts-row.appointment-history-row,
+    .charts-row.spending-activity-row {
       grid-template-columns: 1fr;
     }
   }
 
   @media (max-width: 640px) {
-    .appointment-history-row .chart-body {
-      height: 280px;
+    .portal-content {
+      padding: 12px;
+      padding-top: calc(var(--topbar-h) + 10px);
+    }
+  }
+
+  @media (min-width: 641px) and (max-width: 768px) {
+    .portal-content {
+      padding: 16px;
+      padding-top: calc(var(--topbar-h) + 12px);
     }
   }
   
   .chart-card-modern {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 20px;
+    border-radius: 16px;
     overflow: hidden;
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
@@ -350,8 +368,8 @@
   }
   
   .chart-card-modern:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(0, 150, 136, 0.1);
     border-color: var(--primary);
   }
   
@@ -362,38 +380,44 @@
   .chart-card-modern.large {
     flex: 1.5;
   }
+
+  .charts-row > .chart-card-modern {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
   
   .chart-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 20px 24px;
+    gap: 9px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border);
   }
   
   .chart-title {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex: 1;
   }
   
   .chart-title i {
-    font-size: 20px;
+    font-size: 18px;
     color: var(--primary);
   }
   
   .chart-title span {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text-color, var(--text-1));
   }
 
   .chart-description {
-    padding: 14px 24px 0;
+    padding: 10px 18px 0;
     margin: 0;
     color: var(--text-3);
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.4;
   }
 
@@ -411,9 +435,9 @@
   .chart-badge {
     display: inline-flex;
     align-items: center;
-    padding: 6px 14px;
+    padding: 4px 10px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -453,7 +477,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--primary);
     text-decoration: none;
@@ -466,34 +490,82 @@
   }
   
   .chart-body {
-    padding: 24px;
-    height: 280px;
+    padding: 16px;
+    height: 240px;
     position: relative;
   }
+
+  .charts-row > .chart-card-modern > .chart-body {
+    flex: 1;
+  }
+
+  .appointment-history-row .chart-body {
+    min-height: 210px;
+  }
   
-  .chart-body.tall { height: 320px; }
-  .chart-body.short { height: 240px; }
-  .chart-body.wide { height: 260px; }
+  .chart-body.tall { height: 260px; }
+  .chart-body.short { height: 220px; }
+  .chart-body.wide { height: 230px; }
+
+  .spending-chart-body {
+    flex: 1;
+    min-height: 240px;
+  }
+
+  .chart-card-modern.activity-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .activity-card-body {
+    flex: 1;
+    padding: 8px 16px 12px;
+  }
+
+  .activity-card .activity-item-modern {
+    gap: 10px;
+    padding: 10px 0;
+  }
+
+  .activity-card .activity-icon-modern {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+  }
+
+  .activity-card .activity-icon-modern i {
+    font-size: 14px;
+  }
+
+  .activity-card .activity-action {
+    font-size: 12px;
+  }
+
+  .activity-card .activity-object,
+  .activity-card .activity-time {
+    font-size: 10px;
+  }
 
   /* ═══════════════════════════════════════════════ */
   /* SCHEDULE / APPOINTMENTS LIST */
   /* ═══════════════════════════════════════════════ */
   
   .schedule-section {
-    margin-bottom: 32px;
+    margin-bottom: 22px;
   }
   
   .schedule-list-modern {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
   
   .schedule-item {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 16px 20px;
+    gap: 12px;
+    padding: 12px 14px;
     background: var(--bg);
     border-radius: 14px;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -505,14 +577,14 @@
   }
   
   .schedule-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
     background: linear-gradient(135deg, #009688 0%, #00796b 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: white;
     flex-shrink: 0;
@@ -536,14 +608,14 @@
   }
   
   .schedule-pet-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--text-1);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
   
   .schedule-branch {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-3);
     display: flex;
     align-items: center;
@@ -553,7 +625,7 @@
   .schedule-meta {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
   }
   
   .schedule-datetime {
@@ -561,7 +633,7 @@
   }
   
   .schedule-date {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-1);
     display: flex;
@@ -578,9 +650,9 @@
   .status-badge-modern {
     display: inline-flex;
     align-items: center;
-    padding: 6px 12px;
+    padding: 4px 9px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -613,14 +685,14 @@
   .followup-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
   
   .followup-item {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 16px 20px;
+    gap: 12px;
+    padding: 12px 14px;
     background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fef3c7 100%);
     border: 1px solid #fcd34d;
     border-radius: 14px;
@@ -633,9 +705,9 @@
   }
   
   .followup-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     background: #f59e0b;
     display: flex;
     align-items: center;
@@ -644,7 +716,7 @@
   }
   
   .followup-icon i {
-    font-size: 20px;
+    font-size: 17px;
     color: white;
   }
   
@@ -653,25 +725,25 @@
   }
   
   .followup-pet {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: #78350f;
     margin-bottom: 2px;
   }
   
   .followup-reason {
-    font-size: 12px;
+    font-size: 11px;
     color: #92400e;
   }
   
   .followup-meta {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
   }
   
   .followup-date {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: #92400e;
     display: flex;
@@ -683,10 +755,10 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 8px 14px;
+    padding: 6px 10px;
     background: rgba(255,255,255,0.7);
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: #92400e;
     text-decoration: none;
@@ -711,8 +783,8 @@
   .activity-item-modern {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
-    padding: 14px 0;
+    gap: 10px;
+    padding: 10px 0;
     border-bottom: 1px solid var(--border);
     position: relative;
   }
@@ -736,9 +808,9 @@
   }
   
   .activity-icon-modern {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -748,7 +820,7 @@
   }
   
   .activity-icon-modern i {
-    font-size: 16px;
+    font-size: 14px;
     color: white;
   }
   
@@ -762,19 +834,19 @@
   }
   
   .activity-action {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-1);
     margin-bottom: 2px;
   }
   
   .activity-object {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-3);
   }
   
   .activity-time {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-3);
     white-space: nowrap;
   }
@@ -785,17 +857,17 @@
   
   .empty-state-modern {
     text-align: center;
-    padding: 48px 24px;
+    padding: 32px 16px;
   }
   
   .empty-state-modern i {
-    font-size: 48px;
+    font-size: 38px;
     color: var(--border);
-    margin-bottom: 16px;
+    margin-bottom: 10px;
   }
   
   .empty-state-modern h4 {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text-color, var(--text-2));
     margin: 0 0 8px;
@@ -1100,7 +1172,7 @@
   <i class='bx bx-x alert-close' onclick="this.parentElement.style.display='none'"></i>
 </div>
 
-<div class="chart-card-modern dash-fade fade-up" style="margin-bottom: 24px;">
+<div class="chart-card-modern" style="margin-bottom: 18px;">
   <div class="chart-header">
     <div class="chart-title">
       <i class='bx bx-bell'></i>
@@ -1108,7 +1180,7 @@
     </div>
     <div class="chart-badge orange">{{ follow_ups|length }} Pending</div>
   </div>
-  <div style="padding: 20px;">
+  <div style="padding: 16px;">
     <div class="followup-list">
       {% for fu in follow_ups %}
       <div class="followup-item">
@@ -1140,9 +1212,9 @@
 <!-- CHARTS SECTION -->
 <div class="charts-section">
   
-  <!-- ROW 1: Expanded Monthly Spending -->
+  <!-- Monthly spending is primary, with appointment history alongside it. -->
   <div class="charts-row appointment-history-row">
-    <div class="chart-card-modern dash-fade fade-up stagger-1">
+    <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-line-chart'></i>
@@ -1150,15 +1222,12 @@
         </div>
         <div class="chart-badge purple">January–December {{ monthly_spending_year|unlocalize }}</div>
       </div>
-      <div class="chart-body">
+      <div class="chart-body spending-chart-body">
         <canvas id="monthlySpendingChart"></canvas>
       </div>
     </div>
-  </div>
-  
-  <!-- ROW 2: Appointment History & Spending -->
-  <div class="charts-row equal">
-    <div class="chart-card-modern dash-fade fade-up stagger-3">
+
+    <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-calendar-check'></i>
@@ -1172,7 +1241,10 @@
       </div>
     </div>
     
-    <div class="chart-card-modern dash-fade fade-up stagger-4">
+  </div>
+
+  <div class="charts-row spending-activity-row">
+    <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-bar-chart-alt-2'></i>
@@ -1180,95 +1252,13 @@
         </div>
         <div class="chart-badge orange">By Category</div>
       </div>
-      <div class="chart-body">
+      <div class="chart-body spending-chart-body">
         <canvas id="spendingChart"></canvas>
-      </div>
-    </div>
-  </div>
-  
-</div>
-
-<!-- SCHEDULE SECTION -->
-<div class="schedule-section">
-  <div class="charts-row equal" id="dashboard-activity-section">
-    <!-- Upcoming Appointments -->
-    <div class="chart-card-modern dash-fade fade-up stagger-1">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-calendar'></i>
-          <span>Upcoming Appointments</span>
-        </div>
-        <a href="{% url 'appointments:my_appointments' %}" class="chart-link">
-          View All <i class='bx bx-right-arrow-alt'></i>
-        </a>
-      </div>
-      <div style="padding: 24px;">
-        {% if upcoming_appointments %}
-        <div class="schedule-list-modern">
-          {% for appt in upcoming_appointments %}
-          <div class="schedule-item">
-            <div class="schedule-avatar {{ appt.status|lower }}">
-              {{ appt.pet_name|make_list|first|upper }}
-            </div>
-            <div class="schedule-info">
-              <div class="schedule-pet-name">{{ appt.pet_name }}</div>
-              <div class="schedule-branch">
-                <i class='bx bx-map-pin'></i> {{ appt.branch.name }}
-              </div>
-            </div>
-            <div class="schedule-meta">
-              <div class="schedule-datetime">
-                <div class="schedule-date">
-                  <i class='bx bx-calendar'></i> {{ appt.appointment_date|date:"M d" }}
-                </div>
-                <div class="schedule-time">{{ appt.appointment_time_display }}</div>
-              </div>
-              <span class="status-badge-modern {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-        
-        <!-- Pagination for Upcoming Appointments -->
-        {% if upcoming_appointments.has_other_pages %}
-        <div class="pagination-modern">
-          {% if upcoming_appointments.has_previous %}
-            <a href="?upcoming_page=1{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
-            <a href="?upcoming_page={{ upcoming_appointments.previous_page_number }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
-          {% else %}
-            <span class="page-btn disabled"><i class='bx bx-chevrons-left'></i></span>
-            <span class="page-btn disabled"><i class='bx bx-chevron-left'></i></span>
-          {% endif %}
-          
-          {% for num in upcoming_appointments.paginator.page_range %}
-            {% if upcoming_appointments.number == num %}
-              <span class="page-btn active">{{ num }}</span>
-            {% elif num > upcoming_appointments.number|add:'-2' and num < upcoming_appointments.number|add:'2' %}
-              <a href="?upcoming_page={{ num }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn">{{ num }}</a>
-            {% endif %}
-          {% endfor %}
-          
-          {% if upcoming_appointments.has_next %}
-            <a href="?upcoming_page={{ upcoming_appointments.next_page_number }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
-            <a href="?upcoming_page={{ upcoming_appointments.paginator.num_pages }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
-          {% else %}
-            <span class="page-btn disabled"><i class='bx bx-chevron-right'></i></span>
-            <span class="page-btn disabled"><i class='bx bx-chevrons-right'></i></span>
-          {% endif %}
-        </div>
-        {% endif %}
-        {% else %}
-        <div class="empty-state-modern">
-          <i class='bx bx-calendar-x'></i>
-          <h4>No upcoming appointments</h4>
-          <p>Book your first appointment to get started</p>
-        </div>
-        {% endif %}
       </div>
     </div>
     
     <!-- Recent Activity -->
-    <div class="chart-card-modern dash-fade fade-up stagger-2">
+    <div class="chart-card-modern activity-card" id="recent-activity-section">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-history'></i>
@@ -1283,7 +1273,7 @@
         </form>
         {% endif %}
       </div>
-      <div style="padding: 24px;">
+      <div class="activity-card-body">
         {% if recent_activities %}
         <div class="activity-list-modern">
           {% for activity in recent_activities %}
@@ -1322,8 +1312,8 @@
         {% if recent_activities.has_other_pages %}
         <div class="pagination-modern">
           {% if recent_activities.has_previous %}
-            <a href="?page=1{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
-            <a href="?page={{ recent_activities.previous_page_number }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
+            <a href="?page=1{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
+            <a href="?page={{ recent_activities.previous_page_number }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
           {% else %}
             <span class="page-btn disabled"><i class='bx bx-chevrons-left'></i></span>
             <span class="page-btn disabled"><i class='bx bx-chevron-left'></i></span>
@@ -1333,13 +1323,13 @@
             {% if recent_activities.number == num %}
               <span class="page-btn active">{{ num }}</span>
             {% elif num > recent_activities.number|add:'-2' and num < recent_activities.number|add:'2' %}
-              <a href="?page={{ num }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn">{{ num }}</a>
+              <a href="?page={{ num }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn">{{ num }}</a>
             {% endif %}
           {% endfor %}
           
           {% if recent_activities.has_next %}
-            <a href="?page={{ recent_activities.next_page_number }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
-            <a href="?page={{ recent_activities.paginator.num_pages }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#dashboard-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
+            <a href="?page={{ recent_activities.next_page_number }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
+            <a href="?page={{ recent_activities.paginator.num_pages }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
           {% else %}
             <span class="page-btn disabled"><i class='bx bx-chevron-right'></i></span>
             <span class="page-btn disabled"><i class='bx bx-chevrons-right'></i></span>
@@ -1358,8 +1348,88 @@
   </div>
 </div>
 
+<!-- UPCOMING APPOINTMENTS -->
+<div class="schedule-section">
+  <div class="charts-row upcoming-only-row" id="dashboard-activity-section">
+    <div class="chart-card-modern">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-calendar'></i>
+          <span>Upcoming Appointments</span>
+        </div>
+        <a href="{% url 'appointments:my_appointments' %}" class="chart-link">
+          View All <i class='bx bx-right-arrow-alt'></i>
+        </a>
+      </div>
+      <div style="padding: 16px;">
+        {% if upcoming_appointments %}
+        <div class="schedule-list-modern">
+          {% for appt in upcoming_appointments %}
+          <div class="schedule-item">
+            <div class="schedule-avatar {{ appt.status|lower }}">
+              {{ appt.pet_name|make_list|first|upper }}
+            </div>
+            <div class="schedule-info">
+              <div class="schedule-pet-name">{{ appt.pet_name }}</div>
+              <div class="schedule-branch">
+                <i class='bx bx-map-pin'></i> {{ appt.branch.name }}
+              </div>
+            </div>
+            <div class="schedule-meta">
+              <div class="schedule-datetime">
+                <div class="schedule-date">
+                  <i class='bx bx-calendar'></i> {{ appt.appointment_date|date:"M d" }}
+                </div>
+                <div class="schedule-time">{{ appt.appointment_time_display }}</div>
+              </div>
+              <span class="status-badge-modern {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Pagination for Upcoming Appointments -->
+        {% if upcoming_appointments.has_other_pages %}
+        <div class="pagination-modern">
+          {% if upcoming_appointments.has_previous %}
+            <a href="?upcoming_page=1{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
+            <a href="?upcoming_page={{ upcoming_appointments.previous_page_number }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
+          {% else %}
+            <span class="page-btn disabled"><i class='bx bx-chevrons-left'></i></span>
+            <span class="page-btn disabled"><i class='bx bx-chevron-left'></i></span>
+          {% endif %}
+
+          {% for num in upcoming_appointments.paginator.page_range %}
+            {% if upcoming_appointments.number == num %}
+              <span class="page-btn active">{{ num }}</span>
+            {% elif num > upcoming_appointments.number|add:'-2' and num < upcoming_appointments.number|add:'2' %}
+              <a href="?upcoming_page={{ num }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn">{{ num }}</a>
+            {% endif %}
+          {% endfor %}
+
+          {% if upcoming_appointments.has_next %}
+            <a href="?upcoming_page={{ upcoming_appointments.next_page_number }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
+            <a href="?upcoming_page={{ upcoming_appointments.paginator.num_pages }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
+          {% else %}
+            <span class="page-btn disabled"><i class='bx bx-chevron-right'></i></span>
+            <span class="page-btn disabled"><i class='bx bx-chevrons-right'></i></span>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state-modern">
+          <i class='bx bx-calendar-x'></i>
+          <h4>No upcoming appointments</h4>
+          <p>Book your first appointment to get started</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Recent Medical Records / Completed Visits -->
-<div class="chart-card-modern dash-fade fade-up" style="margin-bottom: 32px;">
+<div class="chart-card-modern" style="margin-bottom: 22px;">
   <div class="chart-header">
     <div class="chart-title">
       <i class='bx bx-file'></i>
@@ -1369,7 +1439,7 @@
       View Medical Records <i class='bx bx-right-arrow-alt'></i>
     </a>
   </div>
-  <div style="padding: 20px;">
+  <div style="padding: 16px;">
     {% if recent_completed %}
     <div class="schedule-list-modern">
       {% for appt in recent_completed %}
