@@ -345,7 +345,7 @@ class BranchStatusManagementTests(TestCase):
         self.assertGreater(len(attachment_bytes), 0)
 
     def test_pet_owner_branch_change_moves_current_pet_data_to_new_branch(self):
-        original_branch = self.create_branch('Original Branch', is_active=True)
+        original_branch = self.create_branch('Original Branch', is_active=False)
         new_branch = self.create_branch('New Branch', is_active=True)
         owner = get_user_model().objects.create_user(
             username='owner-branch-move',
@@ -378,7 +378,11 @@ class BranchStatusManagementTests(TestCase):
         self.client.force_login(owner)
         response = self.client.post(
             reverse('accounts:select_branch'),
-            {'branch_id': new_branch.pk},
+            {
+                'branch_id': new_branch.pk,
+                'confirm_branch_first': 'on',
+                'confirm_branch_final': 'on',
+            },
         )
 
         self.assertEqual(response.status_code, 302)

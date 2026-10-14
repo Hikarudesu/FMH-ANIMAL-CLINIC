@@ -14,16 +14,22 @@
         <i class='bx bx-building-house'></i>
       </div>
       <h1>Welcome, {{ user.first_name }}!</h1>
-      <p>Choose your preferred branch for faster booking. This will be pre-selected when you book appointments, but you can always choose a different branch.</p>
+      {% if branch_change_required %}
+      <p>Your current branch is inactive. Choose a replacement branch for future appointments and care.</p>
+      {% else %}
+      <p>Choose your preferred branch. It will be used for future appointments and care.</p>
+      {% endif %}
     </div>
 
     <!-- Branch Cards -->
     {% if branches %}
     <div class="branch-grid">
       {% for branch in branches %}
-      <form method="POST" action="{% url 'select_branch' %}" class="branch-card-form">
+      <form method="POST" action="{% url 'accounts:select_branch' %}" class="branch-card-form" data-branch-form data-branch-name="{{ branch.name }}">
         {% csrf_token %}
         <input type="hidden" name="branch_id" value="{{ branch.id }}">
+        <input type="hidden" name="confirm_branch_first" value="">
+        <input type="hidden" name="confirm_branch_final" value="">
         <button type="submit" class="branch-card">
           <div class="branch-card-icon">
             <i class='bx bx-map-pin'></i>
@@ -59,13 +65,93 @@
     {% endif %}
 
     <!-- Skip option -->
+    {% if not branch_change_required %}
     <div class="branch-select-footer">
-      <form method="POST" action="{% url 'select_branch' %}">
+      <form method="POST" action="{% url 'accounts:select_branch' %}">
         {% csrf_token %}
         <button type="submit" class="branch-skip-btn">Skip for now →</button>
       </form>
     </div>
+    {% endif %}
   </div>
 </section>
+
+<dialog class="branch-confirm-dialog" id="branchConfirmDialog" aria-labelledby="branchConfirmTitle">
+  <div class="branch-confirm-content">
+    <h2 id="branchConfirmTitle">Confirm your branch</h2>
+    <div data-confirm-step="first">
+      <p>Are you sure you want to choose <strong data-confirm-branch></strong>?</p>
+      <div class="branch-confirm-actions">
+        <button type="button" class="branch-confirm-cancel" data-confirm-cancel>Cancel</button>
+        <button type="button" class="branch-confirm-continue" data-confirm-continue>Continue</button>
+      </div>
+    </div>
+    <div data-confirm-step="final" hidden>
+      <p>Are you really sure you want <strong data-confirm-branch></strong>? This will move your pets, medical records, and appointments to this branch.</p>
+      <div class="branch-confirm-actions">
+        <button type="button" class="branch-confirm-cancel" data-confirm-cancel>Cancel</button>
+        <button type="button" class="branch-confirm-continue" data-confirm-final>Yes, confirm branch</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<style>
+  .branch-confirm-dialog {
+    width: min(440px, calc(100% - 32px));
+    border: 1px solid #cbd5d8;
+    border-radius: 10px;
+    padding: 0;
+    color: #202a32;
+    box-shadow: 0 18px 54px rgba(10, 35, 40, .24);
+  }
+  .branch-confirm-dialog::backdrop { background: rgba(14, 30, 34, .56); }
+  .branch-confirm-content { padding: 24px; }
+  .branch-confirm-content h2 { margin: 0 0 12px; font-size: 1.2rem; }
+  .branch-confirm-content p { line-height: 1.55; }
+  .branch-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+  .branch-confirm-actions button { min-height: 40px; padding: 8px 14px; border: 1px solid #9aabad; border-radius: 6px; background: white; color: #243437; cursor: pointer; }
+  .branch-confirm-actions .branch-confirm-continue { border-color: #126b68; background: #126b68; color: white; }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const dialog = document.getElementById('branchConfirmDialog');
+    const firstStep = dialog.querySelector('[data-confirm-step="first"]');
+    const finalStep = dialog.querySelector('[data-confirm-step="final"]');
+    const branchLabels = dialog.querySelectorAll('[data-confirm-branch]');
+    let selectedForm = null;
+
+    document.querySelectorAll('[data-branch-form]').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        if (form.dataset.confirmed === 'true') return;
+        event.preventDefault();
+        selectedForm = form;
+        branchLabels.forEach((label) => {
+          label.textContent = form.dataset.branchName;
+        });
+        firstStep.hidden = false;
+        finalStep.hidden = true;
+        dialog.showModal();
+      });
+    });
+
+    dialog.querySelectorAll('[data-confirm-cancel]').forEach((button) => {
+      button.addEventListener('click', () => dialog.close());
+    });
+    dialog.querySelector('[data-confirm-continue]').addEventListener('click', () => {
+      firstStep.hidden = true;
+      finalStep.hidden = false;
+    });
+    dialog.querySelector('[data-confirm-final]').addEventListener('click', () => {
+      if (!selectedForm) return;
+      selectedForm.elements.confirm_branch_first.value = 'on';
+      selectedForm.elements.confirm_branch_final.value = 'on';
+      selectedForm.dataset.confirmed = 'true';
+      dialog.close();
+      selectedForm.submit();
+    });
+  });
+</script>
 
 {% endblock %}

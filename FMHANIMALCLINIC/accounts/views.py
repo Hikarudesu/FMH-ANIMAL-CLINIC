@@ -283,12 +283,30 @@ def register_view(request):
 
 @login_required
 def select_branch_view(request):
-    """Branch selection page — shown after pet owner registration."""
+    """Allow initial branch selection or replacement of an inactive owner branch."""
     branches = Branch.objects.filter(is_active=True)
+    is_pet_owner = request.user.is_pet_owner()
+    current_branch_active = Branch.objects.filter(
+        pk=request.user.branch_id,
+        is_active=True,
+    ).exists()
+    branch_change_required = bool(
+        is_pet_owner and request.user.branch_id and not current_branch_active
+    )
+
+    if is_pet_owner and current_branch_active:
+        messages.info(request, 'Your branch can only be changed after it becomes inactive.')
+        return redirect('accounts:profile')
 
     if request.method == 'POST':
         branch_id = request.POST.get('branch_id')
         if branch_id:
+            if (
+                request.POST.get('confirm_branch_first') != 'on'
+                or request.POST.get('confirm_branch_final') != 'on'
+            ):
+                messages.warning(request, 'Confirm your branch selection twice before continuing.')
+                return redirect('accounts:select_branch')
             branch = get_object_or_404(Branch, id=branch_id, is_active=True)
             if (
                 request.user.permanent_position_branch_locked
@@ -307,9 +325,15 @@ def select_branch_view(request):
                 sync_owner_branch_data(request.user, branch)
             messages.success(
                 request, f'Welcome! You are now registered at {branch.name}.')
+        elif branch_change_required:
+            messages.warning(request, 'Choose an active branch to replace your inactive branch.')
+            return redirect('accounts:select_branch')
         return redirect('user_dashboard')
 
-    return render(request, 'accounts/select_branch.html', {'branches': branches})
+    return render(request, 'accounts/select_branch.html', {
+        'branches': branches,
+        'branch_change_required': branch_change_required,
+    })
 
 
 def logout_view(request):

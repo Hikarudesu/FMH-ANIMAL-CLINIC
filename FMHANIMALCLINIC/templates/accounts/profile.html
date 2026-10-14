@@ -154,6 +154,11 @@
         <div class="profile-field-body">
           <span class="profile-field-label">Clinic Branch</span>
           <span class="profile-field-value">{{ user.branch.name|default:"General" }}</span>
+          {% if not user.branch_id or not user.branch.is_active %}
+          <a class="profile-edit-btn" href="{% url 'accounts:select_branch' %}">
+            {% if user.branch_id %}Choose a replacement branch{% else %}Choose a clinic branch{% endif %}
+          </a>
+          {% endif %}
         </div>
       </div>
 
@@ -377,12 +382,14 @@
             <label for="{{ form.phone_number.id_for_label }}">Phone Number <span aria-hidden="true">*</span></label>
             {% if form.phone_number.errors %}<small class="field-error">{{ form.phone_number.errors.as_text }}</small>{% endif %}
           </div>
+          {% if form.branch %}
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-building-house'></i></div>
             {{ form.branch }}
             <label for="{{ form.branch.id_for_label }}">Clinic Branch <span aria-hidden="true">*</span></label>
             {% if form.branch.errors %}<small class="field-error">{{ form.branch.errors.as_text }}</small>{% endif %}
           </div>
+          {% endif %}
           <div class="floating-field full-width">
             <div class="field-icon"><i class='bx bx-map'></i></div>
             {{ form.address }}
