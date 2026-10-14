@@ -178,7 +178,7 @@
         </div>
         <div class="chart-badge emerald">Current</div>
       </div>
-      <div class="chart-body">
+      <div class="chart-body chart-body-patient-status">
         <canvas id="patientHealthChart"></canvas>
       </div>
     </div>
@@ -625,11 +625,15 @@
   }
 
   .chart-body-monthly {
-    height: 280px;
+    height: 240px;
   }
 
   .chart-body-appointment-types {
-    height: 240px;
+    height: 210px;
+  }
+
+  .chart-body-patient-status {
+    height: 210px;
   }
 
   .chart-card-supporting {
@@ -748,12 +752,12 @@
   
   .chart-body {
     padding: 16px;
-    height: 240px;
+    height: 220px;
     position: relative;
   }
   
-  .chart-body.tall { height: 280px; }
-  .chart-body.wide { height: 230px; }
+  .chart-body.tall { height: 240px; }
+  .chart-body.wide { height: 220px; }
 
   .section-title {
     display: flex;
@@ -1157,7 +1161,7 @@
 
   .recent-records-body {
     padding: 0 18px 8px;
-    max-height: 310px;
+    max-height: 240px;
     overflow-y: auto;
   }
 
@@ -1996,10 +2000,10 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: {
               usePointStyle: true,
               pointStyle: 'circle',
-              padding: 12,
-              boxWidth: 10,
-              boxHeight: 10,
-              font: { size: 11, weight: '600', family: 'Inter, sans-serif' },
+              padding: 8,
+              boxWidth: 8,
+              boxHeight: 8,
+              font: { size: 10, weight: '600', family: 'Inter, sans-serif' },
               color: isGlobalDark ? '#ffffff' : '#64748b',
               generateLabels: function(chart) {
                 const data = chart.data;
@@ -2084,10 +2088,10 @@ document.addEventListener('DOMContentLoaded', function() {
               display: true,
               position: 'bottom',
               labels: {
-                padding: 20,
+                padding: 10,
                 usePointStyle: true,
                 pointStyle: 'circle',
-                font: { size: 12, weight: '600' },
+                font: { size: 10, weight: '600' },
                 color: isGlobalDark ? '#ffffff' : '#64748b',
                 generateLabels: function(chart) {
                   const data = chart.data;
