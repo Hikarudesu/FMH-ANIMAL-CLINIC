@@ -421,6 +421,13 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(response.context['scheduled_appointments_this_month'], 0)
         self.assertContains(response, 'Front Desk Dashboard')
         self.assertNotContains(response, 'page-hero-actions')
+        for sale in response.context['recent_sales']:
+            with self.subTest(sale_id=sale.pk):
+                self.assertContains(
+                    response,
+                    f'href="{reverse("pos:sale_detail", kwargs={"sale_id": sale.pk})}" '
+                    'class="sale-row"',
+                )
         self.assertContains(
             response,
             f'href="{reverse("accounts:receptionist_dashboard")}"',
@@ -841,6 +848,12 @@ class UserPortalDashboardTests(TestCase):
             dashboard_html.index('Recent Activity'),
         )
         self.assertNotIn('chart-card-modern dash-fade', dashboard_html)
+        self.assertNotIn('upcoming-only-row', dashboard_html)
+        self.assertNotIn('id="dashboard-activity-section"', dashboard_html)
+        self.assertNotIn('upcoming_appointments', response.context)
+        self.assertIn('height: 260px;', dashboard_html)
+        self.assertIn('flex: 0 0 190px;', dashboard_html)
+        self.assertIn('grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);', dashboard_html)
         self.assertContains(response, 'Monthly Spending')
         self.assertContains(response, 'Appointment History')
         self.assertContains(response, 'Completed visits per month')
@@ -1079,8 +1092,7 @@ class UserPortalDashboardTests(TestCase):
             ],
         )
         self.assertIn('spendingChart', response.content.decode())
-        self.assertContains(response, 'generateLabels(chart)')
-        self.assertContains(response, 'chart.data.labels.map((label, index)')
+        self.assertContains(response, 'legend: { display: false }')
 
 
 @override_settings(

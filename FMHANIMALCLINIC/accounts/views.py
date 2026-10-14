@@ -398,9 +398,7 @@ def user_dashboard_view(request):
         appointment_date__gte=today,
         appointment_date__lte=today + timedelta(days=7),
         **appt_branch_filter,
-    ).exclude(status='CANCELLED').select_related(
-        'branch', 'preferred_vet'
-    ).order_by('appointment_date', 'appointment_time')
+    ).exclude(status='CANCELLED')
     upcoming_count = upcoming_appointments.count()
     
     # Confirmed vs pending for upcoming
@@ -581,15 +579,9 @@ def user_dashboard_view(request):
         **appt_branch_filter,
     ).select_related('branch', 'preferred_vet', 'pet').order_by('-appointment_date')[:5]
 
-    # Upcoming appointments pagination
-    paginator_upcoming = Paginator(upcoming_appointments, 3)
-    upcoming_page_number = request.GET.get('upcoming_page')
-    paginated_upcoming = paginator_upcoming.get_page(upcoming_page_number)
-
     return render(request, 'accounts/user_dashboard.html', {
         # Basic stats
         'pet_count': pet_count,
-        'upcoming_appointments': paginated_upcoming,
         'upcoming_count': upcoming_count,
         'upcoming_confirmed': upcoming_confirmed,
         'upcoming_pending': upcoming_pending,

@@ -322,11 +322,7 @@
   }
 
   .charts-row.spending-activity-row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-  }
-
-  .charts-row.upcoming-only-row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
   
   @media (max-width: 992px) {
@@ -500,7 +496,8 @@
   }
 
   .appointment-history-row .chart-body {
-    min-height: 210px;
+    height: 260px;
+    min-height: 260px;
   }
   
   .chart-body.tall { height: 260px; }
@@ -510,6 +507,13 @@
   .spending-chart-body {
     flex: 1;
     min-height: 240px;
+  }
+
+  .spending-activity-row .spending-chart-body {
+    flex: 0 0 190px;
+    height: 190px;
+    min-height: 190px;
+    padding: 12px;
   }
 
   .chart-card-modern.activity-card {
@@ -550,10 +554,6 @@
   /* ═══════════════════════════════════════════════ */
   /* SCHEDULE / APPOINTMENTS LIST */
   /* ═══════════════════════════════════════════════ */
-  
-  .schedule-section {
-    margin-bottom: 22px;
-  }
   
   .schedule-list-modern {
     display: flex;
@@ -1312,8 +1312,8 @@
         {% if recent_activities.has_other_pages %}
         <div class="pagination-modern">
           {% if recent_activities.has_previous %}
-            <a href="?page=1{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
-            <a href="?page={{ recent_activities.previous_page_number }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
+            <a href="?page=1#recent-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
+            <a href="?page={{ recent_activities.previous_page_number }}#recent-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
           {% else %}
             <span class="page-btn disabled"><i class='bx bx-chevrons-left'></i></span>
             <span class="page-btn disabled"><i class='bx bx-chevron-left'></i></span>
@@ -1323,13 +1323,13 @@
             {% if recent_activities.number == num %}
               <span class="page-btn active">{{ num }}</span>
             {% elif num > recent_activities.number|add:'-2' and num < recent_activities.number|add:'2' %}
-              <a href="?page={{ num }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn">{{ num }}</a>
+              <a href="?page={{ num }}#recent-activity-section" class="page-btn">{{ num }}</a>
             {% endif %}
           {% endfor %}
           
           {% if recent_activities.has_next %}
-            <a href="?page={{ recent_activities.next_page_number }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
-            <a href="?page={{ recent_activities.paginator.num_pages }}{% if request.GET.upcoming_page %}&upcoming_page={{ request.GET.upcoming_page }}{% endif %}#recent-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
+            <a href="?page={{ recent_activities.next_page_number }}#recent-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
+            <a href="?page={{ recent_activities.paginator.num_pages }}#recent-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
           {% else %}
             <span class="page-btn disabled"><i class='bx bx-chevron-right'></i></span>
             <span class="page-btn disabled"><i class='bx bx-chevrons-right'></i></span>
@@ -1341,86 +1341,6 @@
           <i class='bx bx-history'></i>
           <h4>No activity yet</h4>
           <p>Your recent changes will appear here</p>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- UPCOMING APPOINTMENTS -->
-<div class="schedule-section">
-  <div class="charts-row upcoming-only-row" id="dashboard-activity-section">
-    <div class="chart-card-modern">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-calendar'></i>
-          <span>Upcoming Appointments</span>
-        </div>
-        <a href="{% url 'appointments:my_appointments' %}" class="chart-link">
-          View All <i class='bx bx-right-arrow-alt'></i>
-        </a>
-      </div>
-      <div style="padding: 16px;">
-        {% if upcoming_appointments %}
-        <div class="schedule-list-modern">
-          {% for appt in upcoming_appointments %}
-          <div class="schedule-item">
-            <div class="schedule-avatar {{ appt.status|lower }}">
-              {{ appt.pet_name|make_list|first|upper }}
-            </div>
-            <div class="schedule-info">
-              <div class="schedule-pet-name">{{ appt.pet_name }}</div>
-              <div class="schedule-branch">
-                <i class='bx bx-map-pin'></i> {{ appt.branch.name }}
-              </div>
-            </div>
-            <div class="schedule-meta">
-              <div class="schedule-datetime">
-                <div class="schedule-date">
-                  <i class='bx bx-calendar'></i> {{ appt.appointment_date|date:"M d" }}
-                </div>
-                <div class="schedule-time">{{ appt.appointment_time_display }}</div>
-              </div>
-              <span class="status-badge-modern {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-
-        <!-- Pagination for Upcoming Appointments -->
-        {% if upcoming_appointments.has_other_pages %}
-        <div class="pagination-modern">
-          {% if upcoming_appointments.has_previous %}
-            <a href="?upcoming_page=1{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn" title="First"><i class='bx bx-chevrons-left'></i></a>
-            <a href="?upcoming_page={{ upcoming_appointments.previous_page_number }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-left'></i></a>
-          {% else %}
-            <span class="page-btn disabled"><i class='bx bx-chevrons-left'></i></span>
-            <span class="page-btn disabled"><i class='bx bx-chevron-left'></i></span>
-          {% endif %}
-
-          {% for num in upcoming_appointments.paginator.page_range %}
-            {% if upcoming_appointments.number == num %}
-              <span class="page-btn active">{{ num }}</span>
-            {% elif num > upcoming_appointments.number|add:'-2' and num < upcoming_appointments.number|add:'2' %}
-              <a href="?upcoming_page={{ num }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn">{{ num }}</a>
-            {% endif %}
-          {% endfor %}
-
-          {% if upcoming_appointments.has_next %}
-            <a href="?upcoming_page={{ upcoming_appointments.next_page_number }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn"><i class='bx bx-chevron-right'></i></a>
-            <a href="?upcoming_page={{ upcoming_appointments.paginator.num_pages }}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}#dashboard-activity-section" class="page-btn" title="Last"><i class='bx bx-chevrons-right'></i></a>
-          {% else %}
-            <span class="page-btn disabled"><i class='bx bx-chevron-right'></i></span>
-            <span class="page-btn disabled"><i class='bx bx-chevrons-right'></i></span>
-          {% endif %}
-        </div>
-        {% endif %}
-        {% else %}
-        <div class="empty-state-modern">
-          <i class='bx bx-calendar-x'></i>
-          <h4>No upcoming appointments</h4>
-          <p>Book your first appointment to get started</p>
         </div>
         {% endif %}
       </div>
@@ -1691,31 +1611,7 @@ if (spendingCtx) {
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: {
-            position: 'top',
-            align: 'end',
-            labels: {
-              usePointStyle: true,
-              pointStyle: 'rectRounded',
-              padding: 20,
-              font: { size: 12, weight: '600', family: 'Inter, sans-serif' },
-              color: isGlobalDark ? '#e2e8f0' : '#64748b',
-              generateLabels(chart) {
-                const dataset = chart.data.datasets[0];
-                return chart.data.labels.map((label, index) => ({
-                  text: label,
-                  fillStyle: dataset.backgroundColor[index],
-                  strokeStyle: dataset.backgroundColor[index],
-                  hidden: !chart.getDataVisibility(index),
-                  index
-                }));
-              }
-            },
-            onClick(event, legendItem, legend) {
-              legend.chart.toggleDataVisibility(legendItem.index);
-              legend.chart.update();
-            }
-          },
+          legend: { display: false },
           tooltip: {
             ...commonTooltip,
             callbacks: {

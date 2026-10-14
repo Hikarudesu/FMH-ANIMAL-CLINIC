@@ -870,6 +870,8 @@
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
   transition: all 0.3s ease;
+  color: inherit;
+  text-decoration: none;
 }
 
 .sale-row:last-child {
@@ -878,6 +880,12 @@
 
 .sale-row:hover {
   padding-left: 8px;
+}
+
+.sale-row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 .sale-icon {
@@ -1169,10 +1177,10 @@
         {% if recent_sales %}
         <div class="sales-list-modern">
           {% for sale in recent_sales %}
-          <div class="sale-row">
+          <a href="{% url 'pos:sale_detail' sale.pk %}" class="sale-row" aria-label="View sale details for {{ sale.transaction_id }}">
             <div class="sale-icon">
               <i class='bx {% if sale.status == "REFUNDED" %}bx-undo{% else %}bx-receipt{% endif %}'></i>
-            </div>
+            </a>
             <div class="sale-info">
               <div class="sale-customer">
                 {% if sale.customer %}{{ sale.customer.get_full_name }}{% else %}{{ sale.guest_name|default:"Walk-in Customer" }}{% endif %}
