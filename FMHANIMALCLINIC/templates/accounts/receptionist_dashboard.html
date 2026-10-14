@@ -3,45 +3,15 @@
 
 {% block title %}Receptionist Dashboard{% endblock %}
 
-{% block topbar_center %}
-<div class="dashboard-topbar-title">
-  <strong>Front Desk Dashboard</strong>
-  <span>{{ CLINIC_NAME }} - {{ branch_name }}</span>
-</div>
-{% endblock %}
-
 {% block content %}
+
+{% include "components/page_hero.html" with title="Front Desk Dashboard" icon="bx-desktop" subtitle=branch_name %}
 
 <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <!-- MODERN RECEPTIONIST DASHBOARD -->
 <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 
 <style>
-.topbar-center {
-  flex: 1;
-  justify-content: center;
-  min-width: 0;
-}
-
-.dashboard-topbar-title {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.dashboard-topbar-title strong {
-  color: var(--text-1);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.dashboard-topbar-title span {
-  color: var(--text-3);
-  font-size: 11px;
-}
-
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* SCROLL-TRIGGERED ANIMATIONS (Clean Fade-In)   */
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
@@ -449,6 +419,7 @@
 
 .chart-body.tall {
   height: 280px;
+  padding: 28px 16px 8px;
 }
 
 .chart-body.short {
@@ -497,17 +468,17 @@
 
 .category-sales-content {
   display: grid;
-  grid-template-columns: minmax(104px, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: minmax(88px, 0.8fr) minmax(0, 1.2fr);
   width: 100%;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 0;
 }
 
 .category-sales-chart {
   position: relative;
   min-width: 0;
-  width: min(100%, 148px);
+  width: min(100%, 128px);
   aspect-ratio: 1;
   justify-self: center;
 }
@@ -524,21 +495,21 @@
 
 .category-sales-item {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 7px;
 }
 
 .category-sales-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
 .category-sales-name {
   display: block;
   color: var(--text-1);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -546,25 +517,25 @@
   display: block;
   margin-top: 2px;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .category-sales-amount {
   color: var(--text-1);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-align: right;
   white-space: nowrap;
 }
 
-@container category-sales (max-width: 260px) {
+@container category-sales (max-width: 220px) {
   .category-sales-content {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(72px, 0.75fr) minmax(0, 1.25fr);
     gap: 6px;
   }
 
   .category-sales-chart {
-    width: min(100%, 112px);
+    width: min(100%, 104px);
   }
 
   .category-sales-list {
@@ -573,22 +544,8 @@
 }
 
 @media (max-width: 640px) {
-  .topbar-center {
-    display: flex;
-    flex: 1;
-    margin: 0 8px;
-  }
-
-  .dashboard-topbar-title strong {
-    font-size: 12px;
-  }
-
-  .dashboard-topbar-title span {
-    font-size: 9px;
-  }
-
   .category-sales-item {
-    gap: 10px;
+    gap: 6px;
   }
 
   .chart-header {
@@ -607,12 +564,6 @@
   .chart-badge {
     padding: 4px 8px;
     font-size: 10px;
-  }
-}
-
-@media (max-width: 768px) {
-  .topbar-center {
-    display: flex;
   }
 }
 
@@ -1226,7 +1177,7 @@
               <div class="sale-customer">
                 {% if sale.customer %}{{ sale.customer.get_full_name }}{% else %}{{ sale.guest_name|default:"Walk-in Customer" }}{% endif %}
               </div>
-              <div class="sale-meta">{{ sale.transaction_id }} Â· {{ sale.created_at|date:"M j, g:i A" }}</div>
+              <div class="sale-meta">{{ sale.transaction_id }} · {{ sale.created_at|date:"M j, g:i A" }}</div>
             </div>
             <div class="sale-amount {% if sale.status == 'REFUNDED' %}refunded{% endif %}">
               {% if sale.status == 'REFUNDED' %}-{% endif %}₱{{ sale.total|floatformat:2 }}
