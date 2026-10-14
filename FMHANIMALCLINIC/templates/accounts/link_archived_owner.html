@@ -1,0 +1,67 @@
+{% extends 'base/portal_admin.html' %}
+
+{% block title %}Link Archived Owner Records{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Link archived records</h1>
+    <p class="page-subtitle">{{ archived_owner.get_full_name|default:archived_owner.username }} · {{ archived_owner.email }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'accounts:owner_archive' %}" class="btn-action outline"><i class="bx bx-arrow-back"></i> Back to archive</a>
+  </div>
+</div>
+
+<section class="dashboard-card full-width">
+  <div class="card-header"><h2><i class="bx bx-link-alt"></i> Replacement account</h2></div>
+  <div class="card-body">
+    <form method="get" class="archive-account-search">
+      <label for="archiveOwnerSearch">Find active pet-owner account</label>
+      <div>
+        <input id="archiveOwnerSearch" type="search" name="q" value="{{ search_query }}" placeholder="Name, username, or email">
+        <button class="btn-action primary" type="submit"><i class="bx bx-search"></i> Search</button>
+      </div>
+    </form>
+
+    {% if search_query|length >= 2 %}
+    <form method="post" class="archive-account-link-form">
+      {% csrf_token %}
+      <input type="hidden" name="q" value="{{ search_query }}">
+      <label for="newOwnerId">Active account</label>
+      <select id="newOwnerId" name="new_owner_id" required>
+        <option value="">Select an account</option>
+        {% for candidate in candidates %}
+        <option value="{{ candidate.pk }}" {% if selected_owner_id == candidate.pk|stringformat:"s" %}selected{% endif %}>
+          {{ candidate.get_full_name|default:candidate.username }} · {{ candidate.username }} · {{ candidate.email }}
+        </option>
+        {% endfor %}
+      </select>
+      {% if not candidates %}<p class="archive-search-empty">No active pet-owner accounts match this search.</p>{% endif %}
+      <label class="archive-link-confirm">
+        <input type="checkbox" name="confirm_link" required>
+        I confirm that this account belongs to the same pet owner.
+      </label>
+      <p class="archive-link-warning">The archived account will remain inactive. Its pets, medical records, appointments, sales, statements, and reservations will be linked to the selected account. Historical branch and transaction details will be preserved.</p>
+      <div class="archive-link-actions">
+        <a href="{% url 'accounts:owner_archive' %}" class="btn-action outline">Cancel</a>
+        <button class="btn-action primary" type="submit" {% if not candidates %}disabled{% endif %}>Link records</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<style>
+  .archive-account-search, .archive-account-link-form { display:grid; gap:10px; max-width:700px; }
+  .archive-account-search { margin-bottom:24px; }
+  .archive-account-search > div { display:flex; flex-wrap:wrap; gap:8px; }
+  .archive-account-search input, .archive-account-link-form select { min-width:0; min-height:42px; padding:8px 11px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text-1); }
+  .archive-account-search input { flex:1; }
+  .archive-link-confirm { display:flex; align-items:flex-start; gap:8px; margin-top:8px; }
+  .archive-link-confirm input { margin-top:4px; }
+  .archive-link-warning, .archive-search-empty { margin:4px 0; color:var(--text-2); line-height:1.5; }
+  .archive-link-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:12px; }
+  @media (max-width:560px) { .archive-account-search > div { flex-direction:column; } .archive-link-actions { justify-content:stretch; } .archive-link-actions > * { flex:1; text-align:center; } }
+</style>
+{% endblock %}

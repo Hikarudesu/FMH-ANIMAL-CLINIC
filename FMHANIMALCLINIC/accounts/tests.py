@@ -12,13 +12,13 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.activity_context import reset_current_actor, set_current_actor
-from accounts.models import ActivityLog
+from accounts.models import ActivityLog, OwnerAccountLink
 from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermission
 from branches.models import Branch
 from appointments.models import Appointment
 from billing.models import CustomerStatement, Service
 from employees.models import StaffMember
-from inventory.models import Product, StockAdjustment
+from inventory.models import Product, Reservation, StockAdjustment
 from patients.models import Pet
 from pos.models import Sale, SaleItem
 from .forms import PetOwnerRegistrationForm
@@ -2006,6 +2006,140 @@ class OwnerAccountDeactivationTests(TestCase):
         self.assertContains(response, 'Archive Companion')
         self.assertContains(response, 'Medical record')
         self.assertTrue(get_user_model().objects.filter(pk=self.user.pk).exists())
+
+    def test_superadmin_links_archived_records_to_replacement_owner_once(self):
+        from appointments.models import Appointment
+        from records.models import MedicalRecord
+
+        old_branch = Branch.objects.create(
+            name='Archived Owner Branch',
+            phone_number='09123456789',
+            address='1 Archive Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        new_branch = Branch.objects.create(
+            name='Replacement Owner Branch',
+            phone_number='09123456780',
+            address='2 Archive Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1001',
+        )
+        self.user.is_active = False
+        self.user.branch = old_branch
+        self.user.owner_account_deactivated_at = timezone.now()
+        self.user.save(update_fields=[
+            'is_active', 'branch', 'owner_account_deactivated_at',
+        ])
+        new_owner = get_user_model().objects.create_user(
+            username='replacementowner',
+            email='replacementowner@example.com',
+            password='A-secure-test-password-923!',
+            branch=new_branch,
+        )
+        pet = Pet.objects.create(
+            owner=self.user,
+            branch=old_branch,
+            name='Transferred Companion',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        medical_record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=old_branch,
+            date_recorded=date.today(),
+        )
+        appointment = Appointment.objects.create(
+            owner_name='Pet Owner',
+            pet_name=pet.name,
+            pet=pet,
+            user=self.user,
+            branch=old_branch,
+            appointment_date=date.today(),
+            appointment_time=time(9, 0),
+        )
+        sale = Sale.objects.create(
+            branch=old_branch,
+            customer=self.user,
+            pet=pet,
+        )
+        statement = CustomerStatement.objects.create(
+            patient_name=pet.name,
+            owner_name='Pet Owner',
+            date=date.today(),
+            customer=self.user,
+            sale=sale,
+            branch=old_branch,
+        )
+        product = Product.objects.create(
+            branch=old_branch,
+            item_type='Product',
+            name='Reserved Archive Product',
+            price=25,
+            stock_quantity=4,
+        )
+        reservation = Reservation.objects.create(
+            user=self.user,
+            product=product,
+        )
+        superadmin = get_user_model().objects.create_superuser(
+            username='archive-link-admin',
+            email='archive-link-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(superadmin)
+
+        link_url = reverse('accounts:link_archived_owner', args=[self.user.pk])
+        search_response = self.client.get(link_url, {'q': 'replacementowner'})
+        self.assertContains(search_response, 'replacementowner@example.com')
+
+        response = self.client.post(link_url, {
+            'q': 'replacementowner',
+            'new_owner_id': new_owner.pk,
+            'confirm_link': 'on',
+        })
+
+        self.assertRedirects(response, reverse('accounts:owner_archive'))
+        pet.refresh_from_db()
+        medical_record.refresh_from_db()
+        appointment.refresh_from_db()
+        sale.refresh_from_db()
+        statement.refresh_from_db()
+        reservation.refresh_from_db()
+        self.assertEqual(pet.owner_id, new_owner.pk)
+        self.assertEqual(pet.branch_id, new_branch.pk)
+        self.assertEqual(medical_record.branch_id, new_branch.pk)
+        self.assertEqual(appointment.user_id, new_owner.pk)
+        self.assertEqual(appointment.branch_id, new_branch.pk)
+        self.assertEqual(sale.customer_id, new_owner.pk)
+        self.assertEqual(sale.branch_id, old_branch.pk)
+        self.assertEqual(statement.customer_id, new_owner.pk)
+        self.assertEqual(reservation.user_id, new_owner.pk)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+        link = OwnerAccountLink.objects.get(archived_owner=self.user)
+        self.assertEqual(link.new_owner_id, new_owner.pk)
+        self.assertEqual(link.linked_by_id, superadmin.pk)
+        self.assertEqual(link.record_counts, {
+            'pets': 1,
+            'medical_records': 1,
+            'appointments': 1,
+            'sales': 1,
+            'statements': 1,
+            'reservations': 1,
+        })
+
+        duplicate_response = self.client.post(link_url, {
+            'q': 'replacementowner',
+            'new_owner_id': new_owner.pk,
+            'confirm_link': 'on',
+        })
+        self.assertRedirects(duplicate_response, reverse('accounts:owner_archive'))
+        self.assertEqual(OwnerAccountLink.objects.filter(archived_owner=self.user).count(), 1)
+        archive_response = self.client.get(reverse('accounts:owner_archive'))
+        self.assertContains(archive_response, 'Linked to')
 
 
 class BrowserLoginLockoutTests(TestCase):

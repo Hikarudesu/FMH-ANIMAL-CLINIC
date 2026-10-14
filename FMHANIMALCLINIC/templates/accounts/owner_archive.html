@@ -65,6 +65,20 @@
     </summary>
 
     <div class="owner-archive-content">
+      <section class="archive-section archive-owner-link">
+        {% if item.link_record %}
+        <p class="archive-link-status">
+          <i class="bx bx-link-alt" aria-hidden="true"></i>
+          Linked to <strong>{{ item.link_record.new_owner.get_full_name|default:item.link_record.new_owner.username }}</strong>
+          on {{ item.link_record.linked_at|date:"M j, Y" }}
+        </p>
+        {% else %}
+        <a class="archive-link-button" href="{% url 'accounts:link_archived_owner' item.owner.pk %}">
+          <i class="bx bx-link-alt" aria-hidden="true"></i> Link to new account
+        </a>
+        {% endif %}
+      </section>
+
       <section class="archive-section">
         <h2><i class="bx bx-dog"></i> Pets &amp; Medical Records</h2>
         {% for pet_section in item.pets %}
@@ -258,6 +272,11 @@
   .owner-archive-content { padding:0 20px 18px; border-top:1px solid var(--border); background:color-mix(in srgb, var(--bg) 45%, var(--surface)); }
   .archive-section { padding:17px 0; border-bottom:1px solid color-mix(in srgb, var(--border) 70%, transparent); }
   .archive-section:last-child { border-bottom:0; }
+  .archive-owner-link { display:flex; justify-content:flex-end; align-items:center; }
+  .archive-link-button { display:inline-flex; align-items:center; gap:8px; padding:9px 13px; border:1px solid var(--primary); border-radius:8px; background:var(--primary); color:#fff; font-size:13px; font-weight:600; text-decoration:none; }
+  .archive-link-button:hover { filter:brightness(.94); color:#fff; }
+  .archive-link-status { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0; color:var(--text-2); font-size:13px; }
+  .archive-link-status i { color:var(--primary); font-size:17px; }
   .archive-section h2 { display:flex; align-items:center; gap:8px; margin:0 0 10px; color:var(--text-1); font-size:15px; }
   .archive-section h2 i { color:var(--primary); font-size:18px; }
   .archive-pet-row { margin-top:10px; padding:13px 15px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }

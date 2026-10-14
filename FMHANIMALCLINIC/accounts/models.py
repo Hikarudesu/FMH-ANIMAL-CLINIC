@@ -272,6 +272,36 @@ class User(AbstractUser):
         return f'{self.username} ({self.get_display_role()})'
 
 
+class OwnerAccountLink(models.Model):
+    """Audit record for transferring a deactivated owner's retained records."""
+
+    archived_owner = models.OneToOneField(
+        User,
+        on_delete=models.PROTECT,
+        related_name='owner_account_link',
+    )
+    new_owner = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='linked_owner_archives',
+    )
+    linked_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='owner_archive_links_created',
+    )
+    record_counts = models.JSONField(default=dict, blank=True)
+    linked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-linked_at']
+
+    def __str__(self):
+        return f'{self.archived_owner} linked to {self.new_owner}'
+
+
 class UserActivity(models.Model):
     """Logs recent actions performed by the user."""
     user = models.ForeignKey(

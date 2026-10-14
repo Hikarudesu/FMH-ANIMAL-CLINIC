@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
@@ -12,7 +13,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from accounts.decorators import admin_only
-from accounts.models import User
+from accounts.models import OwnerAccountLink, User
 from appointments.models import Appointment
 from billing.models import CustomerStatement, Service
 from branches.models import Branch
@@ -42,14 +43,16 @@ ARCHIVE_RETENTION_FILTERS = (
 @login_required
 @admin_only
 def owner_archive(request):
-    search_query = request.GET.get('q', '').strip()
+    search_query = request.GET.get('q', request.POST.get('q', '')).strip()
     branch_id = request.GET.get('branch', '').strip()
     date_from = request.GET.get('date_from', '').strip()
     date_to = request.GET.get('date_to', '').strip()
 
     owners = User.objects.filter(
         owner_account_deactivated_at__isnull=False,
-    ).select_related('branch').order_by('-owner_account_deactivated_at', 'last_name', 'first_name')
+    ).select_related(
+        'branch', 'owner_account_link__new_owner', 'owner_account_link__linked_by',
+    ).order_by('-owner_account_deactivated_at', 'last_name', 'first_name')
 
     if search_query:
         owners = owners.filter(
@@ -131,6 +134,7 @@ def owner_archive(request):
         ]
         archived_owners.append({
             'owner': owner,
+            'link_record': getattr(owner, 'owner_account_link', None),
             'pets': pet_sections,
             'appointments': appointments,
             'sales': sales,
@@ -155,6 +159,128 @@ def owner_archive(request):
         'date_from': date_from,
         'date_to': date_to,
         'archive_count': page_obj.paginator.count,
+    })
+
+
+@login_required
+@admin_only
+def link_archived_owner(request, owner_id):
+    """Transfer retained records to a replacement pet-owner account."""
+    archived_owner = get_object_or_404(
+        User.objects.select_related('branch'),
+        pk=owner_id,
+        owner_account_deactivated_at__isnull=False,
+    )
+    existing_link = OwnerAccountLink.objects.filter(
+        archived_owner=archived_owner,
+    ).select_related('new_owner').first()
+    if existing_link:
+        messages.info(
+            request,
+            f'These records are already linked to {existing_link.new_owner.get_full_name() or existing_link.new_owner.username}.',
+        )
+        return redirect('accounts:owner_archive')
+
+    eligible_owners = User.objects.filter(
+        is_active=True,
+        is_superuser=False,
+        owner_account_deactivated_at__isnull=True,
+    ).filter(
+        Q(assigned_role__isnull=True) | Q(assigned_role__is_staff_role=False),
+    ).filter(
+        staff_profile__isnull=True,
+    ).exclude(pk=archived_owner.pk)
+
+    search_query = request.GET.get('q', '').strip()
+    candidates = eligible_owners.none()
+    if len(search_query) >= 2:
+        for term in search_query.split():
+            eligible_owners = eligible_owners.filter(
+                Q(first_name__icontains=term)
+                | Q(last_name__icontains=term)
+                | Q(username__icontains=term)
+                | Q(email__icontains=term)
+            )
+        candidates = eligible_owners.select_related('branch').order_by(
+            'first_name', 'last_name', 'username',
+        )[:50]
+
+    if request.method == 'POST':
+        if request.POST.get('confirm_link') != 'on':
+            messages.error(request, 'Confirm the account link before transferring records.')
+        else:
+            new_owner = eligible_owners.filter(
+                pk=request.POST.get('new_owner_id'),
+            ).select_related('branch').first()
+            if new_owner is None:
+                messages.error(request, 'Select an active pet-owner account to receive these records.')
+            else:
+                with transaction.atomic():
+                    archived_owner = User.objects.select_for_update().get(pk=archived_owner.pk)
+                    if OwnerAccountLink.objects.filter(archived_owner=archived_owner).exists():
+                        messages.error(request, 'These records have already been linked to another account.')
+                        return redirect('accounts:owner_archive')
+
+                    target_branch = Branch.objects.filter(
+                        pk=new_owner.branch_id,
+                        is_active=True,
+                    ).first()
+                    pets = Pet.all_objects.filter(owner=archived_owner)
+                    pet_ids = list(pets.values_list('pk', flat=True))
+                    appointments = Appointment.objects.filter(
+                        Q(user=archived_owner) | Q(pet__owner=archived_owner),
+                    ).distinct()
+                    sales = Sale.objects.filter(
+                        Q(customer=archived_owner) | Q(pet__owner=archived_owner),
+                    ).distinct()
+                    statements = CustomerStatement.objects.filter(
+                        Q(customer=archived_owner)
+                        | Q(sale__customer=archived_owner)
+                        | Q(sale__pet__owner=archived_owner),
+                    ).distinct()
+                    reservations = Reservation.objects.filter(user=archived_owner)
+                    record_counts = {
+                        'pets': len(pet_ids),
+                        'medical_records': MedicalRecord.all_objects.filter(
+                            pet_id__in=pet_ids,
+                        ).count(),
+                        'appointments': appointments.count(),
+                        'sales': sales.count(),
+                        'statements': statements.count(),
+                        'reservations': reservations.count(),
+                    }
+
+                    appointments.update(user=new_owner, branch=target_branch)
+                    sales.update(
+                        customer=new_owner,
+                        customer_type=Sale.CustomerType.REGISTERED,
+                    )
+                    statements.update(customer=new_owner)
+                    reservations.update(user=new_owner)
+                    MedicalRecord.all_objects.filter(
+                        pet_id__in=pet_ids,
+                    ).update(branch=target_branch)
+                    pets.update(owner=new_owner, branch=target_branch)
+
+                    OwnerAccountLink.objects.create(
+                        archived_owner=archived_owner,
+                        new_owner=new_owner,
+                        linked_by=request.user,
+                        record_counts=record_counts,
+                    )
+
+                messages.success(
+                    request,
+                    f"Archived records for {archived_owner.get_full_name() or archived_owner.username} "
+                    f"were linked to {new_owner.get_full_name() or new_owner.username}.",
+                )
+                return redirect('accounts:owner_archive')
+
+    return render(request, 'accounts/link_archived_owner.html', {
+        'archived_owner': archived_owner,
+        'candidates': candidates,
+        'search_query': search_query,
+        'selected_owner_id': request.POST.get('new_owner_id', ''),
     })
 
 

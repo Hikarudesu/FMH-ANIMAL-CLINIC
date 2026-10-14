@@ -26,6 +26,11 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile'),
     path('profile/deactivate/', views.request_owner_deactivation, name='request_owner_deactivation'),
     path('owner-archive/', archive_views.owner_archive, name='owner_archive'),
+    path(
+        'owner-archive/<int:owner_id>/link/',
+        archive_views.link_archived_owner,
+        name='link_archived_owner',
+    ),
     path('records-archive/', archive_views.records_archive, name='records_archive'),
     path(
         'records-archive/<str:kind>/<int:pk>/restore/',
