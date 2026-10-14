@@ -140,8 +140,7 @@
 
 <!-- MAIN CHARTS GRID -->
 <div class="charts-section">
-  
-  <!-- ROW 1: Monthly Completed Consultations -->
+  <!-- ROW 1: Consultations and appointment types -->
   <div class="charts-row charts-row-monthly">
     <div class="chart-card-modern large chart-card-monthly">
       <div class="chart-header">
@@ -155,10 +154,6 @@
         <canvas id="monthlyCompletedConsultationsChart"></canvas>
       </div>
     </div>
-  </div>
-
-  <!-- ROW 2: Equal-sized supporting charts -->
-  <div class="charts-row charts-row-supporting">
     <div class="chart-card-modern chart-card-supporting">
       <div class="chart-header">
         <div class="chart-title">
@@ -167,10 +162,14 @@
         </div>
         <div class="chart-badge teal">All Time</div>
       </div>
-      <div class="chart-body">
+      <div class="chart-body chart-body-appointment-types">
         <canvas id="appointmentTypesChart"></canvas>
       </div>
     </div>
+  </div>
+
+  <!-- ROW 2: Patient status and recent records -->
+  <div class="charts-row charts-row-supporting">
     <div class="chart-card-modern chart-card-supporting">
       <div class="chart-header">
         <div class="chart-title">
@@ -183,61 +182,60 @@
         <canvas id="patientHealthChart"></canvas>
       </div>
     </div>
+
+    <section class="recent-records-section">
+      <div class="recent-records-card chart-card-modern">
+        <div class="chart-header recent-records-header">
+          <div class="chart-title">
+            <i class='bx bx-notepad'></i>
+            <span>Recent Medical Records</span>
+          </div>
+          <div class="recent-records-actions">
+            {% if user|has_module_permission:'medical_records:CREATE' %}
+            <a href="{% url 'records:admin_create' %}" class="section-link recent-records-create">
+              <i class='bx bx-plus'></i> New Record
+            </a>
+            {% endif %}
+            <a href="{% url 'records:admin_list' %}" class="section-link">
+              View All <i class='bx bx-right-arrow-alt'></i>
+            </a>
+          </div>
+        </div>
+        <div class="recent-records-body">
+          {% if recent_medical_records %}
+          <div class="recent-records-list">
+            {% for entry in recent_medical_records %}
+            <a class="recent-record-row" href="{% url 'records:admin_detail' entry.record.pk %}" aria-label="View {{ entry.record.pet.name }}'s medical record">
+              <span class="recent-record-icon"><i class='bx bx-notepad'></i></span>
+              <span class="recent-record-info">
+                <span class="recent-record-pet">{{ entry.record.pet.name }}</span>
+                <span class="recent-record-meta">
+                  {{ entry.record.pet.species }} · {{ entry.date_recorded|date:"M j, Y" }}{% if entry.vet %} · Dr. {{ entry.vet.first_name }} {{ entry.vet.last_name }}{% elif entry.record.vet %} · Dr. {{ entry.record.vet.first_name }} {{ entry.record.vet.last_name }}{% endif %}
+                </span>
+                {% if entry.history_clinical_signs %}
+                <span class="recent-record-summary">{{ entry.history_clinical_signs|truncatechars:110 }}</span>
+                {% elif entry.treatment %}
+                <span class="recent-record-summary">{{ entry.treatment|truncatechars:110 }}</span>
+                {% endif %}
+              </span>
+              <span class="recent-record-side">
+                <span class="recent-record-status"><i class='bx bx-check'></i> Recorded</span>
+                <i class='bx bx-chevron-right recent-record-arrow'></i>
+              </span>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="recent-records-empty">
+            <i class='bx bx-folder-open'></i>
+            <p>No medical records have been recorded yet.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
   </div>
 </div>
-
-<!-- RECENT MEDICAL RECORDS -->
-<section class="recent-records-section">
-  <div class="recent-records-card chart-card-modern">
-    <div class="chart-header recent-records-header">
-      <div class="chart-title">
-        <i class='bx bx-notepad'></i>
-        <span>Recent Medical Records</span>
-      </div>
-      <div class="recent-records-actions">
-        {% if user|has_module_permission:'medical_records:CREATE' %}
-        <a href="{% url 'records:admin_create' %}" class="section-link recent-records-create">
-          <i class='bx bx-plus'></i> New Record
-        </a>
-        {% endif %}
-        <a href="{% url 'records:admin_list' %}" class="section-link">
-          View All <i class='bx bx-right-arrow-alt'></i>
-        </a>
-      </div>
-    </div>
-    <div class="recent-records-body">
-      {% if recent_medical_records %}
-      <div class="recent-records-list">
-        {% for entry in recent_medical_records %}
-        <a class="recent-record-row" href="{% url 'records:admin_detail' entry.record.pk %}" aria-label="View {{ entry.record.pet.name }}'s medical record">
-          <span class="recent-record-icon"><i class='bx bx-notepad'></i></span>
-          <span class="recent-record-info">
-            <span class="recent-record-pet">{{ entry.record.pet.name }}</span>
-            <span class="recent-record-meta">
-              {{ entry.record.pet.species }} · {{ entry.date_recorded|date:"M j, Y" }}{% if entry.vet %} · Dr. {{ entry.vet.first_name }} {{ entry.vet.last_name }}{% elif entry.record.vet %} · Dr. {{ entry.record.vet.first_name }} {{ entry.record.vet.last_name }}{% endif %}
-            </span>
-            {% if entry.history_clinical_signs %}
-            <span class="recent-record-summary">{{ entry.history_clinical_signs|truncatechars:110 }}</span>
-            {% elif entry.treatment %}
-            <span class="recent-record-summary">{{ entry.treatment|truncatechars:110 }}</span>
-            {% endif %}
-          </span>
-          <span class="recent-record-side">
-            <span class="recent-record-status"><i class='bx bx-check'></i> Recorded</span>
-            <i class='bx bx-chevron-right recent-record-arrow'></i>
-          </span>
-        </a>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="recent-records-empty">
-        <i class='bx bx-folder-open'></i>
-        <p>No medical records have been recorded yet.</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-</section>
 
 <!-- PENDING FOLLOW-UPS SECTION -->
 {% if follow_ups %}
@@ -605,19 +603,33 @@
   }
 
   .charts-row-monthly {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   }
 
   .charts-row-supporting {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
 
   .chart-card-monthly {
     width: 100%;
   }
 
+  .charts-row > .chart-card-modern {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .charts-row > .chart-card-modern > .chart-body {
+    flex: 1;
+  }
+
   .chart-body-monthly {
-    height: 360px;
+    height: 320px;
+  }
+
+  .chart-body-appointment-types {
+    height: 260px;
   }
 
   .chart-card-supporting {
@@ -625,6 +637,7 @@
   }
   
   @media (max-width: 992px) {
+    .charts-row-monthly,
     .charts-row-supporting {
       grid-template-columns: 1fr;
     }
@@ -1104,12 +1117,16 @@
   /* ═══════════════════════════════════════════════ */
   
   .recent-records-section {
-    margin-bottom: 28px;
+    min-width: 0;
+    margin-bottom: 0;
     container-type: inline-size;
   }
 
   .recent-records-card {
     width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
   .recent-records-header {
@@ -1139,7 +1156,9 @@
   }
 
   .recent-records-body {
-    padding: 0 30px 8px;
+    padding: 0 18px 8px;
+    max-height: 310px;
+    overflow-y: auto;
   }
 
   .recent-record-row {

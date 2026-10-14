@@ -543,6 +543,13 @@ class VetDashboardContentTests(TestCase):
                     dashboard_html.index('Appointment Types'),
                     dashboard_html.index('Patient Status'),
                 )
+                self.assertLess(
+                    dashboard_html.index('Patient Status'),
+                    dashboard_html.index('Recent Medical Records'),
+                )
+                self.assertContains(response, 'grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);')
+                self.assertContains(response, 'grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);')
+                self.assertContains(response, 'max-height: 310px;')
                 self.assertContains(response, 'charts-row-monthly')
                 self.assertContains(response, 'charts-row-supporting')
                 self.assertContains(response, 'chart-body-monthly')
