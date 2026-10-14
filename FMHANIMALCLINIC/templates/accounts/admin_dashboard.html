@@ -295,6 +295,25 @@
   /* Prevent horizontal scrollbar from translateX animations */
   .portal-content {
     overflow-x: hidden;
+    padding: 18px;
+  }
+
+  .page-hero {
+    margin-bottom: 16px;
+    padding-block: 18px;
+  }
+
+  .page-hero-inner {
+    padding: 0 20px;
+  }
+
+  .page-hero-text h1 {
+    font-size: 1.5rem;
+  }
+
+  .page-hero-text p {
+    margin-top: 4px;
+    font-size: 0.85rem;
   }
   
   /* Base: hidden state */
@@ -334,8 +353,8 @@
   .hero-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 20px;
-    margin-bottom: 28px;
+    gap: 14px;
+    margin-bottom: 20px;
   }
   
   @media (max-width: 1200px) {
@@ -349,11 +368,11 @@
   .hero-stat-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 24px;
+    border-radius: 16px;
+    padding: 16px;
     display: flex;
     align-items: flex-start;
-    gap: 18px;
+    gap: 12px;
     position: relative;
     overflow: hidden;
     box-shadow: var(--shadow-card);
@@ -385,9 +404,9 @@
   }
   
   .hero-stat-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -396,7 +415,7 @@
   }
   
   .hero-stat-icon i {
-    font-size: 26px;
+    font-size: 21px;
     color: white;
   }
   
@@ -419,7 +438,7 @@
   }
   
   .hero-stat-value {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 800;
     color: var(--text-1);
     letter-spacing: -1px;
@@ -427,7 +446,7 @@
   }
   
   .hero-stat-label {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-3);
     font-weight: 500;
   }
@@ -435,15 +454,15 @@
   .hero-stat-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 8px;
+    gap: 6px;
+    margin-top: 5px;
   }
   
   .meta-item {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--text-3);
   }
@@ -452,7 +471,7 @@
   .meta-item.warning { color: #f59e0b; }
   .meta-item.danger { color: #ef4444; }
   
-  .meta-item i { font-size: 14px; }
+  .meta-item i { font-size: 12px; }
 
   /* ═══════════════════════════════════════════════ */
   /* ALERT BANNER MODERN */
@@ -461,21 +480,21 @@
   .alert-banner-modern {
     background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
     border: 1px solid #fcd34d;
-    border-radius: 16px;
-    padding: 18px 24px;
-    margin-bottom: 28px;
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 12px;
     position: relative;
     box-shadow: var(--shadow-card);
   }
   
   .alert-icon {
-    width: 48px;
-    height: 48px;
+    width: 38px;
+    height: 38px;
     background: #f59e0b;
-    border-radius: 14px;
+    border-radius: 11px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -483,15 +502,15 @@
   }
   
   .alert-icon i {
-    font-size: 24px;
+    font-size: 20px;
     color: white;
   }
   
   .alert-content { flex: 1; }
   
   .alert-content h4 {
-    margin: 0 0 8px;
-    font-size: 15px;
+    margin: 0 0 5px;
+    font-size: 13px;
     font-weight: 700;
     color: #78350f;
   }
@@ -499,19 +518,19 @@
   .alert-items {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 8px;
   }
   
   .alert-item {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: #92400e;
     text-decoration: none;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 6px 12px;
+    padding: 4px 9px;
     background: rgba(255,255,255,0.5);
     border-radius: 8px;
   }
@@ -519,7 +538,7 @@
   .product-sales {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
 
   .product-sales-meta {
@@ -562,14 +581,14 @@
   .charts-section {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    margin-bottom: 32px;
+    gap: 16px;
+    margin-bottom: 22px;
   }
   
   .charts-row {
     display: grid;
     grid-template-columns: 1.5fr 1fr;
-    gap: 24px;
+    gap: 16px;
   }
   
   .charts-row:nth-child(2) {
@@ -586,7 +605,7 @@
   .chart-card-modern {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 20px;
+    border-radius: 16px;
     overflow: hidden;
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
@@ -599,8 +618,8 @@
   }
   
   .chart-card-modern:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(0, 150, 136, 0.1);
     border-color: transparent;
   }
   
@@ -613,7 +632,7 @@
   }
 
   .admin-monthly-performance {
-    border-top: 4px solid #10b981;
+    border-top: 3px solid #10b981;
     background:
       radial-gradient(ellipse at top right, rgba(16, 185, 129, 0.08), transparent 45%),
       var(--surface);
@@ -621,33 +640,33 @@
 
   .admin-performance-description {
     margin: 0;
-    padding: 14px 24px 0;
+    padding: 10px 18px 0;
     color: var(--text-3);
-    font-size: 13px;
+    font-size: 12px;
   }
   
   .chart-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 20px 24px;
+    gap: 9px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border);
   }
   
   .chart-title {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex: 1;
   }
   
   .chart-title i {
-    font-size: 20px;
+    font-size: 18px;
     color: var(--primary);
   }
   
   .chart-title span {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text-1);
   }
@@ -659,9 +678,9 @@
   .chart-badge {
     display: inline-flex;
     align-items: center;
-    padding: 6px 14px;
+    padding: 4px 10px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -696,7 +715,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--primary);
     text-decoration: none;
@@ -709,37 +728,37 @@
   }
   
   .chart-body {
-    padding: 24px;
-    height: 280px;
+    padding: 16px;
+    height: 230px;
     position: relative;
   }
   
-  .chart-body.tall { height: 320px; }
-  .chart-body.wide { height: 260px; }
+  .chart-body.tall { height: 270px; }
+  .chart-body.wide { height: 230px; }
 
   /* ═══════════════════════════════════════════════ */
   /* INSIGHTS SECTION */
   /* ═══════════════════════════════════════════════ */
   
   .insights-section {
-    margin-bottom: 32px;
+    margin-bottom: 22px;
   }
   
   .section-title {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 9px;
+    margin-bottom: 14px;
     background: transparent !important;
   }
   
   .section-title i {
-    font-size: 22px;
+    font-size: 19px;
     color: var(--primary);
   }
   
   .section-title span {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--text-1);
   }
@@ -761,7 +780,7 @@
   .insights-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px;
+    gap: 14px;
   }
 
   @media (max-width: 700px) {
@@ -771,8 +790,8 @@
   .insight-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 24px;
+    border-radius: 14px;
+    padding: 16px;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-card);
   }
@@ -786,33 +805,33 @@
   .insight-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 18px;
-    padding-bottom: 14px;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
     border-bottom: 1px solid var(--border);
   }
   
   .insight-header i {
-    font-size: 20px;
+    font-size: 18px;
     color: var(--primary);
   }
   
   .insight-header span {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--text-1);
   }
   
   .insight-metrics {
     display: flex;
-    gap: 16px;
+    gap: 10px;
     justify-content: space-between;
   }
   
   .metric-item {
     flex: 1;
     text-align: center;
-    padding: 14px 8px;
+    padding: 10px 6px;
     background: var(--bg);
     border-radius: 12px;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -824,7 +843,7 @@
   
   .metric-value {
     display: block;
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 800;
     margin-bottom: 4px;
     letter-spacing: -1px;
@@ -845,14 +864,14 @@
   .service-list-modern {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
   
   .service-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
+    gap: 9px;
+    padding: 7px 10px;
     background: var(--bg);
     border-radius: 10px;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -864,8 +883,8 @@
   }
   
   .service-rank {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -878,23 +897,23 @@
   
   .service-name {
     flex: 1;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-1);
   }
   
   .service-count {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--primary);
-    padding: 4px 10px;
+    padding: 3px 8px;
     background: rgba(0, 150, 136, 0.1);
     border-radius: 8px;
   }
   
   .no-data {
     text-align: center;
-    padding: 24px;
+    padding: 16px;
     color: var(--text-3);
     font-size: 13px;
   }
@@ -906,13 +925,13 @@
   .schedule-section {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 20px;
+    border-radius: 16px;
     overflow: hidden;
     box-shadow: var(--shadow-card);
   }
   
   .schedule-section > .section-title {
-    padding: 20px 24px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 0;
     background: transparent !important;
@@ -930,10 +949,10 @@
   
   .schedule-table th,
   .schedule-table td {
-    padding: 16px 12px;
+    padding: 10px 9px;
     text-align: center;
     vertical-align: middle;
-    font-size: 13px;
+    font-size: 12px;
   }
   
   .schedule-table thead {
@@ -945,7 +964,7 @@
     font-weight: 600;
     color: var(--text-3);
     text-transform: uppercase;
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 0.5px;
   }
   
@@ -964,43 +983,43 @@
   
   .time-badge {
     display: inline-flex;
-    padding: 6px 12px;
+    padding: 4px 9px;
     background: var(--bg);
     border-radius: 8px;
     font-weight: 600;
     color: var(--text-1);
-    font-size: 12px;
+    font-size: 11px;
   }
   
   .patient-info {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     font-weight: 600;
     color: var(--text-1);
   }
   
   .patient-info i {
-    font-size: 18px;
+    font-size: 16px;
     color: var(--primary);
   }
   
   .branch-tag {
     display: inline-flex;
-    padding: 4px 10px;
+    padding: 3px 8px;
     background: rgba(0, 150, 136, 0.1);
     color: #009688;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
   }
   
   .status-pill {
     display: inline-flex;
-    padding: 5px 12px;
+    padding: 4px 9px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -1013,20 +1032,20 @@
   .status-pill.no_show { background: rgba(100, 116, 139, 0.1); color: #64748b; }
   
   .empty-schedule {
-    padding: 60px 24px;
+    padding: 36px 16px;
     text-align: center;
   }
   
   .empty-schedule i {
-    font-size: 48px;
+    font-size: 38px;
     color: var(--text-3);
-    margin-bottom: 16px;
+    margin-bottom: 10px;
     display: block;
   }
   
   .empty-schedule h4 {
-    margin: 0 0 8px;
-    font-size: 16px;
+    margin: 0 0 6px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text-1);
   }
@@ -1077,6 +1096,20 @@
 
   [data-theme="dark"] canvas + * {
     color: #ffffff !important;
+  }
+
+  @media (max-width: 768px) {
+    .portal-content {
+      padding: 16px;
+      padding-top: calc(var(--topbar-h) + 12px);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .portal-content {
+      padding: 12px;
+      padding-top: calc(var(--topbar-h) + 10px);
+    }
   }
 </style>
 
