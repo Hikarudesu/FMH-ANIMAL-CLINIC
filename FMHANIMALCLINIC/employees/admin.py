@@ -8,6 +8,9 @@ class StaffMemberAdmin(admin.ModelAdmin):
     list_filter = ('position', 'branch', 'is_active')
     search_fields = ('first_name', 'last_name', 'email')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(VetSchedule)
 class VetScheduleAdmin(admin.ModelAdmin):

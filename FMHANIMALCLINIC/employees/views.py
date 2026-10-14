@@ -332,10 +332,10 @@ def staff_delete(request, pk):
             messages.success(
                 request, f'{member.full_name} has been deactivated.')
         else:
-            # Hard delete (only if user explicitly chose)
-            name = member.full_name
-            member.delete()
-            messages.success(request, f'{name} has been permanently removed.')
+            messages.error(
+                request,
+                'Staff profiles cannot be permanently deleted because their employment history must be retained.',
+            )
 
         return redirect('employees:staff_list')
 

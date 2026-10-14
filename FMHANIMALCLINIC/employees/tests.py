@@ -1,11 +1,16 @@
+from datetime import date
+
 from django.contrib.auth import authenticate, get_user_model
 from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.models import ActivityLog
 from accounts.rbac_models import Role
+from attendance.models import DailyAttendance
 from branches.models import Branch
+from payroll.models import PayrollPeriod, Payslip
 from .models import StaffMember
 
 
@@ -197,6 +202,63 @@ class StaffAccountActivationTests(TestCase):
         self.assertEqual(self.user.inactive_reason, reason)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(reason, mail.outbox[0].body)
+
+    def test_deactivation_preserves_attendance_payroll_and_activity_history(self):
+        attendance = DailyAttendance.objects.create(
+            staff=self.staff,
+            attendance_date=date.today(),
+        )
+        period = PayrollPeriod.objects.create(
+            month=4,
+            year=2025,
+            status=PayrollPeriod.Status.RELEASED,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=self.staff,
+            status=Payslip.Status.RELEASED,
+        )
+        activity = ActivityLog.objects.create(
+            user=self.user,
+            action='Staff account updated',
+            category=ActivityLog.Category.STAFF,
+            action_type=ActivityLog.ActionType.UPDATE,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('employees:staff_delete', args=[self.staff.pk]),
+            {'action': 'deactivate', 'inactive_reason': 'Employment ended.'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.staff.refresh_from_db()
+        self.assertFalse(self.staff.is_active)
+        self.assertTrue(DailyAttendance.objects.filter(pk=attendance.pk, staff=self.staff).exists())
+        self.assertTrue(Payslip.objects.filter(pk=payslip.pk, employee=self.staff).exists())
+        self.assertTrue(ActivityLog.objects.filter(pk=activity.pk, user=self.user).exists())
+
+    def test_permanent_delete_request_does_not_remove_staff_history(self):
+        attendance = DailyAttendance.objects.create(
+            staff=self.staff,
+            attendance_date=date.today(),
+        )
+        period = PayrollPeriod.objects.create(month=4, year=2025)
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=self.staff,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('employees:staff_delete', args=[self.staff.pk]),
+            {'action': 'delete'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(StaffMember.objects.filter(pk=self.staff.pk).exists())
+        self.assertTrue(DailyAttendance.objects.filter(pk=attendance.pk).exists())
+        self.assertTrue(Payslip.objects.filter(pk=payslip.pk).exists())
 
 
 class InactiveStaffListTests(TestCase):
