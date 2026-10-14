@@ -7,8 +7,11 @@ from django.db.models import Q
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from appointments.models import Appointment
 from accounts.decorators import module_permission_required
 from employees.models import RecurringSchedule, StaffMember, VetSchedule
+from patients.models import Pet
+from records.models import MedicalRecord
 from .models import Branch
 from .forms import BranchForm
 
@@ -95,6 +98,9 @@ def branch_toggle_status(request, pk):
             return redirect(f"{reverse('branches:list')}?status=active")
 
         with transaction.atomic():
+            from .archive import create_branch_archive
+
+            create_branch_archive(branch)
             branchless_staff_ids = list(
                 StaffMember.objects.filter(branch=branch).values_list('pk', flat=True)
             )
@@ -108,6 +114,9 @@ def branch_toggle_status(request, pk):
             branch.save(update_fields=['is_active', 'updated_at'])
             get_user_model().objects.filter(branch=branch).update(branch=None)
             StaffMember.objects.filter(branch=branch).update(branch=None)
+            Pet.all_objects.filter(branch=branch).update(branch=None)
+            MedicalRecord.all_objects.filter(branch=branch).update(branch=None)
+            Appointment.objects.filter(branch=branch).update(branch=None)
         success_message = f"Branch '{branch.name}' is now inactive."
     else:
         branch.is_active = True

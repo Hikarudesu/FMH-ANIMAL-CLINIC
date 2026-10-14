@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @page { size: letter; margin: 0.55in; }
+    body { font-family: Helvetica, sans-serif; color: #202a32; font-size: 9pt; }
+    h1 { color: #155e63; font-size: 20pt; margin: 0 0 4px; }
+    h2 { color: #155e63; font-size: 13pt; margin: 20px 0 7px; }
+    p { margin: 3px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 7px 0 15px; }
+    th { background: #e8f1ef; text-align: left; }
+    th, td { border: 1px solid #cbd5d8; padding: 5px; vertical-align: top; }
+    .muted { color: #64747b; }
+    .period { page-break-inside: avoid; }
+  </style>
+</head>
+<body>
+  <h1>{{ branch.name }} history archive</h1>
+  <p>{{ branch.address }}, {{ branch.city }}, {{ branch.state }} {{ branch.zip_code }}</p>
+  <p class="muted">Generated {{ generated_at|date:'F j, Y H:i' }}</p>
+
+  <h2>Sales ({{ sales|length }})</h2>
+  {% if sales %}
+  <table>
+    <thead><tr><th>Transaction</th><th>Recorded</th><th>Customer</th><th>Status</th><th>Items</th><th>Total</th></tr></thead>
+    <tbody>
+    {% for sale in sales %}
+      <tr>
+        <td>{{ sale.transaction_id }}</td>
+        <td>{{ sale.created_at|date:'Y-m-d H:i' }}</td>
+        <td>{{ sale.customer_display_name }}</td>
+        <td>{{ sale.get_status_display }}</td>
+        <td>{% for item in sale.items.all %}{{ item.quantity }} x {{ item.name }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+        <td>{{ sale.total }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>No sales recorded.</p>{% endif %}
+
+  <h2>Payroll history ({{ payroll_periods|length }} periods)</h2>
+  {% if payroll_periods %}
+    {% for period in payroll_periods %}
+    <div class="period">
+      <h3>{{ period.period_display }} - {{ period.get_status_display }}</h3>
+      <table>
+        <thead><tr><th>Employee</th><th>Gross</th><th>Deductions</th><th>Net</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for payslip in period.archive_payslips %}
+          <tr>
+            <td>{{ payslip.employee.full_name }}</td>
+            <td>{{ payslip.gross_pay }}</td>
+            <td>{{ payslip.total_deductions }}</td>
+            <td>{{ payslip.net_pay }}</td>
+            <td>{{ payslip.get_status_display }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="5">No payslips in this period.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  {% else %}<p>No generated or released payroll periods recorded for this branch.</p>{% endif %}
+</body>
+</html>

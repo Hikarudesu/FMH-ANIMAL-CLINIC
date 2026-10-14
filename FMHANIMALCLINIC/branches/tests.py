@@ -1,4 +1,6 @@
 from datetime import date, time
+from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib import admin
 from django.contrib.auth import get_user_model
@@ -6,10 +8,15 @@ from django.test import RequestFactory
 from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
 
+from appointments.models import Appointment
 from branches.admin import BranchAdmin
-from branches.models import Branch
+from branches.models import Branch, BranchArchive
 from employees.models import RecurringSchedule, StaffMember, VetSchedule
 from inventory.models import Product
+from patients.models import Pet
+from payroll.models import PayrollPeriod
+from pos.models import Sale
+from records.models import MedicalRecord
 
 
 class BranchStatusManagementTests(TestCase):
@@ -254,3 +261,148 @@ class BranchStatusManagementTests(TestCase):
         self.assertIn(other_active_branch, payroll_branches)
         self.assertNotIn(inactive_branch, payroll_branches)
         self.assertNotIn(self.inactive_branch, payroll_branches)
+
+    def test_branch_deactivation_keeps_sales_history_and_clears_active_branch_links(self):
+        owner = get_user_model().objects.create_user(
+            username='sales-archive-owner',
+            email='sales-archive-owner@example.com',
+            password='A-secure-test-password-923!',
+            branch=self.active_branch,
+        )
+        pet = Pet.objects.create(
+            owner=owner,
+            branch=self.active_branch,
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        medical_record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.active_branch,
+            date_recorded=date.today(),
+        )
+        appointment = Appointment.objects.create(
+            owner_name=owner.get_full_name() or owner.username,
+            owner_email=owner.email,
+            pet_name=pet.name,
+            branch=self.active_branch,
+            appointment_date=date.today(),
+            appointment_time=time(9, 0),
+            user=owner,
+        )
+        sale = Sale.objects.create(
+            branch=self.active_branch,
+            customer=owner,
+            customer_type=Sale.CustomerType.REGISTERED,
+            subtotal=Decimal('150.00'),
+            discount_percent=Decimal('0.00'),
+            tax_amount=Decimal('0.00'),
+            total=Decimal('150.00'),
+            amount_paid=Decimal('150.00'),
+            change_due=Decimal('0.00'),
+            status=Sale.Status.COMPLETED,
+        )
+        payroll_period = PayrollPeriod.objects.create(
+            month=4,
+            year=2025,
+            branch=self.active_branch,
+            status=PayrollPeriod.Status.RELEASED,
+        )
+
+        with patch('branches.archive.send_notification_email', return_value=True) as email_mock:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(
+                    reverse('branches:toggle_status', args=[self.active_branch.pk]),
+                    {
+                        'confirm_deactivation': 'on',
+                        'confirm_deactivation_final': 'on',
+                    },
+                )
+
+        self.assertEqual(response.status_code, 302)
+        self.active_branch.refresh_from_db()
+        self.assertFalse(self.active_branch.is_active)
+        pet.refresh_from_db()
+        medical_record.refresh_from_db()
+        appointment.refresh_from_db()
+        sale.refresh_from_db()
+        self.assertIsNone(pet.branch_id)
+        self.assertIsNone(medical_record.branch_id)
+        self.assertIsNone(appointment.branch_id)
+        self.assertEqual(sale.branch_id, self.active_branch.pk)
+        archive = BranchArchive.objects.get(branch=self.active_branch)
+        self.assertEqual(archive.email_status, BranchArchive.EmailStatus.SENT)
+        self.assertEqual(archive.sale_count, 1)
+        self.assertEqual(archive.payroll_period_count, 1)
+        self.assertEqual(payroll_period.branch_id, self.active_branch.pk)
+        with archive.pdf_file.open('rb') as archived_pdf:
+            self.assertTrue(archived_pdf.read().startswith(b'%PDF'))
+        email_mock.assert_called_once()
+        self.assertTrue(email_mock.call_args.kwargs['superuser_only'])
+        attachment_name, attachment_bytes, mime_type = email_mock.call_args.kwargs['attachments'][0]
+        self.assertTrue(attachment_name.endswith('.pdf'))
+        self.assertEqual(mime_type, 'application/pdf')
+        self.assertGreater(len(attachment_bytes), 0)
+
+    def test_pet_owner_branch_change_moves_current_pet_data_to_new_branch(self):
+        original_branch = self.create_branch('Original Branch', is_active=True)
+        new_branch = self.create_branch('New Branch', is_active=True)
+        owner = get_user_model().objects.create_user(
+            username='owner-branch-move',
+            email='owner-branch-move@example.com',
+            password='A-secure-test-password-923!',
+            branch=original_branch,
+        )
+        pet = Pet.objects.create(
+            owner=owner,
+            branch=original_branch,
+            name='Patches',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        medical_record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=original_branch,
+            date_recorded=date.today(),
+        )
+        appointment = Appointment.objects.create(
+            owner_name=owner.get_full_name() or owner.username,
+            owner_email=owner.email,
+            pet_name=pet.name,
+            branch=original_branch,
+            appointment_date=date.today(),
+            appointment_time=time(10, 0),
+            user=owner,
+        )
+
+        self.client.force_login(owner)
+        response = self.client.post(
+            reverse('accounts:select_branch'),
+            {'branch_id': new_branch.pk},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        pet.refresh_from_db()
+        medical_record.refresh_from_db()
+        appointment.refresh_from_db()
+        self.assertEqual(pet.branch_id, new_branch.pk)
+        self.assertEqual(medical_record.branch_id, new_branch.pk)
+        self.assertEqual(appointment.branch_id, new_branch.pk)
+
+    def test_archive_email_failure_does_not_roll_back_branch_deactivation(self):
+        with patch('branches.archive.send_notification_email', return_value=False):
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(
+                    reverse('branches:toggle_status', args=[self.active_branch.pk]),
+                    {
+                        'confirm_deactivation': 'on',
+                        'confirm_deactivation_final': 'on',
+                    },
+                )
+
+        self.assertEqual(response.status_code, 302)
+        self.active_branch.refresh_from_db()
+        self.assertFalse(self.active_branch.is_active)
+        archive = BranchArchive.objects.get(branch=self.active_branch)
+        self.assertEqual(archive.email_status, BranchArchive.EmailStatus.FAILED)
+        self.assertTrue(archive.pdf_file.name)

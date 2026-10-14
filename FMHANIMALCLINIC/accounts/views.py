@@ -301,6 +301,10 @@ def select_branch_view(request):
                 return redirect('accounts:profile')
             request.user.branch = branch
             request.user.save(update_fields=['branch'])
+            if request.user.is_pet_owner():
+                from .branch_assignment import sync_owner_branch_data
+
+                sync_owner_branch_data(request.user, branch)
             messages.success(
                 request, f'Welcome! You are now registered at {branch.name}.')
         return redirect('user_dashboard')
@@ -613,6 +617,10 @@ def profile_view(request):
                     from employees.branch_changes import apply_staff_branch_change
 
                     apply_staff_branch_change(user, old_branch_id, user.branch)
+                    if user.is_pet_owner():
+                        from .branch_assignment import sync_owner_branch_data
+
+                        sync_owner_branch_data(user, user.branch)
             if user.email.casefold() != old_email.casefold():
                 try:
                     _send_email_verification(request, user)

@@ -81,3 +81,36 @@ class Branch(models.Model):
 
     def __str__(self):
         return f'{self.name} — {self.city}'
+
+
+class BranchArchive(models.Model):
+    """Durable PDF snapshot and delivery status for an inactive branch."""
+
+    class EmailStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        SENT = 'SENT', 'Sent'
+        FAILED = 'FAILED', 'Failed'
+
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name='archives',
+    )
+    pdf_file = models.FileField(upload_to='branch_archives/%Y/%m/')
+    sale_count = models.PositiveIntegerField(default=0)
+    payroll_period_count = models.PositiveIntegerField(default=0)
+    recipient_emails = models.JSONField(default=list, blank=True)
+    email_status = models.CharField(
+        max_length=10,
+        choices=EmailStatus.choices,
+        default=EmailStatus.PENDING,
+    )
+    email_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.branch.name} archive — {self.created_at:%Y-%m-%d}'
