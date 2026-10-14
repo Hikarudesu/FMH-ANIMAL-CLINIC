@@ -1,6 +1,7 @@
 {% extends 'base/portal_admin.html' %}
 {% load static %}
 {% load currency_filters %}
+{% load permission_tags %}
 
 {% block title %}{{ dashboard_title|default:"Veterinarian Dashboard" }}{% endblock %}
 
@@ -140,22 +141,25 @@
 <!-- MAIN CHARTS GRID -->
 <div class="charts-section">
   
-  <!-- ROW 1: Weekly Workload & Appointment Types -->
-  <div class="charts-row">
-    <div class="chart-card-modern large">
+  <!-- ROW 1: Monthly Completed Consultations -->
+  <div class="charts-row charts-row-monthly">
+    <div class="chart-card-modern large chart-card-monthly">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Weekly Workload</span>
+          <span>Your Completed Consultations</span>
         </div>
-        <div class="chart-badge purple">This Week</div>
+        <div class="chart-badge purple">{{ monthly_consultations_period }}</div>
       </div>
-      <div class="chart-body">
-        <canvas id="weeklyWorkloadChart"></canvas>
+      <div class="chart-body chart-body-monthly">
+        <canvas id="monthlyCompletedConsultationsChart"></canvas>
       </div>
     </div>
-    
-    <div class="chart-card-modern">
+  </div>
+
+  <!-- ROW 2: Equal-sized supporting charts -->
+  <div class="charts-row charts-row-supporting">
+    <div class="chart-card-modern chart-card-supporting">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-pie-chart-alt-2'></i>
@@ -167,11 +171,7 @@
         <canvas id="appointmentTypesChart"></canvas>
       </div>
     </div>
-  </div>
-  
-  <!-- ROW 2: Patient Health Status & Monthly Performance -->
-  <div class="charts-row">
-    <div class="chart-card-modern">
+    <div class="chart-card-modern chart-card-supporting">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-heart-circle'></i>
@@ -183,190 +183,61 @@
         <canvas id="patientHealthChart"></canvas>
       </div>
     </div>
-    
-    <div class="chart-card-modern large">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-line-chart'></i>
-          <span>Monthly Performance</span>
-        </div>
-        <div class="chart-badge orange">Last 6 Months</div>
-      </div>
-      <p class="chart-description">Total number of patient visits per month</p>
-      <div class="chart-body">
-        <canvas id="monthlyPerformanceChart"></canvas>
-      </div>
-    </div>
   </div>
 </div>
 
-<!-- TODAY'S SCHEDULE & APPOINTMENTS (MY APPOINTMENTS) -->
-{% if user.assigned_role.code != 'assistant_veterinarian' %}
-<div class="schedule-section">
-  <div class="section-title">
-    <i class='bx bx-user-pin'></i>
-    <span>My Appointments &amp; Any Available Vet Today</span>
-    <a href="{% url 'appointments:admin_list' %}" class="section-link">View All <i class='bx bx-right-arrow-alt'></i></a>
-  </div>
-  
-  <div class="schedule-table-wrapper">
-    {% if todays_appointments %}
-    <table class="schedule-table">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Patient</th>
-          <th>Owner</th>
-          <th>Reason</th>
-          <th>Branch</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for appt in todays_appointments %}
-        <tr>
-          <td>
-            <span class="time-badge">{{ appt.appointment_time_display }}</span>
-          </td>
-          <td>
-            <div class="patient-info">
-              <i class='bx bxs-dog'></i>
-              <span>
-                {{ appt.pet_name }}
-                {% if not appt.preferred_vet %}
-                <small style="display:block; color:var(--text-3);">Any Available Vet</small>
-                {% endif %}
-              </span>
-            </div>
-          </td>
-          <td>{{ appt.owner_name }}</td>
-          <td><span class="reason-tag">{{ appt.reason_display }}</span></td>
-          <td><span class="branch-tag">{{ appt.branch.name }}</span></td>
-          <td><span class="status-pill {{ appt.status|lower }}">{{ appt.get_status_display }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-schedule">
-      <i class='bx bx-calendar-check'></i>
-      <h4>No appointments assigned to you today</h4>
-      <p>Your schedule is clear for today. Enjoy your break!</p>
+<!-- RECENT MEDICAL RECORDS -->
+<section class="recent-records-section">
+  <div class="recent-records-card chart-card-modern">
+    <div class="chart-header recent-records-header">
+      <div class="chart-title">
+        <i class='bx bx-notepad'></i>
+        <span>Recent Medical Records</span>
+      </div>
+      <div class="recent-records-actions">
+        {% if user|has_module_permission:'medical_records:CREATE' %}
+        <a href="{% url 'records:admin_create' %}" class="section-link recent-records-create">
+          <i class='bx bx-plus'></i> New Record
+        </a>
+        {% endif %}
+        <a href="{% url 'records:admin_list' %}" class="section-link">
+          View All <i class='bx bx-right-arrow-alt'></i>
+        </a>
+      </div>
     </div>
-    {% endif %}
-  </div>
-</div>
-{% endif %}
-
-<!-- THIS WEEK'S SCHEDULE SECTION -->
-<div class="schedule-section">
-  <div class="section-title">
-    <i class='bx bx-calendar-week'></i>
-    <span>This Week's Schedule</span>
-    <a href="{% url 'employees:schedule' %}" class="section-link">Full Schedule <i class='bx bx-right-arrow-alt'></i></a>
-  </div>
-  
-  <div class="schedule-table-wrapper">
-    {% if this_week_schedule %}
-    <table class="schedule-table">
-      <thead>
-        <tr>
-          <th>Day</th>
-          <th>Date</th>
-          <th>Start Time</th>
-          <th>End Time</th>
-          <th>Branch</th>
-          <th>Shift</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for schedule in this_week_schedule %}
-        <tr>
-          <td>
-            <span class="day-name {% if schedule.date|is_today %}today{% endif %}">
-              {{ schedule.date|date:"l" }}
-              {% if schedule.date|is_today %}<span class="today-indicator">Today</span>{% endif %}
+    <div class="recent-records-body">
+      {% if recent_medical_records %}
+      <div class="recent-records-list">
+        {% for entry in recent_medical_records %}
+        <a class="recent-record-row" href="{% url 'records:admin_detail' entry.record.pk %}" aria-label="View {{ entry.record.pet.name }}'s medical record">
+          <span class="recent-record-icon"><i class='bx bx-notepad'></i></span>
+          <span class="recent-record-info">
+            <span class="recent-record-pet">{{ entry.record.pet.name }}</span>
+            <span class="recent-record-meta">
+              {{ entry.record.pet.species }} · {{ entry.date_recorded|date:"M j, Y" }}{% if entry.vet %} · Dr. {{ entry.vet.first_name }} {{ entry.vet.last_name }}{% elif entry.record.vet %} · Dr. {{ entry.record.vet.first_name }} {{ entry.record.vet.last_name }}{% endif %}
             </span>
-          </td>
-          <td>
-            <span class="date-badge">{{ schedule.date|date:"M j, Y" }}</span>
-          </td>
-          <td>
-            <span class="time-badge">{{ schedule.start_time|time:"g:i A" }}</span>
-          </td>
-          <td>
-            <span class="time-badge">{{ schedule.end_time|time:"g:i A" }}</span>
-          </td>
-          <td><span class="branch-tag">{{ schedule.branch.name }}</span></td>
-          <td><span class="shift-pill {{ schedule.shift_type|lower }}">{{ schedule.get_shift_type_display }}</span></td>
-        </tr>
+            {% if entry.history_clinical_signs %}
+            <span class="recent-record-summary">{{ entry.history_clinical_signs|truncatechars:110 }}</span>
+            {% elif entry.treatment %}
+            <span class="recent-record-summary">{{ entry.treatment|truncatechars:110 }}</span>
+            {% endif %}
+          </span>
+          <span class="recent-record-side">
+            <span class="recent-record-status"><i class='bx bx-check'></i> Recorded</span>
+            <i class='bx bx-chevron-right recent-record-arrow'></i>
+          </span>
+        </a>
         {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-schedule">
-      <i class='bx bx-calendar-x'></i>
-      <h4>No schedule this week</h4>
-      <p>Your schedule for this week has not been set yet.</p>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-<!-- UPCOMING APPOINTMENTS SECTION - Table Format -->
-<div class="schedule-section upcoming-section">
-  <div class="section-title">
-    <i class='bx bx-calendar-event'></i>
-    <span>Upcoming Appointments</span>
-    <span class="section-badge">{{ upcoming_count }} in next 7 days</span>
-  </div>
-
-  {% if upcoming_appointments %}
-  <div class="schedule-table-wrapper">
-    <table class="modern-dashboard-table">
-      <thead>
-        <tr>
-          <th>Date & Time</th>
-          <th>Patient</th>
-          <th>Owner</th>
-          <th>Branch</th>
-          <th>Reason</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for appt in upcoming_appointments %}
-        <tr>
-          <td>
-            <div class="table-date-time">
-              <strong>{{ appt.appointment_date|date:"M d, Y" }}</strong>
-              <span class="table-subtext"><i class='bx bx-time'></i> {{ appt.appointment_time_display }}</span>
-            </div>
-          </td>
-          <td>
-            <div class="table-patient-cell">
-              <span>{{ appt.pet_name }}</span>
-            </div>
-          </td>
-          <td>{{ appt.owner_name }}</td>
-          <td><span class="branch-tag small">{{ appt.branch.name }}</span></td>
-          <td><span class="reason-tag small">{{ appt.reason_display }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty-modern-card dash-fade visible" style="padding: 24px; text-align: left;">
-    <div style="text-align: center; padding: 20px 0 30px;">
-      <div class="empty-icon success" style="margin: 0 auto 16px;">
-        <i class='bx bx-check-circle'></i>
       </div>
-      <h4 style="margin-bottom: 8px;">All caught up!</h4>
-      <p style="margin: 0; color: var(--text-light);">No upcoming appointments scheduled for the next 7 days.</p>
+      {% else %}
+      <div class="recent-records-empty">
+        <i class='bx bx-folder-open'></i>
+        <p>No medical records have been recorded yet.</p>
+      </div>
+      {% endif %}
     </div>
   </div>
-  {% endif %}
-</div>
+</section>
 
 <!-- PENDING FOLLOW-UPS SECTION -->
 {% if follow_ups %}
@@ -732,14 +603,29 @@
     grid-template-columns: 1.5fr 1fr;
     gap: 24px;
   }
-  
-  .charts-row:nth-child(2) {
-    grid-template-columns: 1fr 1.5fr;
+
+  .charts-row-monthly {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .charts-row-supporting {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-card-monthly {
+    width: 100%;
+  }
+
+  .chart-body-monthly {
+    height: 360px;
+  }
+
+  .chart-card-supporting {
+    min-width: 0;
   }
   
   @media (max-width: 992px) {
-    .charts-row,
-    .charts-row:nth-child(2) {
+    .charts-row-supporting {
       grid-template-columns: 1fr;
     }
   }
@@ -916,24 +802,6 @@
   /* ═══════════════════════════════════════════════ */
   /* SCHEDULE SECTION */
   /* ═══════════════════════════════════════════════ */
-  
-  .schedule-section,
-  .week-schedule-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: var(--shadow-card);
-    margin-bottom: 28px;
-  }
-  
-  .schedule-section > .section-title,
-  .week-schedule-section > .section-title {
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 0;
-    background: transparent !important;
-  }
   
   .schedule-table-wrapper {
     padding: 0;
@@ -1134,14 +1002,6 @@
     color: var(--text-3);
   }
 
-  /* ═══════════════════════════════════════════════ */
-  /* UPCOMING APPOINTMENTS SECTION */
-  /* ═══════════════════════════════════════════════ */
-  
-  .upcoming-section {
-    margin-bottom: 28px;
-  }
-  
   .upcoming-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1243,6 +1103,227 @@
   /* FOLLOW-UPS SECTION */
   /* ═══════════════════════════════════════════════ */
   
+  .recent-records-section {
+    margin-bottom: 28px;
+    container-type: inline-size;
+  }
+
+  .recent-records-card {
+    width: 100%;
+  }
+
+  .recent-records-header {
+    justify-content: space-between;
+  }
+
+  .recent-records-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .recent-records-actions .section-link {
+    margin-left: 0;
+    white-space: nowrap;
+  }
+
+  .recent-records-create {
+    gap: 5px;
+  }
+
+  .recent-records-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recent-records-body {
+    padding: 0 30px 8px;
+  }
+
+  .recent-record-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+    padding: 16px 0;
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: padding 0.2s ease, color 0.2s ease;
+  }
+
+  .recent-record-row:last-child {
+    border-bottom: 0;
+  }
+
+  .recent-record-row:hover {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .recent-record-icon {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 42px;
+    border-radius: 12px;
+    color: var(--primary);
+    background: rgba(0, 150, 136, 0.1);
+  }
+
+  .recent-record-icon i {
+    font-size: 19px;
+  }
+
+  .recent-record-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .recent-record-pet {
+    overflow: hidden;
+    color: var(--text-1);
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .recent-record-meta,
+  .recent-record-summary {
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .recent-record-side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .recent-record-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.25px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .recent-record-status i {
+    font-size: 14px;
+  }
+
+  .recent-record-arrow {
+    flex: 0 0 auto;
+    color: var(--text-3);
+    font-size: 20px;
+  }
+
+  .recent-records-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 30px 16px;
+    color: var(--text-3);
+    text-align: center;
+  }
+
+  .recent-records-empty i {
+    color: var(--primary);
+    font-size: 28px;
+  }
+
+  .recent-records-empty p {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  @container (max-width: 640px) {
+    .recent-records-body {
+      padding-right: 20px;
+      padding-left: 20px;
+    }
+
+    .recent-record-row {
+      grid-template-columns: 38px minmax(0, 1fr) auto;
+      gap: 12px;
+    }
+
+    .recent-record-icon {
+      width: 38px;
+      height: 38px;
+      flex-basis: 38px;
+    }
+
+    .recent-record-summary {
+      display: none;
+    }
+
+    .recent-record-status {
+      padding: 5px 8px;
+      font-size: 10px;
+    }
+  }
+
+  @container (max-width: 460px) {
+    .recent-records-header {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .recent-records-actions {
+      width: 100%;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .recent-records-body {
+      padding-right: 14px;
+      padding-left: 14px;
+    }
+
+    .recent-record-row {
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      gap: 9px;
+    }
+
+    .recent-record-icon {
+      width: 34px;
+      height: 34px;
+      flex-basis: 34px;
+    }
+
+    .recent-record-status {
+      padding: 5px 7px;
+      font-size: 9px;
+    }
+
+    .recent-record-arrow {
+      display: none;
+    }
+  }
+
   .followups-section {
     margin-bottom: 28px;
   }
@@ -1672,36 +1753,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Section titles
-    document.querySelectorAll('.schedule-section > .section-title').forEach(el => {
-      el.classList.add('dash-fade', 'from-left');
-    });
-    document.querySelectorAll('.week-schedule-section > .section-title').forEach(el => {
-      el.classList.add('dash-fade', 'from-left');
-    });
-    document.querySelectorAll('.upcoming-section > .section-title').forEach(el => {
-      el.classList.add('dash-fade', 'from-left');
-    });
     document.querySelectorAll('.followups-section > .section-title').forEach(el => {
       el.classList.add('dash-fade', 'from-left');
-    });
-    
-    // Schedule sections — whole section fades in as one unit
-    document.querySelectorAll('.schedule-section').forEach(el => {
-      el.classList.add('dash-fade');
     });
     
     // Table wrappers — fade in the whole table together (no per-row stagger)
     document.querySelectorAll('.schedule-table-wrapper').forEach(wrapper => {
       wrapper.classList.add('dash-fade');
-    });
-    
-    // Upcoming timeline — fade the whole timeline container as one unit
-    document.querySelectorAll('.upcoming-modern').forEach(el => {
-      el.classList.add('dash-fade');
-    });
-    
-    document.querySelectorAll('.upcoming-timeline').forEach(timeline => {
-      timeline.classList.add('dash-fade');
     });
     
     // Followup list — fade the whole list as one unit
@@ -1785,67 +1843,43 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════
-  // CHART 1: WEEKLY WORKLOAD (Bar Chart - This Week)
+  // CHART 1: MONTHLY COMPLETED CONSULTATIONS
   // ═══════════════════════════════════════════════════════════════════════
   
-  const weeklyWorkloadCtx = document.getElementById('weeklyWorkloadChart');
-  if (weeklyWorkloadCtx) {
-    // Generate this week's days labels
-    const today = new Date();
-    // Adjusted dayOfWeek for Mon-Sun array (Monday=0 ... Sunday=6)
-    let dayOfWeek = today.getDay() - 1;
-    if (dayOfWeek < 0) dayOfWeek = 6; 
-    
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek);
-    
-    const weekDays = [];
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
-    // Real workload data from backend (index 0=Mon, 6=Sun)
-    const workloadData = {{ weekly_workload|safe }};
-    
-    for (let i = 0; i < 7; i++) {
-      weekDays.push(dayNames[i]);
-    }
-    
-    const gradient = weeklyWorkloadCtx.getContext('2d').createLinearGradient(0, 0, 0, 280);
-    gradient.addColorStop(0, '#009688');
-    gradient.addColorStop(1, '#00bcd4');
+  const monthlyConsultationsCtx = document.getElementById('monthlyCompletedConsultationsChart');
+  if (monthlyConsultationsCtx) {
+    const consultationMonths = {{ monthly_consultation_labels|safe }};
+    const consultationCounts = {{ monthly_consultation_counts|safe }};
 
-    new Chart(weeklyWorkloadCtx, {
+    new Chart(monthlyConsultationsCtx, {
       type: 'bar',
       data: {
-        labels: weekDays,
+        labels: consultationMonths,
         datasets: [{
-          label: 'Appointments',
-          data: workloadData,
+          label: 'Completed consultations',
+          data: consultationCounts,
           backgroundColor: function(context) {
-            const index = context.dataIndex;
-            if (index === dayOfWeek) {
-              return '#009688';
-            }
-            return 'rgba(0, 150, 136, 0.5)';
+            return context.dataIndex === consultationMonths.length - 1
+              ? '#009688'
+              : 'rgba(0, 150, 136, 0.5)';
           },
-          borderRadius: 4,
+          borderRadius: 8,
           borderSkipped: 'bottom',
-          barThickness: 36,
-          maxBarThickness: 44
+          maxBarThickness: 64
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        plugins: { 
+        plugins: {
           legend: { display: false },
           tooltip: {
             ...commonTooltip,
             callbacks: {
-              title: function(items) {
-                const i = items[0].dataIndex;
-                if (i === dayOfWeek) return items[0].label + ' (Today)';
-                return items[0].label;
+              label: function(context) {
+                const count = context.parsed.y;
+                return `${count} completed consultation${count === 1 ? '' : 's'}`;
               }
             }
           }
@@ -1853,12 +1887,7 @@ document.addEventListener('DOMContentLoaded', function() {
         scales: {
           x: {
             grid: { display: false, drawBorder: false },
-            ticks: { 
-              font: { size: 12, weight: '600' },
-              callback: function(value, index) {
-                return index === dayOfWeek ? '🟢 ' + dayNames[index] : dayNames[index];
-              }
-            }
+            ticks: { font: { size: 12, weight: '600' } }
           },
           y: { 
             beginAtZero: true, 
@@ -1873,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', function() {
           duration: 1500,
           easing: 'easeInOutCubic',
           delay(ctx) {
-            return ctx.type === 'data' ? ctx.dataIndex * 120 : 0;
+            return ctx.type === 'data' ? ctx.dataIndex * 100 : 0;
           }
         }
       }
@@ -2074,84 +2103,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // CHART 4: MONTHLY PERFORMANCE (Line Graph)
-  // Shows number of unique patients per month
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const monthlyPerformanceCtx = document.getElementById('monthlyPerformanceChart');
-  if (monthlyPerformanceCtx) {
-    const months         = {{ monthly_labels|safe }};
-    const registeredData = {{ monthly_registered|safe }};
-    const walkinData     = {{ monthly_walkin|safe }};
-
-    new Chart(monthlyPerformanceCtx, {
-      type: 'line',
-      data: {
-        labels: months,
-        datasets: [
-          {
-            label: 'Portal (Online)',
-            data: registeredData,
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            borderColor: '#10b981',
-            borderWidth: 3,
-            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
-            pointBorderColor: '#10b981',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            fill: true,
-            tension: 0.4
-          },
-          {
-            label: 'Walk-ins',
-            data: walkinData,
-            backgroundColor: 'rgba(56, 189, 248, 0.1)',
-            borderColor: '#38bdf8',
-            borderWidth: 3,
-            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
-            pointBorderColor: '#38bdf8',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            fill: true,
-            tension: 0.4
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-            labels: { usePointStyle: true, boxWidth: 8, font: { family: "'Inter', sans-serif", size: 12 } }
-          },
-          tooltip: commonTooltip
-        },
-        scales: {
-          x: {
-            grid: { display: false, drawBorder: false },
-            ticks: { font: { size: 12, weight: '500' } }
-          },
-          y: {
-            beginAtZero: true,
-            grid: { color: isGlobalDark ? '#334155' : '#e2e8f0', drawBorder: false, borderDash: [5,5] },
-            ticks: { font: { size: 11 }, precision: 0 }
-          }
-        },
-        animation: {
-          duration: 1400,
-          easing: 'easeInOutCubic',
-          delay(ctx) { return ctx.type === 'data' ? ctx.dataIndex * 100 : 0; }
-        }
-      }
-    });
   }
 
   // Start all animations after charts are ready

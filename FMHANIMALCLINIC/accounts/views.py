@@ -789,45 +789,6 @@ def admin_dashboard_view(request):
             'revenue': float(daily_revenue)
         })
 
-    # Monthly revenue chart data (last 6 months)
-    monthly_revenue_data = []
-    revenue_chart_is_all_branches = request.user.is_admin_role()
-    for i in range(6):
-        # Calculate the first day of the month, i months ago
-        if i == 0:
-            # Current month
-            month_start = today.replace(day=1)
-        else:
-            # Previous months
-            if today.month - i <= 0:
-                month_start = today.replace(year=today.year - 1, month=today.month - i + 12, day=1)
-            else:
-                month_start = today.replace(month=today.month - i, day=1)
-        
-        # Calculate the last day of that month
-        if month_start.month == 12:
-            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
-        else:
-            month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
-        
-        # Calculate revenue for that month
-        if revenue_chart_is_all_branches:  # HQ admin sees all branches
-            monthly_revenue = Sale.objects.filter(
-                created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(month_end)[1]),
-                status='COMPLETED'
-            ).aggregate(total=Sum('total'))['total'] or 0
-        else:  # Branch admin sees only their branch
-            monthly_revenue = Sale.objects.filter(
-                branch=request.user.branch,
-                created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(month_end)[1]),
-                status='COMPLETED'
-            ).aggregate(total=Sum('total'))['total'] or 0
-            
-        monthly_revenue_data.insert(0, {  # Insert at beginning to maintain chronological order
-            'month': month_start.strftime('%b %Y'),
-            'revenue': float(monthly_revenue)
-        })
-
     # Appointment by status breakdown
     appointment_status_breakdown = [
         {'status': 'Pending', 'count': Appointment.objects.filter(status='PENDING', pet__isnull=False).count()},
@@ -866,6 +827,67 @@ def admin_dashboard_view(request):
     else:
         inventory_products = inventory_products.none()
         dashboard_scope_label = 'No Branch Assigned'
+
+    if dashboard_is_all_branches:
+        patient_branch_scope = (
+            Q(branch__in=branches)
+            | Q(owner__branch__in=branches)
+            | Q(appointments__branch__in=branches)
+            | Q(medical_records__branch__in=branches)
+        )
+    elif request.user.branch_id:
+        patient_branch_scope = (
+            Q(branch=request.user.branch)
+            | Q(owner__branch=request.user.branch)
+            | Q(appointments__branch=request.user.branch)
+            | Q(medical_records__branch=request.user.branch)
+        )
+    else:
+        patient_branch_scope = None
+
+    monthly_performance_data = {
+        'labels': [],
+        'portal': [],
+        'walkin': [],
+    }
+    for months_back in range(5, -1, -1):
+        performance_month_start = (
+            today.replace(day=1) - relativedelta(months=months_back)
+        )
+        performance_month_end = (
+            performance_month_start
+            + relativedelta(months=1)
+            - timedelta(days=1)
+        )
+        monthly_performance_data['labels'].append(
+            performance_month_start.strftime('%b')
+        )
+
+        if patient_branch_scope is None:
+            monthly_performance_data['portal'].append(0)
+            monthly_performance_data['walkin'].append(0)
+            continue
+
+        monthly_patients = Pet.objects.filter(
+            patient_branch_scope,
+            created_at__range=(
+                get_day_bounds(performance_month_start)[0],
+                get_day_bounds(performance_month_end)[1],
+            ),
+        ).aggregate(
+            portal=Count(
+                'id',
+                filter=Q(source=Pet.Source.PORTAL),
+                distinct=True,
+            ),
+            walkin=Count(
+                'id',
+                filter=Q(source=Pet.Source.WALKIN),
+                distinct=True,
+            ),
+        )
+        monthly_performance_data['portal'].append(monthly_patients['portal'])
+        monthly_performance_data['walkin'].append(monthly_patients['walkin'])
 
     inventory_value_expression = ExpressionWrapper(
         F('stock_quantity') * F('unit_cost'),
@@ -1257,7 +1279,10 @@ def admin_dashboard_view(request):
 
     # Convert data to JSON for charts (use DjangoJSONEncoder for Decimal support)
     revenue_by_day_json = json.dumps(revenue_by_day, cls=DjangoJSONEncoder)
-    monthly_revenue_data_json = json.dumps(monthly_revenue_data, cls=DjangoJSONEncoder)
+    monthly_performance_data_json = json.dumps(
+        monthly_performance_data,
+        cls=DjangoJSONEncoder,
+    )
     appointment_status_breakdown_json = json.dumps(appointment_status_breakdown, cls=DjangoJSONEncoder)
     pet_species_breakdown_json = json.dumps(pet_species_breakdown, cls=DjangoJSONEncoder)
     payment_method_stats_list = list(payment_method_stats)
@@ -1290,8 +1315,7 @@ def admin_dashboard_view(request):
         'recent_appointments': recent_appointments,
         'unread_notif_count': unread_notif_count,
         'revenue_by_day': revenue_by_day_json,
-        'monthly_revenue_data': monthly_revenue_data_json,
-        'revenue_chart_is_all_branches': revenue_chart_is_all_branches,
+        'monthly_performance_data': monthly_performance_data_json,
         'appointment_status_breakdown': appointment_status_breakdown_json,
         'branch_appointments': branch_appointments,
         'staff_performance': staff_performance,
@@ -1360,12 +1384,12 @@ def vet_dashboard_view(request):
     """
     from appointments.models import Appointment
     from patients.models import Pet
-    from employees.models import StaffMember, VetSchedule
+    from employees.models import StaffMember
     from notifications.models import Notification, FollowUp
     from records.models import MedicalRecord, RecordEntry
+    from django.db.models.functions import TruncMonth
 
     today = date.today()
-    week_end = today + timedelta(days=7)
     month_start = date(today.year, today.month, 1)
     if today.month == 12:
         month_end = date(today.year + 1, 1, 1) - timedelta(days=1)
@@ -1437,33 +1461,13 @@ def vet_dashboard_view(request):
 
     # 1) Today's appointments ──────────────────────────────────────────────
     if staff_profile and not appt_restricted_no_branch:
-        todays_appointments = (
-            Appointment.objects.filter(
-                appointment_date=today,
-                pet__isnull=False,
-                **appt_filter
-            ).filter(
-                Q(preferred_vet=staff_profile) | Q(preferred_vet__isnull=True)
-            )
-            .exclude(status='CANCELLED')
-            .select_related('pet', 'branch', 'preferred_vet')
-            .order_by('appointment_time')
-        )
-        all_branch_appointments_today = (
-            Appointment.objects.filter(
-                appointment_date=today,
-                pet__isnull=False,
-                **appt_filter
-            )
-            .exclude(status='CANCELLED')
-            .select_related('pet', 'branch', 'preferred_vet')
-            .order_by('appointment_time')
-        )
+        today_count = Appointment.objects.filter(
+            appointment_date=today,
+            pet__isnull=False,
+            **appt_filter
+        ).exclude(status='CANCELLED').count()
     else:
-        todays_appointments = Appointment.objects.none()
-        all_branch_appointments_today = Appointment.objects.none()
-
-    today_count = all_branch_appointments_today.count()
+        today_count = 0
 
     # 2) Assigned patients (all-time) ─────────────────────────────────────
     assigned_patients = vet_pet_qs.count()
@@ -1486,6 +1490,17 @@ def vet_dashboard_view(request):
     else:
         medical_records_count = 0
 
+    if staff_profile and not records_restricted_no_branch:
+        recent_medical_records = (
+            RecordEntry.objects.filter(
+                **{f"record__{key}": value for key, value in records_filter.items()}
+            )
+            .select_related('record__pet', 'record__branch', 'vet')
+            .order_by('-created_at', '-date_recorded')[:5]
+        )
+    else:
+        recent_medical_records = RecordEntry.objects.none()
+
     # Completed appointments assigned to this veterinarian remain actionable
     # until a matching medical-record entry is saved for the visit date.
     pending_medical_records = []
@@ -1506,43 +1521,6 @@ def vet_dashboard_view(request):
                 pending_medical_records.append(appointment)
             if len(pending_medical_records) >= 10:
                 break
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # SCHEDULE, UPCOMING & FOLLOW-UPS
-    # ═══════════════════════════════════════════════════════════════════════
-
-    # Upcoming appointments (next 7 days) ─────────────────────────────────
-    if staff_profile and not appt_restricted_no_branch:
-        upcoming_appointments = (
-            Appointment.objects.filter(
-                appointment_date__gt=today,
-                appointment_date__lte=week_end,
-                pet__isnull=False,
-                **appt_filter
-            )
-            .exclude(status='CANCELLED')
-            .select_related('pet', 'branch')
-            .order_by('appointment_date', 'appointment_time')
-        )
-    else:
-        upcoming_appointments = Appointment.objects.none()
-
-    upcoming_count = upcoming_appointments.count()
-
-    # This week's schedule ────────────────────────────────────────────────
-    if staff_profile and user_branch:
-        this_week_schedule = (
-            VetSchedule.objects.filter(
-                staff=staff_profile,
-                branch=user_branch,
-                date__gte=today,
-                date__lte=week_end,
-            )
-            .select_related('branch')
-            .order_by('date', 'start_time')[:7]
-        )
-    else:
-        this_week_schedule = VetSchedule.objects.none()
 
     # Pending follow-ups (includes overdue — sorted earliest-first) ───────
     if staff_profile and not appt_restricted_no_branch:
@@ -1616,61 +1594,61 @@ def vet_dashboard_view(request):
                 )
 
     # ═══════════════════════════════════════════════════════════════════════
-    # CHART 3 — WEEKLY WORKLOAD  (bar chart, Mon–Sun)
+    # CHART 3 — MONTHLY COMPLETED CONSULTATIONS
     # ═══════════════════════════════════════════════════════════════════════
-    # Index 0 = Monday … 6 = Sunday
 
-    weekly_workload = [0] * 7
+    consultation_year = today.year if today.month >= 6 else today.year - 1
+    consultation_end_month = today.month if today.month >= 6 else 12
+    consultation_period_end = (
+        today if today.month >= 6
+        else date(consultation_year, 12, 31)
+    )
+    monthly_consultation_months = list(range(6, consultation_end_month + 1))
+    monthly_consultation_labels = [
+        date(consultation_year, month, 1).strftime('%b')
+        for month in monthly_consultation_months
+    ]
+    monthly_consultations_period = (
+        f'June–{consultation_period_end.strftime("%B")} {consultation_year}'
+    )
+    month_counts = {month: 0 for month in monthly_consultation_months}
+
     if staff_profile and not appt_restricted_no_branch:
-        # Monday-aligned start of the current week
-        py_dow = today.weekday()                   # Mon=0 … Sun=6
-        start_of_week = today - timedelta(days=py_dow)
-        end_of_week = start_of_week + timedelta(days=6)
-
-        # Single aggregate query for the whole week for this branch
-        week_daily = (
-            Appointment.objects.filter(
-                pet__isnull=False,
-                appointment_date__gte=start_of_week,
-                appointment_date__lte=end_of_week,
-                **appt_filter
-            )
-            .exclude(status='CANCELLED')
-            .values('appointment_date')
-            .annotate(cnt=Count('id'))
+        matching_vet_record = (
+            Q(vet=staff_profile) |
+            Q(vet__isnull=True, record__vet=staff_profile)
         )
-        for row in week_daily:
-            # Convert DB date → Mon-based index (Mon=0, Sun=6)
-            d = row['appointment_date']
-            idx = d.weekday()
-            weekly_workload[idx] = row['cnt']
+        consultation_entries = (
+            RecordEntry.objects.filter(
+                appointment__status=Appointment.Status.COMPLETED,
+                appointment__preferred_vet=staff_profile,
+                appointment__pet__isnull=False,
+                appointment__appointment_date__gte=date(consultation_year, 6, 1),
+                appointment__appointment_date__lte=consultation_period_end,
+                **{
+                    f"appointment__{key}": value
+                    for key, value in appt_filter.items()
+                },
+                **{
+                    f"record__{key}": value
+                    for key, value in records_filter.items()
+                },
+            )
+            .filter(matching_vet_record)
+            .annotate(
+                month=TruncMonth('appointment__appointment_date')
+            )
+            .values('month')
+            .annotate(
+                count=Count('appointment_id', distinct=True)
+            )
+        )
+        for row in consultation_entries:
+            month_counts[row['month'].month] = row['count']
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # CHART 4 — MONTHLY PERFORMANCE  (line graph, last 6 calendar months)
-    # ═══════════════════════════════════════════════════════════════════════
-    monthly_labels     = []
-    monthly_registered = []
-    monthly_walkin     = []
-
-    for months_back in range(5, -1, -1):
-        m_start = get_month_offset(today, months_back)
-        if m_start.month == 12:
-            m_end = date(m_start.year + 1, 1, 1) - timedelta(days=1)
-        else:
-            m_end = date(m_start.year, m_start.month + 1, 1) - timedelta(days=1)
-
-        monthly_labels.append(m_start.strftime('%b'))
-
-        if staff_profile and not patients_restricted_no_branch:
-            # Count pets CREATED in this month belonging to the branch universe
-            month_pets = vet_pet_qs.filter(created_at__range=[m_start, m_end])
-            monthly_registered.append(month_pets.filter(source='PORTAL').count())
-            monthly_walkin.append(month_pets.filter(source='WALKIN').count())
-        else:
-            monthly_registered.append(0)
-            monthly_walkin.append(0)
-
-
+    monthly_consultation_counts = [
+        month_counts[month] for month in monthly_consultation_months
+    ]
 
     # ── Average daily consultations (last 30 days) ───────────────────────
     # Divide by actual working days (days that had at least 1 appt), not always 30.
@@ -1714,22 +1692,17 @@ def vet_dashboard_view(request):
         'completed_consultations': completed_consultations,
         'medical_records_count': medical_records_count,
         'pending_medical_records': pending_medical_records,
-        # Schedule & lists
-        'todays_appointments': todays_appointments[:10],
-        'all_branch_appointments_today': all_branch_appointments_today[:10],
-        'upcoming_appointments': upcoming_appointments[:10],
-        'upcoming_count': upcoming_count,
-        'this_week_schedule': this_week_schedule,
+        'recent_medical_records': recent_medical_records,
+        # Lists
         'follow_ups': follow_ups,
         'follow_up_count': follow_up_count,
         'unread_notif_count': unread_notif_count,
         # Charts
         'patient_status_distribution': patient_status_distribution,
         'consultation_reasons': consultation_reasons,
-        'weekly_workload': weekly_workload,
-        'monthly_labels': monthly_labels,
-        'monthly_registered': monthly_registered,
-        'monthly_walkin': monthly_walkin,
+        'monthly_consultation_labels': monthly_consultation_labels,
+        'monthly_consultation_counts': monthly_consultation_counts,
+        'monthly_consultations_period': monthly_consultations_period,
         # Dashboard supporting metrics
         'avg_daily_consultations': avg_daily_consultations,
         'new_patients_this_month': new_patients_this_month,
@@ -1763,6 +1736,19 @@ def receptionist_dashboard_view(request):
 
     today = date.today()
     yesterday = today - timedelta(days=1)
+    previous_month_end = today.replace(day=1) - timedelta(days=1)
+    previous_month_start = previous_month_end.replace(day=1)
+    previous_month_comparison_end = previous_month_end.replace(
+        day=min(today.day, previous_month_end.day)
+    )
+    previous_year_same_day = date(today.year - 1, today.month, 1)
+    previous_year_month_end = (
+        (previous_year_same_day.replace(day=28) + timedelta(days=4))
+        .replace(day=1) - timedelta(days=1)
+    )
+    previous_year_comparison_end = previous_year_same_day.replace(
+        day=min(today.day, previous_year_month_end.day)
+    )
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
     
@@ -1865,6 +1851,79 @@ def receptionist_dashboard_view(request):
     todays_sales_count = todays_sales.count()
     todays_revenue = sum(sale.total for sale in todays_sales) if todays_sales else 0
 
+    def comparison_summary(current_value, previous_value, period_label, currency=False):
+        """Format a signed period-over-period change, guarding zero baselines."""
+        difference = current_value - previous_value
+        if previous_value == 0:
+            if difference == 0:
+                return {
+                    'text': f'No change vs {period_label}',
+                    'style': 'neutral',
+                    'icon': 'bx-minus',
+                }
+            sign = '+' if difference > 0 else '-'
+            amount = f'{abs(difference):,.0f}'
+            value = f'₱{amount}' if currency else amount
+            return {
+                'text': f'{sign}{value} vs {period_label}',
+                'style': 'success' if difference > 0 else 'danger',
+                'icon': 'bx-trending-up' if difference > 0 else 'bx-trending-down',
+            }
+
+        percentage = difference / previous_value * 100
+        if difference > 0:
+            style = 'success'
+            icon = 'bx-trending-up'
+            sign = '+'
+        elif difference < 0:
+            style = 'danger'
+            icon = 'bx-trending-down'
+            sign = '-'
+        else:
+            style = 'neutral'
+            icon = 'bx-minus'
+            sign = ''
+        return {
+            'text': f'{sign}{abs(percentage):.1f}% vs {period_label}',
+            'style': style,
+            'icon': icon,
+        }
+
+    if pos_restricted_no_branch:
+        transactions_this_month = 0
+        transactions_previous_month = 0
+        sales_yesterday_count = 0
+    else:
+        transactions_this_month = Sale.objects.filter(
+            created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(today)[1]),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        ).count()
+        transactions_previous_month = Sale.objects.filter(
+            created_at__range=(
+                get_day_bounds(previous_month_start)[0],
+                get_day_bounds(previous_month_comparison_end)[1],
+            ),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        ).count()
+        sales_yesterday_count = Sale.objects.filter(
+            created_at__range=get_day_bounds(yesterday),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        ).count()
+
+    monthly_transactions_comparison = comparison_summary(
+        transactions_this_month,
+        transactions_previous_month,
+        'last month',
+    )
+    daily_sales_comparison = comparison_summary(
+        todays_sales_count,
+        sales_yesterday_count,
+        'yesterday',
+    )
+
     # ── This week's statistics (branch-specific) ──
     if pos_restricted_no_branch:
         weekly_sales = Sale.objects.none()
@@ -1910,6 +1969,7 @@ def receptionist_dashboard_view(request):
     # ── Year-to-date revenue and customer mix (branch-specific) ──
     if pos_restricted_no_branch:
         annual_revenue = 0
+        previous_year_annual_revenue = 0
         annual_registered_revenue = 0
         annual_walkin_revenue = 0
         monthly_revenue_by_month = {}
@@ -1925,6 +1985,14 @@ def receptionist_dashboard_view(request):
         annual_revenue = year_to_date_sales.aggregate(
             total=Sum('total')
         )['total'] or 0
+        previous_year_annual_revenue = Sale.objects.filter(
+            created_at__range=(
+                get_day_bounds(date(today.year - 1, 1, 1))[0],
+                get_day_bounds(previous_year_comparison_end)[1],
+            ),
+            status=Sale.Status.COMPLETED,
+            **sale_filter,
+        ).aggregate(total=Sum('total'))['total'] or 0
         monthly_revenue_by_month = {
             item['month'].month: item['total'] or 0
             for item in year_to_date_sales.annotate(
@@ -1943,6 +2011,12 @@ def receptionist_dashboard_view(request):
         annual_walkin_revenue = annual_revenue_by_customer_type.get(
             Sale.CustomerType.WALKIN, 0
         )
+    annual_revenue_comparison = comparison_summary(
+        annual_revenue,
+        previous_year_annual_revenue,
+        'last year',
+        currency=True,
+    )
 
     monthly_revenue_data = [
         {
@@ -2255,10 +2329,14 @@ def receptionist_dashboard_view(request):
 
         # Sales stats
         'todays_sales_count': todays_sales_count,
+        'transactions_this_month': transactions_this_month,
+        'monthly_transactions_comparison': monthly_transactions_comparison,
+        'daily_sales_comparison': daily_sales_comparison,
         'todays_revenue': todays_revenue,
         'weekly_sales_count': weekly_sales_count,
         'weekly_revenue': weekly_revenue,
         'annual_revenue': annual_revenue,
+        'annual_revenue_comparison': annual_revenue_comparison,
         'annual_registered_revenue': annual_registered_revenue,
         'annual_walkin_revenue': annual_walkin_revenue,
         'revenue_year': today.year,

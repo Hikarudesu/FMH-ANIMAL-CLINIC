@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, time
+from datetime import date, datetime, time, timedelta
 from urllib.parse import parse_qs, urlsplit
 
 from dateutil.relativedelta import relativedelta
@@ -38,6 +38,126 @@ from .lifecycle import (
     }
 )
 class ReceptionistDashboardMetricsTests(TestCase):
+    def test_receptionist_hero_cards_compare_matching_periods(self):
+        branch = Branch.objects.create(
+            name='Hero Comparison Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        role = Role.objects.get(code='receptionist')
+        receptionist = get_user_model().objects.create_user(
+            username='hero-comparison-receptionist',
+            email='hero-comparison-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        today = date.today()
+        previous_month_end = today.replace(day=1) - relativedelta(days=1)
+        previous_month_date = previous_month_end.replace(
+            day=min(today.day, previous_month_end.day)
+        )
+        previous_year_month_start = date(today.year - 1, today.month, 1)
+        previous_year_month_end = (
+            (previous_year_month_start.replace(day=28) + relativedelta(days=4))
+            .replace(day=1) - relativedelta(days=1)
+        )
+        previous_year_date = previous_year_month_start.replace(
+            day=min(today.day, previous_year_month_end.day)
+        )
+
+        def create_sale(sale_date, total):
+            sale = Sale.objects.create(
+                branch=branch,
+                total=total,
+                status=Sale.Status.COMPLETED,
+            )
+            sale.created_at = timezone.make_aware(
+                datetime.combine(sale_date, time(12, 0))
+            )
+            sale.save(update_fields=['created_at'])
+            return sale
+
+        create_sale(today, 100)
+        create_sale(today, 200)
+        create_sale(previous_month_date, 50)
+        create_sale(today - relativedelta(days=1), 25)
+        create_sale(previous_year_date, 500)
+
+        self.client.force_login(receptionist)
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['transactions_this_month'], 3)
+        self.assertEqual(
+            response.context['monthly_transactions_comparison']['text'],
+            '+200.0% vs last month',
+        )
+        self.assertEqual(response.context['todays_sales_count'], 2)
+        self.assertEqual(
+            response.context['daily_sales_comparison']['text'],
+            '+100.0% vs yesterday',
+        )
+        self.assertEqual(response.context['annual_revenue'], 375)
+        self.assertEqual(
+            response.context['annual_revenue_comparison']['text'],
+            '-25.0% vs last year',
+        )
+        self.assertContains(response, 'Transactions This Month')
+        self.assertContains(response, '+200.0% vs last month')
+        self.assertContains(response, '+100.0% vs yesterday')
+        self.assertContains(response, '-25.0% vs last year')
+        self.assertContains(response, 'Year-over-year comparison unavailable')
+        self.assertNotContains(response, 'On-hand ·')
+        self.assertNotContains(response, 'FMH Animal Clinic - Hero Comparison Branch')
+
+    def test_receptionist_comparisons_show_absolute_increase_when_baseline_is_zero(self):
+        branch = Branch.objects.create(
+            name='Zero Baseline Comparison Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        receptionist = get_user_model().objects.create_user(
+            username='zero-baseline-receptionist',
+            email='zero-baseline-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=Role.objects.get(code='receptionist'),
+            branch=branch,
+        )
+        sale = Sale.objects.create(
+            branch=branch,
+            total=125,
+            status=Sale.Status.COMPLETED,
+        )
+        sale.created_at = timezone.make_aware(
+            datetime.combine(date.today(), time(12, 0))
+        )
+        sale.save(update_fields=['created_at'])
+
+        self.client.force_login(receptionist)
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['monthly_transactions_comparison']['text'],
+            '+1 vs last month',
+        )
+        self.assertEqual(
+            response.context['daily_sales_comparison']['text'],
+            '+1 vs yesterday',
+        )
+        self.assertEqual(
+            response.context['annual_revenue_comparison']['text'],
+            '+₱125 vs last year',
+        )
+        self.assertNotContains(response, 'New vs')
+
     def test_receptionist_dashboard_charts_and_metrics_are_branch_scoped(self):
         branch = Branch.objects.create(
             name='Pilar Dashboard Branch',
@@ -237,12 +357,24 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, f'January - December {current_year}')
         self.assertContains(response, 'Sales by Category')
         self.assertContains(response, 'This Month')
+        self.assertContains(response, 'container-type: inline-size')
+        self.assertContains(response, 'font-size: clamp(18px, 14cqi, 28px)')
         dashboard_html = response.content.decode()
         self.assertLess(
             dashboard_html.index('id="categorySalesChart"'),
             dashboard_html.index('id="categorySalesDetails"'),
         )
         self.assertContains(response, 'category-sales-body')
+        self.assertContains(response, 'category-sales-header')
+        self.assertContains(response, 'padding: 10px 18px 12px')
+        self.assertContains(response, 'width: min(100%, 164px)')
+        self.assertContains(response, 'min-height: 0')
+        self.assertContains(response, '.charts-row.appointments-category-row')
+        self.assertContains(response, '@container category-sales (max-width: 260px)')
+        self.assertContains(response, '@media (max-width: 760px)')
+        self.assertContains(response, '@media (max-width: 640px)')
+        self.assertNotContains(response, 'Total sales this month')
+        self.assertNotContains(response, 'category-sales-total')
         monthly_revenue = json.loads(response.context['monthly_revenue_data'])
         self.assertEqual(len(monthly_revenue), 12)
         self.assertEqual(monthly_revenue[5], {'month': 'June', 'revenue': 125.0})
@@ -252,7 +384,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, 'Inventory Value')
         dashboard_html = response.content.decode()
         self.assertLess(
-            dashboard_html.index("Today's Appointments"),
+            dashboard_html.index('Transactions This Month'),
             dashboard_html.index('Sales Today'),
         )
         self.assertLess(
@@ -382,6 +514,259 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, 'Patient Flow')
                 self.assertNotContains(response, 'Clinical Activity')
                 self.assertNotContains(response, 'Monthly Summary')
+                self.assertNotContains(response, 'My Appointments &amp; Any Available Vet Today')
+                self.assertNotContains(response, "This Week's Schedule")
+                self.assertNotContains(response, 'Upcoming Appointments')
+                self.assertNotContains(response, 'monthlyPerformanceChart')
+                self.assertContains(response, 'Recent Medical Records')
+                self.assertContains(response, 'No medical records have been recorded yet.')
+                dashboard_html = response.content.decode()
+                self.assertLess(
+                    dashboard_html.index('Your Completed Consultations'),
+                    dashboard_html.index('Appointment Types'),
+                )
+                self.assertLess(
+                    dashboard_html.index('Appointment Types'),
+                    dashboard_html.index('Patient Status'),
+                )
+                self.assertContains(response, 'charts-row-monthly')
+                self.assertContains(response, 'charts-row-supporting')
+                self.assertContains(response, 'chart-body-monthly')
+                self.assertContains(response, 'monthlyCompletedConsultationsChart')
+                self.assertNotContains(response, 'weeklyWorkloadChart')
+
+    def test_veterinarian_dashboard_shows_recent_branch_medical_entries(self):
+        from records.models import MedicalRecord, RecordEntry
+
+        branch = Branch.objects.create(
+            name='Recent Records Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        other_branch = Branch.objects.create(
+            name='Other Recent Records Branch',
+            phone_number='09123456780',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        role = Role.objects.get(code='veterinarian')
+        medical_records_module, _ = Module.objects.get_or_create(
+            code='medical_records',
+            defaults={'name': 'Medical Records'},
+        )
+        ModulePermission.objects.get_or_create(
+            role=role,
+            module=medical_records_module,
+            permission_type=ModulePermission.PermissionType.CREATE,
+        )
+        user = get_user_model().objects.create_user(
+            username='vet-recent-records',
+            email='vet-recent-records@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        staff = StaffMember.objects.create(
+            first_name='Recent',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=branch,
+            user=user,
+        )
+
+        visible_pet = Pet.objects.create(
+            branch=branch,
+            name='Visible Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        visible_record = MedicalRecord.objects.create(
+            pet=visible_pet,
+            vet=staff,
+            branch=branch,
+            date_recorded=timezone.localdate(),
+        )
+        visible_entry = RecordEntry.objects.create(
+            record=visible_record,
+            vet=staff,
+            date_recorded=timezone.localdate(),
+            history_clinical_signs='Recent patient has mild seasonal itching.',
+        )
+        backdated_entry = RecordEntry.objects.create(
+            record=visible_record,
+            vet=staff,
+            date_recorded=timezone.localdate() - timedelta(days=30),
+            history_clinical_signs='Recently saved backdated visit.',
+        )
+        RecordEntry.objects.filter(pk=backdated_entry.pk).update(
+            created_at=timezone.now() + timedelta(minutes=1),
+        )
+
+        hidden_pet = Pet.objects.create(
+            branch=other_branch,
+            name='Other Branch Patient',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        hidden_record = MedicalRecord.objects.create(
+            pet=hidden_pet,
+            branch=other_branch,
+            date_recorded=timezone.localdate(),
+        )
+        RecordEntry.objects.create(
+            record=hidden_record,
+            date_recorded=timezone.localdate(),
+            history_clinical_signs='Must not appear on the veterinarian dashboard.',
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('vet_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Visible Patient')
+        self.assertContains(response, 'mild seasonal itching')
+        self.assertContains(response, 'Recently saved backdated visit.')
+        self.assertNotContains(response, 'Other Branch Patient')
+        self.assertNotContains(response, 'Must not appear on the veterinarian dashboard.')
+        self.assertContains(response, 'View All')
+        self.assertContains(response, 'New Record')
+        self.assertContains(response, reverse('records:admin_create'))
+        self.assertContains(
+            response,
+            reverse('records:admin_detail', args=[visible_record.pk]),
+        )
+        self.assertEqual(
+            response.context['recent_medical_records'][0].pk,
+            backdated_entry.pk,
+        )
+        self.assertNotEqual(
+            response.context['recent_medical_records'][0].pk,
+            visible_entry.pk,
+        )
+
+    def test_monthly_consultation_chart_requires_matching_vet_and_counts_appointments_once(self):
+        from records.models import MedicalRecord, RecordEntry
+
+        today = timezone.localdate()
+        if today.month < 6:
+            self.skipTest('The June-to-current-month chart has no months before June.')
+
+        branch = Branch.objects.create(
+            name='Monthly Consultations Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        role = Role.objects.get(code='veterinarian')
+        user = get_user_model().objects.create_user(
+            username='vet-monthly-consultations',
+            email='vet-monthly-consultations@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        staff = StaffMember.objects.create(
+            first_name='Monthly',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=branch,
+            user=user,
+        )
+        other_user = get_user_model().objects.create_user(
+            username='other-monthly-vet',
+            email='other-monthly-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        other_vet = StaffMember.objects.create(
+            first_name='Other',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=branch,
+            user=other_user,
+        )
+        pet = Pet.objects.create(
+            branch=branch,
+            name='Monthly Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            vet=staff,
+            branch=branch,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        def create_completed_appointment(preferred_vet=staff):
+            return Appointment.objects.create(
+                owner_name='Monthly Patient Owner',
+                pet_name=pet.name,
+                pet=pet,
+                branch=branch,
+                preferred_vet=preferred_vet,
+                appointment_date=date(today.year, 6, 15),
+                appointment_time=time(9, 0),
+                status=Appointment.Status.COMPLETED,
+            )
+
+        assigned_appointment = create_completed_appointment()
+        RecordEntry.objects.create(
+            record=record,
+            appointment=assigned_appointment,
+            vet=staff,
+            date_recorded=date(today.year, 6, 15),
+        )
+        RecordEntry.objects.create(
+            record=record,
+            appointment=assigned_appointment,
+            vet=staff,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        fallback_appointment = create_completed_appointment()
+        RecordEntry.objects.create(
+            record=record,
+            appointment=fallback_appointment,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        mismatched_entry_appointment = create_completed_appointment()
+        RecordEntry.objects.create(
+            record=record,
+            appointment=mismatched_entry_appointment,
+            vet=other_vet,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        other_assigned_appointment = create_completed_appointment(other_vet)
+        RecordEntry.objects.create(
+            record=record,
+            appointment=other_assigned_appointment,
+            vet=staff,
+            date_recorded=date(today.year, 6, 15),
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('vet_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        labels = response.context['monthly_consultation_labels']
+        counts = response.context['monthly_consultation_counts']
+        self.assertEqual(labels[0], 'Jun')
+        self.assertEqual(counts[0], 2)
+        self.assertEqual(
+            len(labels),
+            today.month - 5,
+        )
 
 
 @override_settings(
@@ -712,6 +1097,62 @@ class AdminDashboardQuickInsightsTests(TestCase):
         self.assertContains(response, 'Top Services by Completed Sales')
         self.assertContains(response, 'All branches')
         self.assertContains(response, 'Total User Accounts')
+
+    def test_monthly_performance_chart_replaces_combined_revenue_chart(self):
+        admin = get_user_model().objects.create_superuser(
+            username='monthly-performance-admin',
+            email='monthly-performance-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        first_branch = Branch.objects.create(
+            name='Monthly Performance Branch One',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        second_branch = Branch.objects.create(
+            name='Monthly Performance Branch Two',
+            phone_number='09123456780',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        today = timezone.localdate()
+        for name, branch, source in (
+            ('Portal Patient One', first_branch, Pet.Source.PORTAL),
+            ('Portal Patient Two', second_branch, Pet.Source.PORTAL),
+            ('Walk-in Patient One', first_branch, Pet.Source.WALKIN),
+            ('Walk-in Patient Two', second_branch, Pet.Source.WALKIN),
+        ):
+            pet = Pet.objects.create(
+                branch=branch,
+                name=name,
+                species='Dog',
+                sex=Pet.Sex.MALE,
+                source=source,
+            )
+            pet.created_at = timezone.make_aware(
+                datetime.combine(today, time(12, 0))
+            )
+            pet.save(update_fields=['created_at'])
+
+        self.client.force_login(admin)
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        performance = json.loads(response.context['monthly_performance_data'])
+        self.assertEqual(len(performance['labels']), 6)
+        self.assertEqual(performance['labels'][-1], today.strftime('%b'))
+        self.assertEqual(performance['portal'][-1], 2)
+        self.assertEqual(performance['walkin'][-1], 2)
+        self.assertContains(response, 'Monthly Performance')
+        self.assertContains(response, 'New patient registrations by source')
+        self.assertContains(response, 'id="adminMonthlyPerformanceChart"')
+        self.assertNotContains(response, 'Combined Revenue Across All Branches')
+        self.assertNotContains(response, 'id="revenueChart"')
 
     def test_total_user_accounts_card_is_second_in_admin_dashboard(self):
         admin = get_user_model().objects.create_superuser(

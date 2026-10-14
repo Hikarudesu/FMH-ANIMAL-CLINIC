@@ -103,18 +103,19 @@
 <!-- MAIN CHARTS GRID -->
 <div class="charts-section">
   
-  <!-- ROW 1: Revenue & Branch Revenue -->
+  <!-- ROW 1: Monthly Performance & Branch Revenue -->
   <div class="charts-row">
-    <div class="chart-card-modern large">
+    <div class="chart-card-modern large admin-monthly-performance">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-trending-up'></i>
-          <span>{% if revenue_chart_is_all_branches %}Combined Revenue Across All Branches{% else %}{{ user.branch.name|default:"Branch" }} Revenue Trend{% endif %}</span>
+          <i class='bx bx-line-chart'></i>
+          <span>Monthly Performance</span>
         </div>
-        <div class="chart-badge purple">Last 6 Months</div>
+        <div class="chart-badge orange">Last 6 Months</div>
       </div>
-      <div class="chart-body">
-        <canvas id="revenueChart"></canvas>
+      <p class="admin-performance-description">New patient registrations by source</p>
+      <div class="chart-body tall">
+        <canvas id="adminMonthlyPerformanceChart"></canvas>
       </div>
     </div>
     
@@ -610,6 +611,20 @@
   .chart-card-modern.large {
     flex: 1.5;
   }
+
+  .admin-monthly-performance {
+    border-top: 4px solid #10b981;
+    background:
+      radial-gradient(ellipse at top right, rgba(16, 185, 129, 0.08), transparent 45%),
+      var(--surface);
+  }
+
+  .admin-performance-description {
+    margin: 0;
+    padding: 14px 24px 0;
+    color: var(--text-3);
+    font-size: 13px;
+  }
   
   .chart-header {
     display: flex;
@@ -1083,6 +1098,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.charts-row').forEach(row => {
       const cards = row.querySelectorAll('.chart-card-modern');
       cards.forEach((card, i) => {
+        if (card.querySelector('#adminMonthlyPerformanceChart')) {
+          card.classList.add('dash-fade', 'from-right', 'stagger-2');
+          return;
+        }
         card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
         if (i > 0) card.classList.add('stagger-2');
       });
@@ -1199,40 +1218,60 @@ document.addEventListener('DOMContentLoaded', function() {
   const branchColors = ['#009688', '#00BCD4', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0'];
   {% endif %}
 
-  // 1. Revenue Chart (Last 6 months) -> Monthly Trend Line Chart
-  const revenueCtx = document.getElementById('revenueChart');
-  if (revenueCtx) {
-    // Use monthly revenue data instead of daily
-    const monthlyRevenueData = {{ monthly_revenue_data|safe }};
-    const gradient = revenueCtx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
-    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+  // 1. Monthly patient performance
+  const monthlyPerformanceCtx = document.getElementById('adminMonthlyPerformanceChart');
+  if (monthlyPerformanceCtx) {
+    const monthlyPerformance = {{ monthly_performance_data|safe }};
 
-    new Chart(revenueCtx, {
+    new Chart(monthlyPerformanceCtx, {
       type: 'line',
       data: {
-        labels: monthlyRevenueData.map(item => item.month),
-        datasets: [{
-          label: 'Monthly Revenue (₱)',
-          data: monthlyRevenueData.map(item => item.revenue),
-          borderColor: '#6366f1', // Indigo
-          backgroundColor: gradient,
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 0,
-          pointHoverRadius: 6,
-          pointBackgroundColor: '#6366f1',
-          pointBorderColor: 'var(--surface, #fff)',
-          pointBorderWidth: 2
-        }]
+        labels: monthlyPerformance.labels,
+        datasets: [
+          {
+            label: 'Portal (Online)',
+            data: monthlyPerformance.portal,
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderColor: '#10b981',
+            borderWidth: 3,
+            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
+            pointBorderColor: '#10b981',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.4
+          },
+          {
+            label: 'Walk-ins',
+            data: monthlyPerformance.walkin,
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            borderColor: '#38bdf8',
+            borderWidth: 3,
+            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
+            pointBorderColor: '#38bdf8',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.4
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        plugins: { 
-          legend: { display: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              usePointStyle: true,
+              boxWidth: 8,
+              font: { family: "'Inter', sans-serif", size: 12 }
+            }
+          },
           tooltip: commonTooltip
         },
         scales: {
@@ -1240,17 +1279,18 @@ document.addEventListener('DOMContentLoaded', function() {
             grid: { display: false, drawBorder: false },
             ticks: { font: { size: 12 } }
           },
-          y: { 
-            beginAtZero: true, 
-            grid: { color: 'rgba(0, 0, 0, 0.05)', drawBorder: false, borderDash: [5, 5] },
-            ticks: { 
-              font: { size: 12 },
-              callback: function(v) { return '₱' + v.toLocaleString(); } 
-            } 
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: isGlobalDark ? '#334155' : '#e2e8f0',
+              drawBorder: false,
+              borderDash: [5, 5]
+            },
+            ticks: { font: { size: 11 }, precision: 0 }
           }
         },
         animation: {
-          duration: 1800,
+          duration: 1400,
           easing: 'easeInOutCubic',
           delay(ctx) {
             return ctx.type === 'data' ? ctx.dataIndex * 100 : 0;
@@ -1258,7 +1298,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
     });
-    revenueCtx.parentElement.style.height = '320px';
   }
 
   // ═══════════════════════════════════════════════════════════════════════
