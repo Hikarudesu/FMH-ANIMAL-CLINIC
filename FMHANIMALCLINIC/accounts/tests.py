@@ -1722,6 +1722,115 @@ class RegistrationEmailVerificationTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('email', form.errors)
 
+    def test_pet_owner_profile_does_not_expose_branch_editing(self):
+        branch = Branch.objects.create(
+            name='Profile Locked Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        owner = get_user_model().objects.create_user(
+            username='profile-branch-owner',
+            email='profile-branch-owner@example.com',
+            password='A-secure-test-password-923!',
+            branch=branch,
+        )
+        from .forms import UserProfileUpdateForm
+
+        form = UserProfileUpdateForm(instance=owner)
+        self.assertNotIn('branch', form.fields)
+
+        self.client.force_login(owner)
+        response = self.client.get(reverse('accounts:profile'))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="branch"')
+
+    def test_owner_branch_selection_requires_both_confirmations(self):
+        branch = Branch.objects.create(
+            name='First Selection Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        owner = get_user_model().objects.create_user(
+            username='first-selection-owner',
+            email='first-selection-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(owner)
+
+        page = self.client.get(reverse('accounts:select_branch'))
+        self.assertContains(page, 'Are you sure you want to choose')
+        self.assertContains(page, 'Are you really sure you want')
+        self.assertContains(page, branch.name)
+
+        response = self.client.post(
+            reverse('accounts:select_branch'),
+            {
+                'branch_id': branch.pk,
+                'confirm_branch_first': 'on',
+            },
+        )
+        owner.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('accounts:select_branch'))
+        self.assertIsNone(owner.branch_id)
+
+        response = self.client.post(
+            reverse('accounts:select_branch'),
+            {
+                'branch_id': branch.pk,
+                'confirm_branch_first': 'on',
+                'confirm_branch_final': 'on',
+            },
+        )
+        owner.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(owner.branch_id, branch.pk)
+
+    def test_owner_cannot_change_an_active_branch_even_with_confirmations(self):
+        current_branch = Branch.objects.create(
+            name='Current Active Owner Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        target_branch = Branch.objects.create(
+            name='Blocked Target Branch',
+            phone_number='09123456789',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        owner = get_user_model().objects.create_user(
+            username='active-branch-owner',
+            email='active-branch-owner@example.com',
+            password='A-secure-test-password-923!',
+            branch=current_branch,
+        )
+        self.client.force_login(owner)
+
+        response = self.client.post(
+            reverse('accounts:select_branch'),
+            {
+                'branch_id': target_branch.pk,
+                'confirm_branch_first': 'on',
+                'confirm_branch_final': 'on',
+            },
+        )
+
+        owner.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('accounts:profile'))
+        self.assertEqual(owner.branch_id, current_branch.pk)
+
     def test_new_users_are_unverified_by_default(self):
         user = get_user_model().objects.create_user(
             username='pendingowner',

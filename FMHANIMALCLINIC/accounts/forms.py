@@ -160,35 +160,38 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.is_pet_owner():
+            self.fields.pop('branch', None)
+
         for field_name in (
             'username',
             'first_name',
             'last_name',
             'email',
             'phone_number',
-            'branch',
         ):
             self.fields[field_name].required = True
         self.fields['address'].required = False
         self.fields['profile_picture'].widget.clear_checkbox_label = 'Remove current photo'
         self.fields['profile_picture'].widget.input_text = 'Choose photo'
-        branches = Branch.objects.filter(is_active=True)
-        if self.instance.branch_id:
-            branches = (branches | Branch.objects.filter(pk=self.instance.branch_id)).distinct()
-        self.fields['branch'].queryset = branches
-        if self.instance.pk and self.instance.permanent_position_branch_locked:
-            self.fields['branch'].disabled = True
-            self.fields['branch'].help_text = (
-                'Permanent Position keeps this active branch assignment fixed. '
-                'A new branch can be selected if this branch becomes inactive.'
-            )
-        elif self.instance.pk and self.instance.has_role_special_permission(
-            SpecialPermissionCodes.PERMANENT_POSITION,
-        ):
-            self.fields['branch'].help_text = (
-                'Permanent Position allows a one-time active branch assignment. '
-                'You may choose a new branch if your current branch is inactive.'
-            )
+        if 'branch' in self.fields:
+            branches = Branch.objects.filter(is_active=True)
+            if self.instance.branch_id:
+                branches = (branches | Branch.objects.filter(pk=self.instance.branch_id)).distinct()
+            self.fields['branch'].queryset = branches
+            if self.instance.pk and self.instance.permanent_position_branch_locked:
+                self.fields['branch'].disabled = True
+                self.fields['branch'].help_text = (
+                    'Permanent Position keeps this active branch assignment fixed. '
+                    'A new branch can be selected if this branch becomes inactive.'
+                )
+            elif self.instance.pk and self.instance.has_role_special_permission(
+                SpecialPermissionCodes.PERMANENT_POSITION,
+            ):
+                self.fields['branch'].help_text = (
+                    'Permanent Position allows a one-time active branch assignment. '
+                    'You may choose a new branch if your current branch is inactive.'
+                )
 
     def save(self, commit=True):
         user = super().save(commit=False)
