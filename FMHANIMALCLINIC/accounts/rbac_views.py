@@ -18,6 +18,7 @@ from django.views.decorators.http import require_POST
 from .decorators import module_permission_required, admin_only
 from .models import User
 from .rbac_models import Module, ModulePermission, Role, SpecialPermission, SpecialPermissionCodes, SUPERUSER_ONLY_MODULES, HIDDEN_FROM_MODULE_PERMISSIONS
+from .rbac_constants import HierarchyLevels
 from branches.models import Branch
 
 
@@ -64,20 +65,21 @@ def _module_permission_selected(post_data, module_code, permission_types):
 def _get_role_hierarchy_presets():
     """Return hierarchy presets derived from the seeded system roles."""
     preset_codes = {
-        2: 'assistant_veterinarian',
-        4: 'cashier',
-        6: 'veterinarian',
-        8: 'executive_officer',
+        HierarchyLevels.VET_ASSISTANT: ('assistant_veterinarian', 'vet_assistant'),
+        HierarchyLevels.RECEPTIONIST: ('cashier', 'receptionist'),
+        HierarchyLevels.VETERINARIAN: ('veterinarian',),
+        HierarchyLevels.BRANCH_ADMIN: ('executive_officer', 'branch_admin'),
     }
-    roles = Role.objects.filter(code__in=preset_codes.values()).prefetch_related(
+    role_codes = [code for codes in preset_codes.values() for code in codes]
+    roles = Role.objects.filter(code__in=role_codes).prefetch_related(
         'module_permissions__module',
         'special_permissions__permission',
     )
     roles_by_code = {role.code: role for role in roles}
 
     presets = {}
-    for level, code in preset_codes.items():
-        role = roles_by_code.get(code)
+    for level, codes in preset_codes.items():
+        role = next((roles_by_code[code] for code in codes if code in roles_by_code), None)
         if not role:
             continue
 
@@ -98,6 +100,17 @@ def _get_role_hierarchy_presets():
         }
 
     return presets
+
+
+def _get_role_hierarchy_options():
+    presets = _get_role_hierarchy_presets()
+    return [
+        {
+            'level': level,
+            'role_name': presets.get(str(level), {}).get('role_name', f'Level {level} role'),
+        }
+        for level in HierarchyLevels.CREATABLE_LEVELS
+    ]
 
 
 @login_required
@@ -189,7 +202,10 @@ def role_create(request):
         import re
         code = re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_')
         description = request.POST.get('description', '').strip()
-        hierarchy_level = int(request.POST.get('hierarchy_level', 0))
+        try:
+            hierarchy_level = int(request.POST.get('hierarchy_level', 0))
+        except (TypeError, ValueError):
+            hierarchy_level = 0
         # Roles created from Roles & Permissions are always staff roles
         is_staff_role = True
         # New roles are regular custom roles; seeded system roles remain protected.
@@ -199,6 +215,8 @@ def role_create(request):
         errors = []
         if not name:
             errors.append('Role name is required.')
+        if hierarchy_level not in HierarchyLevels.CREATABLE_LEVELS:
+            errors.append('Select a hierarchy level from 1 to 4.')
         if code == 'superadmin':
             errors.append('Cannot create a role with code "superadmin". Use is_superuser flag instead.')
         if code == 'user':
@@ -234,6 +252,7 @@ def role_create(request):
                 'current_branch_restrict': set(),
                 'form_data': request.POST,
                 'role_presets_json': json.dumps(_get_role_hierarchy_presets()),
+                'hierarchy_options': _get_role_hierarchy_options(),
             })
 
         with transaction.atomic():
@@ -278,6 +297,7 @@ def role_create(request):
         'form_data': {},
         'current_hierarchy_level': 0,
         'role_presets_json': json.dumps(_get_role_hierarchy_presets()),
+        'hierarchy_options': _get_role_hierarchy_options(),
         'active_tab': 'roles',
     }
     return render(request, 'accounts/roles/role_form.html', context)
@@ -353,7 +373,7 @@ def role_edit(request, role_id):
 
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
-        code = _role_code_from_name(name)
+        code = role.code if role.is_system_role else _role_code_from_name(name)
         description = request.POST.get('description', '').strip()
         hierarchy_level = role.hierarchy_level
         # Roles edited in Roles & Permissions remain staff roles

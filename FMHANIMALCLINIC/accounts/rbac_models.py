@@ -1,5 +1,6 @@
 """Role-Based Access Control (RBAC) models for granular permissions."""
 from django.db import models
+from accounts.rbac_constants import HierarchyLevels
 
 
 # Modules reserved for superuser only — hidden from role creation/edit UI
@@ -238,7 +239,7 @@ class Role(models.Model):
     # Role hierarchy level (higher = more permissions)
     hierarchy_level = models.PositiveIntegerField(
         default=0,
-        help_text='Higher level = more authority (0=basic, 10=admin)'
+        help_text='Higher level = more authority (1=vet assistant, 5=admin)'
     )
 
     # Can this role access the admin portal?
@@ -287,7 +288,7 @@ class Role(models.Model):
             bool: True if the role has the requested permission
         """
         # Admin roles have full access
-        if self.hierarchy_level >= 10:
+        if self.hierarchy_level >= HierarchyLevels.ADMIN:
             return True
 
         query = self.module_permissions.filter(module__code=module_code)
@@ -305,7 +306,7 @@ class Role(models.Model):
         Returns:
             list: List of permission type strings
         """
-        if self.hierarchy_level >= 10:
+        if self.hierarchy_level >= HierarchyLevels.ADMIN:
             return [p[0] for p in ModulePermission.PermissionType.choices]
 
         return list(
@@ -321,7 +322,7 @@ class Role(models.Model):
         Returns:
             QuerySet: Module objects
         """
-        if self.hierarchy_level >= 10:
+        if self.hierarchy_level >= HierarchyLevels.ADMIN:
             return Module.objects.filter(is_active=True)
 
         module_ids = (
@@ -342,7 +343,7 @@ class Role(models.Model):
         Returns:
             bool: True if the role should only see own-branch data for this module
         """
-        if self.hierarchy_level >= 10:
+        if self.hierarchy_level >= HierarchyLevels.ADMIN:
             return False
 
         # Check if ANY permission for this module has restrict_to_branch=True

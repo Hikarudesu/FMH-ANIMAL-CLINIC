@@ -83,7 +83,7 @@ class AppointmentTimeDisplayTests(TestCase):
             code='veterinarian',
             defaults={
                 'name': 'Veterinarian',
-                'hierarchy_level': 5,
+                'hierarchy_level': 3,
                 'is_staff_role': True,
             },
         )
@@ -133,7 +133,7 @@ class ViewOnlyAppointmentScopeTests(TestCase):
         self.role = Role.objects.create(
             name='Appointments View Only',
             code='appointments-view-only-test',
-            hierarchy_level=4,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         appointments_module, _ = Module.objects.get_or_create(
@@ -201,7 +201,7 @@ class InactiveStaffAppointmentOptionsTests(TestCase):
             code='veterinarian',
             defaults={
                 'name': 'Veterinarian',
-                'hierarchy_level': 5,
+                'hierarchy_level': 3,
                 'is_staff_role': True,
             },
         )

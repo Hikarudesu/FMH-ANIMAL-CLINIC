@@ -1168,7 +1168,7 @@ def admin_dashboard_view(request):
     # ═══════════════════════════════════════════════════════════════════════
 
     # Check if user is HQ admin (can see all branches)
-    is_hq_admin = request.user.hierarchy_level >= 10 if hasattr(request.user, 'hierarchy_level') else False
+    is_hq_admin = request.user.is_admin_role()
 
     # Branch Customer Distribution (This Week) - for pie chart with percentages
     branch_customer_data = []

@@ -54,7 +54,7 @@ class InventoryWorkflowTests(TestCase):
         role = Role.objects.create(
             name='Inventory Branch Role',
             code=f'inventory-branch-{branch.pk}',
-            hierarchy_level=4,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         for permission in ('VIEW', 'CREATE', 'EDIT', 'DELETE'):
@@ -321,7 +321,7 @@ class InventoryWorkflowTests(TestCase):
 
     def test_non_superadmin_high_hierarchy_role_is_still_branch_restricted(self):
         other_branch = Branch.objects.create(
-            name='Hierarchy Ten Other Branch',
+            name='Hierarchy Five Other Branch',
             phone_number='09123456789',
             address='4 Test Street',
             city='Test City',
@@ -329,14 +329,14 @@ class InventoryWorkflowTests(TestCase):
             zip_code='1000',
         )
         role = Role.objects.create(
-            name='Non-superadmin Hierarchy Ten',
-            code='non-superadmin-hierarchy-ten',
-            hierarchy_level=10,
+            name='Non-superadmin Hierarchy Five',
+            code='non-superadmin-hierarchy-five',
+            hierarchy_level=5,
             is_staff_role=True,
         )
         user = get_user_model().objects.create_user(
-            username='hierarchy-ten-inventory-user',
-            email='hierarchy-ten-inventory-user@example.com',
+            username='hierarchy-five-inventory-user',
+            email='hierarchy-five-inventory-user@example.com',
             password='A-secure-test-password-923!',
             branch=self.branch,
             assigned_role=role,

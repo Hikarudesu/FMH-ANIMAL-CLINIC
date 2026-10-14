@@ -111,7 +111,7 @@ class BranchRestrictedMedicalRecordListTests(TestCase):
         role = Role.objects.create(
             name='Medical Record Scope Role',
             code='medical-record-scope-test-role',
-            hierarchy_level=4,
+            hierarchy_level=2,
         )
         ModulePermission.objects.create(
             role=role,

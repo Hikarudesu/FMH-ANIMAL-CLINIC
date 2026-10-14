@@ -61,7 +61,7 @@ class PortalOwnerSearchTests(TestCase):
         role = Role.objects.create(
             name='Branch-Restricted Patient Search Role',
             code='branch-restricted-patient-search',
-            hierarchy_level=4,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         ModulePermission.objects.create(

@@ -9,6 +9,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from utils.validators import validate_image_file, IMAGE_UPLOAD_HELP_TEXT
+from accounts.rbac_constants import HierarchyLevels
 
 OVERSEER_HIDDEN_NAV_MODULES = {
     'patients',
@@ -67,19 +68,19 @@ class User(AbstractUser):
 
     # ── helper properties ──────────────────────────────────
     def is_admin_role(self):
-        """Returns True if the user has superadmin-level assigned role (hierarchy >= 10)."""
+        """Returns True if the user has a full-admin hierarchy level."""
         if self.is_superuser:
             return True
         if self.assigned_role:
-            return getattr(self.assigned_role, 'hierarchy_level', 0) >= 10
+            return getattr(self.assigned_role, 'hierarchy_level', 0) >= HierarchyLevels.ADMIN
         return False
 
     def is_branch_admin(self):
-        """Returns True if the user has branch admin or higher role (hierarchy >= 8)."""
+        """Returns True if the user has branch-admin authority or higher."""
         if self.is_superuser:
             return True
         if self.assigned_role:
-            return getattr(self.assigned_role, 'hierarchy_level', 0) >= 8
+            return getattr(self.assigned_role, 'hierarchy_level', 0) >= HierarchyLevels.BRANCH_ADMIN
         return False
 
     def is_clinic_staff(self):
@@ -165,7 +166,7 @@ class User(AbstractUser):
         if self.is_superuser:
             return True
 
-        if self.assigned_role and getattr(self.assigned_role, 'hierarchy_level', 0) >= 8:
+        if self.assigned_role and getattr(self.assigned_role, 'hierarchy_level', 0) >= HierarchyLevels.BRANCH_ADMIN:
             return True
 
         return self.has_special_permission('can_manage_others_schedule')

@@ -52,12 +52,11 @@
         <div class="form-group">
           <label class="form-label">Hierarchy Level</label>
           <select name="hierarchy_level" class="admin-input" id="hierarchyLevelSelect">
-            <option value="2">Level 2 — Vet Assistant</option>
-            <option value="4">Level 4 — Receptionist</option>
-            <option value="6">Level 6 — Veterinarian</option>
-            <option value="8">Level 8 — Admin</option>
+            {% for option in hierarchy_options %}
+            <option value="{{ option.level }}" data-role-name="{{ option.role_name }}" {% if form_data.hierarchy_level == option.level|stringformat:"s" %}selected{% endif %}>Level {{ option.level }} — {{ option.role_name }}</option>
+            {% endfor %}
           </select>
-          <small class="form-hint">Higher level = more authority.</small>
+          <small class="form-hint">Higher levels grant more authority. The role name can be customized below.</small>
         </div>
         {% endif %}
 
@@ -668,6 +667,8 @@
 
   const hierarchySelect = document.getElementById('hierarchyLevelSelect');
   const roleForm = document.getElementById('roleForm');
+  const roleNameInput = roleForm?.querySelector('input[name="name"]');
+  let activePresetName = '';
 
   function applyRolePreset(level) {
     const preset = rolePresets[String(level)];
@@ -704,6 +705,15 @@
     if (typeof syncReservationsDependency === 'function') {
       syncReservationsDependency();
     }
+  }
+
+  function applySelectedRolePreset(level) {
+    applyRolePreset(level);
+    const presetName = rolePresets[String(level)]?.role_name;
+    if (roleNameInput && presetName && (!roleNameInput.value.trim() || roleNameInput.value === activePresetName)) {
+      roleNameInput.value = presetName;
+    }
+    activePresetName = presetName || '';
   }
 
   function enforceDashboardExclusivity(changedCode) {
@@ -781,11 +791,11 @@
   document.addEventListener('DOMContentLoaded', function() {
     if (hierarchySelect) {
       hierarchySelect.addEventListener('change', function() {
-        applyRolePreset(this.value);
+        applySelectedRolePreset(this.value);
       });
 
       if (!isEditingRole && hierarchySelect.value) {
-        applyRolePreset(hierarchySelect.value);
+        applySelectedRolePreset(hierarchySelect.value);
       }
     }
 

@@ -40,7 +40,7 @@ class StaffBranchChangeTests(TestCase):
             code=code,
             defaults={
                 'name': code.replace('_', ' ').title(),
-                'hierarchy_level': 4,
+                'hierarchy_level': 2,
                 'is_staff_role': True,
             },
         )
@@ -96,7 +96,7 @@ class StaffBranchChangeTests(TestCase):
             reverse('accounts:role_create'),
             {
                 'name': 'Permanent Position UI Test Role',
-                'hierarchy_level': '4',
+                'hierarchy_level': '2',
                 'special_permanent_position': 'on',
             },
         )

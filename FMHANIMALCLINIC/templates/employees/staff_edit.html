@@ -83,7 +83,7 @@
             </div>
           </div>
 
-          {% if request.user.is_superuser or request.user.assigned_role.hierarchy_level >= 10 %}
+          {% if request.user.is_superuser or request.user.assigned_role.hierarchy_level >= 5 %}
           <div class="detail-card">
             <div class="detail-icon status"><i class='bx bx-fingerprint'></i></div>
             <div class="detail-content">

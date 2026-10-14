@@ -72,7 +72,7 @@
           {% if u.is_superuser %}
           <span class="level-num highlight">10</span>
           {% elif u.assigned_role %}
-          <span class="level-num {% if u.assigned_role.hierarchy_level >= 6 %}highlight{% endif %}">{{ u.assigned_role.hierarchy_level }}</span>
+          <span class="level-num {% if u.assigned_role.hierarchy_level >= 3 %}highlight{% endif %}">{{ u.assigned_role.hierarchy_level }}</span>
           {% else %}
           <span class="level-num">0</span>
           {% endif %}

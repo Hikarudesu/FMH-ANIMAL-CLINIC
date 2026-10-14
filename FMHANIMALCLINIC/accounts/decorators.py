@@ -6,7 +6,7 @@ Provides:
 - module_permission_required: Requires module access with optional permission level
 - special_permission_required: Requires a specific special permission
 - branch_required: Requires user to be assigned to a branch
-- admin_only: Shortcut for hierarchy level >= 10 (Superadmin)
+- admin_only: Shortcut for hierarchy level >= 5 (full administrator)
 - staff_only: Shortcut for any clinic staff role
 - BranchFilterMixin: Automatically filters querysets by user's branch
 - ModulePermissionMixin: Checks module permissions for class-based views
@@ -15,6 +15,7 @@ from functools import wraps
 
 from django.contrib import messages
 from django.shortcuts import redirect
+from accounts.rbac_constants import HierarchyLevels
 
 
 def hierarchy_required(min_level):
@@ -23,12 +24,12 @@ def hierarchy_required(min_level):
 
     Usage:
         @login_required
-        @hierarchy_required(8)  # Branch Admin or higher
+        @hierarchy_required(4)  # Branch Admin or higher
         def branch_admin_view(request):
             ...
 
         @login_required
-        @hierarchy_required(6)  # Veterinarian or higher
+        @hierarchy_required(3)  # Veterinarian or higher
         def vet_view(request):
             ...
     """
@@ -178,7 +179,7 @@ def branch_required(redirect_url=None):
 
 def admin_only(view_func):
     """
-    Shortcut decorator for admin-only views (hierarchy level >= 10).
+    Shortcut decorator for admin-only views (hierarchy level >= 5).
 
     Usage:
         @login_required
@@ -196,7 +197,7 @@ def admin_only(view_func):
             return view_func(request, *args, **kwargs)
 
         # Check RBAC role hierarchy
-        if request.user.assigned_role and request.user.assigned_role.hierarchy_level >= 10:
+        if request.user.assigned_role and request.user.assigned_role.hierarchy_level >= HierarchyLevels.ADMIN:
             return view_func(request, *args, **kwargs)
 
         messages.warning(request, 'This action requires administrator privileges.')
@@ -352,7 +353,7 @@ class OwnRecordMixin:
         if self.allow_admin_override:
             if user.is_superuser:
                 return queryset
-            if user.assigned_role and user.assigned_role.hierarchy_level >= 10:
+            if user.assigned_role and user.assigned_role.hierarchy_level >= HierarchyLevels.ADMIN:
                 return queryset
 
         # Filter to user's own records

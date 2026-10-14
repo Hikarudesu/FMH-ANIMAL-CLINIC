@@ -1,6 +1,7 @@
 from django import forms
 from .models import StaffMember, VetSchedule, RecurringSchedule
 from FMHANIMALCLINIC.form_mixins import FormControlMixin, validate_philippines_phone
+from accounts.rbac_constants import HierarchyLevels
 
 
 class StaffMemberForm(FormControlMixin, forms.ModelForm):
@@ -11,7 +12,7 @@ class StaffMemberForm(FormControlMixin, forms.ModelForm):
         is_superadmin = bool(
             user and (
                 user.is_superuser or
-                getattr(getattr(user, 'assigned_role', None), 'hierarchy_level', 0) >= 10
+                getattr(getattr(user, 'assigned_role', None), 'hierarchy_level', 0) >= HierarchyLevels.ADMIN
             )
         )
         if not is_superadmin:

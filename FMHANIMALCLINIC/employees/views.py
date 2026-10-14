@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from accounts.decorators import module_permission_required, special_permission_required, admin_only
 from accounts.rbac_models import Role, SpecialPermissionCodes
+from accounts.rbac_constants import HierarchyLevels
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule, RecurringSchedule, SCHEDULE_LOOKAHEAD_DAYS
 from employees.forms import StaffMemberForm, VetScheduleForm, RecurringScheduleForm
@@ -198,7 +199,7 @@ def staff_edit(request, user_id):
                 staff_profile.restore()
             staff_profile.branch = branch
             update_fields = ['branch']
-            if request.user.is_superuser or getattr(getattr(request.user, 'assigned_role', None), 'hierarchy_level', 0) >= 10:
+            if request.user.is_superuser or getattr(getattr(request.user, 'assigned_role', None), 'hierarchy_level', 0) >= HierarchyLevels.ADMIN:
                 staff_profile.biometric_id = request.POST.get('biometric_id', '').strip() or None
                 update_fields.append('biometric_id')
             staff_profile.save(update_fields=update_fields)
@@ -397,7 +398,7 @@ def schedule_view(request):
     recurring_form = RecurringScheduleForm(is_admin=perms['is_admin'], user=user)
 
     can_manage_any_schedule = _can_manage_any_schedule(user)
-    can_clear_all = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= 10)
+    can_clear_all = user.is_superuser or (user.assigned_role and user.assigned_role.hierarchy_level >= HierarchyLevels.ADMIN)
 
     # Get the user's staff profile for non-admins
     user_staff = None

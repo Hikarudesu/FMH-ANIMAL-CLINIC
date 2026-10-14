@@ -274,7 +274,7 @@ class InactiveStaffListTests(TestCase):
         role = Role.objects.create(
             name='Inactive Staff Test Role',
             code='inactive-staff-test',
-            hierarchy_level=3,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         inactive_user = get_user_model().objects.create_user(
@@ -347,7 +347,7 @@ class RoleDeletionSafetyTests(TestCase):
         role = Role.objects.create(
             name='Protected Staff Role',
             code='protected-staff-role',
-            hierarchy_level=3,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         user = get_user_model().objects.create_user(
@@ -389,7 +389,7 @@ class RoleDeletionSafetyTests(TestCase):
         role = Role.objects.create(
             name='Darwin Recovery Role',
             code='darwin-recovery-role',
-            hierarchy_level=3,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         superadmin = get_user_model().objects.create_superuser(
@@ -414,13 +414,13 @@ class RoleDeletionSafetyTests(TestCase):
         old_role = Role.objects.create(
             name='Inactive User Existing Role',
             code='inactive-user-existing-role',
-            hierarchy_level=3,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         new_role = Role.objects.create(
             name='Inactive User New Role',
             code='inactive-user-new-role',
-            hierarchy_level=4,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         user = get_user_model().objects.create_user(
@@ -460,7 +460,7 @@ class RoleDeletionSafetyTests(TestCase):
         role = Role.objects.create(
             name='Soft Deleted Staff Role',
             code='soft-deleted-staff-test',
-            hierarchy_level=3,
+            hierarchy_level=2,
             is_staff_role=True,
         )
         inactive_user = get_user_model().objects.create_user(

@@ -28,6 +28,7 @@ Usage:
     {% endif %}
 """
 from django import template
+from accounts.rbac_constants import HierarchyLevels
 
 register = template.Library()
 
@@ -182,7 +183,7 @@ def role_name(user):
 @register.filter(name='is_admin')
 def is_admin(user):
     """
-    Check if user is an admin (hierarchy level >= 10 or ADMIN role).
+    Check if user is an admin (hierarchy level >= 5 or ADMIN role).
 
     Usage:
         {% if user|is_admin %}
@@ -195,7 +196,7 @@ def is_admin(user):
     if user.is_superuser:
         return True
 
-    if user.assigned_role and user.assigned_role.hierarchy_level >= 10:
+    if user.assigned_role and user.assigned_role.hierarchy_level >= HierarchyLevels.ADMIN:
         return True
 
     return False
@@ -204,7 +205,7 @@ def is_admin(user):
 @register.filter(name='is_branch_admin')
 def is_branch_admin(user):
     """
-    Check if user is at least a branch admin (hierarchy level >= 8).
+    Check if user is at least a branch admin (hierarchy level >= 4).
 
     Usage:
         {% if user|is_branch_admin %}
@@ -217,7 +218,7 @@ def is_branch_admin(user):
     if user.is_superuser:
         return True
 
-    if user.assigned_role and user.assigned_role.hierarchy_level >= 8:
+    if user.assigned_role and user.assigned_role.hierarchy_level >= HierarchyLevels.BRANCH_ADMIN:
         return True
 
     return False
@@ -317,10 +318,10 @@ def has_hierarchy_level(user, min_level):
     Check if user has at least the specified hierarchy level.
 
     Usage:
-        {% if user|has_hierarchy_level:8 %}  {# Branch Admin or higher #}
+        {% if user|has_hierarchy_level:4 %}  {# Branch Admin or higher #}
             ...
         {% endif %}
-        {% if user|has_hierarchy_level:6 %}  {# Veterinarian or higher #}
+        {% if user|has_hierarchy_level:3 %}  {# Veterinarian or higher #}
             ...
         {% endif %}
     """

@@ -506,7 +506,11 @@ class VetDashboardContentTests(TestCase):
                     code=role_code,
                     defaults={
                         'name': role_code.replace('_', ' ').title(),
-                        'hierarchy_level': 5,
+                        'hierarchy_level': {
+                            'veterinarian': 3,
+                            'assistant_veterinarian': 1,
+                            'cashier': 2,
+                        }[role_code],
                         'is_staff_role': True,
                     },
                 )
@@ -1433,7 +1437,7 @@ class RolePermissionManagementTests(TestCase):
         self.role = Role.objects.create(
             name='RBAC Editable Role',
             code='rbac-editable-role',
-            hierarchy_level=4,
+            hierarchy_level=2,
         )
         self.inventory, _ = Module.objects.get_or_create(
             code='inventory', defaults={'name': 'Inventory'},
@@ -1469,6 +1473,111 @@ class RolePermissionManagementTests(TestCase):
         self.assertContains(response, 'name="perm_inventory_MANAGE"')
         self.assertNotContains(response, 'Select All for module')
         self.assertNotContains(response, 'all-perms-toggle')
+
+    def test_role_creation_uses_sequential_levels_and_live_system_role_names(self):
+        system_role_names = {}
+        for level, code, name in (
+            (1, 'assistant_veterinarian', 'Assistant Veterinarian'),
+            (2, 'cashier', 'Front Desk'),
+            (3, 'veterinarian', 'Doctor'),
+            (4, 'executive_officer', 'Clinic Lead'),
+        ):
+            role, _ = Role.objects.get_or_create(
+                code=code,
+                defaults={
+                    'name': name,
+                    'hierarchy_level': level,
+                    'is_staff_role': True,
+                    'is_system_role': True,
+                },
+            )
+            system_role_names[level] = role.name
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('accounts:role_create'))
+
+        self.assertEqual(response.status_code, 200)
+        for level, role_name in system_role_names.items():
+            with self.subTest(level=level):
+                self.assertContains(
+                    response,
+                    f'value="{level}" data-role-name="{role_name}"',
+                )
+        self.assertNotContains(response, 'value="6"')
+        self.assertNotContains(response, 'value="8"')
+
+        create_response = self.client.post(reverse('accounts:role_create'), {
+            'name': 'Custom Support Specialist',
+            'hierarchy_level': '1',
+        })
+        self.assertEqual(create_response.status_code, 302)
+        custom_role = Role.objects.get(code='custom_support_specialist')
+        self.assertEqual(custom_role.hierarchy_level, 1)
+
+    def test_renaming_system_role_keeps_its_stable_code(self):
+        system_role, _ = Role.objects.get_or_create(
+            code='executive_officer',
+            defaults={
+                'name': 'Clinic Lead',
+                'hierarchy_level': 4,
+                'is_staff_role': True,
+                'is_system_role': True,
+            },
+        )
+        system_role_id = system_role.pk
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('accounts:role_edit', args=[system_role.pk]),
+            {
+                'name': 'Clinic Operations Lead',
+                'description': system_role.description,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        system_role.refresh_from_db()
+        self.assertEqual(system_role.pk, system_role_id)
+        self.assertEqual(system_role.name, 'Clinic Operations Lead')
+        self.assertEqual(system_role.code, 'executive_officer')
+
+    def test_sequential_hierarchy_preserves_admin_authority_boundaries(self):
+        branch_admin_role = Role.objects.create(
+            name='Sequential Branch Administrator',
+            code='sequential-branch-admin',
+            hierarchy_level=4,
+        )
+        full_admin_role = Role.objects.create(
+            name='Sequential Full Administrator',
+            code='sequential-full-admin',
+            hierarchy_level=5,
+        )
+        branch_admin = get_user_model().objects.create_user(
+            username='sequential-branch-admin',
+            assigned_role=branch_admin_role,
+        )
+        full_admin = get_user_model().objects.create_user(
+            username='sequential-full-admin',
+            assigned_role=full_admin_role,
+        )
+
+        self.assertTrue(branch_admin.is_branch_admin())
+        self.assertFalse(branch_admin.is_admin_role())
+        self.assertTrue(full_admin.is_branch_admin())
+        self.assertTrue(full_admin.is_admin_role())
+        self.assertTrue(full_admin_role.has_module_permission('inventory'))
+
+    def test_migration_compacts_system_roles_by_code(self):
+        from importlib import import_module
+
+        migration = import_module(
+            'accounts.migrations.0051_alter_role_hierarchy_level',
+        )
+
+        self.assertEqual(migration.compact_hierarchy_level('veterinarian', 5), 3)
+        self.assertEqual(migration.compact_hierarchy_level('executive_officer', 8), 4)
+        self.assertEqual(migration.compact_hierarchy_level('assistant_veterinarian', 2), 1)
+        self.assertEqual(migration.compact_hierarchy_level('custom-role', 10), 5)
 
     def test_role_edit_exposes_manage_and_preserves_hidden_permissions(self):
         ModulePermission.objects.create(
@@ -1569,7 +1678,11 @@ class RolePermissionManagementTests(TestCase):
                     code=role_code,
                     defaults={
                         'name': role_code.replace('_', ' ').title(),
-                        'hierarchy_level': 5,
+                        'hierarchy_level': {
+                            'veterinarian': 3,
+                            'assistant_veterinarian': 1,
+                            'cashier': 2,
+                        }[role_code],
                         'is_staff_role': True,
                     },
                 )

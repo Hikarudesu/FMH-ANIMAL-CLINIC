@@ -21,3 +21,18 @@ class AdminRoles:
     BRANCH_ADMIN = 'executive_officer'
 
     ALL_ADMIN_ROLES = [SUPERADMIN, BRANCH_ADMIN]
+
+class HierarchyLevels:
+    """Sequential authority levels shared by role creation and access checks."""
+    BASIC = 0
+    VET_ASSISTANT = 1
+    RECEPTIONIST = 2
+    VETERINARIAN = 3
+    BRANCH_ADMIN = 4
+    ADMIN = 5
+    CREATABLE_LEVELS = (
+        VET_ASSISTANT,
+        RECEPTIONIST,
+        VETERINARIAN,
+        BRANCH_ADMIN,
+    )

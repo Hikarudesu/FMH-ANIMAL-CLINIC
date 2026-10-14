@@ -195,15 +195,15 @@ class NotificationRoutingTests(TestCase):
         )
         self.cashier_role, _ = Role.objects.get_or_create(
             code='cashier',
-            defaults={'name': 'Cashier', 'hierarchy_level': 4},
+            defaults={'name': 'Cashier', 'hierarchy_level': 2},
         )
         self.receptionist_role, _ = Role.objects.get_or_create(
             code='receptionist',
-            defaults={'name': 'Legacy Receptionist', 'hierarchy_level': 4},
+            defaults={'name': 'Legacy Receptionist', 'hierarchy_level': 2},
         )
         self.executive_role, _ = Role.objects.get_or_create(
             code='executive_officer',
-            defaults={'name': 'Branch Administrator', 'hierarchy_level': 8},
+            defaults={'name': 'Branch Administrator', 'hierarchy_level': 4},
         )
 
     def test_delete_notification_removes_it_from_database(self):
@@ -571,7 +571,7 @@ class NotificationRoutingTests(TestCase):
         )
         vet_role, _ = Role.objects.get_or_create(
             code='veterinarian',
-            defaults={'name': 'Veterinarian', 'hierarchy_level': 5},
+            defaults={'name': 'Veterinarian', 'hierarchy_level': 3},
         )
         vet = User.objects.create_user(
             username='vet', assigned_role=vet_role, branch=self.branch,
@@ -592,7 +592,7 @@ class NotificationRoutingTests(TestCase):
     def test_stock_transfer_approval_notifies_requester_and_is_visible(self):
         transfer_role, _ = Role.objects.get_or_create(
             code='transfer-requester',
-            defaults={'name': 'Transfer Requester', 'hierarchy_level': 4},
+            defaults={'name': 'Transfer Requester', 'hierarchy_level': 2},
         )
         special_permission, _ = SpecialPermission.objects.get_or_create(
             code='can_request_stock_transfer',

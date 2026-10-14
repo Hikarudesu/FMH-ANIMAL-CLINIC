@@ -29,6 +29,7 @@ from django.http import Http404
 
 from accounts.models import User
 from accounts.decorators import module_permission_required, special_permission_required
+from accounts.rbac_constants import HierarchyLevels
 from employees.models import StaffMember
 from branches.models import Branch
 from payroll.models import PayrollPeriod, Payslip
@@ -717,9 +718,9 @@ def can_edit_released_payslip(user):
     """Check if user has permission to edit released payslips."""
     if not user or not user.is_authenticated:
         return False
-    # Superadmin (hierarchy_level >= 10) can edit released payslips
+    # Full administrators (hierarchy level >= 5) can edit released payslips.
     if hasattr(user, 'assigned_role') and user.assigned_role:
-        return user.assigned_role.hierarchy_level >= 10
+        return user.assigned_role.hierarchy_level >= HierarchyLevels.ADMIN
     return False
 
 
