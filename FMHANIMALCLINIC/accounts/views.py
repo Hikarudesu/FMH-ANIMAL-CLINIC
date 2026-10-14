@@ -670,8 +670,14 @@ def profile_view(request):
 def request_owner_deactivation(request):
     if request.method != 'POST' or not request.user.is_pet_owner():
         return redirect('accounts:profile')
-    if request.POST.get('confirm_deactivation') != 'on':
-        messages.error(request, 'Confirm that you want to schedule account deactivation.')
+    if (
+        request.POST.get('confirm_deactivation') != 'on'
+        or request.POST.get('confirm_deactivation_final') != 'on'
+    ):
+        messages.error(request, 'Complete both confirmations before deactivating your account.')
+        return redirect('accounts:profile')
+    if not request.user.check_password(request.POST.get('password_confirmation', '')):
+        messages.error(request, 'Your current password was not correct. Your account was not deactivated.')
         return redirect('accounts:profile')
     if request.user.owner_deactivation_due_at:
         messages.info(request, 'Your account is already scheduled for deactivation.')
@@ -679,11 +685,17 @@ def request_owner_deactivation(request):
 
     from .lifecycle import schedule_owner_deactivation
 
-    schedule_owner_deactivation(request.user)
-    messages.success(
-        request,
-        'Your account is scheduled for deactivation in one month. Log in before then to keep it active.',
-    )
+    email_sent = schedule_owner_deactivation(request.user)
+    if email_sent:
+        messages.success(
+            request,
+            'Your account deactivation is scheduled for 30 days from now. A confirmation was sent to your email.',
+        )
+    else:
+        messages.warning(
+            request,
+            'Your account deactivation is scheduled for 30 days from now, but the confirmation email could not be sent.',
+        )
     return redirect('accounts:profile')
 
 

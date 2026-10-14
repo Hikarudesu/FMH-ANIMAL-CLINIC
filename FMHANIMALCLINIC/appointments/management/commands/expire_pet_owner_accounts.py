@@ -6,7 +6,7 @@ from accounts.lifecycle import expire_due_owner_accounts
 
 
 class Command(BaseCommand):
-    help = 'Soft-deactivate pet-owner accounts whose one-month grace period has elapsed.'
+    help = 'Soft-deactivate pet-owner accounts whose 30-day recovery period has elapsed.'
 
     def handle(self, *args, **options):
         count = expire_due_owner_accounts()

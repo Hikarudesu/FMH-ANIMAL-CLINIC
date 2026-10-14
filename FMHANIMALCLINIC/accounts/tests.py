@@ -1901,6 +1901,7 @@ class RegistrationEmailVerificationTests(TestCase):
                 )
 
 
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class OwnerAccountDeactivationTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
@@ -1909,15 +1910,20 @@ class OwnerAccountDeactivationTests(TestCase):
             password='A-secure-test-password-923!',
         )
 
-    def test_owner_has_one_month_to_cancel_by_logging_in(self):
+    def test_owner_has_30_days_to_cancel_by_logging_in(self):
         now = timezone.now()
         schedule_owner_deactivation(self.user, now=now)
 
         self.user.refresh_from_db()
         self.assertEqual(
             self.user.owner_deactivation_due_at,
-            now + relativedelta(months=1),
+            now + timedelta(days=30),
         )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+        self.assertIn('You selected Deactivate account in My Profile.', mail.outbox[0].body)
+        self.assertIn('30-day recovery period', mail.outbox[0].body)
+        self.assertIn('cancel the scheduled deactivation by signing in', mail.outbox[0].body)
         self.assertEqual(resolve_owner_deactivation_on_login(self.user, now=now + relativedelta(days=2)), 'cancelled')
 
         self.user.refresh_from_db()
@@ -1939,6 +1945,11 @@ class OwnerAccountDeactivationTests(TestCase):
         self.assertFalse(self.user.is_active)
         self.assertEqual(self.user.owner_account_deactivated_at, now)
         self.assertTrue(get_user_model().objects.filter(pk=self.user.pk).exists())
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('has now been deactivated', mail.outbox[0].body)
+        self.assertIn('contact the clinic', mail.outbox[0].body.lower())
+        self.assertEqual(expire_due_owner_accounts(now=now), 0)
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_overdue_login_expires_instead_of_cancelling(self):
         now = timezone.now()
@@ -1948,19 +1959,59 @@ class OwnerAccountDeactivationTests(TestCase):
         self.assertEqual(resolve_owner_deactivation_on_login(self.user, now=now), 'expired')
         self.user.refresh_from_db()
         self.assertFalse(self.user.is_active)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('has now been deactivated', mail.outbox[0].body)
 
     def test_profile_request_schedules_account_deactivation(self):
         self.client.force_login(self.user)
+        profile_response = self.client.get(reverse('accounts:profile'))
+        self.assertContains(profile_response, 'Deactivate account')
+        self.assertContains(profile_response, 'Final confirmation')
+        self.assertContains(profile_response, 'name="password_confirmation"')
 
         response = self.client.post(
             reverse('accounts:request_owner_deactivation'),
-            {'confirm_deactivation': 'on'},
+            {
+                'confirm_deactivation': 'on',
+                'confirm_deactivation_final': 'on',
+                'password_confirmation': 'A-secure-test-password-923!',
+            },
         )
 
         self.user.refresh_from_db()
         self.assertEqual(response.status_code, 302)
         self.assertTrue(self.user.is_active)
         self.assertIsNotNone(self.user.owner_deactivation_due_at)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('30-day recovery period', mail.outbox[0].body)
+
+    def test_deactivation_requires_both_confirmations_and_correct_password(self):
+        self.client.force_login(self.user)
+
+        incomplete_response = self.client.post(
+            reverse('accounts:request_owner_deactivation'),
+            {
+                'confirm_deactivation': 'on',
+                'password_confirmation': 'A-secure-test-password-923!',
+            },
+        )
+        self.assertEqual(incomplete_response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertIsNone(self.user.owner_deactivation_due_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+        incorrect_password_response = self.client.post(
+            reverse('accounts:request_owner_deactivation'),
+            {
+                'confirm_deactivation': 'on',
+                'confirm_deactivation_final': 'on',
+                'password_confirmation': 'incorrect-password',
+            },
+        )
+        self.assertEqual(incorrect_password_response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertIsNone(self.user.owner_deactivation_due_at)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_pet_owner_login_before_due_date_cancels_schedule(self):
         schedule_owner_deactivation(self.user)

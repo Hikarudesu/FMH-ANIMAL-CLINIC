@@ -85,19 +85,171 @@
         <div class="profile-card-icon"><i class='bx bx-user-minus'></i></div>
         <div>
           <h2>Deactivate account</h2>
-          <p>Schedule deactivation after one month. Log in during that time to cancel it. Your records are retained.</p>
+          <p>This deactivates your account after 30 days. Log in during that time to cancel it. Your records are retained.</p>
         </div>
       </div>
-      <form method="post" action="{% url 'accounts:request_owner_deactivation' %}" style="margin: 0;">
+      <form id="ownerDeactivationForm" method="post" action="{% url 'accounts:request_owner_deactivation' %}" style="margin: 0;">
         {% csrf_token %}
-        <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--text-2); font-size:12px;">
-          <input type="checkbox" name="confirm_deactivation" required>
-          I understand
-        </label>
-        <button type="submit" class="profile-edit-btn"><i class='bx bx-user-minus'></i> Schedule</button>
+        <input type="hidden" name="confirm_deactivation" value="">
+        <input type="hidden" name="confirm_deactivation_final" value="">
+        <button type="button" class="profile-edit-btn" id="openOwnerDeactivationDialog">
+          <i class='bx bx-user-minus'></i> Deactivate account
+        </button>
+        <dialog class="owner-deactivation-dialog" id="ownerDeactivationDialog" aria-labelledby="ownerDeactivationTitle">
+          <div class="owner-deactivation-content">
+            <div data-deactivation-step="first">
+              <h3 id="ownerDeactivationTitle">Confirm account deactivation</h3>
+              <p>Your account will remain active for 30 days. You can cancel by signing in before the scheduled date.</p>
+              <div class="owner-deactivation-actions">
+                <button type="button" class="btn-action outline" data-deactivation-cancel>Cancel</button>
+                <button type="button" class="btn-action primary" id="confirmOwnerDeactivationFirst">Continue</button>
+              </div>
+            </div>
+            <div data-deactivation-step="final" hidden>
+              <h3>Final confirmation</h3>
+              <p>After 30 days, you will lose access to this account. Your records will be retained; after deactivation, contact the clinic to recover them.</p>
+              <label for="ownerDeactivationPassword">Enter your current password</label>
+              <input id="ownerDeactivationPassword" name="password_confirmation" type="password" autocomplete="current-password" required>
+              <div class="owner-deactivation-actions">
+                <button type="button" class="btn-action outline" data-deactivation-cancel>Cancel</button>
+                <button type="submit" class="btn-action danger-outline">Deactivate account</button>
+              </div>
+            </div>
+          </div>
+        </dialog>
       </form>
     </div>
   </div>
+  <style>
+    .owner-deactivation-dialog {
+      width: min(520px, calc(100vw - 28px));
+      max-height: min(90vh, 620px);
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg, 12px);
+      background: var(--surface);
+      color: var(--text-1);
+      box-shadow: var(--shadow-card, 0 16px 48px rgba(15, 23, 42, .2));
+    }
+    .owner-deactivation-dialog[open] {
+      animation: owner-deactivation-enter .2s var(--ease, ease-out) both;
+    }
+    .owner-deactivation-dialog::backdrop {
+      background: rgba(15, 23, 42, .54);
+      animation: owner-deactivation-backdrop .18s ease-out both;
+    }
+    .owner-deactivation-content { padding: 26px 28px; }
+    .owner-deactivation-content h3 {
+      margin: 0 0 10px;
+      color: var(--text-1);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .owner-deactivation-content p {
+      margin: 0;
+      color: var(--text-2);
+      font-size: .9rem;
+      line-height: 1.6;
+    }
+    .owner-deactivation-content label {
+      display: block;
+      margin: 18px 0 7px;
+      color: var(--text-2);
+      font-size: .85rem;
+      font-weight: 600;
+    }
+    .owner-deactivation-content input[type="password"] {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 13px;
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-sm, 6px);
+      background: var(--bg);
+      color: var(--text-1);
+      font: inherit;
+      transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+    }
+    .owner-deactivation-content input[type="password"]:focus-visible {
+      border-color: var(--primary);
+      outline: none;
+      background: var(--surface);
+      box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 0, 150, 136), .14);
+    }
+    .owner-deactivation-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .owner-deactivation-content [data-deactivation-step]:not([hidden]) {
+      animation: owner-deactivation-step-in .18s var(--ease, ease-out) both;
+    }
+    #openOwnerDeactivationDialog:focus-visible,
+    .owner-deactivation-actions button:focus-visible {
+      outline: 3px solid rgba(var(--primary-rgb, 0, 150, 136), .28);
+      outline-offset: 2px;
+    }
+    @keyframes owner-deactivation-enter {
+      from { opacity: 0; transform: translateY(8px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes owner-deactivation-backdrop {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes owner-deactivation-step-in {
+      from { opacity: 0; transform: translateX(6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @media (max-width: 480px) {
+      .owner-deactivation-content { padding: 22px 20px; }
+      .owner-deactivation-actions { gap: 8px; }
+      .owner-deactivation-actions .btn-action { justify-content: center; flex: 1; padding-inline: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .owner-deactivation-dialog[open],
+      .owner-deactivation-dialog::backdrop,
+      .owner-deactivation-content [data-deactivation-step]:not([hidden]) {
+        animation: none;
+      }
+    }
+  </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('ownerDeactivationForm');
+      const dialog = document.getElementById('ownerDeactivationDialog');
+      const firstStep = dialog.querySelector('[data-deactivation-step="first"]');
+      const finalStep = dialog.querySelector('[data-deactivation-step="final"]');
+      const firstConfirmation = form.elements.confirm_deactivation;
+      const finalConfirmation = form.elements.confirm_deactivation_final;
+      const password = document.getElementById('ownerDeactivationPassword');
+
+      document.getElementById('openOwnerDeactivationDialog').addEventListener('click', () => {
+        firstStep.hidden = false;
+        finalStep.hidden = true;
+        firstConfirmation.value = '';
+        finalConfirmation.value = '';
+        password.value = '';
+        dialog.showModal();
+      });
+      document.getElementById('confirmOwnerDeactivationFirst').addEventListener('click', () => {
+        firstConfirmation.value = 'on';
+        firstStep.hidden = true;
+        finalStep.hidden = false;
+        password.focus();
+      });
+      dialog.querySelectorAll('[data-deactivation-cancel]').forEach((button) => {
+        button.addEventListener('click', () => dialog.close());
+      });
+      form.addEventListener('submit', (event) => {
+        if (!dialog.open || finalStep.hidden || !firstConfirmation.value) {
+          event.preventDefault();
+          return;
+        }
+        finalConfirmation.value = 'on';
+      });
+    });
+  </script>
   {% endif %}
 
   <!-- ── Details Card ── -->
