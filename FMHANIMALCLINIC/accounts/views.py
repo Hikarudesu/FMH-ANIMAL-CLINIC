@@ -426,7 +426,7 @@ def user_dashboard_view(request):
     from accounts.models import UserActivity
     activities_list = UserActivity.objects.filter(user=request.user).order_by('-timestamp')
     
-    paginator = Paginator(activities_list, 5)
+    paginator = Paginator(activities_list, 4)
     page_number = request.GET.get('page')
     recent_activities = paginator.get_page(page_number)
 

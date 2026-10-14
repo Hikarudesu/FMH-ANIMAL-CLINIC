@@ -358,7 +358,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, 'Sales by Category')
         self.assertContains(response, 'This Month')
         self.assertContains(response, 'container-type: inline-size')
-        self.assertContains(response, 'font-size: clamp(18px, 14cqi, 28px)')
+        self.assertContains(response, 'font-size: 24px')
         dashboard_html = response.content.decode()
         self.assertLess(
             dashboard_html.index('id="categorySalesChart"'),
@@ -810,6 +810,7 @@ class UserPortalDashboardTests(TestCase):
         response = self.client.get(reverse('accounts:user_dashboard'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['recent_activities'].paginator.per_page, 4)
         for context_key in (
             'monthly_spending_json',
             'appointment_history_json',

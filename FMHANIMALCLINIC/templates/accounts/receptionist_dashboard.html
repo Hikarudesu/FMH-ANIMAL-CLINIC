@@ -59,7 +59,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 @media (max-width: 1200px) {
@@ -77,7 +77,7 @@
   padding: 16px;
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-card);
@@ -97,8 +97,8 @@
 }
 
 .hero-stat-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
   border-color: var(--primary);
 }
 
@@ -107,9 +107,9 @@
 }
 
 .hero-stat-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -118,7 +118,7 @@
 }
 
 .hero-stat-icon i {
-  font-size: 22px;
+  font-size: 21px;
   color: white;
 }
 
@@ -130,7 +130,7 @@
 .hero-stat-icon.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
 
 .hero-stat-card:hover .hero-stat-icon {
-  transform: scale(1.1) rotate(-5deg);
+  transform: scale(1.15) rotate(-8deg);
 }
 
 .hero-stat-content {
@@ -144,7 +144,7 @@
 
 .hero-stat-value {
   max-width: 100%;
-  font-size: clamp(18px, 14cqi, 28px);
+  font-size: 24px;
   font-weight: 800;
   color: var(--text-1);
   letter-spacing: -1px;
@@ -152,7 +152,7 @@
 }
 
 .hero-stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-3);
   font-weight: 500;
 }
@@ -160,15 +160,15 @@
 .hero-stat-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 5px;
 }
 
 .meta-item {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-3);
 }
@@ -178,7 +178,7 @@
 .meta-item.danger { color: #ef4444; }
 .meta-item.neutral { color: var(--text-3); }
 
-.meta-item i { font-size: 14px; }
+.meta-item i { font-size: 12px; }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 /* ACTION TASKS BANNER */
@@ -276,7 +276,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
 }
 
 .charts-row {
@@ -345,9 +345,9 @@
 [data-theme='dark'] .chartjs-render-monitor { color: #ffffff !important; }
 
 .chart-card-modern:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
-  border-color: transparent;
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 150, 136, 0.1);
+  border-color: var(--primary);
 }
 
 .chart-card-modern.large {
@@ -374,28 +374,28 @@
 .chart-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
 }
 
 .chart-title i {
-  font-size: 20px;
+  font-size: 18px;
   color: var(--primary);
 }
 
 .chart-title span {
   color: var(--text-color, var(--text-1));
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .chart-badge {
   display: inline-flex;
   align-items: center;
-  padding: 6px 14px;
+  padding: 4px 10px;
   border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -601,7 +601,7 @@
 .stock-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
   box-shadow: var(--shadow-card);
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
@@ -609,13 +609,13 @@
 
 .schedule-card:hover,
 .stock-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 24px 64px rgba(0, 150, 136, 0.12);
-  border-color: transparent;
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 150, 136, 0.1);
+  border-color: var(--primary);
 }
 
 .schedule-header {
-  padding: 20px 24px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -625,16 +625,16 @@
 .schedule-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .schedule-title i {
-  font-size: 22px;
+  font-size: 18px;
   color: var(--primary);
 }
 
 .schedule-title span {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-1);
 }
@@ -643,7 +643,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--primary);
   text-decoration: none;
