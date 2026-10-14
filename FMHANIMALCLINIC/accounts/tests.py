@@ -428,6 +428,9 @@ class ReceptionistDashboardMetricsTests(TestCase):
                     f'href="{reverse("pos:sale_detail", kwargs={"sale_id": sale.pk})}" '
                     'class="sale-row"',
                 )
+        if response.context['recent_sales']:
+            self.assertContains(response, '</div>\n            <div class="sale-info">')
+            self.assertContains(response, '</span>\n          </a>')
         self.assertContains(
             response,
             f'href="{reverse("accounts:receptionist_dashboard")}"',
@@ -837,14 +840,14 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotContains(response, 'Pet Health Overview')
         self.assertNotContains(response, 'petHealthChart')
         dashboard_html = response.content.decode()
-        self.assertIn('appointment-history-row', dashboard_html)
-        self.assertIn('spending-activity-row', dashboard_html)
+        self.assertIn('monthly-spending-row', dashboard_html)
+        self.assertIn('appointment-activity-row', dashboard_html)
         self.assertLess(
             dashboard_html.index('Monthly Spending'),
-            dashboard_html.index('Appointment History'),
+            dashboard_html.index('Spending Breakdown'),
         )
         self.assertLess(
-            dashboard_html.index('Spending Breakdown'),
+            dashboard_html.index('Appointment History'),
             dashboard_html.index('Recent Activity'),
         )
         self.assertNotIn('chart-card-modern dash-fade', dashboard_html)
@@ -852,7 +855,7 @@ class UserPortalDashboardTests(TestCase):
         self.assertNotIn('id="dashboard-activity-section"', dashboard_html)
         self.assertNotIn('upcoming_appointments', response.context)
         self.assertIn('height: 260px;', dashboard_html)
-        self.assertIn('flex: 0 0 190px;', dashboard_html)
+        self.assertIn('flex: 1 1 190px;', dashboard_html)
         self.assertIn('grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);', dashboard_html)
         self.assertContains(response, 'Monthly Spending')
         self.assertContains(response, 'Appointment History')

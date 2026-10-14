@@ -1180,7 +1180,7 @@
           <a href="{% url 'pos:sale_detail' sale.pk %}" class="sale-row" aria-label="View sale details for {{ sale.transaction_id }}">
             <div class="sale-icon">
               <i class='bx {% if sale.status == "REFUNDED" %}bx-undo{% else %}bx-receipt{% endif %}'></i>
-            </a>
+            </div>
             <div class="sale-info">
               <div class="sale-customer">
                 {% if sale.customer %}{{ sale.customer.get_full_name }}{% else %}{{ sale.guest_name|default:"Walk-in Customer" }}{% endif %}
@@ -1191,7 +1191,7 @@
               {% if sale.status == 'REFUNDED' %}-{% endif %}₱{{ sale.total|floatformat:2 }}
             </div>
             <span class="status-pill {{ sale.status|lower }}">{{ sale.get_status_display }}</span>
-          </div>
+          </a>
           {% endfor %}
         </div>
 

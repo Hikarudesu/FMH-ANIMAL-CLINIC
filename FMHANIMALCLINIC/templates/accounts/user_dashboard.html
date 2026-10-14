@@ -317,19 +317,19 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  .charts-row.appointment-history-row {
+  .charts-row.monthly-spending-row {
     grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   }
 
-  .charts-row.spending-activity-row {
+  .charts-row.appointment-activity-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
   
   @media (max-width: 992px) {
     .charts-row,
     .charts-row.equal,
-    .charts-row.appointment-history-row,
-    .charts-row.spending-activity-row {
+    .charts-row.monthly-spending-row,
+    .charts-row.appointment-activity-row {
       grid-template-columns: 1fr;
     }
   }
@@ -495,7 +495,7 @@
     flex: 1;
   }
 
-  .appointment-history-row .chart-body {
+  .appointment-history-card .chart-body {
     height: 260px;
     min-height: 260px;
   }
@@ -509,8 +509,8 @@
     min-height: 240px;
   }
 
-  .spending-activity-row .spending-chart-body {
-    flex: 0 0 190px;
+  .spending-breakdown-card .spending-chart-body {
+    flex: 1 1 190px;
     height: 190px;
     min-height: 190px;
     padding: 12px;
@@ -1212,8 +1212,8 @@
 <!-- CHARTS SECTION -->
 <div class="charts-section">
   
-  <!-- Monthly spending is primary, with appointment history alongside it. -->
-  <div class="charts-row appointment-history-row">
+  <!-- Monthly spending stays primary; the breakdown chart uses a compact column. -->
+  <div class="charts-row monthly-spending-row">
     <div class="chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
@@ -1227,7 +1227,22 @@
       </div>
     </div>
 
-    <div class="chart-card-modern">
+    <div class="chart-card-modern spending-breakdown-card">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>Spending Breakdown</span>
+        </div>
+        <div class="chart-badge orange">By Category</div>
+      </div>
+      <div class="chart-body spending-chart-body">
+        <canvas id="spendingChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-row appointment-activity-row">
+    <div class="chart-card-modern appointment-history-card">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-calendar-check'></i>
@@ -1238,22 +1253,6 @@
       <p class="chart-description">Completed visits per month</p>
       <div class="chart-body">
         <canvas id="appointmentHistoryChart"></canvas>
-      </div>
-    </div>
-    
-  </div>
-
-  <div class="charts-row spending-activity-row">
-    <div class="chart-card-modern">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Spending Breakdown</span>
-        </div>
-        <div class="chart-badge orange">By Category</div>
-      </div>
-      <div class="chart-body spending-chart-body">
-        <canvas id="spendingChart"></canvas>
       </div>
     </div>
     
