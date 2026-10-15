@@ -31,13 +31,13 @@
   
   <div class="hero-stat-card">
     <div class="hero-stat-icon blue">
-      <i class='bx bxs-dog'></i>
+      <i class='bx bx-bot'></i>
     </div>
     <div class="hero-stat-content">
-      <span class="hero-stat-value">{{ assigned_patients }}</span>
-      <span class="hero-stat-label">Assigned Patients</span>
+      <span class="hero-stat-value">{{ ai_diagnoses_count }}</span>
+      <span class="hero-stat-label">AI Diagnoses Run</span>
       <div class="hero-stat-meta">
-        <span class="meta-item">+{{ new_patients_this_month }} this month</span>
+        <span class="meta-item">{{ ai_diagnoses_this_month }} this month</span>
       </div>
     </div>
   </div>
@@ -1167,18 +1167,18 @@
   }
 
   .recent-records-body {
-    padding: 0 16px 6px;
-    max-height: 300px;
+    padding: 0 14px 4px;
+    max-height: 240px;
     overflow-y: auto;
   }
 
   .recent-record-row {
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) auto;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     min-width: 0;
-    padding: 10px 0;
+    padding: 7px 0;
     color: inherit;
     text-decoration: none;
     border-bottom: 1px solid var(--border);
@@ -1195,33 +1195,33 @@
   }
 
   .recent-record-icon {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 36px;
+    flex: 0 0 32px;
     border-radius: 12px;
     color: var(--primary);
     background: rgba(0, 150, 136, 0.1);
   }
 
   .recent-record-icon i {
-    font-size: 17px;
+    font-size: 16px;
   }
 
   .recent-record-info {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    gap: 2px;
+    gap: 1px;
   }
 
   .recent-record-pet {
     overflow: hidden;
     color: var(--text-1);
-    font-size: 13px;
-    line-height: 1.25;
+    font-size: 12px;
+    line-height: 1.2;
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1231,8 +1231,8 @@
   .recent-record-summary {
     overflow: hidden;
     color: var(--text-3);
-    font-size: 11px;
-    line-height: 1.25;
+    font-size: 10px;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1249,11 +1249,11 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 9px;
+    padding: 3px 7px;
     border-radius: 20px;
     background: rgba(16, 185, 129, 0.12);
     color: #10b981;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.25px;
     text-transform: uppercase;

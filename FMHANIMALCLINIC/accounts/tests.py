@@ -553,7 +553,7 @@ class VetDashboardContentTests(TestCase):
                 )
                 self.assertContains(response, 'grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);')
                 self.assertContains(response, 'grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);')
-                self.assertContains(response, 'max-height: 300px;')
+                self.assertContains(response, 'max-height: 240px;')
                 self.assertContains(response, 'border-radius: 16px;')
                 self.assertContains(response, 'padding: 14px 18px;')
                 self.assertContains(response, 'font-size: 24px')
@@ -568,6 +568,7 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, 'weeklyWorkloadChart')
 
     def test_veterinarian_dashboard_shows_recent_branch_medical_entries(self):
+        from diagnostics.models import AIDiagnosis
         from records.models import MedicalRecord, RecordEntry
 
         branch = Branch.objects.create(
@@ -617,6 +618,19 @@ class VetDashboardContentTests(TestCase):
             species='Dog',
             sex=Pet.Sex.MALE,
         )
+        AIDiagnosis.objects.create(
+            pet=visible_pet,
+            requested_by=staff,
+            primary_condition='Seasonal allergy',
+        )
+        old_diagnosis = AIDiagnosis.objects.create(
+            pet=visible_pet,
+            requested_by=staff,
+            primary_condition='Previous condition',
+        )
+        AIDiagnosis.objects.filter(pk=old_diagnosis.pk).update(
+            created_at=timezone.now() - timedelta(days=45),
+        )
         visible_record = MedicalRecord.objects.create(
             pet=visible_pet,
             vet=staff,
@@ -660,6 +674,9 @@ class VetDashboardContentTests(TestCase):
         response = self.client.get(reverse('vet_dashboard'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['ai_diagnoses_count'], 2)
+        self.assertEqual(response.context['ai_diagnoses_this_month'], 1)
+        self.assertContains(response, 'AI Diagnoses Run')
         self.assertContains(response, 'Visible Patient')
         self.assertContains(response, 'mild seasonal itching')
         self.assertContains(response, 'Recently saved backdated visit.')
@@ -680,6 +697,19 @@ class VetDashboardContentTests(TestCase):
             response.context['recent_medical_records'][0].pk,
             visible_entry.pk,
         )
+
+        for index in range(3):
+            RecordEntry.objects.create(
+                record=visible_record,
+                vet=staff,
+                date_recorded=timezone.localdate(),
+                history_clinical_signs=f'Additional visible record {index}',
+            )
+
+        response = self.client.get(reverse('vet_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['recent_medical_records']), 4)
 
     def test_monthly_consultation_chart_requires_matching_vet_and_counts_appointments_once(self):
         from records.models import MedicalRecord, RecordEntry
@@ -1202,6 +1232,11 @@ class AdminDashboardQuickInsightsTests(TestCase):
         self.assertContains(response, 'Monthly Performance')
         self.assertContains(response, 'New patient registrations by source')
         self.assertContains(response, 'id="adminMonthlyPerformanceChart"')
+        self.assertContains(response, "type: 'bar'")
+        self.assertContains(response, "label: 'Portal (Online)'")
+        self.assertContains(response, "label: 'Walk-ins'")
+        self.assertContains(response, 'stepSize: 1')
+        self.assertContains(response, 'borderRadius: 7')
         self.assertNotContains(response, 'Combined Revenue Across All Branches')
         self.assertNotContains(response, 'id="revenueChart"')
 

@@ -108,7 +108,7 @@
     <div class="chart-card-modern large admin-monthly-performance">
       <div class="chart-header">
         <div class="chart-title">
-          <i class='bx bx-line-chart'></i>
+          <i class='bx bx-bar-chart-alt-2'></i>
           <span>Monthly Performance</span>
         </div>
         <div class="chart-badge orange">Last 6 Months</div>
@@ -1268,43 +1268,41 @@ document.addEventListener('DOMContentLoaded', function() {
   const branchColors = ['#009688', '#00BCD4', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0'];
   {% endif %}
 
-  // 1. Monthly patient performance
+  // 1. Monthly patient registrations by source
   const monthlyPerformanceCtx = document.getElementById('adminMonthlyPerformanceChart');
   if (monthlyPerformanceCtx) {
     const monthlyPerformance = {{ monthly_performance_data|safe }};
 
     new Chart(monthlyPerformanceCtx, {
-      type: 'line',
+      type: 'bar',
       data: {
         labels: monthlyPerformance.labels,
         datasets: [
           {
             label: 'Portal (Online)',
             data: monthlyPerformance.portal,
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            backgroundColor: 'rgba(16, 185, 129, 0.82)',
+            hoverBackgroundColor: '#059669',
             borderColor: '#10b981',
-            borderWidth: 3,
-            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
-            pointBorderColor: '#10b981',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            fill: true,
-            tension: 0.4
+            borderWidth: 1,
+            borderRadius: 7,
+            borderSkipped: false,
+            categoryPercentage: 0.64,
+            barPercentage: 0.82,
+            maxBarThickness: 38
           },
           {
             label: 'Walk-ins',
             data: monthlyPerformance.walkin,
-            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            backgroundColor: 'rgba(56, 189, 248, 0.82)',
+            hoverBackgroundColor: '#0284c7',
             borderColor: '#38bdf8',
-            borderWidth: 3,
-            pointBackgroundColor: isGlobalDark ? '#1e293b' : '#ffffff',
-            pointBorderColor: '#38bdf8',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            fill: true,
-            tension: 0.4
+            borderWidth: 1,
+            borderRadius: 7,
+            borderSkipped: false,
+            categoryPercentage: 0.64,
+            barPercentage: 0.82,
+            maxBarThickness: 38
           }
         ]
       },
@@ -1336,7 +1334,11 @@ document.addEventListener('DOMContentLoaded', function() {
               drawBorder: false,
               borderDash: [5, 5]
             },
-            ticks: { font: { size: 11 }, precision: 0 }
+            ticks: {
+              font: { size: 11 },
+              precision: 0,
+              stepSize: 1
+            }
           }
         },
         animation: {

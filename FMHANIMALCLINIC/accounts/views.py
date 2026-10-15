@@ -1423,6 +1423,7 @@ def vet_dashboard_view(request):
     from employees.models import StaffMember
     from notifications.models import Notification, FollowUp
     from records.models import MedicalRecord, RecordEntry
+    from diagnostics.models import AIDiagnosis
     from django.db.models.functions import TruncMonth
 
     today = date.today()
@@ -1508,6 +1509,17 @@ def vet_dashboard_view(request):
     # 2) Assigned patients (all-time) ─────────────────────────────────────
     assigned_patients = vet_pet_qs.count()
 
+    # 2b) AI diagnoses requested by this staff member ─────────────────────
+    if staff_profile:
+        ai_diagnoses = AIDiagnosis.objects.filter(requested_by=staff_profile)
+        ai_diagnoses_count = ai_diagnoses.count()
+        ai_diagnoses_this_month = ai_diagnoses.filter(
+            created_at__date__range=[month_start, month_end],
+        ).count()
+    else:
+        ai_diagnoses_count = 0
+        ai_diagnoses_this_month = 0
+
     # 3) Completed consultations (all-time) ───────────────────────────────
     if staff_profile and not appt_restricted_no_branch:
         completed_consultations = Appointment.objects.filter(
@@ -1532,7 +1544,7 @@ def vet_dashboard_view(request):
                 **{f"record__{key}": value for key, value in records_filter.items()}
             )
             .select_related('record__pet', 'record__branch', 'vet')
-            .order_by('-created_at', '-date_recorded')[:5]
+            .order_by('-created_at', '-date_recorded')[:4]
         )
     else:
         recent_medical_records = RecordEntry.objects.none()
@@ -1725,6 +1737,8 @@ def vet_dashboard_view(request):
         # Hero stats
         'today_count': today_count,
         'assigned_patients': assigned_patients,
+        'ai_diagnoses_count': ai_diagnoses_count,
+        'ai_diagnoses_this_month': ai_diagnoses_this_month,
         'completed_consultations': completed_consultations,
         'medical_records_count': medical_records_count,
         'pending_medical_records': pending_medical_records,
