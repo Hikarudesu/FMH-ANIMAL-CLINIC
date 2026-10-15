@@ -218,7 +218,7 @@
     </div>
     
     <!-- Top Services -->
-    <div class="insight-card">
+    <div class="insight-card top-services-insight">
       <div class="insight-header">
         <i class='bx bx-star'></i>
         <span>Top Services by Completed Sales · {{ sales_insights_scope_label }}</span>
@@ -866,7 +866,24 @@
     flex-direction: column;
     gap: 8px;
   }
-  
+
+  .top-services-insight .service-list-modern .service-row {
+    padding: 10px;
+  }
+
+  .top-services-insight .service-rank {
+    width: 28px;
+    height: 28px;
+  }
+
+  .top-services-insight .service-name {
+    font-size: 13px;
+  }
+
+  .top-services-insight .service-count {
+    padding: 4px 10px;
+  }
+
   .service-row {
     display: flex;
     align-items: center;
