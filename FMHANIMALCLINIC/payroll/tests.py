@@ -203,6 +203,11 @@ class PayslipEditTests(TestCase):
         self.assertGreaterEqual(payslip.total_deductions, payslip.absent_deduction)
         self.assertEqual(payslip.net_pay, payslip.gross_pay - payslip.total_deductions)
 
+        edit_response = self.client.get(reverse('payroll:payslip_edit', args=[payslip.pk]))
+        self.assertEqual(edit_response.context['effective_absence_days'], 2)
+        self.assertContains(edit_response, 'id="daysAbsentInput" value="2"')
+        self.assertNotContains(edit_response, 'previewAbsentDeduction')
+
 
 class PayrollRulesTests(TestCase):
     def test_payroll_period_has_no_full_month_option(self):
