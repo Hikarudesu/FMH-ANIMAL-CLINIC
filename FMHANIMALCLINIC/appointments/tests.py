@@ -23,6 +23,7 @@ from appointments.forms import (
 from appointments.services import AppointmentService
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
+from notifications.models import FollowUp
 from patients.models import Pet
 from pos.models import Payment, Sale, SaleItem
 from records.models import MedicalRecord, RecordEntry
@@ -630,6 +631,73 @@ class OwnerAppointmentCancellationTests(TestCase):
         self.assertContains(detail_response, 'Pet information')
         self.assertContains(detail_response, 'Visit details')
 
+    def test_each_portal_appointment_tab_paginates_after_ten_entries(self):
+        appointments_by_status = {}
+        for status, tab_name in (
+            (Appointment.Status.PENDING, 'pending'),
+            (Appointment.Status.CONFIRMED, 'confirmed'),
+            (Appointment.Status.COMPLETED, 'completed'),
+            (Appointment.Status.CANCELLED, 'cancelled'),
+        ):
+            additional_count = 10 if tab_name == 'pending' else 11
+            Appointment.objects.bulk_create([
+                Appointment(
+                    owner_name=self.owner.get_full_name() or self.owner.username,
+                    owner_email=self.owner.email,
+                    pet_name=f'{tab_name.title()} Pet {index}',
+                    branch=self.branch,
+                    user=self.owner,
+                    appointment_date=timezone.localdate() + timedelta(days=index + 5),
+                    appointment_time=time(10),
+                    status=status,
+                )
+                for index in range(additional_count)
+            ])
+            appointments_by_status[tab_name] = list(
+                Appointment.objects.filter(
+                    user=self.owner,
+                    status=status,
+                ).order_by('-appointment_date', '-appointment_time')
+            )
+
+        followup_appointments = appointments_by_status['pending'][:]
+        FollowUp.objects.bulk_create([
+            FollowUp(
+                appointment=appointment,
+                pet_name=appointment.pet_name,
+                follow_up_date=timezone.localdate() + timedelta(days=index + 10),
+            )
+            for index, appointment in enumerate(followup_appointments)
+        ])
+
+        tab_configs = (
+            ('pending', 'pending_appts'),
+            ('confirmed', 'confirmed_appts'),
+            ('completed', 'completed_appts'),
+            ('cancelled', 'cancelled_appts'),
+            ('followups', 'follow_ups'),
+        )
+        for tab_name, context_name in tab_configs:
+            with self.subTest(tab=tab_name):
+                response = self.client.get(
+                    reverse('appointments:my_appointments'),
+                    {
+                        'tab': tab_name,
+                        f'{tab_name}_page': 2,
+                    },
+                )
+
+                page_obj = response.context[context_name]
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(page_obj.paginator.count, 11)
+                self.assertEqual(len(page_obj.object_list), 1)
+                self.assertEqual(page_obj.number, 2)
+                self.assertEqual(response.context['active_tab'], tab_name)
+                self.assertContains(
+                    response,
+                    f'class="appt-tab-content active" id="tab-{tab_name}"',
+                )
+
     def test_portal_appointment_detail_requires_ownership(self):
         another_owner = User.objects.create_user(
             username='appointment-detail-other-owner',
@@ -767,6 +835,40 @@ class OwnerAppointmentCancellationTests(TestCase):
         self.assertContains(detail_response, '2026-11-01')
         self.assertNotContains(detail_response, 'Medical record decision')
         self.assertNotContains(detail_response, 'Required')
+
+    def test_portal_history_search_matches_owner_pet_status_and_visit_details(self):
+        visible_entry = AppointmentHistory.objects.create(
+            appointment=self.appointment,
+            event_type=AppointmentHistory.EventType.UPDATED,
+            summary='Appointment details updated',
+            owner_visible=True,
+        )
+        history_url = reverse('appointments:my_appointment_history')
+        for query in (
+            'Cancellation Pet',
+            'Appointment Owner',
+            'Pending',
+            'Owner Cancellation Branch',
+        ):
+            with self.subTest(query=query):
+                response = self.client.get(history_url, {'q': query})
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, visible_entry.summary)
+
+        response = self.client.get(history_url, {'q': 'Cancellation Pet'})
+        self.assertContains(response, 'Appointment · Pending')
+        self.assertContains(response, 'Cancellation Pet')
+        self.assertContains(response, 'View details')
+        self.assertContains(response, 'name="q"')
+
+        no_match_response = self.client.get(
+            history_url,
+            {'q': 'No such pet'},
+        )
+        self.assertEqual(no_match_response.status_code, 200)
+        self.assertContains(no_match_response, 'No matching appointment history')
+        self.assertNotContains(no_match_response, visible_entry.summary)
 
     def test_appointment_history_is_retained_when_appointment_is_deleted(self):
         history = AppointmentHistory.objects.get(

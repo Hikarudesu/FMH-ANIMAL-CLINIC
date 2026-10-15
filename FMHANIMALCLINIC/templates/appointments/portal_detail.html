@@ -53,6 +53,13 @@
         {% endif %}
       </section>
 
+      {% if appointment.branch %}
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-building-house'></i> Clinic location</h2>
+        <p class="portal-appointment-detail__clinic"><strong>{{ appointment.branch.name }}</strong>{% if appointment.branch.address %}<br>{{ appointment.branch.address }}{% endif %}{% if appointment.branch.phone_number %}<br>{{ appointment.branch.phone_number }}{% endif %}</p>
+      </section>
+      {% endif %}
+
       {% if follow_ups %}
       <section class="portal-appointment-detail__panel">
         <h2><i class='bx bx-revision'></i> Follow-up visits</h2>
@@ -159,13 +166,6 @@
           </ul>
         </div>
         {% endif %}
-      </section>
-      {% endif %}
-
-      {% if appointment.branch %}
-      <section class="portal-appointment-detail__panel">
-        <h2><i class='bx bx-building-house'></i> Clinic location</h2>
-        <p class="portal-appointment-detail__clinic"><strong>{{ appointment.branch.name }}</strong>{% if appointment.branch.address %}<br>{{ appointment.branch.address }}{% endif %}{% if appointment.branch.phone_number %}<br>{{ appointment.branch.phone_number }}{% endif %}</p>
       </section>
       {% endif %}
     </aside>

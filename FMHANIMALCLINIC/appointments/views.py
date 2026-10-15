@@ -177,28 +177,43 @@ def my_appointments(request):
         'branch', 'preferred_vet', 'pet', 'pet__owner',
     )
 
-    # Categorized queries
-    pending_appts = base_appts.filter(status=Appointment.Status.PENDING)
-    confirmed_appts = base_appts.filter(status__in=[
+    pending_qs = base_appts.filter(status=Appointment.Status.PENDING)
+    confirmed_qs = base_appts.filter(status__in=[
         Appointment.Status.CONFIRMED,
         Appointment.Status.CHECKED_IN,
         Appointment.Status.IN_PROGRESS,
         Appointment.Status.AWAITING_PAYMENT,
     ])
-    completed_appts = base_appts.filter(status=Appointment.Status.COMPLETED)
-    cancelled_appts = base_appts.filter(status=Appointment.Status.CANCELLED)
+    completed_qs = base_appts.filter(status=Appointment.Status.COMPLETED)
+    cancelled_qs = base_appts.filter(status=Appointment.Status.CANCELLED)
 
-    # Categorized queries
-    follow_ups = FollowUp.objects.filter(
+    follow_ups_qs = FollowUp.objects.filter(
         appointment__user=request.user
     ).select_related('appointment', 'appointment__pet')
 
+    paginated_lists = {}
+    for tab_name, queryset in (
+        ('pending', pending_qs),
+        ('confirmed', confirmed_qs),
+        ('followups', follow_ups_qs),
+        ('completed', completed_qs),
+        ('cancelled', cancelled_qs),
+    ):
+        paginated_lists[tab_name] = Paginator(queryset, 10).get_page(
+            request.GET.get(f'{tab_name}_page', 1),
+        )
+
+    active_tab = request.GET.get('tab', 'pending')
+    if active_tab not in paginated_lists:
+        active_tab = 'pending'
+
     context = {
-        'pending_appts': pending_appts,
-        'confirmed_appts': confirmed_appts,
-        'completed_appts': completed_appts,
-        'cancelled_appts': cancelled_appts,
-        'follow_ups': follow_ups,
+        'pending_appts': paginated_lists['pending'],
+        'confirmed_appts': paginated_lists['confirmed'],
+        'follow_ups': paginated_lists['followups'],
+        'completed_appts': paginated_lists['completed'],
+        'cancelled_appts': paginated_lists['cancelled'],
+        'active_tab': active_tab,
     }
     return render(request, 'appointments/appointments.html', context)
 
@@ -242,17 +257,35 @@ def portal_appointment_detail(request, pk):
 @login_required
 def my_appointment_history(request):
     """Show owner-visible history for appointments belonging to this portal user."""
+    query = request.GET.get('q', '').strip()
     entries = AppointmentHistory.objects.filter(
         owner_visible=True,
         appointment__user=request.user,
     ).select_related(
         'appointment',
         'appointment__branch',
+        'appointment__reason_for_visit',
     ).order_by('-created_at', '-pk')
+    if query:
+        for term in query.split():
+            status_term = term.replace(' ', '_')
+            entries = entries.filter(
+                Q(summary__icontains=term)
+                | Q(appointment__owner_name__icontains=term)
+                | Q(appointment__owner_email__icontains=term)
+                | Q(appointment__owner_phone__icontains=term)
+                | Q(appointment__pet_name__icontains=term)
+                | Q(appointment__pet_species__icontains=term)
+                | Q(appointment__pet_breed__icontains=term)
+                | Q(appointment__branch__name__icontains=term)
+                | Q(appointment__reason_for_visit__name__icontains=term)
+                | Q(appointment__status__icontains=status_term)
+            )
     page_obj = Paginator(entries, 20).get_page(request.GET.get('page'))
     return render(request, 'appointments/owner_history_list.html', {
         'history_entries': page_obj,
         'page_obj': page_obj,
+        'q': query,
     })
 
 

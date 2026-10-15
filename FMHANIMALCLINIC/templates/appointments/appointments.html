@@ -25,6 +25,9 @@
   .portal-followup-card { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 16px 18px; border: 1px solid var(--border-color, #e5e7eb); border-radius: 12px; background: var(--surface, #fff); }
   .portal-followup-card h3 { margin: 0 0 5px; color: var(--text-1, #17212b); font-size: .98rem; }
   .portal-followup-card p { margin: 3px 0; color: var(--text-2, #64748b); font-size: .85rem; }
+  .portal-appointment-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin: 20px 0 4px; color: var(--text-2, #64748b); font-size: .86rem; }
+  .portal-appointment-pagination a { display: inline-flex; min-height: 38px; align-items: center; gap: 5px; padding: 8px 12px; border: 1px solid var(--border-color, #dbe3ea); border-radius: 9px; background: var(--surface, #fff); color: var(--primary, #087f75); font-weight: 700; text-decoration: none; }
+  .portal-appointment-pagination a:hover, .portal-appointment-pagination a:focus-visible { border-color: var(--primary, #087f75); background: var(--primary-light, #e0f2f1); outline: none; }
   .appt-owner-cancel-form { display: grid; gap: 8px; margin-top: 18px; padding: 16px; border: 1px solid var(--border-color, #ddd); border-radius: 10px; }
   .appt-owner-cancel-form textarea { width: 100%; max-width: 560px; padding: 9px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; font: inherit; }
   .appt-owner-cancel-form small { color: var(--text-muted, #666); }
@@ -45,38 +48,40 @@
 <div class="c-tab-bar" id="appointmentTabs">
   <div class="c-tab-bar__glow"></div>
   <div class="c-tab-bar__indicator" id="appointmentTabs-indicator"></div>
-  <button class="c-tab-btn active" data-tab="pending" type="button"><i class='bx bx-time-five c-tab-btn__icon'></i><span class="c-tab-btn__label">Pending</span><span class="c-tab-btn__badge">{{ pending_appts.count }}</span></button>
-  <button class="c-tab-btn" data-tab="confirmed" type="button"><i class='bx bx-check-circle c-tab-btn__icon'></i><span class="c-tab-btn__label">Confirmed</span><span class="c-tab-btn__badge">{{ confirmed_appts.count }}</span></button>
-  <button class="c-tab-btn" data-tab="followups" type="button"><i class='bx bx-revision c-tab-btn__icon'></i><span class="c-tab-btn__label">Follow-ups</span><span class="c-tab-btn__badge">{{ follow_ups.count }}</span></button>
-  <button class="c-tab-btn" data-tab="completed" type="button"><i class='bx bx-check c-tab-btn__icon'></i><span class="c-tab-btn__label">Completed</span><span class="c-tab-btn__badge">{{ completed_appts.count }}</span></button>
-  <button class="c-tab-btn" data-tab="cancelled" type="button"><i class='bx bx-x-circle c-tab-btn__icon'></i><span class="c-tab-btn__label">Cancelled</span><span class="c-tab-btn__badge">{{ cancelled_appts.count }}</span></button>
+  <button class="c-tab-btn{% if active_tab == 'pending' %} active{% endif %}" data-tab="pending" type="button"><i class='bx bx-time-five c-tab-btn__icon'></i><span class="c-tab-btn__label">Pending</span><span class="c-tab-btn__badge">{{ pending_appts.paginator.count }}</span></button>
+  <button class="c-tab-btn{% if active_tab == 'confirmed' %} active{% endif %}" data-tab="confirmed" type="button"><i class='bx bx-check-circle c-tab-btn__icon'></i><span class="c-tab-btn__label">Confirmed</span><span class="c-tab-btn__badge">{{ confirmed_appts.paginator.count }}</span></button>
+  <button class="c-tab-btn{% if active_tab == 'followups' %} active{% endif %}" data-tab="followups" type="button"><i class='bx bx-revision c-tab-btn__icon'></i><span class="c-tab-btn__label">Follow-ups</span><span class="c-tab-btn__badge">{{ follow_ups.paginator.count }}</span></button>
+  <button class="c-tab-btn{% if active_tab == 'completed' %} active{% endif %}" data-tab="completed" type="button"><i class='bx bx-check c-tab-btn__icon'></i><span class="c-tab-btn__label">Completed</span><span class="c-tab-btn__badge">{{ completed_appts.paginator.count }}</span></button>
+  <button class="c-tab-btn{% if active_tab == 'cancelled' %} active{% endif %}" data-tab="cancelled" type="button"><i class='bx bx-x-circle c-tab-btn__icon'></i><span class="c-tab-btn__label">Cancelled</span><span class="c-tab-btn__badge">{{ cancelled_appts.paginator.count }}</span></button>
 </div>
 
-<div class="appt-tab-content active" id="tab-pending">
+<div class="appt-tab-content{% if active_tab == 'pending' %} active{% endif %}" id="tab-pending">
   {% if pending_appts %}
   <div class="portal-appointment-list">
     {% for appointment in pending_appts %}
     {% include "components/portal_appointment_card.html" with appointment=appointment icon="bx-time-five" icon_class="pending" status_class="pending" %}
     {% endfor %}
   </div>
+  {% include "components/portal_appointment_pagination.html" with page_obj=pending_appts tab_name="pending" %}
   {% else %}
   <div class="appt-empty"><div class="appt-empty-icon"><i class='bx bx-calendar-x'></i></div><h3>No pending appointments</h3><p>You have no appointments awaiting confirmation right now.</p></div>
   {% endif %}
 </div>
 
-<div class="appt-tab-content" id="tab-confirmed">
+<div class="appt-tab-content{% if active_tab == 'confirmed' %} active{% endif %}" id="tab-confirmed">
   {% if confirmed_appts %}
   <div class="portal-appointment-list">
     {% for appointment in confirmed_appts %}
     {% include "components/portal_appointment_card.html" with appointment=appointment icon="bx-check-circle" icon_class="confirmed" status_class="confirmed" %}
     {% endfor %}
   </div>
+  {% include "components/portal_appointment_pagination.html" with page_obj=confirmed_appts tab_name="confirmed" %}
   {% else %}
   <div class="appt-empty"><div class="appt-empty-icon"><i class='bx bx-calendar-check'></i></div><h3>No confirmed appointments</h3><p>No confirmed appointments currently upcoming.</p></div>
   {% endif %}
 </div>
 
-<div class="appt-tab-content" id="tab-followups">
+<div class="appt-tab-content{% if active_tab == 'followups' %} active{% endif %}" id="tab-followups">
   {% if follow_ups %}
   <div class="portal-appointment-list">
     {% for followup in follow_ups %}
@@ -90,30 +95,33 @@
     </article>
     {% endfor %}
   </div>
+  {% include "components/portal_appointment_pagination.html" with page_obj=follow_ups tab_name="followups" %}
   {% else %}
   <div class="appt-empty"><div class="appt-empty-icon"><i class='bx bx-revision'></i></div><h3>No follow-up visits</h3><p>No follow-up visits requested by the veterinarian.</p></div>
   {% endif %}
 </div>
 
-<div class="appt-tab-content" id="tab-completed">
+<div class="appt-tab-content{% if active_tab == 'completed' %} active{% endif %}" id="tab-completed">
   {% if completed_appts %}
   <div class="portal-appointment-list">
     {% for appointment in completed_appts %}
     {% include "components/portal_appointment_card.html" with appointment=appointment icon="bx-check" icon_class="completed" status_class="completed" %}
     {% endfor %}
   </div>
+  {% include "components/portal_appointment_pagination.html" with page_obj=completed_appts tab_name="completed" %}
   {% else %}
   <div class="appt-empty"><div class="appt-empty-icon"><i class='bx bx-check'></i></div><h3>No completed appointments</h3><p>No past appointments completed yet.</p></div>
   {% endif %}
 </div>
 
-<div class="appt-tab-content" id="tab-cancelled">
+<div class="appt-tab-content{% if active_tab == 'cancelled' %} active{% endif %}" id="tab-cancelled">
   {% if cancelled_appts %}
   <div class="portal-appointment-list">
     {% for appointment in cancelled_appts %}
     {% include "components/portal_appointment_card.html" with appointment=appointment icon="bx-x-circle" icon_class="cancelled" status_class="cancelled" %}
     {% endfor %}
   </div>
+  {% include "components/portal_appointment_pagination.html" with page_obj=cancelled_appts tab_name="cancelled" %}
   {% else %}
   <div class="appt-empty"><div class="appt-empty-icon"><i class='bx bx-x-circle'></i></div><h3>No cancelled appointments</h3><p>No cancelled appointments.</p></div>
   {% endif %}

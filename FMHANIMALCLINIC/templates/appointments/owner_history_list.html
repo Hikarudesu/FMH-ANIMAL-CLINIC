@@ -9,37 +9,70 @@
 {% url 'appointments:portal_book' as book_url %}
 {% include "components/page_hero.html" with title="Appointment History" icon="bx-history" subtitle="Review updates and decisions for your appointments" action_url=appointments_url action_label="My Appointments" action_icon="bx-calendar-event" action_url_2=book_url action_label_2="Book Appointment" action_icon_2="bx-calendar-plus" icons_theme="pets" %}
 
-<main class="appointment-history-page">
+<main class="appointment-history-page appointment-history-page--owner">
+  <form method="get" id="ownerAppointmentHistorySearch" class="c-filter-bar" autocomplete="off">
+    <div class="c-filter-bar__glow"></div>
+    <div class="c-filter-bar__form">
+      <div class="c-filter-bar__search">
+        <i class='bx bx-search c-filter-bar__search-icon' aria-hidden="true"></i>
+        <input
+          type="search"
+          name="q"
+          value="{{ q }}"
+          placeholder="Search by owner, pet, status, visit reason, or clinic..."
+          aria-label="Search appointment history"
+          class="c-filter-bar__search-input"
+          autocomplete="off"
+        >
+        <div class="c-filter-bar__shortcut" aria-hidden="true"><span>⌘</span><span>K</span></div>
+      </div>
+    </div>
+  </form>
   {% if history_entries %}
-  <p class="appointment-history-intro">Select an item to see the recorded details.</p>
+  <p class="appointment-history-intro">
+    {% if q %}Showing appointment history matching “{{ q }}”.{% else %}Review your appointment activity and select an item for its full details.{% endif %}
+  </p>
   <div class="appointment-history-list">
     {% for entry in history_entries %}
     <a class="appointment-history-card" href="{% url 'appointments:my_appointment_history_detail' entry.pk %}">
-      <span class="appointment-history-card__icon"><i class='bx bx-calendar-check'></i></span>
+      <span class="appointment-history-card__icon"><i class='bx bx-calendar-check' aria-hidden="true"></i></span>
       <span class="appointment-history-card__body">
+        <span class="appointment-history-card__status appointment-history-card__status--{{ entry.appointment.status|lower }}">
+          <i class='bx bx-check-circle' aria-hidden="true"></i>
+          Appointment · {{ entry.appointment.get_status_display }}
+        </span>
         <span class="appointment-history-card__title">{{ entry.summary }}</span>
         <span class="appointment-history-card__meta">
-          <span><i class='bx bx-paw'></i> {{ entry.appointment.pet_name }}</span>
-          <span><i class='bx bx-calendar'></i> {{ entry.appointment.appointment_date|date:"M j, Y" }}</span>
-          <span><i class='bx bx-time'></i> {{ entry.created_at|date:"M j, Y, g:i a" }}</span>
+          <span><i class='bx bx-paw' aria-hidden="true"></i><strong>Pet</strong> {{ entry.appointment.pet_name }}</span>
+          <span><i class='bx bx-user' aria-hidden="true"></i><strong>Owner</strong> {{ entry.appointment.owner_name }}</span>
+          <span><i class='bx bx-calendar' aria-hidden="true"></i><strong>Appointment</strong> {{ entry.appointment.appointment_date|date:"M j, Y" }} · {{ entry.appointment.appointment_time_display }}</span>
+          <span><i class='bx bx-notepad' aria-hidden="true"></i><strong>Visit</strong> {{ entry.appointment.reason_display }}</span>
+          {% if entry.appointment.branch %}<span><i class='bx bx-building-house' aria-hidden="true"></i><strong>Clinic</strong> {{ entry.appointment.branch.name }}</span>{% endif %}
+          <span><i class='bx bx-history' aria-hidden="true"></i><strong>Updated</strong> {{ entry.created_at|date:"M j, Y, g:i a" }}</span>
         </span>
       </span>
-      <i class='bx bx-chevron-right appointment-history-card__arrow' aria-hidden="true"></i>
+      <span class="appointment-history-card__action">View details <i class='bx bx-right-arrow-alt' aria-hidden="true"></i></span>
     </a>
     {% endfor %}
   </div>
   {% if page_obj.has_other_pages %}
   <nav class="appointment-history-pagination" aria-label="Appointment history pages">
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}"><i class='bx bx-left-arrow-alt'></i> Newer</a>{% endif %}
+    {% if page_obj.has_previous %}<a href="?q={{ q|urlencode }}&page={{ page_obj.previous_page_number }}"><i class='bx bx-left-arrow-alt'></i> Newer</a>{% endif %}
     <span class="appointment-history-button">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Older <i class='bx bx-right-arrow-alt'></i></a>{% endif %}
+    {% if page_obj.has_next %}<a href="?q={{ q|urlencode }}&page={{ page_obj.next_page_number }}">Older <i class='bx bx-right-arrow-alt'></i></a>{% endif %}
   </nav>
   {% endif %}
   {% else %}
   <div class="appointment-history-empty">
-    <i class='bx bx-history'></i>
+    <i class='bx {% if q %}bx-search-alt{% else %}bx-history{% endif %}'></i>
+    {% if q %}
+    <h2>No matching appointment history</h2>
+    <p>Try another pet or owner name, status, visit reason, or clinic.</p>
+    <a href="{% url 'appointments:my_appointment_history' %}" class="appointment-history-empty__clear">Clear search</a>
+    {% else %}
     <h2>No appointment history yet</h2>
     <p>Appointment bookings and updates will appear here.</p>
+    {% endif %}
   </div>
   {% endif %}
 </main>
