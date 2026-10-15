@@ -72,8 +72,14 @@
 </div>
 {% endif %}
 
-<form method="post" class="form-container">
+<form method="post" class="form-container" id="payslipEditForm"
+      data-base-salary="{{ payslip.base_salary }}"
+      data-thirteenth-month="{{ payslip.thirteenth_month_pay }}"
+      data-rest-days-deduction="{{ payslip.rest_days_exceeded_deduction }}">
   {% csrf_token %}
+  <input type="hidden" name="cash_advance" value="{{ payslip.cash_advance }}">
+  <input type="hidden" name="late_deduction" value="{{ payslip.late_deduction }}">
+  <input type="hidden" name="other_deductions" value="{{ payslip.other_deductions }}">
   
   <!-- Top section: working days, attendance, rest days, paid leave -->
   <div class="form-section">
@@ -127,14 +133,14 @@
       </div>
 
       <div class="form-group">
-        <label>Days Absences</label>
+        <label>Attendance Absences</label>
         <input type="number" id="daysAbsentInput" name="days_absent" value="{{ payslip.days_absent|default:0 }}" min="0" step="1" readonly>
-        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. Absences are calculated from missing time-in or time-out data in the raw biometric export.</small>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only count from attendance. Unpaid absences after paid leave: <strong id="previewUnpaidAbsenceDays">{{ effective_absence_days }}</strong>.</small>
       </div>
 
       <div class="form-group">
         <label>Absence Deduction per Day (₱)</label>
-        <input type="text" value="{{ absence_deduction_per_day|peso }}" readonly>
+        <input type="text" id="dailySalaryInput" value="{{ absence_deduction_per_day|peso }}" readonly>
         <small style="color: var(--text-3); font-size: 0.75rem;">Automatically calculated from this staff member's daily salary.</small>
       </div>
     </div>
@@ -227,23 +233,31 @@
     </div>
     <div class="summary-row">
       <span>Daily Salary</span>
-      <strong>₱{{ payslip.daily_salary|peso }}</strong>
+      <strong id="previewDailySalary">₱{{ payslip.daily_salary|peso }}</strong>
+    </div>
+    <div class="summary-row">
+      <span>Unpaid Absences After Paid Leave</span>
+      <strong id="previewUnpaidAbsenceSummary">{{ effective_absence_days }}</strong>
+    </div>
+    <div class="summary-row">
+      <span>Absence Deduction</span>
+      <strong id="previewAbsentDeduction" style="color: #dc2626;">-₱{{ payslip.absent_deduction|peso }}</strong>
     </div>
     <div class="summary-row">
       <span>Allowances</span>
-      <strong>₱{{ payslip.total_allowances|peso }}</strong>
+      <strong id="previewAllowances">₱{{ payslip.total_allowances|peso }}</strong>
     </div>
     <div class="summary-row">
       <span>Gross Pay</span>
-      <strong>₱{{ payslip.gross_pay|peso }}</strong>
+      <strong id="previewGrossPay">₱{{ payslip.gross_pay|peso }}</strong>
     </div>
     <div class="summary-row">
       <span>Deductions</span>
-      <strong style="color: #dc2626;">-₱{{ payslip.total_deductions|peso }}</strong>
+      <strong id="previewTotalDeductions" style="color: #dc2626;">-₱{{ payslip.total_deductions|peso }}</strong>
     </div>
     <div class="summary-row" style="border-bottom: none; margin-top: 8px; padding-top: 12px; border-top: 2px solid var(--border);">
       <span style="font-weight: 700;">Net Pay</span>
-      <strong style="color: #4CAF50; font-size: 1.1rem;">₱{{ payslip.net_pay|peso }}</strong>
+      <strong id="previewNetPay" aria-live="polite" style="color: #4CAF50; font-size: 1.1rem;">₱{{ payslip.net_pay|peso }}</strong>
     </div>
   </div>
   
@@ -292,6 +306,8 @@
   function removeDeduction(button) {
     const row = button.closest('.deduction-row');
     if (row) row.remove();
+    const form = document.getElementById('payslipEditForm');
+    if (form) form.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   (function () {
@@ -310,6 +326,72 @@
         field.value = formatValue(field.value);
       });
     });
+  }());
+
+  (function () {
+    const form = document.getElementById('payslipEditForm');
+    if (!form) return;
+
+    const parseAmount = (value) => {
+      const parsed = Number(String(value || '').replace(/[^0-9.-]/g, ''));
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const fieldAmount = (name) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      return field ? parseAmount(field.value) : 0;
+    };
+    const formatAmount = (value) => `₱${value.toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+    const display = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    };
+
+    function updatePayslipPreview() {
+      const baseSalary = parseAmount(form.dataset.baseSalary);
+      const thirteenthMonth = parseAmount(form.dataset.thirteenthMonth);
+      const workingDays = Math.max(0, fieldAmount('working_days'));
+      const daysAbsent = Math.max(0, fieldAmount('days_absent'));
+      const paidLeaveDays = Math.min(daysAbsent, Math.max(0, fieldAmount('paid_leave_days')));
+      const unpaidAbsenceDays = Math.max(0, daysAbsent - paidLeaveDays);
+      const dailySalary = workingDays > 0 ? baseSalary / workingDays : 0;
+      const absentDeduction = unpaidAbsenceDays * dailySalary;
+      const customDeductions = [...form.querySelectorAll('[name="deduction_amount[]"]')]
+        .reduce((total, field) => total + parseAmount(field.value), 0);
+      const allowances = fieldAmount('overtime_pay')
+        + fieldAmount('holiday_pay')
+        + fieldAmount('bonus')
+        + fieldAmount('staff_allowance')
+        + thirteenthMonth;
+      const deductions = fieldAmount('sss')
+        + fieldAmount('philhealth')
+        + fieldAmount('pagibig')
+        + fieldAmount('cash_advance')
+        + fieldAmount('late_deduction')
+        + absentDeduction
+        + fieldAmount('other_deductions')
+        + parseAmount(form.dataset.restDaysDeduction)
+        + customDeductions;
+      const grossPay = baseSalary + allowances;
+      const netPay = grossPay - deductions;
+
+      display('previewDailySalary', formatAmount(dailySalary));
+      display('previewUnpaidAbsenceDays', unpaidAbsenceDays);
+      display('previewUnpaidAbsenceSummary', unpaidAbsenceDays);
+      display('previewAbsentDeduction', `-${formatAmount(absentDeduction)}`);
+      display('previewAllowances', formatAmount(allowances));
+      display('previewGrossPay', formatAmount(grossPay));
+      display('previewTotalDeductions', `-${formatAmount(deductions)}`);
+      display('previewNetPay', formatAmount(netPay));
+      const dailySalaryInput = document.getElementById('dailySalaryInput');
+      if (dailySalaryInput) dailySalaryInput.value = formatAmount(dailySalary);
+    }
+
+    form.addEventListener('input', updatePayslipPreview);
+    form.addEventListener('change', updatePayslipPreview);
+    updatePayslipPreview();
   }());
 </script>
 {% endblock %}

@@ -125,6 +125,85 @@ class PayrollAuditLogTests(TestCase):
         self.assertContains(response, '203.0.113.42')
 
 
+class PayslipEditTests(TestCase):
+    def test_saving_paid_leave_reduces_absence_deduction_and_net_pay(self):
+        admin = get_user_model().objects.create_superuser(
+            username='payslip-edit-admin',
+            email='payslip-edit-admin@example.com',
+            password='test-password',
+        )
+        self.client.force_login(admin)
+        staff = StaffMember.objects.create(
+            first_name='Mina',
+            last_name='Reyes',
+            biometric_id='BIO-MINA',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+            user=admin,
+        )
+        period = PayrollPeriod.objects.create(
+            month=1,
+            year=2099,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        from attendance.calculation_engine import WorkingDaysCalculator
+        working_days = WorkingDaysCalculator.calculate_required_working_days(
+            period.year, period.month, period.period_type, 4
+        )
+        period_start, period_end = period.get_period_start_end_dates()
+        MonthlyAttendanceSummary.objects.create(
+            staff=staff,
+            period_start=period_start,
+            period_end=period_end,
+            working_days=working_days,
+            attendance_days=working_days - 3,
+            absence_days=3,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+            staff_allowance=Decimal('0'),
+        )
+
+        response = self.client.post(
+            reverse('payroll:payslip_edit', args=[payslip.pk]),
+            {
+                'working_days': working_days,
+                'days_worked': working_days,
+                'days_absent': 0,
+                'paid_leave_days': 1,
+                'paid_leave_type': 'Sick Leave',
+                'rest_days_mandatory': 4,
+                'overtime_hours': 0,
+                'overtime_pay': 0,
+                'holiday_pay': 0,
+                'bonus': 0,
+                'staff_allowance': 0,
+                'sss': 0,
+                'philhealth': 0,
+                'pagibig': 0,
+                'cash_advance': 0,
+                'late_deduction': 0,
+                'other_deductions': 0,
+                'sick_leave_days': 0,
+                'regular_leave_days': 0,
+                'notes': '',
+            },
+        )
+
+        payslip.refresh_from_db()
+        expected_absence_deduction = (
+            Decimal('15000') / Decimal(str(working_days)) * Decimal('2')
+        ).quantize(Decimal('0.01'))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(payslip.days_absent, 3)
+        self.assertEqual(payslip.absent_deduction, expected_absence_deduction)
+        self.assertGreaterEqual(payslip.total_deductions, payslip.absent_deduction)
+        self.assertEqual(payslip.net_pay, payslip.gross_pay - payslip.total_deductions)
+
+
 class PayrollRulesTests(TestCase):
     def test_payroll_period_has_no_full_month_option(self):
         values = dict(PayrollPeriod.PeriodType.choices)

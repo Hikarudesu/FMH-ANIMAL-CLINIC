@@ -923,9 +923,6 @@ def payslip_edit(request, payslip_id):
                     request.POST.get('other_deductions', 0))
 
                 # Update attendance and payroll master values
-                payslip.days_worked = safe_int(request.POST.get('days_worked', payslip.working_days), payslip.working_days)
-                payslip.days_absent = safe_int(request.POST.get('days_absent', 0))
-                payslip.working_days = safe_int(request.POST.get('working_days', payslip.working_days), payslip.working_days)
                 payslip.rest_days_mandatory = safe_int(request.POST.get('rest_days_mandatory', payslip.rest_days_mandatory or 4), payslip.rest_days_mandatory or 4)
                 if payslip.rest_days_mandatory <= 0:
                     payslip.rest_days_mandatory = 4
@@ -1055,6 +1052,9 @@ def payslip_edit(request, payslip_id):
     context = {
         'payslip': payslip,
         'period': payslip.payroll_period,
+        'effective_absence_days': max(
+            0, payslip.days_absent - int(payslip.paid_leave_days or 0)
+        ),
         'is_released': is_released,
         'can_edit_released': can_edit_released,
         'custom_deductions': list(payslip.custom_deductions.all()),
