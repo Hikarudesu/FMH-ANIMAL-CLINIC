@@ -2,15 +2,11 @@ from datetime import date, datetime, time, timedelta
 from io import StringIO
 from unittest.mock import patch
 
-<<<<<<< HEAD
 from django.core.management import call_command
+from django.core.exceptions import ValidationError
 from django.db import connection, transaction
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-=======
-from django.core.exceptions import ValidationError
-from django.test import TestCase, override_settings
->>>>>>> 41a301e82426634dde92d66949bc95d2281fb130
 from django.urls import reverse
 from django.utils import timezone
 
@@ -752,6 +748,18 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(detail_response, 'Confirm appointment')
         self.assertContains(detail_response, 'Cancellation reason')
 
+    def test_completed_appointment_list_hides_record_status_indicators(self):
+        self.appointment.status = Appointment.Status.COMPLETED
+        self.appointment.save(update_fields=['status', 'updated_at'])
+
+        response = self.client.get(reverse('appointments:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Medical Record Pending')
+        self.assertNotContains(response, 'Medical Record Added')
+        self.assertNotContains(response, 'Record saved')
+        self.assertNotContains(response, 'View Medical Records')
+
     def test_cancellation_requires_and_saves_reason(self):
         url = reverse(
             'appointments:admin_workflow_action',
@@ -915,6 +923,9 @@ class AppointmentWorkflowActionTests(TestCase):
             {event['id'] for event in calendar_response.json()['events']},
             {self.appointment.pk, unassigned_appointment.pk},
         )
+        for event in calendar_response.json()['events']:
+            self.assertNotIn('latestRecordId', event)
+            self.assertNotIn('hasMedicalRecords', event)
 
     def test_confirmed_appointment_marks_check_in_as_optional(self):
         self.appointment.status = Appointment.Status.CONFIRMED

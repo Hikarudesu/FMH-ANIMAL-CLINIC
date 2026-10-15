@@ -179,20 +179,6 @@ def admin_detail_view(request, pk):
     latest_entry = RecordEntry.objects.filter(
         record__pet=pet
     ).order_by('-date_recorded', '-created_at').first()
-    record_appointment_ids = set(
-        RecordEntry.objects.filter(
-            appointment_id__in=[
-                appointment.pk for appointment in appointments
-                if appointment.status == Appointment.Status.COMPLETED
-            ],
-        ).values_list('appointment_id', flat=True)
-    )
-    for appointment in appointments:
-        appointment.medical_record_added = (
-            appointment.status == Appointment.Status.COMPLETED
-            and appointment.pk in record_appointment_ids
-        )
-
     can_create_medical_record = request.user.has_module_permission('medical_records', 'CREATE')
     can_view_appointments = request.user.has_module_permission('appointments', 'VIEW')
     can_create_appointments = request.user.has_module_permission('appointments', 'CREATE')

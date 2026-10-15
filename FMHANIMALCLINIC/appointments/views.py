@@ -836,9 +836,8 @@ def admin_list(request):
     paginator = Paginator(appointments, 10)
     page_obj = paginator.get_page(page_number)
 
-    # Preserve the medical-record indicators for both active and legacy visits.
-    from records.models import RecordEntry
     page_appointments = list(page_obj.object_list)
+    from records.models import RecordEntry
     record_appointment_ids = set(
         RecordEntry.objects.filter(
             appointment_id__in=[
@@ -972,20 +971,13 @@ def admin_calendar_api(request):
         # Get pet clinical data if linked
         pet_clinical_status = None
         pet_clinical_display = None
-        has_medical_records = False
-        latest_record_id = None
         if a.pet:
             pet_clinical_status = a.pet.clinical_status.code if a.pet.clinical_status else None
             pet_clinical_display = a.pet.status_display
-            latest_record = a.pet.medical_records.first()
-            if latest_record:
-                has_medical_records = True
-                latest_record_id = latest_record.id
 
         events.append({
             'id': a.id,
             'petId': a.pet.id if a.pet else None,
-            'latestRecordId': latest_record_id,
             'petName': a.pet_name or '',
             'petBreed': a.pet_breed or '',
             'petSpecies': a.pet_species or 'Unknown',
@@ -994,7 +986,6 @@ def admin_calendar_api(request):
             'petColor': a.pet.color if a.pet and a.pet.color else '',
             'petClinicalStatus': pet_clinical_status,
             'petClinicalDisplay': pet_clinical_display,
-            'hasMedicalRecords': has_medical_records,
             'ownerName': a.owner_name or '',
             'ownerEmail': a.owner_email or '',
             'ownerPhone': a.owner_phone or '',

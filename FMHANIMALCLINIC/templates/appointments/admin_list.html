@@ -631,22 +631,6 @@
                 <i class='bx bx-hourglass'></i> <time data-countdown-value>24:00:00</time>
               </span>
             {% endif %}
-            {% if appt.status == 'COMPLETED' %}
-              {% if appt.medical_record_added %}
-                <span class="cell-secondary">
-                  <i class='bx bx-check-circle'></i> Medical Record Added
-                </span>
-              {% else %}
-                <span class="cell-secondary">
-                  <i class='bx bx-file'></i> Medical Record Pending
-                </span>
-              {% endif %}
-            {% endif %}
-            {% if appt.status == 'IN_PROGRESS' and appt.medical_record_decision == 'REQUIRED' %}
-              {% if appt.medical_record_added %}
-                <span class="cell-secondary"><i class='bx bx-check-circle'></i> Record saved</span>
-              {% endif %}
-            {% endif %}
             {% if appt.status == 'AWAITING_PAYMENT' %}
               <span class="cell-secondary"><i class='bx bx-credit-card'></i> Payment required</span>
             {% endif %}
@@ -1044,11 +1028,6 @@
           <div class="dm-row-modern">
             <span class="dm-label-modern">Email</span>
             <span class="dm-value-modern" id="detailEmail" style="word-break: break-word;">—</span>
-          </div>
-          <div id="detailMedicalRecordsLink" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-            <a href="#" id="detailMedicalRecordsBtn" class="link-action">
-              <i class='bx bx-file'></i> View Medical Records
-            </a>
           </div>
         </div>
       </div>

@@ -118,7 +118,6 @@
         <h2><i class='bx bx-file'></i> Veterinarian handoff and medical record</h2>
         <div class="appointment-manage__facts">
           <div class="appointment-manage__fact"><small>Record decision</small><strong>{{ appointment.get_medical_record_decision_display }}</strong></div>
-          <div class="appointment-manage__fact"><small>Record status</small><strong>{% if appointment.medical_record_added %}Record saved{% elif appointment.medical_record_decision == 'REQUIRED' %}Required, not saved yet{% else %}No linked record{% endif %}</strong></div>
         </div>
         {% if record_entries %}
         <hr class="appointment-manage__separator">

@@ -613,15 +613,6 @@ function getLocalYMD(d) {
     document.getElementById("detailEmail").textContent = eventData.ownerEmail || "—";
     document.getElementById("detailCreatedAt").textContent = eventData.createdAt || "—";
 
-    // Medical Records Link (if pet is linked and has records)
-    const medicalRecordsLink = document.getElementById("detailMedicalRecordsLink");
-    if (eventData.latestRecordId && eventData.hasMedicalRecords) {
-      document.getElementById("detailMedicalRecordsBtn").href = `/records/admin/${eventData.latestRecordId}/`;
-      medicalRecordsLink.style.display = "block";
-    } else {
-      medicalRecordsLink.style.display = "none";
-    }
-
     // Pet Details
     document.getElementById("detailPetName").textContent = eventData.petName || "—";
     document.getElementById("detailSpecies").textContent = eventData.petSpecies || "—";
