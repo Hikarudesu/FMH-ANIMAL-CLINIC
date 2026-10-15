@@ -22,27 +22,84 @@
 }
 
 .appointment-history-page--owner .c-filter-bar__form {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.appointment-history-page--owner .c-filter-bar__search {
+  width: 100%;
+  min-width: 0;
 }
 
 .appointment-history-page--owner .c-filter-bar__filters {
   margin-left: auto;
+  width: auto;
+  min-width: max-content;
 }
 
 .appointment-history-page--owner .search-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
+  min-height: 54px;
   box-sizing: border-box;
-  border: 0;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: transparent;
   color: inherit;
-  font: inherit;
   text-align: left;
   cursor: pointer;
-  appearance: none;
+  transition: background .15s ease;
+}
+
+.appointment-history-page--owner .search-dropdown-item:last-child {
+  border-bottom: 0;
+}
+
+.appointment-history-page--owner .search-dropdown-item:hover,
+.appointment-history-page--owner .search-dropdown-item.active,
+.appointment-history-page--owner .search-dropdown-item:focus-visible {
+  background: rgba(0, 150, 136, .06);
+  outline: none;
+}
+
+.appointment-history-page--owner .search-dropdown-item > i:first-child {
+  flex: 0 0 24px;
+  width: 24px;
+  color: var(--primary, #087f75);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.appointment-history-page--owner .search-dropdown-item .item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.appointment-history-page--owner .search-dropdown-item .item-name,
+.appointment-history-page--owner .search-dropdown-item .item-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointment-history-page--owner .search-dropdown-item .item-name {
+  color: var(--text-1, #17212b);
+  font-size: .88rem;
+  font-weight: 650;
+}
+
+.appointment-history-page--owner .search-dropdown-item .item-sub {
+  margin-top: 3px;
+  color: var(--text-3, #94a3b8);
+  font-size: .75rem;
 }
 
 .appointment-history-page--owner .search-dropdown-item > i:last-child {
+  flex: 0 0 auto;
   color: var(--text-3, #94a3b8);
   font-size: 1.2rem;
 }
@@ -374,9 +431,39 @@
     min-height: 38px;
   }
   .appointment-history-page--owner .appointment-history-card__meta { display: grid; gap: 7px; }
-  .appointment-history-page--owner .c-filter-bar__form { align-items: stretch; }
-  .appointment-history-page--owner .c-filter-bar__search { min-width: 0; }
-  .appointment-history-page--owner .c-filter-bar__filters { margin-left: 0; }
+  .appointment-history-page--owner .c-filter-bar__form {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .appointment-history-page--owner .c-filter-bar__search {
+    width: 100%;
+    min-width: 0;
+  }
+  .appointment-history-page--owner .c-filter-bar__filters {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .appointment-history-page--owner .c-filter-bar__form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .appointment-history-page--owner .c-filter-bar__filters {
+    grid-row: 1;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .appointment-history-page--owner .c-filter-bar__search {
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 420px) {

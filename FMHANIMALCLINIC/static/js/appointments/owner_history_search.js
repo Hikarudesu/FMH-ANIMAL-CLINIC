@@ -48,30 +48,30 @@
     }
 
     results.forEach(result => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'search-dropdown-item';
-      button.setAttribute('role', 'option');
-      button.dataset.value = result.value;
+      const item = document.createElement('div');
+      item.className = 'search-dropdown-item';
+      item.setAttribute('role', 'option');
+      item.setAttribute('tabindex', '-1');
+      item.dataset.value = result.value;
 
       const icon = document.createElement('i');
       icon.className = 'bx bxs-dog';
 
-      const info = document.createElement('span');
+      const info = document.createElement('div');
       info.className = 'item-info';
-      const label = document.createElement('span');
+      const label = document.createElement('div');
       label.className = 'item-name';
       label.textContent = result.label;
-      const subtitle = document.createElement('span');
+      const subtitle = document.createElement('div');
       subtitle.className = 'item-sub';
       subtitle.textContent = result.subtitle;
       info.append(label, subtitle);
-      button.append(icon, info);
+      item.append(icon, info);
       const arrow = document.createElement('i');
       arrow.className = 'bx bx-chevron-right';
       arrow.setAttribute('aria-hidden', 'true');
-      button.append(arrow);
-      dropdown.append(button);
+      item.append(arrow);
+      dropdown.append(item);
     });
 
     dropdown.classList.add('active');
@@ -116,7 +116,7 @@
   });
 
   input.addEventListener('keydown', function (event) {
-    const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+    const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item[role="option"]'));
     if (event.key === 'Escape') {
       hideDropdown();
     } else if (event.key === 'ArrowDown' && items.length) {
@@ -142,6 +142,10 @@
   dropdown.addEventListener('click', function (event) {
     const item = event.target.closest('.search-dropdown-item');
     if (item) selectSuggestion(item);
+  });
+
+  dropdown.addEventListener('mousedown', function (event) {
+    if (event.target.closest('.search-dropdown-item')) event.preventDefault();
   });
 
   document.addEventListener('click', function (event) {
