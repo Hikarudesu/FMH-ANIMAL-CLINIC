@@ -36,6 +36,13 @@
   .appointment-manage__button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 8px; padding: 9px 15px; border: 0; border-radius: 9px; background: var(--primary, #087f75); color: #fff; font: inherit; font-size: .86rem; font-weight: 700; text-decoration: none; cursor: pointer; }
   .appointment-manage__button:hover { filter: brightness(.95); color: #fff; }
   .appointment-manage__button--secondary { border: 1px solid var(--border); background: var(--surface); color: var(--text-1); }
+  .appointment-manage__button--secondary:hover,
+  .appointment-manage__button--secondary:focus-visible {
+    border-color: var(--primary, #087f75);
+    background: var(--primary-light, #e0f2f1);
+    color: var(--primary, #087f75);
+    filter: none;
+  }
   .appointment-manage__button--danger { background: #dc2626; }
   .appointment-manage__form { display: grid; gap: 9px; }
   .appointment-manage__form label { color: var(--text-1); font-size: .82rem; font-weight: 700; }
@@ -168,7 +175,7 @@
           {% if can_edit and appointment.status == 'CONFIRMED' %}
           <div class="appointment-manage__action">
             <h3>Owner has arrived?</h3>
-            <p>Check them in here, or the veterinarian may start the visit directly.</p>
+            <p>Check them in here, or the veterinarian may begin the consultation directly.</p>
             <form method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'check-in' %}">
               {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-log-in-circle'></i> Check in</button>
             </form>
@@ -177,10 +184,10 @@
 
           {% if can_start_visit %}
           <div class="appointment-manage__action">
-            <h3>Veterinary visit</h3>
-            <p>Begin the visit. Check-in is optional if the pet is ready.</p>
+            <h3>Veterinary consultation</h3>
+            <p>Begin the consultation. Check-in is optional if the pet is ready.</p>
             <form method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'start' %}">
-              {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-first-aid'></i> Start visit</button>
+              {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-first-aid'></i> Start consultation</button>
             </form>
           </div>
           {% endif %}
@@ -188,7 +195,7 @@
           {% if can_decide_record %}
           <div class="appointment-manage__action">
             <h3>Medical-record decision</h3>
-            <p>Choose whether this visit needs a medical record. Explain the decision if no record is needed.</p>
+            <p>Choose whether this consultation needs a medical record. Explain the decision if no record is needed.</p>
             <div class="appointment-manage__toolbar">
               <form method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'record-required' %}">
                 {% csrf_token %}<button class="appointment-manage__button" type="submit">Record required</button>
@@ -206,7 +213,7 @@
           {% if can_send_to_payment %}
           <div class="appointment-manage__action">
             <h3>Medical record saved</h3>
-            <p>Hand this visit to reception for payment at the POS.</p>
+            <p>Hand this consultation to reception for payment at the POS.</p>
             <form method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'send-to-payment' %}">
               {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-credit-card'></i> Send to POS</button>
             </form>
@@ -228,7 +235,7 @@
           {% if can_complete %}
           <div class="appointment-manage__action">
             <h3>Final review</h3>
-            <p>Payment and veterinarian handoff are complete. Close the visit to finish the appointment.</p>
+            <p>Payment and veterinarian handoff are complete. Close the consultation to finish the appointment.</p>
             <form method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'complete' %}">
               {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-check-double'></i> Complete appointment</button>
             </form>
@@ -250,11 +257,11 @@
           {% endif %}
 
           {% if appointment.status == 'CHECKED_IN' and not is_veterinarian %}
-          <div class="appointment-manage__action"><h3>Waiting for veterinarian</h3><p>The veterinarian can start the visit from this appointment workspace.</p></div>
+          <div class="appointment-manage__action"><h3>Waiting for veterinarian</h3><p>The veterinarian can begin the consultation from this appointment workspace.</p></div>
           {% endif %}
 
           {% if appointment.status == 'IN_PROGRESS' and not is_veterinarian %}
-          <div class="appointment-manage__action"><h3>Visit in progress</h3><p>Waiting for the veterinarian to finish the record decision and hand off the visit.</p></div>
+          <div class="appointment-manage__action"><h3>Consultation in progress</h3><p>Waiting for the veterinarian to finish the record decision and hand off the consultation.</p></div>
           {% endif %}
         </div>
 

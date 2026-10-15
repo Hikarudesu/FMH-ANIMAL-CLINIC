@@ -176,20 +176,20 @@ class Appointment(models.Model):
         if self.status == self.Status.PENDING:
             return 'Waiting for the clinic to confirm your appointment.'
         if self.status == self.Status.CONFIRMED:
-            return 'Confirmed. Check in when you arrive; the veterinarian can also start your visit directly.'
+            return 'Confirmed. Check in when you arrive; the veterinarian can also begin the consultation directly.'
         if self.status == self.Status.CHECKED_IN:
-            return 'Checked in. Waiting for the veterinarian to start your visit.'
+            return 'Checked in. Waiting for the veterinarian to begin the consultation.'
         if self.status == self.Status.IN_PROGRESS:
             if self.medical_record_decision == self.MedicalRecordDecision.UNDECIDED:
                 return 'The veterinarian is deciding whether a medical record is needed.'
             if self.medical_record_decision == self.MedicalRecordDecision.REQUIRED:
                 if not self.workflow_has_medical_record:
                     return 'The veterinarian is preparing your medical record.'
-            return 'The visit is ready for POS payment.'
+            return 'The consultation is ready for POS payment.'
         if self.status == self.Status.AWAITING_PAYMENT:
-            return 'Please complete payment at the POS before the visit can be closed.'
+            return 'Please complete payment at the POS before the consultation can be closed.'
         if self.status == self.Status.COMPLETED:
-            return 'Your visit is complete.'
+            return 'Your consultation is complete.'
         if self.status == self.Status.CANCELLED:
             return 'This appointment was cancelled.'
         return 'Appointment status is being updated.'
@@ -246,7 +246,7 @@ class Appointment(models.Model):
                 'optional': True,
             },
             {
-                'label': 'Vet visit',
+                'label': 'Consultation',
                 'state': (
                     'current' if status in (
                         self.Status.CHECKED_IN,

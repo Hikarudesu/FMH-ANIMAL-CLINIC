@@ -501,6 +501,9 @@ class AppointmentWorkflowActionTests(TestCase):
 
         self.assertEqual(list_response.status_code, 200)
         self.assertContains(list_response, 'Manage appointment')
+        self.assertContains(list_response, 'Pending')
+        self.assertContains(list_response, 'Walk-In / Guest User')
+        self.assertNotContains(list_response, 'class="admin-badge')
         self.assertNotContains(list_response, 'Cancellation reason')
         self.assertNotContains(list_response, 'Confirm appointment')
 
@@ -618,7 +621,7 @@ class AppointmentWorkflowActionTests(TestCase):
             {appointment.pk for appointment in listed_appointments},
             {self.appointment.pk, unassigned_appointment.pk},
         )
-        self.assertContains(response, 'Open visit')
+        self.assertContains(response, 'Open consultation')
         self.assertNotContains(response, 'Veterinary visit actions')
         self.assertNotContains(response, 'Other Branch Pet')
 
@@ -626,8 +629,8 @@ class AppointmentWorkflowActionTests(TestCase):
             reverse('appointments:admin_detail', args=[self.appointment.pk])
         )
         self.assertEqual(detail_response.status_code, 200)
-        self.assertContains(detail_response, 'Veterinary visit')
-        self.assertContains(detail_response, 'Start visit')
+        self.assertContains(detail_response, 'Veterinary consultation')
+        self.assertContains(detail_response, 'Start consultation')
         self.assertNotContains(detail_response, 'Confirm appointment')
 
         calendar_response = self.client.get(

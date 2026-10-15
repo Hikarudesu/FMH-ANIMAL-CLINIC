@@ -619,10 +619,10 @@
             <span class="cell-secondary">{{ appt.appointment_time_display }}</span>
           </div>
         </td>
-        <td style="text-align: center;"><span class="admin-badge source-{{ appt.source|lower }}">{{ appt.get_source_display }}</span></td>
+        <td style="text-align: center;"><span class="cell-secondary">{{ appt.get_source_display }}</span></td>
         <td style="text-align: center;">
           <div class="cell-stack" style="align-items: center;">
-            <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+            <span class="cell-primary">{{ appt.get_status_display }}</span>
             {% if appt.status != 'CANCELLED' %}
             <span class="appointment-workflow-next">{{ appt.workflow_next_action }}</span>
             {% endif %}
@@ -633,29 +633,29 @@
             {% endif %}
             {% if appt.status == 'COMPLETED' %}
               {% if appt.medical_record_added %}
-                <span class="admin-badge" style="background: #ecfdf5; color: #047857;">
+                <span class="cell-secondary">
                   <i class='bx bx-check-circle'></i> Medical Record Added
                 </span>
               {% else %}
-                <span class="admin-badge" style="background: #fff7ed; color: #c2410c;">
+                <span class="cell-secondary">
                   <i class='bx bx-file'></i> Medical Record Pending
                 </span>
               {% endif %}
             {% endif %}
             {% if appt.status == 'IN_PROGRESS' and appt.medical_record_decision == 'REQUIRED' %}
               {% if appt.medical_record_added %}
-                <span class="admin-badge" style="background:#ecfdf5;color:#047857;"><i class='bx bx-check-circle'></i> Record saved</span>
+                <span class="cell-secondary"><i class='bx bx-check-circle'></i> Record saved</span>
               {% endif %}
             {% endif %}
             {% if appt.status == 'AWAITING_PAYMENT' %}
-              <span class="admin-badge" style="background:#eff6ff;color:#1d4ed8;"><i class='bx bx-credit-card'></i> Payment required</span>
+              <span class="cell-secondary"><i class='bx bx-credit-card'></i> Payment required</span>
             {% endif %}
           </div>
         </td>
         {% if can_edit or can_delete or is_veterinarian %}
         <td style="text-align: center;">
           <a href="{% url 'appointments:admin_detail' appt.pk %}" class="appointment-manage-link">
-            {% if is_veterinarian %}<i class='bx bx-first-aid'></i> Open visit{% else %}<i class='bx bx-calendar-check'></i> Manage appointment{% endif %}
+            {% if is_veterinarian %}<i class='bx bx-first-aid'></i> Open consultation{% else %}<i class='bx bx-calendar-check'></i> Manage appointment{% endif %}
           </a>
         </td>
         {% endif %}
