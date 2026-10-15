@@ -777,9 +777,11 @@ class AppointmentStaffHistoryVisibilityTests(TestCase):
             args=[history.pk],
         ))
         self.assertEqual(detail_response.status_code, 200)
-        self.assertContains(detail_response, 'Changes in this event')
+        self.assertContains(detail_response, 'What changed')
         self.assertContains(detail_response, 'Date')
         self.assertContains(detail_response, '2026-10-20')
+        self.assertContains(detail_response, 'Current appointment details')
+        self.assertContains(detail_response, 'Reason for visit')
 
         role.code = 'other_staff'
         role.save(update_fields=['code'])

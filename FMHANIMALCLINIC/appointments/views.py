@@ -228,6 +228,7 @@ def my_appointment_history_detail(request, pk):
             'appointment',
             'appointment__branch',
             'appointment__preferred_vet',
+            'appointment__reason_for_visit',
         ),
         pk=pk,
         owner_visible=True,
@@ -312,6 +313,8 @@ def admin_appointment_history_detail(request, pk):
         AppointmentHistory.objects.select_related(
             'appointment',
             'appointment__branch',
+            'appointment__preferred_vet',
+            'appointment__reason_for_visit',
             'actor',
         ),
         pk=pk,

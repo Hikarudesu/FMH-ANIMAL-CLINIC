@@ -126,6 +126,48 @@
 .appointment-history-panel h2 { margin: 0 0 15px; font-size: 1.05rem; }
 .appointment-history-event-title { margin: 0 0 6px; font-size: 1.4rem; }
 .appointment-history-event-meta { margin: 0; color: var(--text-2, #64748b); }
+.appointment-history-event-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 5px 10px;
+  border: 1px solid var(--primary, #087f75);
+  border-radius: 999px;
+  background: var(--primary-light, #e0f2f1);
+  color: var(--primary, #087f75);
+  font-size: .75rem;
+  font-weight: 750;
+  letter-spacing: .035em;
+}
+
+.appointment-history-current-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: -5px 0 17px;
+  color: var(--text-2, #64748b);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+.appointment-history-current-label i {
+  margin-top: 2px;
+  color: var(--primary, #087f75);
+  font-size: 1rem;
+}
+
+.appointment-history-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--primary-light, #e0f2f1);
+  color: var(--primary, #087f75);
+  font-size: .82rem;
+  font-weight: 750;
+}
 
 .appointment-history-changes {
   display: grid;
