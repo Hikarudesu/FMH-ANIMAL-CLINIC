@@ -165,12 +165,6 @@ class InventorySettingsForm(AdminInputMixin, forms.Form):
         widget=forms.CheckboxInput(),
         help_text='Send notifications for low/critical stock'
     )
-    allow_negative = forms.BooleanField(
-        label='Allow Negative Stock',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Allow selling items when stock is zero'
-    )
     expiry_warning_days = forms.IntegerField(
         label='Expiry Warning (days)',
         min_value=1,
@@ -211,7 +205,6 @@ class InventorySettingsForm(AdminInputMixin, forms.Form):
         self.fields['low_stock_threshold'].initial = get_setting('inventory_low_stock_threshold', 10)
         self.fields['critical_threshold'].initial = get_setting('inventory_critical_threshold', 5)
         self.fields['enable_alerts'].initial = get_setting('inventory_enable_alerts', True)
-        self.fields['allow_negative'].initial = get_setting('inventory_allow_negative', False)
         self.fields['expiry_warning_days'].initial = get_setting('inventory_expiry_warning_days', 30)
         self.fields['item_type_options'].initial = '\n'.join(get_inventory_item_type_options())
         self.fields['uom_options'].initial = '\n'.join(get_inventory_unit_options())
@@ -484,33 +477,6 @@ class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
         widget=forms.Textarea(attrs={'rows': 5}),
         help_text='Enter one laboratory type per line. Add a line to create a type or remove a line to delete it.'
     )
-    default_followup_days = forms.IntegerField(
-        label='Default Follow-up Period (days)',
-        min_value=1,
-        max_value=90,
-        widget=forms.NumberInput(),
-        help_text='Default days until follow-up appointment'
-    )
-    vaccination_reminders = forms.BooleanField(
-        label='Enable Vaccination Reminders',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Send reminders when vaccinations are due'
-    )
-    reminder_days_before = forms.IntegerField(
-        label='Vaccination Reminder Notice (days)',
-        min_value=1,
-        max_value=30,
-        widget=forms.NumberInput(),
-        help_text='Days before vaccination due date to send reminder'
-    )
-    clinical_status_auto_actions = forms.BooleanField(
-        label='Enable Clinical Status Auto-Actions',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Automatically run status-based owner notifications when clinical action changes'
-    )
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         laboratory_types = get_setting('medical_laboratory_type_options', None)
@@ -523,11 +489,6 @@ class MedicalRecordsSettingsForm(AdminInputMixin, forms.Form):
             for laboratory_type in laboratory_types
             if str(laboratory_type).strip()
         )
-        self.fields['default_followup_days'].initial = get_setting('medical_default_followup_days', 7)
-        self.fields['vaccination_reminders'].initial = get_setting('medical_vaccination_reminders', True)
-        self.fields['reminder_days_before'].initial = get_setting('medical_reminder_days_before', 7)
-        self.fields['clinical_status_auto_actions'].initial = get_setting('medical_clinical_status_auto_actions', True)
-
     def clean_laboratory_types(self):
         laboratory_types = []
         seen = set()

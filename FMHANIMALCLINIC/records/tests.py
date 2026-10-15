@@ -169,10 +169,6 @@ class LaboratoryTypeSettingsTests(SimpleTestCase):
         )
         form = MedicalRecordsSettingsForm(data={
             'laboratory_types': 'CBC\nBlood Chemistry\nCBC',
-            'default_followup_days': '7',
-            'vaccination_reminders': 'on',
-            'reminder_days_before': '7',
-            'clinical_status_auto_actions': 'on',
         })
 
         self.assertTrue(form.is_valid(), form.errors)
@@ -185,12 +181,18 @@ class LaboratoryTypeSettingsTests(SimpleTestCase):
         )
         form = MedicalRecordsSettingsForm(data={
             'laboratory_types': '  \n',
-            'default_followup_days': '7',
-            'reminder_days_before': '7',
         })
 
         self.assertFalse(form.is_valid())
         self.assertIn('laboratory_types', form.errors)
+
+    def test_removed_medical_controls_are_not_available(self):
+        form = MedicalRecordsSettingsForm()
+
+        self.assertNotIn('default_followup_days', form.fields)
+        self.assertNotIn('vaccination_reminders', form.fields)
+        self.assertNotIn('reminder_days_before', form.fields)
+        self.assertNotIn('clinical_status_auto_actions', form.fields)
 
     def test_laboratory_images_accept_png_and_jpeg(self):
         for filename in ('result.png', 'result.jpg', 'result.jpeg'):

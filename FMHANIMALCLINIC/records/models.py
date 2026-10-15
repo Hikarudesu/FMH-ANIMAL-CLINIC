@@ -304,7 +304,6 @@ STATUS_MESSAGES = {
 def sync_pet_clinical_status(sender, instance, **kwargs):
     """When a RecordEntry is saved, update the pet's clinical status and notify the owner if it changed."""
     from settings.models import ClinicalStatus
-    from settings.utils import get_setting
 
     try:
         pet = instance.record.pet
@@ -329,10 +328,6 @@ def sync_pet_clinical_status(sender, instance, **kwargs):
         pet.clinical_status = clinical_status_obj
         pet.save(update_fields=['clinical_status'])
     except Exception:
-        return
-
-    auto_actions_enabled = bool(get_setting('medical_clinical_status_auto_actions', True))
-    if not auto_actions_enabled:
         return
 
     # Create a notification for the pet's owner (only if owner exists)

@@ -6,6 +6,7 @@ from datetime import datetime, time, timedelta
 
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from branches.models import Branch
 from utils.models import SoftDeleteModel
@@ -252,7 +253,6 @@ class StockAdjustment(models.Model):
 
     def save(self, *args, **kwargs):
         from django.db import transaction
-        from django.db.models import F
 
         is_new = self.pk is None
 
@@ -266,24 +266,27 @@ class StockAdjustment(models.Model):
                 self.quantity = -self.quantity
 
         if is_new and self.product_id:
-            self.quantity_unit = self.product.unit_of_measurement or 'piece'
+            with transaction.atomic():
+                product = Product.objects.select_for_update().get(pk=self.product_id)
+                self.quantity_unit = product.unit_of_measurement or 'piece'
+
+                if (
+                    self.adjustment_type in self.DEDUCTION_TYPES
+                    and product.stock_quantity < -self.quantity
+                ):
+                    raise ValidationError(
+                        f'Insufficient stock. Only {product.stock_quantity} available.'
+                    )
+
+                super().save(*args, **kwargs)
+                updated_stock = product.stock_quantity + self.quantity
+                update_fields = {'stock_quantity': updated_stock}
+                if updated_stock <= 0:
+                    update_fields['is_available'] = False
+                Product.objects.filter(pk=product.pk).update(**update_fields)
+            return
 
         super().save(*args, **kwargs)
-
-        if is_new:
-            # Use atomic update with F() expression to avoid race conditions
-            with transaction.atomic():
-                Product.objects.filter(pk=self.product.pk).update(
-                    stock_quantity=F('stock_quantity') + self.quantity
-                )
-                # Ensure stock doesn't go below 0
-                Product.objects.filter(pk=self.product.pk, stock_quantity__lt=0).update(
-                    stock_quantity=0
-                )
-                Product.objects.filter(
-                    pk=self.product.pk,
-                    stock_quantity__lte=0,
-                ).update(is_available=False)
 
 
 class Reservation(models.Model):

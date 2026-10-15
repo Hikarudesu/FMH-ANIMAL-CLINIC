@@ -177,7 +177,6 @@ def _handle_inventory_form(request):
         set_setting('inventory_low_stock_threshold', data['low_stock_threshold'], request.user, 'INVENTORY')
         set_setting('inventory_critical_threshold', data['critical_threshold'], request.user, 'INVENTORY')
         set_setting('inventory_enable_alerts', data['enable_alerts'], request.user, 'INVENTORY')
-        set_setting('inventory_allow_negative', data['allow_negative'], request.user, 'INVENTORY')
         set_setting('inventory_expiry_warning_days', data['expiry_warning_days'], request.user, 'INVENTORY')
         set_setting('inventory_uom_options', data['uom_options'], request.user, 'INVENTORY')
         set_setting('inventory_item_type_options', data.get('item_type_options', []), request.user, 'INVENTORY')
@@ -279,10 +278,6 @@ def _handle_medical_form(request):
     if form.is_valid():
         data = form.cleaned_data
         set_setting('medical_laboratory_type_options', data['laboratory_types'], request.user, 'MEDICAL')
-        set_setting('medical_default_followup_days', data['default_followup_days'], request.user, 'MEDICAL')
-        set_setting('medical_vaccination_reminders', data['vaccination_reminders'], request.user, 'MEDICAL')
-        set_setting('medical_reminder_days_before', data['reminder_days_before'], request.user, 'MEDICAL')
-        set_setting('medical_clinical_status_auto_actions', data['clinical_status_auto_actions'], request.user, 'MEDICAL')
 
         messages.success(request, 'Medical records settings updated successfully.')
         return redirect('settings:scheduling_settings')

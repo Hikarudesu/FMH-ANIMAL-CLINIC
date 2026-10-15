@@ -70,10 +70,6 @@
           <p class="form-hint" style="margin-top: -8px; margin-bottom: 12px;">Configure medical record requirements and patient care policies</p>
         </div>
 
-        <div class="form-section-title">
-          <i class='bx bx-calendar-check'></i> Follow-up Settings
-        </div>
-
         <div class="admin-field">
           <label for="id_laboratory_types">Laboratory Types</label>
           {{ forms.scheduling.medical.laboratory_types }}
@@ -83,51 +79,6 @@
           {% endif %}
         </div>
 
-        <div class="admin-field">
-          <label for="id_default_followup_days">Default Follow-up Period (days)</label>
-          {{ forms.scheduling.medical.default_followup_days }}
-          <p class="form-hint">{{ forms.scheduling.medical.default_followup_days.help_text }}</p>
-          {% if forms.scheduling.medical.default_followup_days.errors %}
-            <div class="error-text">{{ forms.scheduling.medical.default_followup_days.errors.0 }}</div>
-          {% endif %}
-        </div>
-
-        <div class="form-section-title">
-          <i class='bx bx-injection'></i> Vaccination Reminders
-        </div>
-
-        <div class="admin-field admin-field-full">
-          <div class="checkbox-field">
-            {{ forms.scheduling.medical.vaccination_reminders }}
-            <div class="checkbox-content">
-              <label for="id_vaccination_reminders">Enable Vaccination Reminders</label>
-              <p class="form-hint">{{ forms.scheduling.medical.vaccination_reminders.help_text }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="admin-field">
-          <label for="id_reminder_days_before">Reminder Notice Period (days)</label>
-          {{ forms.scheduling.medical.reminder_days_before }}
-          <p class="form-hint">{{ forms.scheduling.medical.reminder_days_before.help_text }}</p>
-          {% if forms.scheduling.medical.reminder_days_before.errors %}
-            <div class="error-text">{{ forms.scheduling.medical.reminder_days_before.errors.0 }}</div>
-          {% endif %}
-        </div>
-
-        <div class="form-section-title">
-          <i class='bx bx-bell'></i> Clinical Status Notifications
-        </div>
-
-        <div class="admin-field admin-field-full">
-          <div class="checkbox-field">
-            {{ forms.scheduling.medical.clinical_status_auto_actions }}
-            <div class="checkbox-content">
-              <label for="id_clinical_status_auto_actions">Enable Clinical Status Auto-Actions</label>
-              <p class="form-hint">{{ forms.scheduling.medical.clinical_status_auto_actions.help_text }}</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="admin-actions">

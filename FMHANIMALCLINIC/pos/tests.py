@@ -7,7 +7,8 @@ from django.utils import timezone
 from accounts.models import User
 from appointments.models import Appointment
 from branches.models import Branch
-from pos.models import Sale
+from inventory.models import Product
+from pos.models import Payment, Sale, SaleItem
 
 
 @override_settings(STORAGES={
@@ -76,4 +77,43 @@ class AppointmentCheckoutTests(TestCase):
         self.appointment.refresh_from_db()
         sale.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.AWAITING_PAYMENT)
+        self.assertEqual(sale.status, Sale.Status.PENDING)
+
+    def test_payment_is_rolled_back_when_stock_is_insufficient(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Out of Stock Item',
+            price=20,
+            stock_quantity=0,
+        )
+        sale = Sale.objects.create(
+            branch=self.branch,
+            cashier=self.cashier,
+            subtotal=20,
+            total=20,
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            item_type=SaleItem.ItemType.PRODUCT,
+            product=product,
+            name=product.name,
+            unit_price=20,
+            quantity=1,
+        )
+
+        response = self.client.post(
+            reverse('pos:process_payment'),
+            {
+                'sale_id': sale.pk,
+                'amount': '20.00',
+                'method': 'CASH',
+                'customer_type': Sale.CustomerType.WALKIN,
+            },
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(response.json()['success'])
+        self.assertEqual(Payment.objects.filter(sale=sale).count(), 0)
+        sale.refresh_from_db()
         self.assertEqual(sale.status, Sale.Status.PENDING)

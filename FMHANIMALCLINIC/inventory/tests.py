@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from unittest.mock import patch
@@ -8,6 +9,7 @@ from accounts.models import ActivityLog
 from branches.models import Branch
 from inventory.forms import ProductForm, StockAdjustmentForm
 from inventory.models import Product, Reservation, StockAdjustment, StockTransfer
+from settings.forms import InventorySettingsForm
 
 
 class InventoryWorkflowTests(TestCase):
@@ -45,6 +47,9 @@ class InventoryWorkflowTests(TestCase):
         }
         data.update(overrides)
         return data
+
+    def test_allow_negative_stock_control_is_not_available(self):
+        self.assertNotIn('allow_negative', InventorySettingsForm().fields)
 
     def create_branch_restricted_user(self, branch):
         module, _ = Module.objects.get_or_create(
@@ -523,6 +528,32 @@ class InventoryWorkflowTests(TestCase):
         product.refresh_from_db()
         self.assertEqual(product.stock_quantity, 0)
         self.assertFalse(product.is_available)
+
+    def test_stock_adjustment_cannot_remove_more_than_available(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Limited Stock Item',
+            price=20,
+            stock_quantity=3,
+            is_available=True,
+        )
+
+        with self.assertRaises(ValidationError):
+            StockAdjustment.objects.create(
+                branch=self.branch,
+                product=product,
+                adjustment_type='REMOVE',
+                date='2026-10-08',
+                quantity=4,
+                reason='Attempted overdraw',
+            )
+
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 3)
+        self.assertFalse(
+            StockAdjustment.objects.filter(product=product).exists()
+        )
 
     def test_superadmin_can_open_and_approve_transfer_from_source_branch(self):
         self.branch.is_main_source = True

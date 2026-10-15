@@ -9,7 +9,7 @@ import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Q, Sum
@@ -554,7 +554,14 @@ def _process_payment(request):
         )
 
         if sale.is_fully_paid:
-            sale.complete_sale()
+            try:
+                sale.complete_sale()
+            except ValidationError as exc:
+                transaction.set_rollback(True)
+                return JsonResponse(
+                    {'success': False, 'error': str(exc.message)},
+                    status=409,
+                )
             completed = True
         else:
             completed = False
