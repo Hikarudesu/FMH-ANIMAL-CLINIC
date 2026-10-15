@@ -1246,19 +1246,15 @@ document.addEventListener('DOMContentLoaded', function() {
   Chart.defaults.plugins.legend.labels.color = isGlobalDark ? '#ffffff' : '#64748b';
   
   const commonTooltip = {
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    titleColor: '#ffffff',
-    bodyColor: 'var(--text-2, #cbd5e1)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    padding: 12,
-    boxPadding: 6,
-    usePointStyle: true,
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    titleColor: '#fff',
+    bodyColor: '#e2e8f0',
+    titleFont: { size: 13, weight: '700' },
+    bodyFont: { size: 12 },
+    padding: 14,
     cornerRadius: 12,
-    titleFont: { size: 14, weight: '600' },
-    bodyFont: { size: 13 },
     displayColors: true,
-    backdropFilter: 'blur(8px)'
+    boxPadding: 6
   };
 
   // Branch colors for multi-branch charts (initialize early for all charts)

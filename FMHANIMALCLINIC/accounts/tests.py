@@ -1237,6 +1237,9 @@ class AdminDashboardQuickInsightsTests(TestCase):
         self.assertContains(response, "label: 'Walk-ins'")
         self.assertContains(response, 'stepSize: 1')
         self.assertContains(response, 'borderRadius: 7')
+        self.assertContains(response, "backgroundColor: 'rgba(30, 41, 59, 0.95)'")
+        self.assertContains(response, "titleFont: { size: 13, weight: '700' }")
+        self.assertNotContains(response, "backdropFilter: 'blur(8px)'")
         self.assertNotContains(response, 'Combined Revenue Across All Branches')
         self.assertNotContains(response, 'id="revenueChart"')
 
