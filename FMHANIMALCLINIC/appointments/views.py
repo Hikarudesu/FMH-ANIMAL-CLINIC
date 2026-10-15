@@ -396,6 +396,12 @@ def admin_workflow_action(request, pk, action):
         if original_status != Appointment.Status.CONFIRMED:
             messages.error(request, 'Only confirmed appointments can be checked in.')
             return redirect(detail_url, pk=pk)
+        if appointment.appointment_date > timezone.localdate():
+            messages.error(
+                request,
+                'This appointment cannot be checked in before its scheduled date.',
+            )
+            return redirect(detail_url, pk=pk)
         appointment.status = Appointment.Status.CHECKED_IN
         appointment.checked_in_at = timezone.now()
     elif action == 'cancel':
@@ -527,8 +533,17 @@ def admin_detail(request, pk):
         'medical_records', 'CREATE'
     )
     can_access_pos = request.user.has_special_permission('can_access_pos')
+    appointment_date_arrived = (
+        appointment.appointment_date <= timezone.localdate()
+    )
+    can_check_in = (
+        can_manage_workflow
+        and appointment.status == Appointment.Status.CONFIRMED
+        and appointment_date_arrived
+    )
     can_start_visit = (
         is_veterinarian
+        and appointment_date_arrived
         and appointment.status in (
             Appointment.Status.CONFIRMED,
             Appointment.Status.CHECKED_IN,
@@ -578,6 +593,8 @@ def admin_detail(request, pk):
         'can_delete': can_delete,
         'can_create_medical_record': can_create_medical_record,
         'can_access_pos': can_access_pos,
+        'appointment_date_arrived': appointment_date_arrived,
+        'can_check_in': can_check_in,
         'can_start_visit': can_start_visit,
         'can_decide_record': can_decide_record,
         'can_send_to_payment': can_send_to_payment,
@@ -597,6 +614,12 @@ def veterinarian_workflow_action(request, pk, action):
             Appointment.Status.CHECKED_IN,
         ):
             messages.error(request, 'Only confirmed or checked-in appointments can be started.')
+            return redirect('appointments:admin_detail', pk=pk)
+        if appointment.appointment_date > timezone.localdate():
+            messages.error(
+                request,
+                'The consultation cannot start before the scheduled appointment date.',
+            )
             return redirect('appointments:admin_detail', pk=pk)
         appointment.status = Appointment.Status.IN_PROGRESS
         appointment.visit_started_at = timezone.now()

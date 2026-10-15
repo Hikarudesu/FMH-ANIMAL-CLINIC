@@ -158,6 +158,8 @@
         <div class="appointment-manage__notice appointment-manage__notice--warning"><i class='bx bx-x-circle'></i><span>This appointment is cancelled.</span></div>
         {% elif appointment.status == 'COMPLETED' %}
         <div class="appointment-manage__notice appointment-manage__notice--success"><i class='bx bx-check-circle'></i><span>This visit has been completed.</span></div>
+        {% elif appointment.status == 'CONFIRMED' and not appointment_date_arrived %}
+        <div class="appointment-manage__notice appointment-manage__notice--warning"><i class='bx bx-time-five'></i><span>Confirmed for {{ appointment.appointment_date|date:"F j, Y" }}. Check-in and consultation can begin on the scheduled date.</span></div>
         {% else %}
         <div class="appointment-manage__notice"><i class='bx bx-info-circle'></i><span>{{ appointment.workflow_next_action }}</span></div>
         {% endif %}
@@ -172,13 +174,19 @@
           </div>
           {% endif %}
 
-          {% if can_edit and appointment.status == 'CONFIRMED' %}
+          {% if can_check_in %}
           <div class="appointment-manage__action">
             <h3>Owner has arrived?</h3>
             <p>Check them in here, or the veterinarian may begin the consultation directly.</p>
             <form method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'check-in' %}">
               {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-log-in-circle'></i> Check in</button>
             </form>
+          </div>
+          {% endif %}
+          {% if can_edit and appointment.status == 'CONFIRMED' and not appointment_date_arrived %}
+          <div class="appointment-manage__action">
+            <h3>Appointment confirmed</h3>
+            <p>Check-in will be available on {{ appointment.appointment_date|date:"F j, Y" }}.</p>
           </div>
           {% endif %}
 

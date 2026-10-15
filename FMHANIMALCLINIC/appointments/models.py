@@ -176,6 +176,8 @@ class Appointment(models.Model):
         if self.status == self.Status.PENDING:
             return 'Waiting for the clinic to confirm your appointment.'
         if self.status == self.Status.CONFIRMED:
+            if self.appointment_date > timezone.localdate():
+                return 'Confirmed. Check-in and consultation are available on the scheduled date.'
             return 'Confirmed. Check in when you arrive; the veterinarian can also begin the consultation directly.'
         if self.status == self.Status.CHECKED_IN:
             return 'Checked in. Waiting for the veterinarian to begin the consultation.'

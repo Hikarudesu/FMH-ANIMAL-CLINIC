@@ -562,6 +562,40 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertEqual(self.appointment.status, Appointment.Status.CHECKED_IN)
         self.assertIsNotNone(self.appointment.checked_in_at)
 
+    def test_future_appointment_can_be_confirmed_but_not_checked_in(self):
+        self.appointment.appointment_date = timezone.localdate() + timedelta(days=1)
+        self.appointment.save(update_fields=['appointment_date', 'updated_at'])
+        confirm_url = reverse(
+            'appointments:admin_workflow_action',
+            args=[self.appointment.pk, 'confirm'],
+        )
+        check_in_url = reverse(
+            'appointments:admin_workflow_action',
+            args=[self.appointment.pk, 'check-in'],
+        )
+
+        self.assertEqual(self.client.post(confirm_url).status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CONFIRMED)
+
+        list_response = self.client.get(reverse('appointments:admin_list'))
+        self.assertEqual(list_response.status_code, 200)
+        detail_response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk])
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, 'Check-in and consultation can begin on the scheduled date.')
+        self.assertContains(
+            list_response,
+            'Check-in and consultation are available on the scheduled date.',
+        )
+        self.assertNotContains(detail_response, '> Check in</button>')
+
+        self.assertEqual(self.client.post(check_in_url).status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CONFIRMED)
+        self.assertIsNone(self.appointment.checked_in_at)
+
     def test_veterinarian_manages_branch_and_unassigned_visits_in_appointments(self):
         vet_role, _ = Role.objects.get_or_create(
             code='veterinarian',
@@ -688,6 +722,7 @@ class AppointmentWorkflowActionTests(TestCase):
         )
         self.appointment.status = Appointment.Status.CONFIRMED
         self.appointment.preferred_vet = vet
+        self.appointment.appointment_date = timezone.localdate() + timedelta(days=1)
         self.appointment.checked_in_at = None
         self.appointment.save()
         self.client.force_login(vet_user)
@@ -700,6 +735,19 @@ class AppointmentWorkflowActionTests(TestCase):
             'appointments:vet_workflow_action',
             args=[self.appointment.pk, 'no-record'],
         )
+        future_detail_response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk])
+        )
+        self.assertEqual(future_detail_response.status_code, 200)
+        self.assertContains(future_detail_response, 'Check-in and consultation can begin on the scheduled date.')
+        self.assertNotContains(future_detail_response, 'Start consultation')
+
+        self.assertEqual(self.client.post(start_url).status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CONFIRMED)
+
+        self.appointment.appointment_date = timezone.localdate()
+        self.appointment.save(update_fields=['appointment_date', 'updated_at'])
         self.assertEqual(self.client.post(start_url).status_code, 302)
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
