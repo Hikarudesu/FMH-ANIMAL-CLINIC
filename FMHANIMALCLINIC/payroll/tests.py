@@ -206,10 +206,9 @@ class PayslipEditTests(TestCase):
         response = self.client.get(reverse('payroll:payslip_edit', args=[payslip.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
-            'name="overtime_pay" class="currency-input" value="187.50"',
-        )
+        self.assertContains(response, 'Overtime Rate (₱/Hour)')
+        self.assertContains(response, 'value="187.50" readonly')
+        self.assertContains(response, 'name="overtime_pay" class="currency-input" value="0.00" readonly')
         self.assertContains(response, 'name="paid_leave_days" value="2"')
 
     def test_paid_leave_persists_when_monthly_attendance_summary_is_missing(self):
@@ -280,6 +279,7 @@ class PayslipEditTests(TestCase):
         )
 
     def test_saving_paid_leave_reduces_absence_deduction_and_net_pay(self):
+        set_setting('payroll_default_overtime_pay_per_hour', Decimal('100.00'))
         admin = get_user_model().objects.create_superuser(
             username='payslip-edit-admin',
             email='payslip-edit-admin@example.com',
@@ -329,8 +329,8 @@ class PayslipEditTests(TestCase):
                 'paid_leave_days': 1,
                 'paid_leave_type': 'Sick Leave',
                 'rest_days_mandatory': 4,
-                'overtime_hours': 0,
-                'overtime_pay': '300.00',
+                'overtime_hours': '2',
+                'overtime_pay': '999.00',
                 'holiday_pay': '120.00',
                 'bonus': '250.00',
                 'staff_allowance': '500.00',
@@ -355,7 +355,7 @@ class PayslipEditTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(payslip.days_absent, 3)
         self.assertEqual(payslip.paid_leave_days, Decimal('1'))
-        self.assertEqual(payslip.overtime_pay, Decimal('300.00'))
+        self.assertEqual(payslip.overtime_pay, Decimal('200.00'))
         self.assertEqual(payslip.holiday_pay, Decimal('120.00'))
         self.assertEqual(payslip.bonus, Decimal('250.00'))
         self.assertEqual(payslip.staff_allowance, Decimal('500.00'))
@@ -370,7 +370,7 @@ class PayslipEditTests(TestCase):
             edit_response.content.decode(),
             r'name="paid_leave_days" value="1(?:\.0+)?"',
         )
-        self.assertContains(edit_response, 'name="overtime_pay" class="currency-input" value="300.00"')
+        self.assertContains(edit_response, 'name="overtime_pay" class="currency-input" value="200.00" readonly')
         self.assertContains(edit_response, 'name="holiday_pay" class="currency-input" value="120.00"')
         self.assertContains(edit_response, 'name="bonus" class="currency-input" value="250.00"')
         self.assertContains(edit_response, 'name="staff_allowance" class="currency-input" value="500.00"')

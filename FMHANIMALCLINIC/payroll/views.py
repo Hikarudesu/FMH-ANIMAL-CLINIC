@@ -895,10 +895,16 @@ def payslip_edit(request, payslip_id):
         else:
             with transaction.atomic():
                 # Update allowances
-                payslip.overtime_hours = safe_decimal(
-                    request.POST.get('overtime_hours', 0))
-                payslip.overtime_pay = safe_decimal(
-                    request.POST.get('overtime_pay', 0))
+                payslip.overtime_hours = max(
+                    Decimal('0'), safe_decimal(request.POST.get('overtime_hours', 0))
+                )
+                overtime_hourly_rate = Decimal(str(
+                    get_setting('payroll_default_overtime_pay_per_hour', 120)
+                ))
+                payslip.overtime_pay = (
+                    (payslip.overtime_hours * overtime_hourly_rate).quantize(Decimal('0.01'))
+                    if payslip.overtime_hours >= 1 else Decimal('0.00')
+                )
                 payslip.holiday_pay = safe_decimal(request.POST.get('holiday_pay', 0))
                 payslip.bonus = safe_decimal(request.POST.get('bonus', 0))
                 payslip.staff_allowance = safe_decimal(
@@ -1038,6 +1044,13 @@ def payslip_edit(request, payslip_id):
     configured_staff_allowance = (
         Decimal(str(get_setting('payroll_default_staff_allowance', 2000))) / Decimal('2')
     )
+    overtime_hourly_rate = Decimal(str(
+        get_setting('payroll_default_overtime_pay_per_hour', 120)
+    ))
+    payslip.overtime_pay = (
+        (payslip.overtime_hours * overtime_hourly_rate).quantize(Decimal('0.01'))
+        if payslip.overtime_hours >= 1 else Decimal('0.00')
+    )
     display_rest_days = payslip.rest_days_mandatory
     if period.period_type in [
         PayrollPeriod.PeriodType.SEMI_FIRST,
@@ -1061,7 +1074,7 @@ def payslip_edit(request, payslip_id):
         'show_philhealth': get_setting('payroll_auto_statutory', True) and get_setting('payroll_enable_philhealth', True),
         'show_pagibig': get_setting('payroll_auto_statutory', True) and get_setting('payroll_enable_pagibig', True),
         'default_staff_allowance': configured_staff_allowance,
-        'default_overtime_pay_per_hour': get_setting('payroll_default_overtime_pay_per_hour', 120),
+        'default_overtime_pay_per_hour': overtime_hourly_rate,
         'absence_deduction_per_day': payslip.daily_salary,
         'paid_leave_options': configured_paid_leave_types,
         'daily_salary_display': payslip.daily_salary,

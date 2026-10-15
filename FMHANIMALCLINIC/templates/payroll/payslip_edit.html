@@ -75,6 +75,7 @@
 <form method="post" class="form-container" id="payslipEditForm"
       data-base-salary="{{ payslip.base_salary }}"
   data-attendance-absences="{{ payslip.days_absent }}"
+  data-overtime-rate="{{ default_overtime_pay_per_hour }}"
       data-thirteenth-month="{{ payslip.thirteenth_month_pay }}"
       data-rest-days-deduction="{{ payslip.rest_days_exceeded_deduction }}">
   {% csrf_token %}
@@ -119,9 +120,13 @@
       {% endif %}
 
       <div class="form-group">
-        <label>Overtime Pay (₱)</label>
-        <input type="text" name="overtime_pay" class="currency-input" value="{{ payslip.overtime_pay|default:default_overtime_pay_per_hour }}" inputmode="decimal" placeholder="0.00">
-        <small style="color: var(--text-3); font-size: 0.75rem;">The saved overtime earning amount for this payslip.</small>
+        <label>Overtime Rate (₱/Hour)</label>
+        <input type="text" value="{{ default_overtime_pay_per_hour|floatformat:2 }}" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Configured in Payroll Settings. Pay is calculated only when overtime reaches 1 hour.</small>
+      </div>
+      <div class="form-group">
+        <label>Calculated Overtime Pay (₱)</label>
+        <input type="text" id="calculatedOvertimePay" name="overtime_pay" class="currency-input" value="{{ payslip.overtime_pay|floatformat:2 }}" readonly>
       </div>
     </div>
 
@@ -351,9 +356,14 @@
       const unpaidAbsenceDays = Math.max(0, daysAbsent - paidLeaveDays);
       const dailySalary = workingDays > 0 ? baseSalary / workingDays : 0;
       const absentDeduction = unpaidAbsenceDays * dailySalary;
+      const overtimeHours = Math.max(0, fieldAmount('overtime_hours'));
+      const overtimeRate = parseAmount(form.dataset.overtimeRate);
+      const overtimePay = overtimeHours >= 1 ? overtimeHours * overtimeRate : 0;
+      const overtimePayInput = document.getElementById('calculatedOvertimePay');
+      if (overtimePayInput) overtimePayInput.value = overtimePay.toFixed(2);
       const customDeductions = [...form.querySelectorAll('[name="deduction_amount[]"]')]
         .reduce((total, field) => total + parseAmount(field.value), 0);
-      const allowances = fieldAmount('overtime_pay')
+      const allowances = overtimePay
         + fieldAmount('holiday_pay')
         + fieldAmount('bonus')
         + fieldAmount('staff_allowance')
