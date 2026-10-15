@@ -44,7 +44,7 @@ class MissionVisionPublishingTests(TestCase):
         self.assertContains(homepage, 'Values Updated For Test')
 
 
-class NotificationSettingsNavigationTests(TestCase):
+class RemovedNotificationSettingsTests(TestCase):
     def setUp(self):
         self.admin = get_user_model().objects.create_superuser(
             username='notification-settings-admin',
@@ -53,9 +53,12 @@ class NotificationSettingsNavigationTests(TestCase):
         )
         self.client.force_login(self.admin)
 
-    def test_notification_settings_route_renders_the_notification_form(self):
-        response = self.client.get(reverse('settings:notification_settings'))
+    def test_notification_email_controls_are_absent_from_superadmin_settings(self):
+        response = self.client.get(reverse('settings:admin_settings'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['active_tab'], 'notifications')
-        self.assertContains(response, 'Enable Email Notifications')
+        tab_ids = {tab['id'] for tab in response.context['tabs']}
+        self.assertNotIn('notifications', tab_ids)
+        self.assertNotContains(response, 'Enable Email Notifications')
+        self.assertNotContains(response, 'From Email Address')
+        self.assertNotContains(response, 'Sender Display Name')
