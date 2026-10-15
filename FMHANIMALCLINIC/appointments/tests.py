@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -355,6 +355,14 @@ class AppointmentCompletionDateValidationTests(TestCase):
         )
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class AppointmentWorkflowActionTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(name='Workflow Test Branch')
@@ -430,6 +438,93 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertEqual(self.appointment.status, Appointment.Status.CHECKED_IN)
         self.assertIsNotNone(self.appointment.checked_in_at)
 
+    def test_veterinarian_manages_branch_and_unassigned_visits_in_appointments(self):
+        vet_role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        module = Module.objects.get(code='appointments')
+        ModulePermission.objects.get_or_create(
+            role=vet_role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        vet_user = User.objects.create_user(
+            username='appointments-module-vet',
+            email='appointments-module-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=vet_role,
+            branch=self.branch,
+        )
+        vet = StaffMember.objects.create(
+            user=vet_user,
+            first_name='Appointments',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        self.appointment.status = Appointment.Status.CONFIRMED
+        self.appointment.preferred_vet = vet
+        self.appointment.save(update_fields=['status', 'preferred_vet', 'updated_at'])
+        unassigned_appointment = Appointment.objects.create(
+            owner_name='Unassigned Owner',
+            pet_name='Unassigned Pet',
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(11),
+            status=Appointment.Status.CONFIRMED,
+        )
+        other_branch = Branch.objects.create(name='Other Workflow Branch')
+        Appointment.objects.create(
+            owner_name='Other Branch Owner',
+            pet_name='Other Branch Pet',
+            branch=other_branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(12),
+            status=Appointment.Status.CONFIRMED,
+        )
+        self.client.force_login(vet_user)
+
+        response = self.client.get(reverse('appointments:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        listed_appointments = list(response.context['appointments'])
+        self.assertEqual(
+            {appointment.pk for appointment in listed_appointments},
+            {self.appointment.pk, unassigned_appointment.pk},
+        )
+        self.assertContains(response, 'Veterinary visit actions')
+        self.assertContains(response, 'Start visit')
+        self.assertNotContains(response, 'Other Branch Pet')
+
+        calendar_response = self.client.get(
+            reverse('appointments:admin_calendar_api'),
+            {
+                'year': timezone.localdate().year,
+                'month': timezone.localdate().month,
+            },
+        )
+        self.assertEqual(calendar_response.status_code, 200)
+        self.assertEqual(
+            {event['id'] for event in calendar_response.json()['events']},
+            {self.appointment.pk, unassigned_appointment.pk},
+        )
+
+    def test_confirmed_appointment_marks_check_in_as_optional(self):
+        self.appointment.status = Appointment.Status.CONFIRMED
+        self.appointment.save(update_fields=['status', 'updated_at'])
+
+        steps = self.appointment.workflow_progress
+
+        self.assertEqual(steps[1]['state'], 'done')
+        self.assertEqual(steps[2]['state'], 'optional')
+        self.assertTrue(steps[2]['optional'])
+        self.assertEqual(steps[3]['state'], 'upcoming')
+
     def test_veterinarian_must_explain_no_record_decision(self):
         vet_role, _ = Role.objects.get_or_create(
             code='veterinarian',
@@ -459,9 +554,9 @@ class AppointmentWorkflowActionTests(TestCase):
             position=StaffMember.Position.VETERINARIAN,
             branch=self.branch,
         )
-        self.appointment.status = Appointment.Status.CHECKED_IN
+        self.appointment.status = Appointment.Status.CONFIRMED
         self.appointment.preferred_vet = vet
-        self.appointment.checked_in_at = timezone.now()
+        self.appointment.checked_in_at = None
         self.appointment.save()
         self.client.force_login(vet_user)
 
@@ -476,6 +571,8 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertEqual(self.client.post(start_url).status_code, 302)
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
+        self.assertIsNone(self.appointment.checked_in_at)
+        self.assertEqual(self.appointment.preferred_vet_id, vet.pk)
 
         self.client.post(no_record_url, {'medical_record_decision_reason': '  '})
         self.appointment.refresh_from_db()

@@ -56,9 +56,7 @@ def checkout(request):
         appointment = None
         if appointment_id:
             appointment = get_object_or_404(
-                Appointment.objects.select_for_update().select_related(
-                    'sale', 'branch', 'user', 'pet',
-                ),
+                Appointment.objects.select_for_update(),
                 pk=appointment_id,
                 status=Appointment.Status.AWAITING_PAYMENT,
             )
@@ -463,9 +461,7 @@ def _process_payment(request):
         except Sale.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
-        appointment = sale.appointments.select_for_update().select_related(
-            'user', 'pet', 'branch',
-        ).first()
+        appointment = sale.appointments.select_for_update().first()
         if appointment:
             if (
                 appointment.status != Appointment.Status.AWAITING_PAYMENT

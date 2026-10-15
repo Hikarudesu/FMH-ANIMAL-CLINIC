@@ -1555,45 +1555,6 @@ def vet_dashboard_view(request):
     else:
         recent_medical_records = RecordEntry.objects.none()
 
-    # Completed appointments assigned to this veterinarian remain actionable
-    # until a matching medical-record entry is saved for the visit date.
-    pending_medical_records = []
-    active_visit_appointments = []
-    if staff_profile and not appt_restricted_no_branch:
-        active_visit_appointments = list(
-            Appointment.objects.filter(
-                status__in=[
-                    Appointment.Status.CHECKED_IN,
-                    Appointment.Status.IN_PROGRESS,
-                ],
-                **appt_filter,
-            ).filter(
-                Q(preferred_vet=staff_profile) |
-                Q(preferred_vet__isnull=True)
-            ).select_related('pet', 'branch', 'preferred_vet').order_by(
-                'appointment_date', 'appointment_time'
-            )[:10]
-        )
-        for appointment in active_visit_appointments:
-            appointment.has_appointment_record = appointment.record_entries.exists()
-
-        completed_appointments = Appointment.objects.filter(
-            status='COMPLETED',
-            preferred_vet=staff_profile,
-            pet__isnull=False,
-            **appt_filter,
-        ).select_related('pet', 'branch', 'preferred_vet').order_by(
-            '-appointment_date', '-appointment_time'
-        )
-        for appointment in completed_appointments:
-            has_record_entry = RecordEntry.objects.filter(
-                appointment=appointment,
-            ).exists()
-            if not has_record_entry:
-                pending_medical_records.append(appointment)
-            if len(pending_medical_records) >= 10:
-                break
-
     # Pending follow-ups (includes overdue — sorted earliest-first) ───────
     if staff_profile and not appt_restricted_no_branch:
         follow_ups = (
@@ -1765,8 +1726,6 @@ def vet_dashboard_view(request):
         'ai_diagnoses_this_month': ai_diagnoses_this_month,
         'completed_consultations': completed_consultations,
         'medical_records_count': medical_records_count,
-        'pending_medical_records': pending_medical_records,
-        'active_visit_appointments': active_visit_appointments,
         'recent_medical_records': recent_medical_records,
         # Lists
         'follow_ups': follow_ups,

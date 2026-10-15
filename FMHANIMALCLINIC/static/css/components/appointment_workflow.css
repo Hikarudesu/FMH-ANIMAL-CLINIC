@@ -1,0 +1,167 @@
+.appointment-workflow {
+  margin: 14px 0 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+
+.appointment-workflow-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  color: var(--text-1, #1e293b);
+  font-size: .84rem;
+}
+
+.appointment-workflow-heading span {
+  color: var(--text-2, #64748b);
+  text-align: right;
+  font-weight: 500;
+}
+
+.appointment-workflow-next {
+  max-width: 190px;
+  color: var(--text-2, #64748b);
+  font-size: .68rem;
+  line-height: 1.25;
+}
+
+.appointment-workflow-steps {
+  display: flex;
+  align-items: flex-start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.appointment-workflow-step {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 66px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3, #94a3b8);
+  text-align: center;
+  font-size: .68rem;
+}
+
+.appointment-workflow-step:not(:last-child)::after {
+  position: absolute;
+  z-index: 0;
+  top: 13px;
+  left: calc(50% + 14px);
+  width: calc(100% - 28px);
+  height: 2px;
+  background: var(--border, #e2e8f0);
+  content: "";
+}
+
+.appointment-workflow-marker {
+  z-index: 1;
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 2px solid var(--border, #cbd5e1);
+  border-radius: 50%;
+  background: var(--surface, #fff);
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.appointment-workflow-label {
+  line-height: 1.2;
+}
+
+.appointment-workflow-label small {
+  display: block;
+  margin-top: 2px;
+  font-size: .58rem;
+}
+
+.appointment-workflow-step.is-done {
+  color: #047857;
+}
+
+.appointment-workflow-step.is-done .appointment-workflow-marker {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+
+.appointment-workflow-step.is-done:not(:last-child)::after {
+  background: #10b981;
+}
+
+.appointment-workflow-step.is-current {
+  color: var(--primary, #2563eb);
+  font-weight: 700;
+}
+
+.appointment-workflow-step.is-current .appointment-workflow-marker {
+  border-color: var(--primary, #2563eb);
+  background: var(--primary, #2563eb);
+  color: #fff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2563eb) 15%, transparent);
+}
+
+.appointment-workflow-step.is-optional,
+.appointment-workflow-step.is-skipped {
+  color: var(--text-3, #94a3b8);
+}
+
+.appointment-workflow-step.is-optional .appointment-workflow-marker,
+.appointment-workflow-step.is-skipped .appointment-workflow-marker {
+  border-style: dashed;
+}
+
+.appointment-workflow-cancelled {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 11px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: .82rem;
+}
+
+.appointment-workflow-cancelled span {
+  color: #7f1d1d;
+}
+
+[data-theme="dark"] .appointment-workflow-cancelled {
+  border-color: #7f1d1d;
+  background: #351b20;
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .appointment-workflow-cancelled span {
+  color: #fecaca;
+}
+
+@media (max-width: 640px) {
+  .appointment-workflow {
+    overflow-x: auto;
+  }
+
+  .appointment-workflow-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .appointment-workflow-heading span {
+    text-align: left;
+  }
+
+  .appointment-workflow-steps {
+    min-width: 560px;
+  }
+}

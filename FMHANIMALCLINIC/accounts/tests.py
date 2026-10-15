@@ -535,6 +535,8 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, 'My Appointments &amp; Any Available Vet Today')
                 self.assertNotContains(response, "This Week's Schedule")
                 self.assertNotContains(response, 'Upcoming Appointments')
+                self.assertNotContains(response, 'Active Visits')
+                self.assertNotContains(response, 'Medical Records Pending')
                 self.assertNotContains(response, 'monthlyPerformanceChart')
                 self.assertContains(response, 'Recent Medical Records')
                 self.assertContains(response, 'No medical records have been recorded yet.')
