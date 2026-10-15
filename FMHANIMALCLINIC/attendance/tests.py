@@ -3,8 +3,11 @@ import io
 import zipfile
 
 from django.apps import apps
+from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
 from openpyxl import Workbook
 
 from attendance.forms import AttendanceImportForm
@@ -38,6 +41,21 @@ class AttendanceSummaryImportTests(TestCase):
       branch=self.branch,
       is_active=True,
     )
+
+  def test_attendance_summary_year_filter_includes_supported_historical_years(self):
+    admin = get_user_model().objects.create_superuser(
+      username='report-admin',
+      email='report-admin@example.com',
+      password='test-password',
+    )
+    self.client.force_login(admin)
+
+    response = self.client.get(reverse('attendance:summary'))
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.context['year_choices'][0], 2020)
+    self.assertEqual(response.context['year_choices'][-1], timezone.now().year + 1)
+    self.assertContains(response, '<option value="2020"')
 
   def test_summary_import_matches_staff_by_biometric_id(self):
         records = [{

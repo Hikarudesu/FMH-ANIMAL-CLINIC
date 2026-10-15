@@ -571,7 +571,7 @@ def attendance_summary(request):
         'month': month,
         'start_date': start_date,
         'end_date': end_date,
-        'year_choices': range(current_year - 2, current_year + 2),
+        'year_choices': range(2020, current_year + 2),
         'month_choices': [(index, timezone.datetime(2000, index, 1).strftime('%B')) for index in range(1, 13)],
         'branches': Branch.objects.filter(is_active=True),
         'selected_year': year,
