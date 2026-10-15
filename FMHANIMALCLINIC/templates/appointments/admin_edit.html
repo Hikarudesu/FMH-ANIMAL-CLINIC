@@ -363,7 +363,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const appointmentId = "{{ appointment.id }}";
 
   // Current appointment's time (to always include it as an option)
-  const currentTime = "{{ appointment.appointment_time|time:'H:i' }}";
+  const currentTime = "{{ appointment.appointment_time|machine_time }}";
   const currentTimeLabel = "{{ appointment.appointment_time|time:'g:i A' }}";
 
   const branchSelect = document.querySelector('[name="branch"]');

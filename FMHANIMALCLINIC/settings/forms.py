@@ -88,8 +88,13 @@ class ClinicInfoForm(AdminInputMixin, forms.ModelForm):
         return validate_philippines_phone(self.cleaned_data.get('phone', ''))
 
     def save(self, commit=True):
-        if self.cleaned_data.get('remove_logo') and not self.files.get(self.add_prefix('logo')):
+        remove_logo = (
+            self.cleaned_data.get('remove_logo')
+            and not self.files.get(self.add_prefix('logo'))
+        )
+        if remove_logo:
             self.cleaned_data['logo'] = False
+            self.instance.logo = ''
         instance = super().save(commit=commit)
         if commit:
             from .models import LegalDocument

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -15,6 +16,7 @@ from branches.models import Branch
 from employees.models import StaffMember
 from inquiries.models import Inquiry
 from inventory.models import Product
+from inventory.expiry_alerts import run_inventory_expiry_alert_job
 from patients.models import Pet
 from payroll.email_service import send_payslip_email
 from payroll.models import Payslip, PayslipEmailLog, PayrollPeriod
@@ -32,6 +34,7 @@ from notifications.utils import (
     sync_appointment_follow_up_to_medical_record,
 )
 from notifications.views import get_allowed_notification_types_for_user
+from notifications.signals import create_low_inventory_notification
 
 
 class EmailDeliveryTests(TestCase):
@@ -43,6 +46,35 @@ class EmailDeliveryTests(TestCase):
 
         self.assertFalse(sent)
         send_mail_mock.assert_called_once()
+
+
+class InventoryThresholdSettingsTests(TestCase):
+    @patch('notifications.signals.notify_module_users')
+    @patch('notifications.signals.get_setting')
+    def test_zero_critical_threshold_is_not_replaced_by_default(
+        self, get_setting_mock, notify_mock
+    ):
+        get_setting_mock.side_effect = lambda key, default=None: {
+            'inventory_enable_alerts': True,
+            'inventory_low_stock_threshold': 10,
+            'inventory_critical_threshold': 0,
+        }.get(key, default)
+
+        create_low_inventory_notification(
+            sender=Product,
+            instance=SimpleNamespace(
+                stock_quantity=3,
+                name='Zero Threshold Test',
+                branch=SimpleNamespace(pk=1),
+                pk=1,
+                id=1,
+            ),
+        )
+
+        self.assertEqual(
+            notify_mock.call_args.kwargs['title'],
+            'Low Inventory Alert',
+        )
 
     def test_payslip_delivery_is_idempotent(self):
         staff_user = User.objects.create_user(
@@ -182,6 +214,111 @@ class InventoryAlertEmailTests(TestCase):
         }
         self.assertIn(superadmin.email, emails)
         self.assertIn(inventory_staff.email, emails)
+
+
+class InventoryExpiryEmailTests(TestCase):
+    def test_30_day_expiry_email_targets_managers_and_superadmins_once(self):
+        branch = Branch.objects.create(name='Expiry Email Branch')
+        other_branch = Branch.objects.create(name='Other Expiry Branch')
+        inventory_module, _ = Module.objects.get_or_create(
+            code='inventory',
+            defaults={'name': 'Inventory'},
+        )
+        manager_role = Role.objects.create(
+            name='Expiry Inventory Manager',
+            code='expiry-inventory-manager',
+            hierarchy_level=2,
+        )
+        ModulePermission.objects.create(
+            role=manager_role,
+            module=inventory_module,
+            permission_type=ModulePermission.PermissionType.MANAGE,
+            restrict_to_branch=True,
+        )
+        viewer_role = Role.objects.create(
+            name='Expiry Inventory Viewer',
+            code='expiry-inventory-viewer',
+            hierarchy_level=1,
+        )
+        ModulePermission.objects.create(
+            role=viewer_role,
+            module=inventory_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+            restrict_to_branch=True,
+        )
+        superadmin = User.objects.create_superuser(
+            username='expiry-superadmin',
+            email='expiry.superadmin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        manager = User.objects.create_user(
+            username='expiry-manager',
+            email='expiry.manager@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=manager_role,
+            branch=branch,
+        )
+        other_branch_manager = User.objects.create_user(
+            username='expiry-other-manager',
+            email='expiry.other@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=manager_role,
+            branch=other_branch,
+        )
+        viewer = User.objects.create_user(
+            username='expiry-viewer',
+            email='expiry.viewer@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=viewer_role,
+            branch=branch,
+        )
+        expiry_date = timezone.localdate() + timedelta(days=30)
+        with patch('notifications.signals.run_inventory_expiry_alert_job'):
+            product = Product.objects.create(
+                name='Expiring Test Medication',
+                branch=branch,
+                stock_quantity=40,
+                price=30,
+                unit_cost=20,
+                expiration_date=expiry_date,
+            )
+
+        setting_values = {
+            'inventory_enable_alerts': True,
+            'inventory_expiry_warning_days': 30,
+        }
+        with patch(
+            'inventory.expiry_alerts.get_setting',
+            side_effect=lambda key, default=None: setting_values.get(key, default),
+        ), patch(
+            'inventory.expiry_alerts.send_notification_email',
+            return_value=True,
+        ) as email_mock:
+            with self.captureOnCommitCallbacks(execute=True):
+                first_summary = run_inventory_expiry_alert_job()
+            with self.captureOnCommitCallbacks(execute=True):
+                repeat_summary = run_inventory_expiry_alert_job()
+
+        self.assertEqual(first_summary['emails_sent'], 2)
+        self.assertEqual(repeat_summary['emails_sent'], 0)
+        self.assertEqual(email_mock.call_count, 1)
+        email = email_mock.call_args.kwargs
+        self.assertEqual(
+            set(email['recipient_list']),
+            {superadmin.email, manager.email},
+        )
+        self.assertNotIn(other_branch_manager.email, email['recipient_list'])
+        self.assertNotIn(viewer.email, email['recipient_list'])
+        self.assertIn('Expiring Test Medication', email['message'])
+        self.assertIn(branch.name, email['message'])
+        self.assertIn(expiry_date.isoformat(), email['message'])
+        self.assertIn('expires in 30 days', email['subject'])
+
+        Product.objects.filter(pk=product.pk).update(
+            expiration_date=timezone.localdate() + timedelta(days=29)
+        )
+        run_inventory_expiry_alert_job(product_ids=[product.pk])
+        self.assertEqual(email_mock.call_count, 1)
 
 
 class NotificationRoutingTests(TestCase):

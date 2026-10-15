@@ -20,6 +20,7 @@ from .models import (
 from .forms import (
     ClinicInfoForm,
     InventorySettingsForm,
+    NotificationSettingsForm,
     PayrollSettingsForm,
     SystemSettingsForm,
     AppointmentSettingsForm,
@@ -43,6 +44,7 @@ SETTINGS_TABS = [
     {'id': 'clinic', 'label': 'Clinic Info', 'icon': 'bx-building'},
     {'id': 'scheduling', 'label': 'Scheduling & Clinical', 'icon': 'bx-calendar-check'},
     {'id': 'inventory', 'label': 'Inventory', 'icon': 'bx-package'},
+    {'id': 'notifications', 'label': 'Notifications', 'icon': 'bx-envelope'},
     {'id': 'payroll', 'label': 'Payroll', 'icon': 'bx-money'},
     {'id': 'system', 'label': 'System', 'icon': 'bx-cog'},
     {'id': 'content', 'label': 'Content Management', 'icon': 'bx-edit'},
@@ -141,6 +143,7 @@ def settings_main(request, default_tab=None):
             'shift_type_form': ShiftTypeForm(),
         },
         'inventory': InventorySettingsForm(),
+        'notifications': NotificationSettingsForm(),
         'payroll': PayrollSettingsForm(),
         'system': SystemSettingsForm(),
         'content': _get_content_forms(),
