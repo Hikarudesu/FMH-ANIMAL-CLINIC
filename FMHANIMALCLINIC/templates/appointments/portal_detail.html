@@ -1,0 +1,103 @@
+{% extends 'base/portal_user.html' %}
+{% load static record_filters %}
+
+{% block title %}Appointment Details{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components/appointment_workflow.css' %}">
+<link rel="stylesheet" href="{% static 'css/components/portal_appointment_detail.css' %}">
+{% url 'appointments:my_appointment_history' as history_url %}
+{% include "components/page_hero.html" with title="Appointment Details" icon="bx-calendar-check" subtitle="Review your appointment, pet, and visit information" action_url=history_url action_label="Appointment History" action_icon="bx-history" icons_theme="pets" %}
+
+<main class="portal-appointment-detail">
+  <a class="portal-appointment-detail__back" href="{% url 'appointments:my_appointments' %}"><i class='bx bx-left-arrow-alt'></i> Back to appointments</a>
+  <section class="portal-appointment-detail__hero">
+    <div class="portal-appointment-detail__hero-row">
+      <div>
+        <p class="portal-appointment-detail__eyebrow">Appointment for {{ appointment.pet_name }}</p>
+        <h1>{{ appointment.reason_display }}</h1>
+        <p class="portal-appointment-detail__subtitle">
+          {{ appointment.appointment_date|date:"l, F j, Y" }} · {{ appointment.appointment_time_display }}
+          {% if appointment.branch %} · {{ appointment.branch.name }}{% endif %}
+        </p>
+      </div>
+      <span class="portal-appointment-detail__status"><i class='bx bx-calendar-check'></i> {{ appointment.get_status_display }}</span>
+    </div>
+    {% include "components/appointment_workflow_progress.html" with appt=appointment %}
+  </section>
+
+  <div class="portal-appointment-detail__grid">
+    <div class="portal-appointment-detail__main">
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-id-card'></i> Your information</h2>
+        <dl class="portal-appointment-detail__facts">
+          <div><dt>Name</dt><dd>{{ appointment.owner_name|default:"-" }}</dd></div>
+          <div><dt>Phone</dt><dd>{{ appointment.owner_phone|default:"Not provided" }}</dd></div>
+          <div><dt>Email</dt><dd>{{ appointment.owner_email|default:"Not provided" }}</dd></div>
+          <div><dt>Address</dt><dd>{{ appointment.owner_address|default:"Not provided" }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bxs-dog'></i> Pet information</h2>
+        <dl class="portal-appointment-detail__facts">
+          <div><dt>Pet</dt><dd>{{ appointment.pet_name }}</dd></div>
+          <div><dt>Species</dt><dd>{{ appointment.pet_species|default:"Not provided" }}</dd></div>
+          <div><dt>Breed</dt><dd>{{ appointment.pet_breed|default:"Not provided" }}</dd></div>
+          <div><dt>Date of birth</dt><dd>{{ appointment.pet_dob|format_date_str|default:"Not provided" }}</dd></div>
+          <div><dt>Sex</dt><dd>{{ appointment.pet_sex|default:"Not provided" }}</dd></div>
+          <div><dt>Color</dt><dd>{{ appointment.pet_color|default:"Not provided" }}</dd></div>
+        </dl>
+        {% if appointment.pet_symptoms %}
+        <p class="portal-appointment-detail__note"><strong>Symptoms or concern shared:</strong><br>{{ appointment.pet_symptoms|linebreaksbr }}</p>
+        {% endif %}
+      </section>
+
+      {% if follow_ups %}
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-revision'></i> Follow-up visits</h2>
+        <ul class="portal-appointment-detail__followups">
+          {% for follow_up in follow_ups %}
+          <li><strong>{{ follow_up.follow_up_date|date:"M j, Y" }}</strong>{% if follow_up.follow_up_end_date and follow_up.follow_up_end_date != follow_up.follow_up_date %} – {{ follow_up.follow_up_end_date|date:"M j, Y" }}{% endif %}{% if follow_up.reason %}<br>{{ follow_up.reason }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </div>
+
+    <aside class="portal-appointment-detail__side">
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-notepad'></i> Visit details</h2>
+        <dl class="portal-appointment-detail__facts">
+          <div><dt>Reason for visit</dt><dd>{{ appointment.reason_display }}</dd></div>
+          <div><dt>Veterinarian</dt><dd>{% if appointment.preferred_vet %}{{ appointment.preferred_vet.full_name }}{% else %}Not assigned yet; a veterinarian will take the visit when consultation starts.{% endif %}</dd></div>
+          <div><dt>Branch</dt><dd>{{ appointment.branch.name|default:"-" }}</dd></div>
+          <div><dt>Appointment status</dt><dd>{{ appointment.get_status_display }}</dd></div>
+          <div><dt>Booked</dt><dd>{{ appointment.created_at|date:"M j, Y · g:i A" }}</dd></div>
+        </dl>
+        {% if appointment.cancellation_reason %}
+        <p class="portal-appointment-detail__note"><strong>Cancellation reason:</strong><br>{{ appointment.cancellation_reason|linebreaksbr }}</p>
+        {% endif %}
+        {% if appointment.owner_can_cancel %}
+        <form class="portal-appointment-detail__cancel" method="post" action="{% url 'appointments:portal_cancel' appointment.pk %}">
+          {% csrf_token %}
+          <label for="portal-cancel-reason">Need to cancel?</label>
+          <textarea id="portal-cancel-reason" name="cancellation_reason" minlength="5" maxlength="2000" required placeholder="Please tell us why you need to cancel."></textarea>
+          <small>You can cancel until 24 hours before the appointment. After that, contact the clinic.</small>
+          <button type="submit">Cancel appointment</button>
+        </form>
+        {% elif appointment.status == 'PENDING' or appointment.status == 'CONFIRMED' %}
+        <p class="portal-appointment-detail__note">The online cancellation window has passed. Please contact the clinic if you need help with this appointment.</p>
+        {% endif %}
+      </section>
+
+      {% if appointment.branch %}
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-building-house'></i> Clinic location</h2>
+        <p class="portal-appointment-detail__clinic"><strong>{{ appointment.branch.name }}</strong>{% if appointment.branch.address %}<br>{{ appointment.branch.address }}{% endif %}{% if appointment.branch.phone_number %}<br>{{ appointment.branch.phone_number }}{% endif %}</p>
+      </section>
+      {% endif %}
+    </aside>
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,125 @@
+.portal-appointment-detail {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 0 40px;
+  color: var(--text-1, #17212b);
+}
+
+.portal-appointment-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 0 18px;
+  color: var(--primary, #087f75);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.portal-appointment-detail__hero,
+.portal-appointment-detail__panel {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 15px;
+  background: var(--surface, #fff);
+  box-shadow: 0 6px 22px rgba(15, 23, 42, .05);
+}
+
+.portal-appointment-detail__hero {
+  margin-bottom: 17px;
+  padding: 22px 25px;
+}
+
+.portal-appointment-detail__hero-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.portal-appointment-detail__eyebrow {
+  margin: 0 0 6px;
+  color: var(--text-2, #64748b);
+  font-size: .75rem;
+  font-weight: 750;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.portal-appointment-detail__hero h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+}
+
+.portal-appointment-detail__subtitle {
+  margin: 7px 0 0;
+  color: var(--text-2, #64748b);
+}
+
+.portal-appointment-detail__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: var(--primary-light, #e0f2f1);
+  color: var(--primary, #087f75);
+  font-size: .84rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.portal-appointment-detail__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(270px, .8fr);
+  align-items: start;
+  gap: 17px;
+}
+
+.portal-appointment-detail__main,
+.portal-appointment-detail__side {
+  display: grid;
+  gap: 17px;
+}
+
+.portal-appointment-detail__panel { padding: 20px 22px; }
+.portal-appointment-detail__panel h2 { margin: 0 0 16px; font-size: 1rem; }
+.portal-appointment-detail__panel h2 i { margin-right: 7px; color: var(--primary, #087f75); }
+
+.portal-appointment-detail__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 22px;
+  margin: 0;
+}
+
+.portal-appointment-detail__facts div { min-width: 0; }
+.portal-appointment-detail__facts dt { margin-bottom: 4px; color: var(--text-2, #64748b); font-size: .74rem; font-weight: 750; letter-spacing: .035em; text-transform: uppercase; }
+.portal-appointment-detail__facts dd { margin: 0; overflow-wrap: anywhere; line-height: 1.45; }
+.portal-appointment-detail__note { margin: 15px 0 0; padding: 13px 14px; border-radius: 10px; background: var(--bg, #f8fafc); line-height: 1.55; overflow-wrap: anywhere; }
+.portal-appointment-detail__clinic { margin: 0; color: var(--text-2, #64748b); line-height: 1.55; }
+
+.portal-appointment-detail__cancel {
+  display: grid;
+  gap: 9px;
+  margin-top: 17px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.portal-appointment-detail__cancel label { font-size: .88rem; font-weight: 750; }
+.portal-appointment-detail__cancel textarea { width: 100%; box-sizing: border-box; min-height: 84px; padding: 10px 12px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 9px; background: var(--surface, #fff); color: inherit; font: inherit; resize: vertical; }
+.portal-appointment-detail__cancel small { color: var(--text-2, #64748b); }
+.portal-appointment-detail__cancel button { justify-self: start; min-height: 40px; padding: 9px 14px; border: 0; border-radius: 9px; background: #b42318; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.portal-appointment-detail__followups { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.portal-appointment-detail__followups li { padding: 12px; border-radius: 9px; background: var(--bg, #f8fafc); line-height: 1.5; }
+
+@media (max-width: 760px) {
+  .portal-appointment-detail__grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .portal-appointment-detail__hero,
+  .portal-appointment-detail__panel { padding: 17px; }
+  .portal-appointment-detail__hero-row { flex-direction: column; }
+  .portal-appointment-detail__facts { grid-template-columns: 1fr; gap: 13px; }
+  .portal-appointment-detail__cancel button { width: 100%; }
+}

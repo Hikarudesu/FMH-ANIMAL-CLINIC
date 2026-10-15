@@ -1,0 +1,25 @@
+<article class="portal-appointment-card">
+  <div class="portal-appointment-card__icon portal-appointment-card__icon--{{ icon_class }}">
+    <i class='bx {{ icon }}'></i>
+  </div>
+  <div class="portal-appointment-card__main">
+    <div class="portal-appointment-card__heading">
+      <h3>{{ appointment.pet_name }}{% if appointment.pet_breed %} <span>· {{ appointment.pet_breed }}</span>{% endif %}</h3>
+      <span class="appt-status-pill {{ status_class }}">{{ appointment.get_status_display }}</span>
+    </div>
+    <div class="portal-appointment-card__meta">
+      <span><i class='bx bx-calendar'></i> {{ appointment.appointment_date|date:"M j, Y" }}</span>
+      <span><i class='bx bx-time'></i> {{ appointment.appointment_time_display }}</span>
+      <span><i class='bx bx-building-house'></i> {{ appointment.branch.name|default:"Branch not available" }}</span>
+    </div>
+    {% if appointment.auto_cancel_countdown_active %}
+    <div class="portal-appointment-card__countdown appointment-auto-cancel-countdown" data-auto-cancel-at="{{ appointment.auto_cancel_at|date:'c' }}">
+      <i class='bx bx-hourglass'></i> Auto-cancels in <time data-countdown-value>24:00:00</time>
+    </div>
+    {% endif %}
+    {% include "components/appointment_workflow_progress.html" with appt=appointment %}
+  </div>
+  <a class="portal-appointment-card__action" href="{% url 'appointments:portal_detail' appointment.pk %}">
+    View details <i class='bx bx-right-arrow-alt'></i>
+  </a>
+</article>

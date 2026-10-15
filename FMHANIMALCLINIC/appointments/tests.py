@@ -609,9 +609,38 @@ class OwnerAppointmentCancellationTests(TestCase):
         response = self.client.get(reverse('appointments:my_appointments'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Cancel this appointment')
+        self.assertContains(response, 'View details')
+        self.assertContains(response, reverse(
+            'appointments:portal_detail',
+            args=[self.appointment.pk],
+        ))
+        self.assertNotContains(response, 'appt-card-collapse')
         self.assertContains(response, 'Appointment History')
-        self.assertContains(response, 'Cancellation is available until 24 hours before your appointment.')
+        detail_response = self.client.get(reverse(
+            'appointments:portal_detail',
+            args=[self.appointment.pk],
+        ))
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, 'Cancel appointment')
+        self.assertContains(detail_response, 'You can cancel until 24 hours before the appointment.')
+        self.assertContains(detail_response, 'Your information')
+        self.assertContains(detail_response, 'Pet information')
+        self.assertContains(detail_response, 'Visit details')
+
+    def test_portal_appointment_detail_requires_ownership(self):
+        another_owner = User.objects.create_user(
+            username='appointment-detail-other-owner',
+            email='appointment-detail-other-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(another_owner)
+
+        response = self.client.get(reverse(
+            'appointments:portal_detail',
+            args=[self.appointment.pk],
+        ))
+
+        self.assertEqual(response.status_code, 404)
 
     def test_portal_history_shows_only_owner_visible_entries_for_own_appointments(self):
         owner_visible = AppointmentHistory.objects.create(

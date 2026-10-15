@@ -11,6 +11,11 @@ urlpatterns = [
     # Portal booking (login required)
     path('portal/book/', views.portal_book, name='portal_book'),
     path('my/', views.my_appointments, name='my_appointments'),
+    path(
+        'my/<int:pk>/',
+        views.portal_appointment_detail,
+        name='portal_detail',
+    ),
     path('my/history/', views.my_appointment_history, name='my_appointment_history'),
     path(
         'my/history/<int:pk>/',

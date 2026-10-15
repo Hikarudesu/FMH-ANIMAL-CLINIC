@@ -204,6 +204,28 @@ def my_appointments(request):
 
 
 @login_required
+def portal_appointment_detail(request, pk):
+    """Show an owner's appointment details without exposing staff-only information."""
+    appointment = get_object_or_404(
+        Appointment.objects.select_related(
+            'branch',
+            'preferred_vet',
+            'reason_for_visit',
+            'pet',
+        ),
+        pk=pk,
+        user=request.user,
+    )
+    follow_ups = FollowUp.objects.filter(
+        appointment=appointment,
+    ).order_by('-created_at')
+    return render(request, 'appointments/portal_detail.html', {
+        'appointment': appointment,
+        'follow_ups': follow_ups,
+    })
+
+
+@login_required
 def my_appointment_history(request):
     """Show owner-visible history for appointments belonging to this portal user."""
     entries = AppointmentHistory.objects.filter(
