@@ -593,7 +593,7 @@ function getLocalYMD(d) {
 
     // Vet
     document.getElementById("detailVetName").textContent =
-      eventData.vetName || "Any Available Vet";
+      eventData.vetName || "Unassigned";
 
     // Branch in top bar
     document.getElementById("detailBranchBar").textContent = eventData.branch || "—";
@@ -800,12 +800,12 @@ function getLocalYMD(d) {
     fetch(url)
       .then((r) => r.json())
       .then((data) => {
-        qcVet.innerHTML = '<option value="">-- Any Available Vet --</option>';
+        qcVet.innerHTML = '<option value="">-- No preference (unassigned until consultation) --</option>';
         
         // Show warning if no vets scheduled on the selected date
         if (dateVal && !data.has_vets) {
           showQCHint(
-            "⚠ No vets scheduled for this date. Booking will be pending vet assignment.",
+            "⚠ No veterinarians are scheduled on this date. Choose another date; a veterinarian is not assigned during booking.",
             "#e65100"
           );
         } else if (dateVal && data.has_vets) {
@@ -905,7 +905,7 @@ function getLocalYMD(d) {
           }
 
           showQCHint(
-            '<strong>Flexible Timing:</strong> When you select "Morning" or "Afternoon", any available veterinarian will be assigned.',
+            '<strong>Flexible timing:</strong> Morning or Afternoon selects a free slot. With no preferred veterinarian, the appointment remains unassigned until consultation starts.',
             '#388e3c'
           );
         } else {

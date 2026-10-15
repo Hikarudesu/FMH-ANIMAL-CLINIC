@@ -11,6 +11,7 @@ urlpatterns = [
     # Portal booking (login required)
     path('portal/book/', views.portal_book, name='portal_book'),
     path('my/', views.my_appointments, name='my_appointments'),
+    path('my/<int:pk>/cancel/', views.portal_cancel, name='portal_cancel'),
 
     # AJAX API endpoints
     path('api/vets/', views.api_available_vets, name='api_vets'),

@@ -104,7 +104,7 @@
         <h2><i class='bx bx-notepad'></i> Visit details</h2>
         <div class="appointment-manage__facts">
           <div class="appointment-manage__fact"><small>Reason for visit</small><strong>{{ appointment.reason_display }}</strong></div>
-          <div class="appointment-manage__fact"><small>Veterinarian</small><strong>{{ appointment.preferred_vet.full_name|default:"Any available veterinarian" }}</strong></div>
+          <div class="appointment-manage__fact"><small>Veterinarian</small><strong>{{ appointment.preferred_vet.full_name|default:"Unassigned until consultation starts" }}</strong></div>
           <div class="appointment-manage__fact"><small>Appointment source</small><strong>{{ appointment.get_source_display }}</strong></div>
           <div class="appointment-manage__fact"><small>Booked</small><strong>{{ appointment.created_at|date:"M j, Y · g:i A" }}</strong></div>
         </div>

@@ -1,7 +1,11 @@
 from datetime import date, datetime, time, timedelta
+from io import StringIO
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.core.management import call_command
+from django.db import connection, transaction
+from django.test import TestCase, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -13,6 +17,7 @@ from appointments.forms import (
     AppointmentEditForm,
     PublicAppointmentForm,
 )
+from appointments.services import AppointmentService
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
 from settings.models import ReasonForVisit
@@ -78,6 +83,83 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertFalse(future.auto_cancel_countdown_active)
         self.assertFalse(expired.auto_cancel_countdown_active)
         self.assertFalse(confirmed.auto_cancel_countdown_active)
+
+
+class ScheduledAppointmentCleanupTests(TestCase):
+    @patch('appointments.management.commands.run_scheduled_tasks.call_command')
+    @patch('appointments.management.commands.run_scheduled_tasks.cache.delete')
+    @patch(
+        'appointments.management.commands.run_scheduled_tasks.cache.add',
+        return_value=True,
+    )
+    @patch(
+        'appointments.services.AppointmentService.cleanup_expired_appointments',
+        return_value=2,
+    )
+    def test_scheduled_task_runner_executes_appointment_cleanup(
+        self, cleanup, _cache_add, _cache_delete, _call_command,
+    ):
+        output = StringIO()
+
+        call_command('run_scheduled_tasks', stdout=output)
+
+        cleanup.assert_called_once_with()
+        self.assertIn('Cancelled 2 expired pending appointment(s).', output.getvalue())
+
+
+class AppointmentScheduleLockTests(TransactionTestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Schedule Lock Branch')
+        role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        user = User.objects.create_user(
+            username='schedule-lock-vet',
+            email='schedule-lock-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+        )
+        staff = StaffMember.objects.create(
+            user=user,
+            first_name='Schedule',
+            last_name='Lock Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        self.appointment_date = timezone.localdate() + timedelta(days=3)
+        self.schedule = VetSchedule.objects.create(
+            staff=staff,
+            branch=self.branch,
+            date=self.appointment_date,
+            start_time=time(9),
+            end_time=time(12),
+        )
+
+    def test_booking_lock_locks_scheduled_staff_rows_for_branch_and_date(self):
+        with CaptureQueriesContext(connection) as captured_queries:
+            with transaction.atomic():
+                AppointmentService.lock_booking_schedule(
+                    self.branch.pk,
+                    self.appointment_date.isoformat(),
+                )
+
+        lock_queries = [
+            query['sql'] for query in captured_queries
+            if 'FOR UPDATE OF "employees_vetschedule"' in query['sql']
+        ]
+        self.assertEqual(len(lock_queries), 1)
+
+    def test_booking_lock_requires_an_open_transaction(self):
+        with self.assertRaises(RuntimeError):
+            AppointmentService.lock_booking_schedule(
+                self.branch.pk,
+                self.appointment_date.isoformat(),
+            )
 
 
 class AppointmentTimeDisplayTests(TestCase):
@@ -369,8 +451,142 @@ class AppointmentEditVeterinarianOptionalTests(TestCase):
         self.assertFalse(form.fields['preferred_vet'].required)
         self.assertEqual(
             form.fields['preferred_vet'].empty_label,
-            '-- Any Available Vet --',
+            '-- No preference (unassigned until consultation) --',
         )
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class OwnerAppointmentCancellationTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Owner Cancellation Branch')
+        self.owner = User.objects.create_user(
+            username='owner-cancellation',
+            email='owner-cancellation@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.appointment = Appointment.objects.create(
+            owner_name='Appointment Owner',
+            owner_email=self.owner.email,
+            pet_name='Cancellation Pet',
+            branch=self.branch,
+            user=self.owner,
+            appointment_date=timezone.localdate() + timedelta(days=3),
+            appointment_time=time(10),
+        )
+        self.client.force_login(self.owner)
+        self.cancel_url = reverse(
+            'appointments:portal_cancel',
+            args=[self.appointment.pk],
+        )
+
+    @patch('appointments.views.notify_staff_appointment_status_change')
+    @patch('appointments.views.notify_appointment_status_change')
+    def test_owner_cancels_pending_appointment_and_staff_are_notified(
+        self, notify_owner, notify_staff,
+    ):
+        response = self.client.post(
+            self.cancel_url,
+            {'cancellation_reason': 'Schedule changed.'},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:my_appointments'),
+            fetch_redirect_response=False,
+        )
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CANCELLED)
+        self.assertEqual(
+            self.appointment.cancellation_reason,
+            'Schedule changed.',
+        )
+        notify_owner.assert_called_once()
+        notify_staff.assert_called_once()
+        self.assertEqual(notify_staff.call_args.args[0], self.appointment)
+
+    @patch('appointments.views.notify_staff_appointment_status_change')
+    @patch('appointments.views.notify_appointment_status_change')
+    def test_owner_can_cancel_a_confirmed_appointment(
+        self, _notify_owner, _notify_staff,
+    ):
+        self.appointment.status = Appointment.Status.CONFIRMED
+        self.appointment.save(update_fields=['status', 'updated_at'])
+
+        self.client.post(
+            self.cancel_url,
+            {'cancellation_reason': 'Plans have changed.'},
+        )
+
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CANCELLED)
+        self.assertEqual(
+            self.appointment.cancellation_reason,
+            'Plans have changed.',
+        )
+
+    def test_owner_cannot_cancel_within_24_hours_of_appointment(self):
+        appointment_time = timezone.localtime(
+            timezone.now() + timedelta(hours=23),
+        )
+        self.appointment.appointment_date = appointment_time.date()
+        self.appointment.appointment_time = appointment_time.time()
+        self.appointment.save(
+            update_fields=['appointment_date', 'appointment_time', 'updated_at'],
+        )
+
+        response = self.client.post(
+            self.cancel_url,
+            {'cancellation_reason': 'Schedule changed.'},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:my_appointments'),
+            fetch_redirect_response=False,
+        )
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.PENDING)
+
+    @patch('appointments.models.timezone.now')
+    def test_owner_can_cancel_at_exact_24_hour_cutoff(self, mocked_now):
+        mocked_now.return_value = (
+            self.appointment.scheduled_datetime - timedelta(hours=24)
+        )
+        self.assertTrue(self.appointment.owner_can_cancel)
+
+    def test_owner_cancellation_requires_reason_and_appointment_ownership(self):
+        self.client.post(self.cancel_url, {'cancellation_reason': '   '})
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.PENDING)
+
+        another_owner = User.objects.create_user(
+            username='another-appointment-owner',
+            email='another-appointment-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(another_owner)
+        response = self.client.post(
+            self.cancel_url,
+            {'cancellation_reason': 'Schedule changed.'},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.PENDING)
+
+    def test_owner_portal_shows_cancel_form_before_cutoff(self):
+        response = self.client.get(reverse('appointments:my_appointments'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cancel this appointment')
+        self.assertContains(response, 'Cancellation is available until 24 hours before your appointment.')
 
 
 class AppointmentCompletionDateValidationTests(TestCase):
