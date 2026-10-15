@@ -206,21 +206,35 @@ def my_appointments(request):
 @login_required
 def portal_appointment_detail(request, pk):
     """Show an owner's appointment details without exposing staff-only information."""
+    from records.models import RecordEntry
+
     appointment = get_object_or_404(
         Appointment.objects.select_related(
             'branch',
             'preferred_vet',
             'reason_for_visit',
             'pet',
+            'sale',
+        ).prefetch_related(
+            'sale__items',
+            'sale__payments',
         ),
         pk=pk,
         user=request.user,
     )
+    medical_records = RecordEntry.objects.filter(
+        appointment=appointment,
+    ).select_related(
+        'record',
+        'vet',
+        'action_required',
+    ).order_by('-date_recorded', '-created_at')
     follow_ups = FollowUp.objects.filter(
         appointment=appointment,
     ).order_by('-created_at')
     return render(request, 'appointments/portal_detail.html', {
         'appointment': appointment,
+        'medical_records': medical_records,
         'follow_ups': follow_ups,
     })
 

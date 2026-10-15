@@ -111,6 +111,16 @@
 .portal-appointment-detail__cancel button { justify-self: start; min-height: 40px; padding: 9px 14px; border: 0; border-radius: 9px; background: #b42318; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .portal-appointment-detail__followups { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .portal-appointment-detail__followups li { padding: 12px; border-radius: 9px; background: var(--bg, #f8fafc); line-height: 1.5; }
+.portal-appointment-detail__medical-record { padding-top: 14px; }
+.portal-appointment-detail__medical-record h3 { margin: 0 0 14px; font-size: .95rem; }
+.portal-appointment-detail__medical-record h3 span { color: var(--text-2, #64748b); font-weight: 500; }
+.portal-appointment-detail__record-separator { height: 1px; margin: 16px 0 0; border: 0; background: var(--border-color, #e2e8f0); }
+.portal-appointment-detail__sale-items { margin-top: 18px; }
+.portal-appointment-detail__sale-items h3 { margin: 0 0 9px; font-size: .9rem; }
+.portal-appointment-detail__sale-items ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.portal-appointment-detail__sale-items li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 8px; background: var(--bg, #f8fafc); font-size: .85rem; }
+.portal-appointment-detail__sale-items li span { min-width: 0; overflow-wrap: anywhere; }
+.portal-appointment-detail__sale-items li strong { white-space: nowrap; }
 
 @media (max-width: 760px) {
   .portal-appointment-detail__grid { grid-template-columns: 1fr; }

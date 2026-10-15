@@ -23,6 +23,9 @@ from appointments.forms import (
 from appointments.services import AppointmentService
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
+from patients.models import Pet
+from pos.models import Payment, Sale, SaleItem
+from records.models import MedicalRecord, RecordEntry
 from settings.models import ReasonForVisit
 
 
@@ -641,6 +644,78 @@ class OwnerAppointmentCancellationTests(TestCase):
         ))
 
         self.assertEqual(response.status_code, 404)
+
+    def test_portal_appointment_details_include_owned_payment_and_medical_information(self):
+        self.appointment.status = Appointment.Status.CANCELLED
+        self.appointment.cancellation_reason = 'Owner had a schedule conflict.'
+        self.appointment.medical_record_decision = (
+            Appointment.MedicalRecordDecision.NOT_REQUIRED
+        )
+        self.appointment.medical_record_decision_reason = (
+            'No additional record was needed for this visit.'
+        )
+        self.appointment.save(update_fields=[
+            'status',
+            'cancellation_reason',
+            'medical_record_decision',
+            'medical_record_decision_reason',
+            'updated_at',
+        ])
+        sale = Sale.objects.create(
+            branch=self.branch,
+            subtotal=500,
+            total=500,
+            amount_paid=200,
+        )
+        self.appointment.sale = sale
+        self.appointment.save(update_fields=['sale', 'updated_at'])
+        SaleItem.objects.create(
+            sale=sale,
+            item_type=SaleItem.ItemType.SERVICE,
+            name='Consultation',
+            unit_price=500,
+        )
+        Payment.objects.create(
+            sale=sale,
+            method=Payment.Method.CASH,
+            amount=200,
+        )
+        pet = Pet.objects.create(
+            owner=self.owner,
+            name='Cancellation Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            date_recorded=timezone.localdate(),
+        )
+        RecordEntry.objects.create(
+            record=record,
+            appointment=self.appointment,
+            date_recorded=timezone.localdate(),
+            history_clinical_signs='Mild coughing reported.',
+            treatment='Rest and hydration.',
+            rx='Cough syrup as directed.',
+        )
+
+        response = self.client.get(reverse(
+            'appointments:portal_detail',
+            args=[self.appointment.pk],
+        ))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'POS summary')
+        self.assertContains(response, 'Consultation')
+        self.assertContains(response, 'Balance due')
+        self.assertContains(response, 'Medical record for this visit')
+        self.assertContains(response, 'Mild coughing reported.')
+        self.assertContains(response, 'Rest and hydration.')
+        self.assertContains(response, 'Cough syrup as directed.')
+        self.assertContains(response, "Veterinarian's reason")
+        self.assertContains(response, 'No additional record was needed for this visit.')
+        self.assertContains(response, 'Owner had a schedule conflict.')
 
     def test_portal_history_shows_only_owner_visible_entries_for_own_appointments(self):
         owner_visible = AppointmentHistory.objects.create(

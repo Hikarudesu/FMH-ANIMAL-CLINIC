@@ -74,7 +74,11 @@
           <div><dt>Branch</dt><dd>{{ appointment.branch.name|default:"-" }}</dd></div>
           <div><dt>Appointment status</dt><dd>{{ appointment.get_status_display }}</dd></div>
           <div><dt>Booked</dt><dd>{{ appointment.created_at|date:"M j, Y · g:i A" }}</dd></div>
+          <div><dt>Medical-record decision</dt><dd>{{ appointment.get_medical_record_decision_display }}</dd></div>
         </dl>
+        {% if appointment.medical_record_decision_reason %}
+        <p class="portal-appointment-detail__note"><strong>Veterinarian's reason:</strong><br>{{ appointment.medical_record_decision_reason|linebreaksbr }}</p>
+        {% endif %}
         {% if appointment.cancellation_reason %}
         <p class="portal-appointment-detail__note"><strong>Cancellation reason:</strong><br>{{ appointment.cancellation_reason|linebreaksbr }}</p>
         {% endif %}
@@ -90,6 +94,73 @@
         <p class="portal-appointment-detail__note">The online cancellation window has passed. Please contact the clinic if you need help with this appointment.</p>
         {% endif %}
       </section>
+
+      {% if medical_records %}
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-first-aid'></i> Medical record for this visit</h2>
+        <p class="portal-appointment-detail__clinic">Clinical details recorded for this appointment by the veterinary team.</p>
+        {% for entry in medical_records %}
+        <article class="portal-appointment-detail__medical-record">
+          <h3>{{ entry.date_recorded|date:"M j, Y" }}{% if entry.vet %} <span>· {{ entry.vet.full_name }}</span>{% endif %}</h3>
+          <dl class="portal-appointment-detail__facts">
+            {% if entry.weight %}<div><dt>Weight</dt><dd>{{ entry.weight }} kg</dd></div>{% endif %}
+            {% if entry.temperature %}<div><dt>Temperature</dt><dd>{{ entry.temperature }} °C</dd></div>{% endif %}
+            {% if entry.ff_up %}<div><dt>Follow-up date</dt><dd>{{ entry.ff_up|date:"M j, Y" }}</dd></div>{% endif %}
+            {% if entry.action_required %}<div><dt>Next step</dt><dd>{{ entry.action_required.name }}</dd></div>{% endif %}
+          </dl>
+          {% if entry.history_clinical_signs %}<p class="portal-appointment-detail__note"><strong>Clinical signs and history:</strong><br>{{ entry.history_clinical_signs|linebreaksbr }}</p>{% endif %}
+          {% if entry.treatment %}<p class="portal-appointment-detail__note"><strong>Treatment:</strong><br>{{ entry.treatment|linebreaksbr }}</p>{% endif %}
+          {% if entry.rx %}<p class="portal-appointment-detail__note"><strong>Prescription:</strong><br>{{ entry.rx|linebreaksbr }}</p>{% endif %}
+        </article>
+        {% if not forloop.last %}<hr class="portal-appointment-detail__record-separator">{% endif %}
+        {% endfor %}
+      </section>
+      {% elif appointment.medical_record_decision == 'REQUIRED' %}
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-first-aid'></i> Medical record</h2>
+        <p class="portal-appointment-detail__clinic">A medical record was requested for this visit. The details will appear here once the veterinary team adds the record.</p>
+      </section>
+      {% endif %}
+
+      {% if appointment.sale %}
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-receipt'></i> POS summary</h2>
+        <dl class="portal-appointment-detail__facts">
+          <div><dt>Transaction</dt><dd>{{ appointment.sale.transaction_id }}</dd></div>
+          <div><dt>Payment status</dt><dd>{{ appointment.sale.get_status_display }}</dd></div>
+          <div><dt>Total</dt><dd>₱{{ appointment.sale.total|floatformat:2 }}</dd></div>
+          <div><dt>Amount paid</dt><dd>₱{{ appointment.sale.amount_paid|floatformat:2 }}</dd></div>
+          {% if appointment.sale.balance_due %}<div><dt>Balance due</dt><dd>₱{{ appointment.sale.balance_due|floatformat:2 }}</dd></div>{% endif %}
+          {% if appointment.sale.status == 'VOIDED' and appointment.sale.void_reason %}<div><dt>Void reason</dt><dd>{{ appointment.sale.void_reason }}</dd></div>{% endif %}
+        </dl>
+        {% if appointment.sale.items.all %}
+        <div class="portal-appointment-detail__sale-items">
+          <h3>Items and services</h3>
+          <ul>
+            {% for item in appointment.sale.items.all %}
+            <li>
+              <span>{{ item.quantity }} × {{ item.name }}</span>
+              <strong>₱{{ item.line_total|floatformat:2 }}</strong>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if appointment.sale.payments.all %}
+        <div class="portal-appointment-detail__sale-items">
+          <h3>Payments</h3>
+          <ul>
+            {% for payment in appointment.sale.payments.all %}
+            <li>
+              <span>{{ payment.get_method_display }} · {{ payment.created_at|date:"M j, Y" }} · {{ payment.get_status_display }}</span>
+              <strong>₱{{ payment.amount|floatformat:2 }}</strong>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
 
       {% if appointment.branch %}
       <section class="portal-appointment-detail__panel">
