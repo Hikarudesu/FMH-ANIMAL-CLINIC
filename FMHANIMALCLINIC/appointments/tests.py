@@ -841,6 +841,24 @@ class OwnerAppointmentCancellationTests(TestCase):
         self.assertNotContains(detail_response, 'Medical record decision')
         self.assertNotContains(detail_response, 'Required')
 
+        filtered_response = self.client.get(
+            reverse('appointments:my_appointment_history'),
+            {'status': Appointment.Status.CANCELLED},
+        )
+        self.assertEqual(filtered_response.status_code, 200)
+        self.assertNotContains(filtered_response, owner_visible.summary)
+        self.assertContains(filtered_response, 'All Status')
+        self.assertContains(filtered_response, 'Cancelled')
+
+        pending_response = self.client.get(
+            reverse('appointments:my_appointment_history'),
+            {'status': Appointment.Status.PENDING},
+        )
+        self.assertEqual(pending_response.status_code, 200)
+        self.assertContains(pending_response, owner_visible.summary)
+        for _, label in Appointment.Status.choices:
+            self.assertContains(pending_response, label)
+
     def test_portal_history_search_suggestions_are_owner_scoped(self):
         AppointmentHistory.objects.create(
             appointment=self.appointment,
@@ -870,12 +888,18 @@ class OwnerAppointmentCancellationTests(TestCase):
 
         response = self.client.get(
             reverse('appointments:my_appointment_history_search'),
-            {'q': 'Pet'},
+            {'q': 'Pet', 'status': Appointment.Status.CANCELLED},
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['results'], [])
+
+        pending_response = self.client.get(
+            reverse('appointments:my_appointment_history_search'),
+            {'q': 'Pet', 'status': Appointment.Status.PENDING},
+        )
         self.assertEqual(
-            [result['value'] for result in response.json()['results']],
+            [result['value'] for result in pending_response.json()['results']],
             ['Cancellation Pet'],
         )
 

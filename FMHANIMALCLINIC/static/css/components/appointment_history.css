@@ -21,6 +21,32 @@
   z-index: 32 !important;
 }
 
+.appointment-history-page--owner .c-filter-bar__form {
+  flex-wrap: wrap;
+}
+
+.appointment-history-page--owner .c-filter-bar__filters {
+  margin-left: auto;
+}
+
+.appointment-history-page--owner .search-dropdown-item {
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.appointment-history-page--owner .search-dropdown-item > i:last-child {
+  color: var(--text-3, #94a3b8);
+  font-size: 1.2rem;
+}
+
 .appointment-history-page--owner .appointment-history-list,
 .appointment-history-page--owner .appointment-history-pagination {
   position: relative;
@@ -348,6 +374,9 @@
     min-height: 38px;
   }
   .appointment-history-page--owner .appointment-history-card__meta { display: grid; gap: 7px; }
+  .appointment-history-page--owner .c-filter-bar__form { align-items: stretch; }
+  .appointment-history-page--owner .c-filter-bar__search { min-width: 0; }
+  .appointment-history-page--owner .c-filter-bar__filters { margin-left: 0; }
 }
 
 @media (max-width: 420px) {

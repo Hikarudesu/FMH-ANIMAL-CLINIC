@@ -67,6 +67,10 @@
       subtitle.textContent = result.subtitle;
       info.append(label, subtitle);
       button.append(icon, info);
+      const arrow = document.createElement('i');
+      arrow.className = 'bx bx-chevron-right';
+      arrow.setAttribute('aria-hidden', 'true');
+      button.append(arrow);
       dropdown.append(button);
     });
 
@@ -81,6 +85,8 @@
     try {
       const url = new URL(searchUrl, window.location.origin);
       url.searchParams.set('q', query);
+      const status = form.querySelector('[name="status"]')?.value || '';
+      if (status) url.searchParams.set('status', status);
       const response = await fetch(url, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
         signal: controller.signal,

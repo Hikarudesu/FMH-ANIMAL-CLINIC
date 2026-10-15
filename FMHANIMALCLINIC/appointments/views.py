@@ -260,7 +260,7 @@ def _portal_appointment_detail_data(appointment):
     }
 
 
-def _owner_appointment_history_queryset(user, query=''):
+def _owner_appointment_history_queryset(user, query='', status=''):
     entries = AppointmentHistory.objects.filter(
         owner_visible=True,
         appointment__user=user,
@@ -269,6 +269,8 @@ def _owner_appointment_history_queryset(user, query=''):
         'appointment__branch',
         'appointment__reason_for_visit',
     ).order_by('-created_at', '-pk')
+    if status in Appointment.Status.values:
+        entries = entries.filter(appointment__status=status)
     if query:
         for term in query.split():
             status_term = term.replace(' ', '_')
@@ -291,12 +293,21 @@ def _owner_appointment_history_queryset(user, query=''):
 def my_appointment_history(request):
     """Show owner-visible history for appointments belonging to this portal user."""
     query = request.GET.get('q', '').strip()
-    entries = _owner_appointment_history_queryset(request.user, query)
+    selected_status = request.GET.get('status', '').strip()
+    if selected_status not in Appointment.Status.values:
+        selected_status = ''
+    entries = _owner_appointment_history_queryset(
+        request.user,
+        query,
+        selected_status,
+    )
     page_obj = Paginator(entries, 20).get_page(request.GET.get('page'))
     return render(request, 'appointments/owner_history_list.html', {
         'history_entries': page_obj,
         'page_obj': page_obj,
         'q': query,
+        'selected_status': selected_status,
+        'statuses': Appointment.Status.choices,
     })
 
 
@@ -308,11 +319,15 @@ def my_appointment_history_search(request):
     if len(query) < 2:
         return JsonResponse({'results': []})
 
+    selected_status = request.GET.get('status', '').strip()
+    if selected_status not in Appointment.Status.values:
+        selected_status = ''
     results = []
     seen_pet_names = set()
     for entry in _owner_appointment_history_queryset(
         request.user,
         query,
+        selected_status,
     )[:30]:
         appointment = entry.appointment
         pet_name = appointment.pet_name.strip()

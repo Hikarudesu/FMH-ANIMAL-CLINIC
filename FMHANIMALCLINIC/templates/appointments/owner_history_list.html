@@ -10,22 +10,22 @@
 {% include "components/page_hero.html" with title="Appointment History" icon="bx-history" subtitle="Review updates and decisions for your appointments" action_url=appointments_url action_label="My Appointments" action_icon="bx-calendar-event" action_url_2=book_url action_label_2="Book Appointment" action_icon_2="bx-calendar-plus" icons_theme="pets" %}
 
 <main class="appointment-history-page appointment-history-page--owner">
-  <form
-    method="get"
-    id="ownerAppointmentHistorySearch"
-    class="c-filter-bar"
-    data-search-url="{% url 'appointments:my_appointment_history_search' %}"
-    autocomplete="off"
-  >
+  <div class="c-filter-bar">
     <div class="c-filter-bar__glow"></div>
-    <div class="c-filter-bar__form">
+    <form
+      method="get"
+      id="ownerAppointmentHistorySearch"
+      class="c-filter-bar__form"
+      data-search-url="{% url 'appointments:my_appointment_history_search' %}"
+      autocomplete="off"
+    >
       <div class="c-filter-bar__search">
         <i class='bx bx-search c-filter-bar__search-icon' aria-hidden="true"></i>
         <input
           type="search"
           name="q"
           value="{{ q }}"
-          placeholder="Search by owner, pet, status, visit reason, or clinic..."
+          placeholder="Search by owner, pet, visit reason, or clinic..."
           aria-label="Search appointment history"
           class="c-filter-bar__search-input"
           autocomplete="off"
@@ -33,11 +33,31 @@
         <div class="search-dropdown" id="ownerAppointmentHistorySearchDropdown" role="listbox" aria-label="Appointment suggestions"></div>
         <div class="c-filter-bar__shortcut" aria-hidden="true"><span>⌘</span><span>K</span></div>
       </div>
-    </div>
-  </form>
+      <div class="c-filter-bar__filters">
+        <div class="c-filter-dropdown">
+          <div class="c-filter-dropdown__trigger{% if selected_status %} active{% endif %}">
+            <i class='bx bx-loader-circle c-filter-dropdown__icon' aria-hidden="true"></i>
+            <span class="c-filter-dropdown__label">
+              {% if selected_status %}<span class="prefix">Status:</span> {% for value, label in statuses %}{% if selected_status == value %}{{ label }}{% endif %}{% endfor %}{% else %}All Status{% endif %}
+            </span>
+            <i class='bx bx-chevron-down c-filter-dropdown__arrow' aria-hidden="true"></i>
+          </div>
+          <select class="c-filter-dropdown__select sd-convert" name="status" aria-label="Filter by appointment status" onchange="this.form.submit()">
+            <option value="">All Status</option>
+            {% for value, label in statuses %}
+            <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if q or selected_status %}
+        <a href="{% url 'appointments:my_appointment_history' %}" class="c-filter-bar__clear" title="Clear search and filters" aria-label="Clear search and status filters"><i class='bx bx-x'></i></a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
   {% if history_entries %}
   <p class="appointment-history-intro">
-    {% if q %}Showing appointment history matching “{{ q }}”.{% else %}Review your appointment activity and select an item for its full details.{% endif %}
+    {% if q or selected_status %}Showing appointment history{% if q %} matching “{{ q }}”{% endif %}{% if selected_status %}{% for value, label in statuses %}{% if selected_status == value %} with status {{ label|lower }}{% endif %}{% endfor %}{% endif %}.{% else %}Review your appointment activity and select an item for its full details.{% endif %}
   </p>
   <div class="appointment-history-list">
     {% for entry in history_entries %}
@@ -64,15 +84,15 @@
   </div>
   {% if page_obj.has_other_pages %}
   <nav class="appointment-history-pagination" aria-label="Appointment history pages">
-    {% if page_obj.has_previous %}<a href="?q={{ q|urlencode }}&page={{ page_obj.previous_page_number }}"><i class='bx bx-left-arrow-alt'></i> Newer</a>{% endif %}
+    {% if page_obj.has_previous %}<a href="?q={{ q|urlencode }}&status={{ selected_status|urlencode }}&page={{ page_obj.previous_page_number }}"><i class='bx bx-left-arrow-alt'></i> Newer</a>{% endif %}
     <span class="appointment-history-button">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}<a href="?q={{ q|urlencode }}&page={{ page_obj.next_page_number }}">Older <i class='bx bx-right-arrow-alt'></i></a>{% endif %}
+    {% if page_obj.has_next %}<a href="?q={{ q|urlencode }}&status={{ selected_status|urlencode }}&page={{ page_obj.next_page_number }}">Older <i class='bx bx-right-arrow-alt'></i></a>{% endif %}
   </nav>
   {% endif %}
   {% else %}
   <div class="appointment-history-empty">
-    <i class='bx {% if q %}bx-search-alt{% else %}bx-history{% endif %}'></i>
-    {% if q %}
+    <i class='bx {% if q or selected_status %}bx-search-alt{% else %}bx-history{% endif %}'></i>
+    {% if q or selected_status %}
     <h2>No matching appointment history</h2>
     <p>Try another pet or owner name, status, visit reason, or clinic.</p>
     <a href="{% url 'appointments:my_appointment_history' %}" class="appointment-history-empty__clear">Clear search</a>
