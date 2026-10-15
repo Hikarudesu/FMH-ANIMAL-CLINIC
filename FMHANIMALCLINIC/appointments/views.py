@@ -10,7 +10,7 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
-from django.db.models import Prefetch, Q
+from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import User
@@ -171,15 +171,10 @@ def my_appointments(request):
     """Show the logged-in user's appointments and follow-ups with tabbed data."""
     # Include pending portal bookings even before a Pet record is created.
     # Pending appointments intentionally keep pet_id empty until staff confirms them.
-    owner_history = AppointmentHistory.objects.filter(
-        owner_visible=True,
-    ).select_related('actor').order_by('created_at', 'pk')
     base_appts = Appointment.objects.filter(
         user=request.user,
     ).select_related(
         'branch', 'preferred_vet', 'pet', 'pet__owner',
-    ).prefetch_related(
-        Prefetch('history_entries', queryset=owner_history),
     )
 
     # Categorized queries
@@ -206,6 +201,125 @@ def my_appointments(request):
         'follow_ups': follow_ups,
     }
     return render(request, 'appointments/appointments.html', context)
+
+
+@login_required
+def my_appointment_history(request):
+    """Show owner-visible history for appointments belonging to this portal user."""
+    entries = AppointmentHistory.objects.filter(
+        owner_visible=True,
+        appointment__user=request.user,
+    ).select_related(
+        'appointment',
+        'appointment__branch',
+    ).order_by('-created_at', '-pk')
+    page_obj = Paginator(entries, 20).get_page(request.GET.get('page'))
+    return render(request, 'appointments/owner_history_list.html', {
+        'history_entries': page_obj,
+        'page_obj': page_obj,
+    })
+
+
+@login_required
+def my_appointment_history_detail(request, pk):
+    """Show one owner-safe history event for the signed-in user's appointment."""
+    entry = get_object_or_404(
+        AppointmentHistory.objects.select_related(
+            'appointment',
+            'appointment__branch',
+            'appointment__preferred_vet',
+        ),
+        pk=pk,
+        owner_visible=True,
+        appointment__user=request.user,
+    )
+    entry.visible_changes = [
+        change for change in entry.changes
+        if change.get('field') in {
+            'Status',
+            'Date',
+            'Time',
+            'Branch',
+            'Veterinarian',
+            'Reason for visit',
+        }
+    ]
+    return render(request, 'appointments/owner_history_detail.html', {
+        'history_entry': entry,
+    })
+
+
+def _staff_appointment_history_queryset(user):
+    role_code = getattr(getattr(user, 'assigned_role', None), 'code', '')
+    if role_code not in StaffRoles.ALL_STAFF_ROLES:
+        raise PermissionDenied
+
+    appointments = Appointment.objects.all()
+    is_veterinarian = role_code in (
+        StaffRoles.VETERINARIAN,
+        StaffRoles.VET_ASSISTANT,
+    )
+    appointments = _scope_view_only_appointments(
+        user,
+        appointments,
+        include_unassigned=is_veterinarian,
+    )
+    is_branch_restricted = (
+        user.is_module_branch_restricted('appointments')
+        or is_veterinarian
+    )
+    if is_branch_restricted:
+        if not user.branch_id:
+            raise PermissionDenied
+        appointments = appointments.filter(branch_id=user.branch_id)
+    if is_veterinarian:
+        try:
+            staff_profile = user.staff_profile
+        except StaffMember.DoesNotExist:
+            raise PermissionDenied
+        appointments = appointments.filter(
+            Q(preferred_vet=staff_profile)
+            | Q(preferred_vet__isnull=True)
+        )
+    return appointments
+
+
+@login_required
+@module_permission_required('appointments', 'VIEW')
+def admin_appointment_history(request):
+    """Show history only for appointments the current staff member may access."""
+    appointments = _staff_appointment_history_queryset(request.user)
+    entries = AppointmentHistory.objects.filter(
+        appointment__in=appointments,
+    ).select_related(
+        'appointment',
+        'appointment__branch',
+        'actor',
+    ).order_by('-created_at', '-pk')
+    page_obj = Paginator(entries, 20).get_page(request.GET.get('page'))
+    return render(request, 'appointments/admin_history_list.html', {
+        'history_entries': page_obj,
+        'page_obj': page_obj,
+    })
+
+
+@login_required
+@module_permission_required('appointments', 'VIEW')
+def admin_appointment_history_detail(request, pk):
+    """Show one full audit event, scoped to the staff member's appointment access."""
+    appointments = _staff_appointment_history_queryset(request.user)
+    entry = get_object_or_404(
+        AppointmentHistory.objects.select_related(
+            'appointment',
+            'appointment__branch',
+            'actor',
+        ),
+        pk=pk,
+        appointment__in=appointments,
+    )
+    return render(request, 'appointments/admin_history_detail.html', {
+        'history_entry': entry,
+    })
 
 
 @login_required
@@ -583,13 +697,6 @@ def admin_detail(request, pk):
             )
 
     appointment = get_object_or_404(appointments, pk=pk)
-    can_view_appointment_history = role_code in StaffRoles.ALL_STAFF_ROLES
-    appointment_history = (
-        appointment.history_entries.select_related('actor').order_by(
-            'created_at', 'pk',
-        )
-        if can_view_appointment_history else ()
-    )
     from records.models import RecordEntry
     record_entries = list(
         RecordEntry.objects.filter(appointment=appointment)
@@ -666,8 +773,6 @@ def admin_detail(request, pk):
     )
     return render(request, 'appointments/admin_detail.html', {
         'appointment': appointment,
-        'appointment_history': appointment_history,
-        'can_view_appointment_history': can_view_appointment_history,
         'record_entries': record_entries,
         'follow_ups': follow_ups,
         'is_veterinarian': is_veterinarian,
@@ -886,6 +991,7 @@ def admin_list(request):
     can_create_medical_record = request.user.has_module_permission(
         'medical_records', 'CREATE'
     )
+    can_view_history = role_code in StaffRoles.ALL_STAFF_ROLES
 
     return render(request, 'appointments/admin_list.html', {
         'appointments': page_obj,
@@ -907,6 +1013,7 @@ def admin_list(request):
         'can_edit': can_edit,
         'can_delete': can_delete,
         'can_create_medical_record': can_create_medical_record,
+        'can_view_history': can_view_history,
         'is_veterinarian': is_veterinarian,
     })
 

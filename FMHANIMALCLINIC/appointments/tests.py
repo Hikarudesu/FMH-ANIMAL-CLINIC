@@ -610,6 +610,7 @@ class OwnerAppointmentCancellationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Cancel this appointment')
+        self.assertContains(response, 'Appointment History')
         self.assertContains(response, 'Cancellation is available until 24 hours before your appointment.')
 
     def test_portal_history_shows_only_owner_visible_entries_for_own_appointments(self):
@@ -647,13 +648,21 @@ class OwnerAppointmentCancellationTests(TestCase):
             owner_visible=True,
         )
 
-        response = self.client.get(reverse('appointments:my_appointments'))
+        response = self.client.get(reverse('appointments:my_appointment_history'))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, owner_visible.summary)
         self.assertNotContains(response, 'Private staff note')
-        self.assertNotContains(response, 'Medical record decision')
         self.assertNotContains(response, 'Another owner private update')
+        detail_response = self.client.get(reverse(
+            'appointments:my_appointment_history_detail',
+            args=[owner_visible.pk],
+        ))
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(response, owner_visible.summary)
+        self.assertContains(detail_response, '2026-11-01')
+        self.assertNotContains(detail_response, 'Medical record decision')
+        self.assertNotContains(detail_response, 'Required')
 
     def test_appointment_history_is_retained_when_appointment_is_deleted(self):
         history = AppointmentHistory.objects.get(
@@ -748,20 +757,35 @@ class AppointmentStaffHistoryVisibilityTests(TestCase):
             owner_visible=True,
         )
         self.client.force_login(user)
-        detail_url = reverse('appointments:admin_detail', args=[appointment.pk])
+        history_url = reverse('appointments:admin_appointment_history')
+        appointments_response = self.client.get(
+            reverse('appointments:admin_list'),
+        )
+        self.assertEqual(appointments_response.status_code, 200)
+        self.assertContains(appointments_response, 'Appointment History')
 
-        staff_response = self.client.get(detail_url)
+        staff_response = self.client.get(history_url)
 
         self.assertEqual(staff_response.status_code, 200)
-        self.assertContains(staff_response, 'Appointment history')
-        self.assertContains(staff_response, 'Date: 2026-10-20')
+        self.assertContains(staff_response, 'Appointment History')
+        history = AppointmentHistory.objects.get(
+            appointment=appointment,
+            summary='Appointment schedule updated',
+        )
+        detail_response = self.client.get(reverse(
+            'appointments:admin_appointment_history_detail',
+            args=[history.pk],
+        ))
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, 'Changes in this event')
+        self.assertContains(detail_response, 'Date')
+        self.assertContains(detail_response, '2026-10-20')
 
         role.code = 'other_staff'
         role.save(update_fields=['code'])
-        other_role_response = self.client.get(detail_url)
+        other_role_response = self.client.get(history_url)
 
-        self.assertEqual(other_role_response.status_code, 200)
-        self.assertNotContains(other_role_response, 'Appointment history')
+        self.assertEqual(other_role_response.status_code, 403)
 
 
 class AppointmentCompletionDateValidationTests(TestCase):

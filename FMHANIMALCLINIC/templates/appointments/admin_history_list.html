@@ -1,0 +1,48 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Appointment History{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components/appointment_history.css' %}">
+{% url 'appointments:admin_list' as appointments_url %}
+{% include "components/page_hero.html" with title="Appointment History" icon="bx-history" subtitle="Review appointment bookings and recorded changes" action_url=appointments_url action_label="Appointments" action_icon="bx-calendar-event" %}
+
+<main class="appointment-history-page">
+  <a class="appointment-history-back" href="{% url 'appointments:admin_list' %}"><i class='bx bx-left-arrow-alt'></i> Back to appointments</a>
+  {% if history_entries %}
+  <p class="appointment-history-intro">Newest activity appears first. Select an event to inspect its full before-and-after details.</p>
+  <div class="appointment-history-list">
+    {% for entry in history_entries %}
+    <a class="appointment-history-card" href="{% url 'appointments:admin_appointment_history_detail' entry.pk %}">
+      <span class="appointment-history-card__icon"><i class='bx bx-calendar-check'></i></span>
+      <span class="appointment-history-card__body">
+        <span class="appointment-history-card__title">{{ entry.summary }}</span>
+        <span class="appointment-history-card__meta">
+          <span><i class='bx bx-paw'></i> {{ entry.appointment.pet_name }}</span>
+          <span><i class='bx bx-user'></i> {{ entry.appointment.owner_name }}</span>
+          <span><i class='bx bx-calendar'></i> {{ entry.appointment.appointment_date|date:"M j, Y" }}</span>
+          <span><i class='bx bx-time'></i> {{ entry.created_at|date:"M j, Y, g:i a" }}</span>
+          <span><i class='bx bx-edit'></i> {% if entry.actor %}{{ entry.actor.get_full_name|default:entry.actor.username }}{% else %}System{% endif %}</span>
+        </span>
+      </span>
+      <i class='bx bx-chevron-right appointment-history-card__arrow' aria-hidden="true"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% if page_obj.has_other_pages %}
+  <nav class="appointment-history-pagination" aria-label="Appointment history pages">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}"><i class='bx bx-left-arrow-alt'></i> Newer</a>{% endif %}
+    <span class="appointment-history-button">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Older <i class='bx bx-right-arrow-alt'></i></a>{% endif %}
+  </nav>
+  {% endif %}
+  {% else %}
+  <div class="appointment-history-empty">
+    <i class='bx bx-history'></i>
+    <h2>No appointment history found</h2>
+    <p>Bookings and changes for appointments you can access will appear here.</p>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

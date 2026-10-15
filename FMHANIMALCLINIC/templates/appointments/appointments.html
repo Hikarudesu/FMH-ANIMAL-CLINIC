@@ -10,15 +10,12 @@
   .appt-owner-cancel-form textarea { width: 100%; max-width: 560px; padding: 9px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; font: inherit; }
   .appt-owner-cancel-form small { color: var(--text-muted, #666); }
   .appt-owner-cancel-form button { justify-self: start; padding: 9px 14px; border: 0; border-radius: 6px; background: #b42318; color: #fff; cursor: pointer; }
-  .appointment-owner-history { margin-top: 16px; }
-  .appointment-owner-history ol { display: grid; gap: 8px; margin: 10px 0 0; padding-left: 22px; }
-  .appointment-owner-history li { padding-left: 3px; }
-  .appointment-owner-history time { display: block; color: var(--text-muted, #666); font-size: .82rem; }
 </style>
 
 <!-- ══════ APPOINTMENTS HERO ══════ -->
 {% url 'appointments:portal_book' as book_url %}
-{% include "components/page_hero.html" with title="Appointments" icon="bx-calendar-event" subtitle="Manage your upcoming visits, past appointments, and follow-ups" action_url=book_url action_label="Book Appointment" action_icon="bx-calendar-plus" icons_theme="pets" %}
+{% url 'appointments:my_appointment_history' as history_url %}
+{% include "components/page_hero.html" with title="Appointments" icon="bx-calendar-event" subtitle="Manage your upcoming visits, past appointments, and follow-ups" action_url=book_url action_label="Book Appointment" action_icon="bx-calendar-plus" action_url_2=history_url action_label_2="Appointment History" action_icon_2="bx-history" icons_theme="pets" %}
 
 <!-- ══════ TAB BAR (Component) ══════ -->
 {% with tabs='[{"id":"pending","label":"Pending","icon":"bx-time-five","count":"'|add:pending_appts.count|stringformat:"d"|add:'"},{"id":"confirmed","label":"Confirmed","icon":"bx-check-circle","count":"'|add:confirmed_appts.count|stringformat:"d"|add:'"},{"id":"followups","label":"Follow-ups","icon":"bx-revision","count":"'|add:follow_ups.count|stringformat:"d"|add:'"},{"id":"completed","label":"Completed","icon":"bx-check","count":"'|add:completed_appts.count|stringformat:"d"|add:'"},{"id":"cancelled","label":"Cancelled","icon":"bx-x-circle","count":"'|add:cancelled_appts.count|stringformat:"d"|add:'"}]' %}
@@ -133,7 +130,6 @@
                   {% endif %}
                 </div>
               </div>
-              {% include "components/appointment_owner_history.html" with appt=appt %}
               {% if appt.owner_can_cancel %}
               <form method="post" action="{% url 'appointments:portal_cancel' appt.pk %}" class="appt-owner-cancel-form">
                 {% csrf_token %}
@@ -230,7 +226,6 @@
                   {% endif %}
                 </div>
               </div>
-              {% include "components/appointment_owner_history.html" with appt=appt %}
               {% if appt.owner_can_cancel %}
               <form method="post" action="{% url 'appointments:portal_cancel' appt.pk %}" class="appt-owner-cancel-form">
                 {% csrf_token %}
@@ -370,7 +365,6 @@
                   {% endif %}
                 </div>
               </div>
-              {% include "components/appointment_owner_history.html" with appt=appt %}
             </div>
           </div>
         </div>
@@ -471,7 +465,6 @@
                 <i class='bx bx-note'></i> <strong>Vet Notes:</strong> {{ appt.notes }}
               </div>
               {% endif %}
-              {% include "components/appointment_owner_history.html" with appt=appt %}
             </div>
           </div>
         </div>

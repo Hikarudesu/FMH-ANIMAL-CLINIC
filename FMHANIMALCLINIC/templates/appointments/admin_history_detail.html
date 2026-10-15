@@ -1,0 +1,49 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Appointment History Details{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components/appointment_history.css' %}">
+{% url 'appointments:admin_appointment_history' as history_url %}
+{% url 'appointments:admin_detail' history_entry.appointment.pk as appointment_url %}
+{% include "components/page_hero.html" with title="History Details" icon="bx-history" subtitle="Full audit details for this appointment event" action_url=history_url action_label="All History" action_icon="bx-list-ul" action_url_2=appointment_url action_label_2="Manage Appointment" action_icon_2="bx-calendar-event" %}
+
+<main class="appointment-history-page">
+  <a class="appointment-history-back" href="{% url 'appointments:admin_appointment_history' %}"><i class='bx bx-left-arrow-alt'></i> Back to appointment history</a>
+  <div class="appointment-history-detail-grid">
+    <section class="appointment-history-panel">
+      <h1 class="appointment-history-event-title">{{ history_entry.summary }}</h1>
+      <p class="appointment-history-event-meta">
+        {{ history_entry.created_at|date:"l, F j, Y" }} at {{ history_entry.created_at|date:"g:i a" }}
+        · {% if history_entry.actor %}{{ history_entry.actor.get_full_name|default:history_entry.actor.username }}{% else %}System{% endif %}
+      </p>
+      <hr>
+      <h2>Changes in this event</h2>
+      {% if history_entry.changes %}
+      <ul class="appointment-history-changes">
+        {% for change in history_entry.changes %}
+        <li class="appointment-history-change">
+          <span class="appointment-history-change__label">{{ change.field }}</span>
+          <span class="appointment-history-change__value"><small>Previous</small>{{ change.from }}</span>
+          <span class="appointment-history-change__value appointment-history-change__value--new"><small>Updated to</small>{{ change.to }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="appointment-history-detail-empty">This is an older booking entry. Detailed field changes were not available when history tracking was introduced.</p>
+      {% endif %}
+    </section>
+    <aside class="appointment-history-panel">
+      <h2>Appointment</h2>
+      <dl class="appointment-history-appointment-facts">
+        <div><dt>Pet</dt><dd>{{ history_entry.appointment.pet_name }}</dd></div>
+        <div><dt>Owner</dt><dd>{{ history_entry.appointment.owner_name }}</dd></div>
+        <div><dt>Scheduled for</dt><dd>{{ history_entry.appointment.appointment_date|date:"M j, Y" }} · {{ history_entry.appointment.appointment_time_display }}</dd></div>
+        <div><dt>Branch</dt><dd>{{ history_entry.appointment.branch.name|default:"-" }}</dd></div>
+        <div><dt>Current status</dt><dd>{{ history_entry.appointment.get_status_display }}</dd></div>
+      </dl>
+    </aside>
+  </div>
+</main>
+{% endblock %}

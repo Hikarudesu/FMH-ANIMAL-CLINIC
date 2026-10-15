@@ -453,6 +453,11 @@
       {% endif %}
     </div>
     <div class="page-hero-actions">
+      {% if can_view_history %}
+      <a class="page-hero-btn" href="{% url 'appointments:admin_appointment_history' %}">
+        <i class='bx bx-history'></i> Appointment History
+      </a>
+      {% endif %}
       {% if can_create %}
       <button class="page-hero-btn" id="quickCreateBtn">
         <i class='bx bx-plus-circle'></i> Quick Create

@@ -11,6 +11,12 @@ urlpatterns = [
     # Portal booking (login required)
     path('portal/book/', views.portal_book, name='portal_book'),
     path('my/', views.my_appointments, name='my_appointments'),
+    path('my/history/', views.my_appointment_history, name='my_appointment_history'),
+    path(
+        'my/history/<int:pk>/',
+        views.my_appointment_history_detail,
+        name='my_appointment_history_detail',
+    ),
     path('my/<int:pk>/cancel/', views.portal_cancel, name='portal_cancel'),
 
     # AJAX API endpoints
@@ -24,6 +30,16 @@ urlpatterns = [
 
     # Admin management
     path('admin/', views.admin_list, name='admin_list'),
+    path(
+        'admin/history/',
+        views.admin_appointment_history,
+        name='admin_appointment_history',
+    ),
+    path(
+        'admin/history/<int:pk>/',
+        views.admin_appointment_history_detail,
+        name='admin_appointment_history_detail',
+    ),
     path('admin/<int:pk>/', views.admin_detail, name='admin_detail'),
     path('admin/calendar-api/', views.admin_calendar_api,
          name='admin_calendar_api'),

@@ -78,6 +78,29 @@ def _display_value(field_name, value):
     return str(value)
 
 
+def _booking_snapshot(instance):
+    return [
+        {'field': 'Date', 'from': '—', 'to': _display_value(
+            'appointment_date', instance.appointment_date,
+        )},
+        {'field': 'Time', 'from': '—', 'to': _display_value(
+            'appointment_time', instance.appointment_time,
+        )},
+        {'field': 'Branch', 'from': '—', 'to': _display_value(
+            'branch_id', instance.branch_id,
+        )},
+        {'field': 'Veterinarian', 'from': '—', 'to': _display_value(
+            'preferred_vet_id', instance.preferred_vet_id,
+        )},
+        {'field': 'Reason for visit', 'from': '—', 'to': _display_value(
+            'reason_for_visit_id', instance.reason_for_visit_id,
+        )},
+        {'field': 'Status', 'from': '—', 'to': _display_value(
+            'status', instance.status,
+        )},
+    ]
+
+
 def _record_changes(instance, old_values, update_fields):
     changes = []
     owner_visible = False
@@ -146,6 +169,7 @@ def record_appointment_history(sender, instance, created, update_fields, **kwarg
                 instance.status,
                 'Appointment booked',
             ),
+            changes=_booking_snapshot(instance),
             owner_visible=True,
         )
         return

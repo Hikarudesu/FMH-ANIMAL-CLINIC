@@ -1,0 +1,48 @@
+{% extends 'base/portal_user.html' %}
+{% load static %}
+
+{% block title %}Appointment History Details{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components/appointment_history.css' %}">
+{% url 'appointments:my_appointment_history' as history_url %}
+{% include "components/page_hero.html" with title="History Details" icon="bx-history" subtitle="Appointment update details" action_url=history_url action_label="All History" action_icon="bx-list-ul" icons_theme="pets" %}
+
+<main class="appointment-history-page">
+  <a class="appointment-history-back" href="{% url 'appointments:my_appointment_history' %}"><i class='bx bx-left-arrow-alt'></i> Back to appointment history</a>
+  <div class="appointment-history-detail-grid">
+    <section class="appointment-history-panel">
+      <h1 class="appointment-history-event-title">{{ history_entry.summary }}</h1>
+      <p class="appointment-history-event-meta">
+        {{ history_entry.created_at|date:"l, F j, Y" }} at {{ history_entry.created_at|date:"g:i a" }}
+        · {% if history_entry.actor %}Updated by the clinic team{% else %}Updated automatically{% endif %}
+      </p>
+      <hr>
+      <h2>Recorded details</h2>
+      {% if history_entry.visible_changes %}
+      <ul class="appointment-history-changes">
+        {% for change in history_entry.visible_changes %}
+        <li class="appointment-history-change">
+          <span class="appointment-history-change__label">{{ change.field }}</span>
+          <span class="appointment-history-change__value"><small>Previous</small>{{ change.from }}</span>
+          <span class="appointment-history-change__value appointment-history-change__value--new"><small>Updated to</small>{{ change.to }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="appointment-history-detail-empty">This is an older history entry. Detailed field changes were not available when it was recorded.</p>
+      {% endif %}
+    </section>
+    <aside class="appointment-history-panel">
+      <h2>Appointment</h2>
+      <dl class="appointment-history-appointment-facts">
+        <div><dt>Pet</dt><dd>{{ history_entry.appointment.pet_name }}</dd></div>
+        <div><dt>Scheduled for</dt><dd>{{ history_entry.appointment.appointment_date|date:"M j, Y" }} · {{ history_entry.appointment.appointment_time_display }}</dd></div>
+        <div><dt>Branch</dt><dd>{{ history_entry.appointment.branch.name|default:"-" }}</dd></div>
+        <div><dt>Veterinarian</dt><dd>{% if history_entry.appointment.preferred_vet %}{{ history_entry.appointment.preferred_vet.full_name }}{% else %}Not assigned yet{% endif %}</dd></div>
+      </dl>
+      <a class="appointment-history-button" style="margin-top: 18px;" href="{% url 'appointments:my_appointments' %}"><i class='bx bx-calendar-event'></i> Go to appointments</a>
+    </aside>
+  </div>
+</main>
+{% endblock %}
