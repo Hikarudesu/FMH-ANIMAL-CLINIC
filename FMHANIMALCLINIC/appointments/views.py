@@ -51,7 +51,7 @@ def get_available_slots(vet_id=None, target_date=None, branch_id=None, exclude_a
 
 
 # ──────────────────────── PUBLIC BOOKING (no login) ────────────────────────
-def _scope_view_only_appointments(user, appointments):
+def _scope_view_only_appointments(user, appointments, *, include_unassigned=False):
     """Limit pure VIEW roles to appointments assigned to their own staff profile."""
     has_management_permission = any(
         user.has_module_permission('appointments', permission)
@@ -63,6 +63,10 @@ def _scope_view_only_appointments(user, appointments):
     staff = StaffMember.objects.filter(user=user).first()
     if staff is None:
         return appointments.none()
+    if include_unassigned:
+        return appointments.filter(
+            Q(preferred_vet=staff) | Q(preferred_vet__isnull=True)
+        )
     return appointments.filter(preferred_vet=staff)
 
 
@@ -456,7 +460,7 @@ def veterinarian_workflow_action(request, pk, action):
             Appointment.Status.CHECKED_IN,
         ):
             messages.error(request, 'Only confirmed or checked-in appointments can be started.')
-            return redirect('accounts:vet_dashboard')
+            return redirect('appointments:admin_list')
         appointment.status = Appointment.Status.IN_PROGRESS
         appointment.visit_started_at = timezone.now()
         if not appointment.preferred_vet_id:
@@ -464,17 +468,17 @@ def veterinarian_workflow_action(request, pk, action):
     elif action == 'record-required':
         if appointment.status != Appointment.Status.IN_PROGRESS:
             messages.error(request, 'Start this visit before choosing its record requirement.')
-            return redirect('accounts:vet_dashboard')
+            return redirect('appointments:admin_list')
         appointment.medical_record_decision = Appointment.MedicalRecordDecision.REQUIRED
         appointment.medical_record_decision_reason = ''
     elif action == 'no-record':
         if appointment.status != Appointment.Status.IN_PROGRESS:
             messages.error(request, 'Start this visit before choosing its record requirement.')
-            return redirect('accounts:vet_dashboard')
+            return redirect('appointments:admin_list')
         reason = request.POST.get('medical_record_decision_reason', '').strip()
         if len(reason) < 5:
             messages.error(request, 'Explain why no medical record is required (at least five characters).')
-            return redirect('accounts:vet_dashboard')
+            return redirect('appointments:admin_list')
         appointment.medical_record_decision = Appointment.MedicalRecordDecision.NOT_REQUIRED
         appointment.medical_record_decision_reason = reason
         appointment.status = Appointment.Status.AWAITING_PAYMENT
@@ -486,7 +490,7 @@ def veterinarian_workflow_action(request, pk, action):
             or not appointment.record_entries.exists()
         ):
             messages.error(request, 'Save the required medical record before sending this visit to POS.')
-            return redirect('accounts:vet_dashboard')
+            return redirect('appointments:admin_list')
         appointment.status = Appointment.Status.AWAITING_PAYMENT
     else:
         raise PermissionDenied
@@ -503,7 +507,7 @@ def veterinarian_workflow_action(request, pk, action):
         request,
         f'{appointment.pet_name} visit updated to {appointment.get_status_display()}.',
     )
-    return redirect('accounts:vet_dashboard')
+    return redirect('appointments:admin_list')
 
 
 @login_required
@@ -514,15 +518,40 @@ def admin_list(request):
 
     appointments = Appointment.objects.select_related(
         'branch', 'preferred_vet', 'user').all()
-    appointments = _scope_view_only_appointments(request.user, appointments)
+    role_code = getattr(getattr(request.user, 'assigned_role', None), 'code', '')
+    is_veterinarian = role_code in (
+        'veterinarian',
+        'assistant_veterinarian',
+    )
+    appointments = _scope_view_only_appointments(
+        request.user,
+        appointments,
+        include_unassigned=is_veterinarian,
+    )
 
     # Check if user is branch-restricted for appointments
-    is_branch_restricted = request.user.is_module_branch_restricted('appointments')
+    is_branch_restricted = (
+        request.user.is_module_branch_restricted('appointments')
+        or is_veterinarian
+    )
     user_branch = request.user.branch
     
     # If branch restricted, filter appointments to user's branch only
     if is_branch_restricted and user_branch:
         appointments = appointments.filter(branch=user_branch)
+    if is_veterinarian:
+        try:
+            staff_profile = request.user.staff_profile
+        except StaffMember.DoesNotExist:
+            appointments = appointments.none()
+        else:
+            if not user_branch:
+                appointments = appointments.none()
+            else:
+                appointments = appointments.filter(
+                    Q(preferred_vet=staff_profile)
+                    | Q(preferred_vet__isnull=True)
+                )
 
     # Search
     q = request.GET.get('q', '').strip()
@@ -598,6 +627,14 @@ def admin_list(request):
     )
     for appointment in page_appointments:
         appointment.medical_record_added = appointment.pk in record_appointment_ids
+        appointment.can_vet_workflow = (
+            is_veterinarian
+            and appointment.status in (
+                Appointment.Status.CONFIRMED,
+                Appointment.Status.CHECKED_IN,
+                Appointment.Status.IN_PROGRESS,
+            )
+        )
 
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('appointments', 'CREATE')
@@ -627,6 +664,7 @@ def admin_list(request):
         'can_edit': can_edit,
         'can_delete': can_delete,
         'can_create_medical_record': can_create_medical_record,
+        'is_veterinarian': is_veterinarian,
     })
 
 
@@ -651,15 +689,40 @@ def admin_calendar_api(request):
         appointment_date__gte=start,
         appointment_date__lte=end,
     ).select_related('branch', 'preferred_vet', 'pet', 'user').exclude(status='CANCELLED')
-    appointments = _scope_view_only_appointments(request.user, appointments)
+    role_code = getattr(getattr(request.user, 'assigned_role', None), 'code', '')
+    is_veterinarian = role_code in (
+        'veterinarian',
+        'assistant_veterinarian',
+    )
+    appointments = _scope_view_only_appointments(
+        request.user,
+        appointments,
+        include_unassigned=is_veterinarian,
+    )
 
     # Check if user is branch-restricted for appointments
-    is_branch_restricted = request.user.is_module_branch_restricted('appointments')
+    is_branch_restricted = (
+        request.user.is_module_branch_restricted('appointments')
+        or is_veterinarian
+    )
     user_branch = request.user.branch
     
     # If branch restricted, filter appointments to user's branch only
     if is_branch_restricted and user_branch:
         appointments = appointments.filter(branch=user_branch)
+    if is_veterinarian:
+        try:
+            staff_profile = request.user.staff_profile
+        except StaffMember.DoesNotExist:
+            appointments = appointments.none()
+        else:
+            if not user_branch:
+                appointments = appointments.none()
+            else:
+                appointments = appointments.filter(
+                    Q(preferred_vet=staff_profile)
+                    | Q(preferred_vet__isnull=True)
+                )
 
     # Apply filters (branch filter only if NOT restricted)
     branch_id = request.GET.get('branch')

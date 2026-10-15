@@ -565,7 +565,7 @@
         <th style="text-align: center;">Date & Time</th>
         <th style="text-align: center;">Source</th>
         <th style="text-align: center;">Status</th>
-        {% if can_edit or can_delete %}
+        {% if can_edit or can_delete or is_veterinarian %}
         <th style="text-align: center;">Actions</th>
         {% endif %}
       </tr>
@@ -633,10 +633,15 @@
             {% endif %}
           </div>
         </td>
-        {% if can_edit or can_delete %}
+        {% if can_edit or can_delete or is_veterinarian %}
         <td style="text-align: center;">
           <div class="actions-cell">
-            {% if can_edit %}
+            {% if is_veterinarian %}
+            <button type="button" class="action-btn open-appointment-details" title="Open appointment and visit actions">
+              <i class='bx bx-first-aid'></i>
+            </button>
+            {% endif %}
+            {% if can_edit and not is_veterinarian %}
             <a href="{% url 'appointments:admin_edit' appt.pk %}" class="action-btn" title="Edit"><i class='bx bx-edit-alt'></i></a>
             {% if appt.status == 'PENDING' %}
             <form method="post" action="{% url 'appointments:admin_workflow_action' appt.pk 'confirm' %}">
@@ -664,7 +669,7 @@
             </form>
             {% endif %}
             {% endif %}
-            {% if can_delete %}
+            {% if can_delete and not is_veterinarian %}
             <button type="button" class="action-btn danger" title="Delete" onclick="openDeleteModal('{% url 'appointments:admin_delete' appt.pk %}', '{{ appt.pet_name|escapejs }}')"><i class='bx bx-trash'></i></button>
             {% endif %}
           </div>
@@ -673,7 +678,7 @@
       </tr>
       <!-- Expandable Details Row -->
       <tr class="accordion-details" id="details-{{ appt.pk }}" style="display: none;">
-        <td colspan="{% if can_edit or can_delete %}7{% else %}6{% endif %}" style="padding: 0; background: var(--bg);">
+        <td colspan="{% if can_edit or can_delete or is_veterinarian %}7{% else %}6{% endif %}" style="padding: 0; background: var(--bg);">
           <div style="padding: 16px 24px 0;">
             {% include "components/appointment_workflow_progress.html" with appt=appt %}
           </div>
@@ -734,7 +739,43 @@
               {% endif %}
             </div>
           </div>
-          {% if can_edit %}
+          {% if appt.can_vet_workflow %}
+          <div style="margin: 0 24px 20px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface);">
+            <h4 style="margin: 0 0 12px; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+              <i class='bx bx-first-aid'></i> Veterinary visit actions
+            </h4>
+            {% if appt.status == 'CONFIRMED' or appt.status == 'CHECKED_IN' %}
+            <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'start' %}">
+              {% csrf_token %}
+              <button type="submit" class="section-link">Start visit{% if appt.status == 'CONFIRMED' %} (check-in optional){% endif %} <i class='bx bx-right-arrow-alt'></i></button>
+            </form>
+            {% elif appt.medical_record_decision == 'UNDECIDED' %}
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+              <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'record-required' %}">
+                {% csrf_token %}
+                <button type="submit" class="section-link">Medical record required</button>
+              </form>
+              <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'no-record' %}" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                {% csrf_token %}
+                <input name="medical_record_decision_reason" minlength="5" required placeholder="Reason no record is needed" aria-label="Reason no record is needed">
+                <button type="submit" class="section-link">No record needed</button>
+              </form>
+            </div>
+            {% elif appt.medical_record_decision == 'REQUIRED' and not appt.medical_record_added and appt.pet_id %}
+              {% if can_create_medical_record %}
+              <a class="section-link" href="{% url 'records:admin_create' %}?pet={{ appt.pet_id }}&vet={{ appt.preferred_vet_id }}&appointment={{ appt.pk }}">Create medical record <i class='bx bx-right-arrow-alt'></i></a>
+              {% else %}
+              <p style="margin: 0; color: var(--text-2);">A medical record is required. Ask a user with Medical Records create permission to add it.</p>
+              {% endif %}
+            {% elif appt.medical_record_decision == 'REQUIRED' and appt.medical_record_added %}
+            <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'send-to-payment' %}">
+              {% csrf_token %}
+              <button type="submit" class="section-link">Send to POS <i class='bx bx-credit-card'></i></button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if can_edit and not is_veterinarian %}
           <div style="padding: 0 24px 16px; text-align: right;">
             <a href="{% url 'appointments:admin_edit' appt.pk %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--primary); color: #fff; font-size: 0.82rem; font-weight: 500; border-radius: 8px; text-decoration: none; transition: all 0.2s ease;">
               <i class='bx bx-edit-alt'></i> View / Edit Full Details
@@ -756,12 +797,21 @@ document.querySelectorAll('.accordion-row').forEach(row => {
   row.style.cursor = 'pointer';
   row.addEventListener('click', function(e) {
     if (e.target.closest('.actions-cell')) return;
-    const id = this.dataset.id;
-    const details = document.getElementById('details-' + id);
-    document.querySelectorAll('.accordion-details').forEach(d => {
-      if (d !== details) d.style.display = 'none';
-    });
-    details.style.display = details.style.display === 'none' ? 'table-row' : 'none';
+    toggleAppointmentDetails(this);
+  });
+});
+
+function toggleAppointmentDetails(row) {
+  const details = document.getElementById('details-' + row.dataset.id);
+  document.querySelectorAll('.accordion-details').forEach(item => {
+    if (item !== details) item.style.display = 'none';
+  });
+  details.style.display = details.style.display === 'none' ? 'table-row' : 'none';
+}
+
+document.querySelectorAll('.open-appointment-details').forEach(button => {
+  button.addEventListener('click', function() {
+    toggleAppointmentDetails(this.closest('.accordion-row'));
   });
 });
 </script>
