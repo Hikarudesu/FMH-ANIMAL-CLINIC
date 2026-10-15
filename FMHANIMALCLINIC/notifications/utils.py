@@ -490,6 +490,12 @@ def notify_appointment_status_change(appointment, status, actor=None, actor_labe
             f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
             f"{appointment.appointment_time.strftime('%I:%M %p')} was cancelled by {actor_label}."
         )
+        if appointment.cancellation_reason:
+            message += f' Reason: {appointment.cancellation_reason}'
+    elif status in ('CHECKED_IN', 'IN_PROGRESS', 'AWAITING_PAYMENT'):
+        status_label = appointment.get_status_display().lower()
+        title = f'Appointment Update for {appointment.pet_name}'
+        message = f'Your appointment for {appointment.pet_name} is now {status_label}.'
     else:
         return
 
@@ -540,6 +546,14 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
             f'Appointment for {appointment.pet_name} scheduled on '
             f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
             f"{appointment.appointment_time.strftime('%I:%M %p')} was cancelled by {actor_label}."
+        )
+        if appointment.cancellation_reason:
+            message += f' Reason: {appointment.cancellation_reason}'
+    elif status in ('CHECKED_IN', 'IN_PROGRESS', 'AWAITING_PAYMENT'):
+        title = f'Appointment Update: {appointment.pet_name}'
+        message = (
+            f'Appointment for {appointment.pet_name} is now '
+            f'{appointment.get_status_display().lower()}.'
         )
     else:
         return

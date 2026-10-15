@@ -988,8 +988,16 @@
       </div>
     </div>
 
+    {% if appointment %}
+    <div class="pos-customer-section" style="background:var(--primary-light); padding:12px; border-radius:12px;">
+      <strong><i class='bx bx-calendar-check'></i> Appointment payment</strong>
+      <div>{{ appointment.pet_name }} · {{ appointment.owner_name }}</div>
+      <small>Customer and pet details are locked to this appointment.</small>
+    </div>
+    {% endif %}
+
     <!-- Customer Section -->
-    <div class="pos-customer-section">
+    <div class="pos-customer-section" {% if appointment %}style="display:none"{% endif %}>
       <div class="pos-customer-toggle">
         <button class="pos-customer-btn active" onclick="setCustomerType('WALKIN')">Walk-in</button>
         <button class="pos-customer-btn" onclick="setCustomerType('REGISTERED')">Registered</button>

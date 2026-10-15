@@ -17,8 +17,16 @@ class Appointment(models.Model):
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
         CONFIRMED = 'CONFIRMED', 'Confirmed'
+        CHECKED_IN = 'CHECKED_IN', 'Checked In'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        AWAITING_PAYMENT = 'AWAITING_PAYMENT', 'Awaiting Payment'
         CANCELLED = 'CANCELLED', 'Cancelled'
         COMPLETED = 'COMPLETED', 'Completed'
+
+    class MedicalRecordDecision(models.TextChoices):
+        UNDECIDED = 'UNDECIDED', 'Decision Pending'
+        REQUIRED = 'REQUIRED', 'Medical Record Required'
+        NOT_REQUIRED = 'NOT_REQUIRED', 'No Medical Record Required'
 
     # Owner info
     owner_name = models.CharField(max_length=200)
@@ -80,10 +88,17 @@ class Appointment(models.Model):
         default=Source.WALKIN,
     )
     status = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=Status.choices,
         default=Status.PENDING,
     )
+    cancellation_reason = models.TextField(blank=True)
+    medical_record_decision = models.CharField(
+        max_length=20,
+        choices=MedicalRecordDecision.choices,
+        default=MedicalRecordDecision.UNDECIDED,
+    )
+    medical_record_decision_reason = models.TextField(blank=True)
     is_returning_customer = models.BooleanField(default=False)
 
     # Link to user account (set when logged-in user books)
@@ -109,6 +124,8 @@ class Appointment(models.Model):
 
     reminder_1_sent_at = models.DateTimeField(null=True, blank=True)
     reminder_2_sent_at = models.DateTimeField(null=True, blank=True)
+    checked_in_at = models.DateTimeField(null=True, blank=True)
+    visit_started_at = models.DateTimeField(null=True, blank=True)
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -278,11 +295,22 @@ class Appointment(models.Model):
             updated = cls.objects.filter(
                 pk=appointment.pk,
                 status=cls.Status.PENDING,
-            ).update(status=cls.Status.CANCELLED, updated_at=now)
+            ).update(
+                status=cls.Status.CANCELLED,
+                cancellation_reason=(
+                    'Automatically cancelled because the appointment was not '
+                    'confirmed within 24 hours after its scheduled time.'
+                ),
+                updated_at=now,
+            )
             if not updated:
                 continue
 
             appointment.status = cls.Status.CANCELLED
+            appointment.cancellation_reason = (
+                'Automatically cancelled because the appointment was not '
+                'confirmed within 24 hours after its scheduled time.'
+            )
             from notifications.utils import notify_appointment_status_change
             notify_appointment_status_change(
                 appointment,

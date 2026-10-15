@@ -342,10 +342,152 @@ class AppointmentCompletionDateValidationTests(TestCase):
 
     @patch('appointments.forms._check_double_booking')
     @patch('appointments.forms.timezone.localdate')
-    def test_appointment_can_be_marked_completed_on_scheduled_date(
+    def test_status_cannot_be_changed_through_generic_edit_form(
         self, mocked_localdate, _mocked_double_booking,
     ):
         mocked_localdate.return_value = date(2026, 10, 14)
         form = self.completion_form(date(2026, 10, 14))
 
-        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            'Use the appointment workflow actions to change appointment status.',
+            form.errors['status'],
+        )
+
+
+class AppointmentWorkflowActionTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Workflow Test Branch')
+        self.role = Role.objects.create(
+            name='Workflow Receptionist',
+            code='workflow-receptionist-test',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        module, _ = Module.objects.get_or_create(
+            code='appointments',
+            defaults={'name': 'Appointments'},
+        )
+        ModulePermission.objects.create(
+            role=self.role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.EDIT,
+        )
+        self.user = User.objects.create_user(
+            username='workflow-receptionist',
+            email='workflow-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=self.role,
+            branch=self.branch,
+        )
+        self.appointment = Appointment.objects.create(
+            owner_name='Workflow Owner',
+            pet_name='Workflow Pet',
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(10),
+        )
+        self.client.force_login(self.user)
+
+    def test_cancellation_requires_and_saves_reason(self):
+        url = reverse(
+            'appointments:admin_workflow_action',
+            args=[self.appointment.pk, 'cancel'],
+        )
+
+        response = self.client.post(url, {'cancellation_reason': '  '})
+        self.assertEqual(response.status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.PENDING)
+
+        response = self.client.post(
+            url, {'cancellation_reason': 'Owner requested cancellation.'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CANCELLED)
+        self.assertEqual(
+            self.appointment.cancellation_reason,
+            'Owner requested cancellation.',
+        )
+
+    def test_receptionist_confirms_then_checks_in(self):
+        confirm_url = reverse(
+            'appointments:admin_workflow_action',
+            args=[self.appointment.pk, 'confirm'],
+        )
+        check_in_url = reverse(
+            'appointments:admin_workflow_action',
+            args=[self.appointment.pk, 'check-in'],
+        )
+
+        self.assertEqual(self.client.post(confirm_url).status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CONFIRMED)
+
+        self.assertEqual(self.client.post(check_in_url).status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.CHECKED_IN)
+        self.assertIsNotNone(self.appointment.checked_in_at)
+
+    def test_veterinarian_must_explain_no_record_decision(self):
+        vet_role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        module = Module.objects.get(code='appointments')
+        ModulePermission.objects.get_or_create(
+            role=vet_role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        vet_user = User.objects.create_user(
+            username='workflow-vet',
+            email='workflow-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=vet_role,
+            branch=self.branch,
+        )
+        vet = StaffMember.objects.create(
+            user=vet_user,
+            first_name='Workflow',
+            last_name='Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        self.appointment.status = Appointment.Status.CHECKED_IN
+        self.appointment.preferred_vet = vet
+        self.appointment.checked_in_at = timezone.now()
+        self.appointment.save()
+        self.client.force_login(vet_user)
+
+        start_url = reverse(
+            'appointments:vet_workflow_action',
+            args=[self.appointment.pk, 'start'],
+        )
+        no_record_url = reverse(
+            'appointments:vet_workflow_action',
+            args=[self.appointment.pk, 'no-record'],
+        )
+        self.assertEqual(self.client.post(start_url).status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
+
+        self.client.post(no_record_url, {'medical_record_decision_reason': '  '})
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
+
+        self.client.post(
+            no_record_url,
+            {'medical_record_decision_reason': 'Routine check, no treatment required.'},
+        )
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.AWAITING_PAYMENT)
+        self.assertEqual(
+            self.appointment.medical_record_decision,
+            Appointment.MedicalRecordDecision.NOT_REQUIRED,
+        )

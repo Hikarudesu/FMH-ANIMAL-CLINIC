@@ -617,6 +617,16 @@
                 </span>
               {% endif %}
             {% endif %}
+            {% if appt.status == 'IN_PROGRESS' and appt.medical_record_decision == 'REQUIRED' %}
+              {% if appt.medical_record_added %}
+                <span class="admin-badge" style="background:#ecfdf5;color:#047857;"><i class='bx bx-check-circle'></i> Record saved</span>
+              {% elif can_create_medical_record and appt.pet_id %}
+                <a href="{% url 'records:admin_create' %}?pet={{ appt.pet_id }}&appointment={{ appt.pk }}" class="admin-badge" style="background:#fff7ed;color:#c2410c;text-decoration:none;"><i class='bx bx-file-plus'></i> Record required</a>
+              {% endif %}
+            {% endif %}
+            {% if appt.status == 'AWAITING_PAYMENT' %}
+              <span class="admin-badge" style="background:#eff6ff;color:#1d4ed8;"><i class='bx bx-credit-card'></i> Payment required</span>
+            {% endif %}
           </div>
         </td>
         {% if can_edit or can_delete %}
@@ -624,6 +634,29 @@
           <div class="actions-cell">
             {% if can_edit %}
             <a href="{% url 'appointments:admin_edit' appt.pk %}" class="action-btn" title="Edit"><i class='bx bx-edit-alt'></i></a>
+            {% if appt.status == 'PENDING' %}
+            <form method="post" action="{% url 'appointments:admin_workflow_action' appt.pk 'confirm' %}">
+              {% csrf_token %}<button class="action-btn" title="Confirm appointment"><i class='bx bx-check'></i></button>
+            </form>
+            {% endif %}
+            {% if appt.status == 'CONFIRMED' %}
+            <form method="post" action="{% url 'appointments:admin_workflow_action' appt.pk 'check-in' %}">
+              {% csrf_token %}<button class="action-btn" title="Check in"><i class='bx bx-log-in-circle'></i></button>
+            </form>
+            {% endif %}
+            {% if appt.status == 'AWAITING_PAYMENT' %}
+            <a href="{% url 'pos:checkout' %}?appointment={{ appt.pk }}" class="action-btn" title="Open linked POS checkout"><i class='bx bx-credit-card'></i></a>
+            <form method="post" action="{% url 'appointments:admin_workflow_action' appt.pk 'complete' %}">
+              {% csrf_token %}<button class="action-btn" title="Complete after payment"><i class='bx bx-check-double'></i></button>
+            </form>
+            {% endif %}
+            {% if appt.status == 'PENDING' or appt.status == 'CONFIRMED' or appt.status == 'CHECKED_IN' %}
+            <form method="post" action="{% url 'appointments:admin_workflow_action' appt.pk 'cancel' %}" class="appointment-cancel-action">
+              {% csrf_token %}
+              <input type="text" name="cancellation_reason" minlength="5" maxlength="2000" required placeholder="Cancellation reason" aria-label="Cancellation reason">
+              <button class="action-btn danger" title="Cancel appointment"><i class='bx bx-x'></i></button>
+            </form>
+            {% endif %}
             {% endif %}
             {% if can_delete %}
             <button type="button" class="action-btn danger" title="Delete" onclick="openDeleteModal('{% url 'appointments:admin_delete' appt.pk %}', '{{ appt.pet_name|escapejs }}')"><i class='bx bx-trash'></i></button>
@@ -671,6 +704,12 @@
                 </a>
                 {% endif %}
               </div>
+              {% endif %}
+              {% if appt.cancellation_reason %}
+              <p style="margin-top: 12px;"><strong>Cancellation reason:</strong> {{ appt.cancellation_reason }}</p>
+              {% endif %}
+              {% if appt.medical_record_decision_reason %}
+              <p style="margin-top: 12px;"><strong>Medical-record decision:</strong> {{ appt.medical_record_decision_reason }}</p>
               {% endif %}
               {% if appt.pet_symptoms %}
               <div style="margin-top: 12px; background: var(--surface); padding: 12px; border-radius: 8px; border-left: 3px solid var(--accent);">

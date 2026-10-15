@@ -649,8 +649,7 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
             self.fields['status'].choices = [
                 (Appointment.Status.CONFIRMED, 'Confirmed'),
                 (Appointment.Status.PENDING, 'Pending'),
-                (Appointment.Status.CANCELLED, 'Cancelled'),
-                (Appointment.Status.COMPLETED, 'Completed'),
+                (Appointment.Status.CHECKED_IN, 'Checked In — Walk-in arrived'),
             ]
         
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
@@ -818,6 +817,11 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                 pass
 
         if commit:
+            if (
+                instance.status == Appointment.Status.CHECKED_IN
+                and not instance.checked_in_at
+            ):
+                instance.checked_in_at = timezone.now()
             instance.save()
             # Auto-create / link a Patient record for any unlinked pet info
             from .utils import sync_pet_from_appointment
@@ -925,8 +929,14 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
         cleaned_data = super().clean()
 
         appointment_date = cleaned_data.get('appointment_date')
+        requested_status = self.data.get('status')
+        if requested_status and requested_status != self.instance.status:
+            self.add_error(
+                'status',
+                'Use the appointment workflow actions to change appointment status.',
+            )
         if (
-            cleaned_data.get('status') == Appointment.Status.COMPLETED
+            requested_status == Appointment.Status.COMPLETED
             and appointment_date
             and appointment_date > timezone.localdate()
         ):
@@ -951,6 +961,7 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        self.fields['status'].disabled = True
         # Set minimum date to today to prevent past date selection
         today = timezone.localdate().isoformat()
         self.fields['appointment_date'].widget.attrs['min'] = today
@@ -1061,3 +1072,17 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class AppointmentCancellationForm(forms.Form):
+    """Require an auditable reason when staff cancel an appointment."""
+
+    cancellation_reason = forms.CharField(
+        label='Reason for cancellation',
+        min_length=5,
+        max_length=2000,
+        widget=forms.Textarea(attrs={
+            'rows': 3,
+            'placeholder': 'Explain why this appointment is being cancelled.',
+        }),
+    )

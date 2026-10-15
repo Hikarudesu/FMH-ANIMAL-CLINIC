@@ -69,6 +69,52 @@
   </div>
 </div>
 
+{% if active_visit_appointments %}
+<section class="chart-card-modern" style="margin-bottom: 24px; padding: 20px;">
+  <div class="chart-header">
+    <div class="chart-title"><i class='bx bx-first-aid'></i><span>Active Visits</span></div>
+    <div class="chart-badge teal">{{ active_visit_appointments|length }} needing attention</div>
+  </div>
+  <div class="schedule-table-wrapper">
+    <table class="schedule-table">
+      <thead><tr><th>Patient / Owner</th><th>Visit</th><th>Workflow action</th></tr></thead>
+      <tbody>
+        {% for appt in active_visit_appointments %}
+        <tr>
+          <td><strong>{{ appt.pet_name }}</strong><br><small>{{ appt.owner_name }}</small></td>
+          <td>{{ appt.appointment_date|date:"M d, Y" }} · {{ appt.appointment_time_display }}<br><small>{{ appt.get_status_display }}</small></td>
+          <td>
+            {% if appt.status == 'CHECKED_IN' %}
+            <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'start' %}">
+              {% csrf_token %}<button class="section-link" type="submit">Start visit <i class='bx bx-right-arrow-alt'></i></button>
+            </form>
+            {% elif appt.medical_record_decision == 'UNDECIDED' %}
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'record-required' %}">
+                {% csrf_token %}<button class="section-link" type="submit">Medical record required</button>
+              </form>
+              <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'no-record' %}" style="display:flex; gap:6px; align-items:center;">
+                {% csrf_token %}
+                <input name="medical_record_decision_reason" minlength="5" required placeholder="Reason no record is needed" aria-label="Reason no record is needed" style="max-width:220px;">
+                <button class="section-link" type="submit">No record needed</button>
+              </form>
+            </div>
+            {% elif appt.medical_record_decision == 'REQUIRED' and not appt.has_appointment_record and appt.pet_id %}
+            <a class="section-link" href="{% url 'records:admin_create' %}?pet={{ appt.pet_id }}&vet={{ appt.preferred_vet_id }}&appointment={{ appt.pk }}">Create medical record <i class='bx bx-right-arrow-alt'></i></a>
+            {% elif appt.medical_record_decision == 'REQUIRED' and appt.has_appointment_record %}
+            <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'send-to-payment' %}">
+              {% csrf_token %}<button class="section-link" type="submit">Send to POS <i class='bx bx-credit-card'></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
 <!-- ALERT BANNER (Follow-ups) -->
 {% if follow_up_count > 0 %}
 <div class="alert-banner-modern">

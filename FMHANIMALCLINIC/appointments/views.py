@@ -5,10 +5,12 @@ import calendar as cal_mod
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Q
+from django.utils import timezone
 
 from accounts.models import User
 from accounts.decorators import module_permission_required
@@ -17,7 +19,10 @@ from employees.models import StaffMember, VetSchedule
 from notifications.models import FollowUp
 from patients.models import Pet
 from .models import Appointment
-from .forms import PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm, AppointmentEditForm
+from .forms import (
+    PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm,
+    AppointmentEditForm, AppointmentCancellationForm,
+)
 from .services import AppointmentService
 from notifications.email_utils import send_appointment_confirmation
 from notifications.utils import (
@@ -155,7 +160,12 @@ def my_appointments(request):
 
     # Categorized queries
     pending_appts = base_appts.filter(status=Appointment.Status.PENDING)
-    confirmed_appts = base_appts.filter(status=Appointment.Status.CONFIRMED)
+    confirmed_appts = base_appts.filter(status__in=[
+        Appointment.Status.CONFIRMED,
+        Appointment.Status.CHECKED_IN,
+        Appointment.Status.IN_PROGRESS,
+        Appointment.Status.AWAITING_PAYMENT,
+    ])
     completed_appts = base_appts.filter(status=Appointment.Status.COMPLETED)
     cancelled_appts = base_appts.filter(status=Appointment.Status.CANCELLED)
 
@@ -329,6 +339,170 @@ def api_available_dates(request):
 
 # ──────────────────────── ADMIN — APPOINTMENT MANAGEMENT ────────────────────────
 
+def _workflow_appointment_for_staff(request, pk, *, veterinarian=False):
+    """Return an appointment inside the caller's permitted branch and role scope."""
+    appointment = get_object_or_404(
+        Appointment.objects.select_related('branch', 'preferred_vet', 'sale'),
+        pk=pk,
+    )
+    role_code = getattr(getattr(request.user, 'assigned_role', None), 'code', '')
+    if veterinarian:
+        if role_code not in ('veterinarian', 'assistant_veterinarian'):
+            raise PermissionDenied
+        if not request.user.has_module_permission('appointments', 'VIEW'):
+            raise PermissionDenied
+        try:
+            staff_profile = request.user.staff_profile
+        except StaffMember.DoesNotExist:
+            raise PermissionDenied
+        if (
+            not request.user.branch_id
+            or appointment.branch_id != request.user.branch_id
+            or (
+                appointment.preferred_vet_id
+                and appointment.preferred_vet_id != staff_profile.pk
+            )
+        ):
+            raise PermissionDenied
+    else:
+        if not request.user.has_module_permission('appointments', 'EDIT'):
+            raise PermissionDenied
+        if (
+            request.user.is_module_branch_restricted('appointments')
+            and appointment.branch_id != request.user.branch_id
+        ):
+            raise PermissionDenied
+    return appointment
+
+
+@login_required
+@require_POST
+def admin_workflow_action(request, pk, action):
+    """Apply receptionist-only appointment lifecycle transitions."""
+    appointment = _workflow_appointment_for_staff(request, pk)
+    original_status = appointment.status
+
+    if action == 'confirm':
+        if original_status != Appointment.Status.PENDING:
+            messages.error(request, 'Only pending appointments can be confirmed.')
+            return redirect('appointments:admin_list')
+        appointment.status = Appointment.Status.CONFIRMED
+    elif action == 'check-in':
+        if original_status != Appointment.Status.CONFIRMED:
+            messages.error(request, 'Only confirmed appointments can be checked in.')
+            return redirect('appointments:admin_list')
+        appointment.status = Appointment.Status.CHECKED_IN
+        appointment.checked_in_at = timezone.now()
+    elif action == 'cancel':
+        if original_status not in (
+            Appointment.Status.PENDING,
+            Appointment.Status.CONFIRMED,
+            Appointment.Status.CHECKED_IN,
+        ):
+            messages.error(request, 'This appointment can no longer be cancelled.')
+            return redirect('appointments:admin_list')
+        form = AppointmentCancellationForm(request.POST)
+        if not form.is_valid():
+            messages.error(
+                request,
+                'Enter a cancellation reason with at least five characters.',
+            )
+            return redirect('appointments:admin_list')
+        appointment.status = Appointment.Status.CANCELLED
+        appointment.cancellation_reason = form.cleaned_data['cancellation_reason']
+    elif action == 'complete':
+        if original_status != Appointment.Status.AWAITING_PAYMENT:
+            messages.error(request, 'The veterinarian must hand off this visit first.')
+            return redirect('appointments:admin_list')
+        if not appointment.sale_id or appointment.sale.status != 'COMPLETED':
+            messages.error(request, 'Complete the linked POS payment before closing this visit.')
+            return redirect('appointments:admin_list')
+        if appointment.medical_record_decision == Appointment.MedicalRecordDecision.UNDECIDED:
+            messages.error(request, 'The veterinarian must resolve the medical-record decision.')
+            return redirect('appointments:admin_list')
+        if (
+            appointment.medical_record_decision == Appointment.MedicalRecordDecision.REQUIRED
+            and not appointment.record_entries.exists()
+        ):
+            messages.error(request, 'Save the required medical record before completing this visit.')
+            return redirect('appointments:admin_list')
+        appointment.status = Appointment.Status.COMPLETED
+    else:
+        raise PermissionDenied
+
+    appointment.save()
+    if appointment.user:
+        notify_appointment_status_change(
+            appointment, appointment.status, actor=request.user,
+        )
+    notify_staff_appointment_status_change(
+        appointment, appointment.status, actor=request.user,
+    )
+    messages.success(
+        request,
+        f'{appointment.pet_name} appointment updated to {appointment.get_status_display()}.',
+    )
+    return redirect('appointments:admin_list')
+
+
+@login_required
+@require_POST
+def veterinarian_workflow_action(request, pk, action):
+    """Apply veterinarian-only visit and medical-record decision transitions."""
+    appointment = _workflow_appointment_for_staff(request, pk, veterinarian=True)
+    if action == 'start':
+        if appointment.status != Appointment.Status.CHECKED_IN:
+            messages.error(request, 'Only checked-in appointments can be started.')
+            return redirect('accounts:vet_dashboard')
+        appointment.status = Appointment.Status.IN_PROGRESS
+        appointment.visit_started_at = timezone.now()
+        if not appointment.preferred_vet_id:
+            appointment.preferred_vet = request.user.staff_profile
+    elif action == 'record-required':
+        if appointment.status != Appointment.Status.IN_PROGRESS:
+            messages.error(request, 'Start this visit before choosing its record requirement.')
+            return redirect('accounts:vet_dashboard')
+        appointment.medical_record_decision = Appointment.MedicalRecordDecision.REQUIRED
+        appointment.medical_record_decision_reason = ''
+    elif action == 'no-record':
+        if appointment.status != Appointment.Status.IN_PROGRESS:
+            messages.error(request, 'Start this visit before choosing its record requirement.')
+            return redirect('accounts:vet_dashboard')
+        reason = request.POST.get('medical_record_decision_reason', '').strip()
+        if len(reason) < 5:
+            messages.error(request, 'Explain why no medical record is required (at least five characters).')
+            return redirect('accounts:vet_dashboard')
+        appointment.medical_record_decision = Appointment.MedicalRecordDecision.NOT_REQUIRED
+        appointment.medical_record_decision_reason = reason
+        appointment.status = Appointment.Status.AWAITING_PAYMENT
+    elif action == 'send-to-payment':
+        if (
+            appointment.status != Appointment.Status.IN_PROGRESS
+            or appointment.medical_record_decision
+            != Appointment.MedicalRecordDecision.REQUIRED
+            or not appointment.record_entries.exists()
+        ):
+            messages.error(request, 'Save the required medical record before sending this visit to POS.')
+            return redirect('accounts:vet_dashboard')
+        appointment.status = Appointment.Status.AWAITING_PAYMENT
+    else:
+        raise PermissionDenied
+
+    appointment.save()
+    if appointment.user:
+        notify_appointment_status_change(
+            appointment, appointment.status, actor=request.user,
+        )
+    notify_staff_appointment_status_change(
+        appointment, appointment.status, actor=request.user,
+    )
+    messages.success(
+        request,
+        f'{appointment.pet_name} visit updated to {appointment.get_status_display()}.',
+    )
+    return redirect('accounts:vet_dashboard')
+
+
 @login_required
 @module_permission_required('appointments', 'VIEW')
 def admin_list(request):
@@ -404,23 +578,23 @@ def admin_list(request):
     paginator = Paginator(appointments, 10)
     page_obj = paginator.get_page(page_number)
 
-    # A completed appointment remains actionable until a matching visit entry
-    # is saved for its pet, date, and assigned veterinarian.
+    # Preserve the medical-record indicators for both active and legacy visits.
     from records.models import RecordEntry
-    completed_page_appointments = list(page_obj.object_list)
+    page_appointments = list(page_obj.object_list)
     record_appointment_ids = set(
         RecordEntry.objects.filter(
             appointment_id__in=[
-                appointment.pk for appointment in completed_page_appointments
-                if appointment.status == Appointment.Status.COMPLETED
+                appointment.pk for appointment in page_appointments
+                if appointment.status in (
+                    Appointment.Status.IN_PROGRESS,
+                    Appointment.Status.AWAITING_PAYMENT,
+                    Appointment.Status.COMPLETED,
+                )
             ],
         ).values_list('appointment_id', flat=True)
     )
-    for appointment in completed_page_appointments:
-        appointment.medical_record_added = (
-            appointment.status == Appointment.Status.COMPLETED
-            and appointment.pk in record_appointment_ids
-        )
+    for appointment in page_appointments:
+        appointment.medical_record_added = appointment.pk in record_appointment_ids
 
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('appointments', 'CREATE')
@@ -734,6 +908,17 @@ def admin_edit(request, pk):
 def admin_delete(request, pk):
     """Admin view: delete an appointment."""
     appointment = get_object_or_404(Appointment, pk=pk)
+    if appointment.status in (
+        Appointment.Status.CHECKED_IN,
+        Appointment.Status.IN_PROGRESS,
+        Appointment.Status.AWAITING_PAYMENT,
+        Appointment.Status.COMPLETED,
+    ):
+        messages.error(
+            request,
+            'Appointments with an active or completed visit cannot be deleted.',
+        )
+        return redirect('appointments:admin_list')
     name = appointment.pet_name
     appointment.delete()
     messages.success(request, f'Appointment for {name} has been deleted.')

@@ -829,6 +829,9 @@ def admin_dashboard_view(request):
     appointment_status_breakdown = [
         {'status': 'Pending', 'count': Appointment.objects.filter(status='PENDING', pet__isnull=False).count()},
         {'status': 'Confirmed', 'count': Appointment.objects.filter(status='CONFIRMED', pet__isnull=False).count()},
+        {'status': 'Checked In', 'count': Appointment.objects.filter(status='CHECKED_IN', pet__isnull=False).count()},
+        {'status': 'In Progress', 'count': Appointment.objects.filter(status='IN_PROGRESS', pet__isnull=False).count()},
+        {'status': 'Awaiting Payment', 'count': Appointment.objects.filter(status='AWAITING_PAYMENT', pet__isnull=False).count()},
         {'status': 'Completed', 'count': Appointment.objects.filter(status='COMPLETED', pet__isnull=False).count()},
         {'status': 'Cancelled', 'count': Appointment.objects.filter(status='CANCELLED', pet__isnull=False).count()},
     ]
@@ -982,7 +985,10 @@ def admin_dashboard_view(request):
     ).count()
     scheduled_appointments_this_month = Appointment.objects.filter(
         appointment_date__range=[today, month_start + relativedelta(months=1) - timedelta(days=1)],
-        status__in=['PENDING', 'CONFIRMED'],
+        status__in=[
+            'PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS',
+            'AWAITING_PAYMENT',
+        ],
         pet__isnull=False,
         branch__in=branches if dashboard_is_all_branches else [request.user.branch_id],
     ).count()
@@ -1552,7 +1558,25 @@ def vet_dashboard_view(request):
     # Completed appointments assigned to this veterinarian remain actionable
     # until a matching medical-record entry is saved for the visit date.
     pending_medical_records = []
+    active_visit_appointments = []
     if staff_profile and not appt_restricted_no_branch:
+        active_visit_appointments = list(
+            Appointment.objects.filter(
+                status__in=[
+                    Appointment.Status.CHECKED_IN,
+                    Appointment.Status.IN_PROGRESS,
+                ],
+                **appt_filter,
+            ).filter(
+                Q(preferred_vet=staff_profile) |
+                Q(preferred_vet__isnull=True)
+            ).select_related('pet', 'branch', 'preferred_vet').order_by(
+                'appointment_date', 'appointment_time'
+            )[:10]
+        )
+        for appointment in active_visit_appointments:
+            appointment.has_appointment_record = appointment.record_entries.exists()
+
         completed_appointments = Appointment.objects.filter(
             status='COMPLETED',
             preferred_vet=staff_profile,
@@ -1742,6 +1766,7 @@ def vet_dashboard_view(request):
         'completed_consultations': completed_consultations,
         'medical_records_count': medical_records_count,
         'pending_medical_records': pending_medical_records,
+        'active_visit_appointments': active_visit_appointments,
         'recent_medical_records': recent_medical_records,
         # Lists
         'follow_ups': follow_ups,
@@ -1884,7 +1909,13 @@ def receptionist_dashboard_view(request):
         ).count()
         scheduled_appointments_this_month = Appointment.objects.filter(
             appointment_date__range=(today, month_end),
-            status__in=(Appointment.Status.PENDING, Appointment.Status.CONFIRMED),
+            status__in=(
+                Appointment.Status.PENDING,
+                Appointment.Status.CONFIRMED,
+                Appointment.Status.CHECKED_IN,
+                Appointment.Status.IN_PROGRESS,
+                Appointment.Status.AWAITING_PAYMENT,
+            ),
             pet__isnull=False,
             **appt_filter,
         ).count()
@@ -2159,7 +2190,14 @@ def receptionist_dashboard_view(request):
     else:
         hourly_counts = Appointment.objects.filter(
             appointment_date=today,
-            status__in=(Appointment.Status.PENDING, Appointment.Status.CONFIRMED),
+            status__in=(
+                Appointment.Status.PENDING,
+                Appointment.Status.CONFIRMED,
+                Appointment.Status.CHECKED_IN,
+                Appointment.Status.IN_PROGRESS,
+                Appointment.Status.AWAITING_PAYMENT,
+                Appointment.Status.COMPLETED,
+            ),
             **appt_filter
         ).values('appointment_time__hour').annotate(
             count=Count('id')

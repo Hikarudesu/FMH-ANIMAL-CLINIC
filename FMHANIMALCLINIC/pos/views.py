@@ -9,6 +9,7 @@ import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Q, Sum
@@ -22,6 +23,7 @@ from billing.models import Service
 from branches.models import Branch
 from inventory.models import Product
 from patients.models import Pet
+from appointments.models import Appointment
 
 from .models import Sale, SaleItem, Payment, Refund
 from .forms import RefundForm
@@ -41,6 +43,7 @@ def checkout(request):
     branch = getattr(request.user, 'branch', None)
     if not branch:
         branch = Branch.objects.filter(is_active=True).order_by('name').first()
+    appointment_id = request.GET.get('appointment', '').strip()
 
     # Discard abandoned carts, then restore only this cashier's active sale.
     Sale.objects.filter(
@@ -49,18 +52,50 @@ def checkout(request):
         created_at__lt=timezone.now() - timedelta(hours=24),
     ).delete()
 
-    pending_sale = Sale.objects.filter(
-        branch=branch,
-        cashier=request.user,
-        status=Sale.Status.PENDING
-    ).first()
+    with transaction.atomic():
+        appointment = None
+        if appointment_id:
+            appointment = get_object_or_404(
+                Appointment.objects.select_for_update().select_related(
+                    'sale', 'branch', 'user', 'pet',
+                ),
+                pk=appointment_id,
+                status=Appointment.Status.AWAITING_PAYMENT,
+            )
+            if (
+                not appointment.branch_id
+                or appointment.branch_id != getattr(branch, 'pk', None)
+            ):
+                raise PermissionDenied
+            branch = appointment.branch
 
-    if not pending_sale:
-        with transaction.atomic():
+        if appointment and appointment.sale_id:
+            if (
+                appointment.sale.status != Sale.Status.PENDING
+                or appointment.sale.cashier_id != request.user.pk
+            ):
+                messages.error(request, 'This appointment already has a POS sale assigned to another cashier or has been paid.')
+                return redirect('appointments:admin_list')
+            pending_sale = appointment.sale
+        elif appointment:
             pending_sale = Sale.objects.create(
                 branch=branch,
                 cashier=request.user
             )
+            appointment.sale = pending_sale
+            appointment.save(update_fields=['sale', 'updated_at'])
+        else:
+            pending_sale = Sale.objects.filter(
+                branch=branch,
+                cashier=request.user,
+                status=Sale.Status.PENDING,
+                appointments__isnull=True,
+            ).first()
+            if not pending_sale:
+                pending_sale = Sale.objects.create(
+                    branch=branch,
+                    cashier=request.user
+                )
 
     # Services are global and no longer branch-bound.
     services = Service.objects.filter(active=True).order_by('category', 'name')
@@ -88,6 +123,7 @@ def checkout(request):
 
     context = {
         'sale': pending_sale,
+        'appointment': appointment,
         'items': pending_sale.items.all(),
         'services': services,
         'products': products,
@@ -427,6 +463,23 @@ def _process_payment(request):
         except Sale.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
+        appointment = sale.appointments.select_for_update().select_related(
+            'user', 'pet', 'branch',
+        ).first()
+        if appointment:
+            if (
+                appointment.status != Appointment.Status.AWAITING_PAYMENT
+                or appointment.branch_id != sale.branch_id
+            ):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'This appointment is not ready for payment at this branch.',
+                }, status=409)
+            customer_type = (
+                Sale.CustomerType.REGISTERED
+                if appointment.user_id else Sale.CustomerType.WALKIN
+            )
+
         if not sale.items.exists():
             return JsonResponse({'success': False, 'error': 'Cannot process empty sale'}, status=400)
 
@@ -440,7 +493,23 @@ def _process_payment(request):
                 'total': str(sale.total),
             }, status=400)
 
-        if customer_type == Sale.CustomerType.REGISTERED:
+        if appointment and appointment.user_id:
+            sale.customer_type = Sale.CustomerType.REGISTERED
+            sale.customer = appointment.user
+            sale.pet = appointment.pet
+            sale.guest_name = appointment.owner_name
+            sale.guest_phone = appointment.owner_phone
+            sale.guest_email = appointment.owner_email
+            sale.guest_pet_name = ''
+        elif appointment:
+            sale.customer_type = Sale.CustomerType.WALKIN
+            sale.customer = None
+            sale.pet = None
+            sale.guest_name = appointment.owner_name
+            sale.guest_phone = appointment.owner_phone
+            sale.guest_email = appointment.owner_email
+            sale.guest_pet_name = appointment.pet_name
+        elif customer_type == Sale.CustomerType.REGISTERED:
             customer_id = request.POST.get('customer_id')
             customer = User.objects.filter(
                 pk=customer_id,

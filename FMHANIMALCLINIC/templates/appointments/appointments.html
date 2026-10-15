@@ -377,6 +377,12 @@
           </div>
           <div class="appt-card-collapse">
             <div class="appt-card-collapse-inner">
+              {% if appt.cancellation_reason %}
+              <div class="appt-card-notes" style="border-left-color:#ef4444;">
+                <strong>Reason for cancellation:</strong>
+                <p>{{ appt.cancellation_reason|linebreaksbr }}</p>
+              </div>
+              {% endif %}
               <!-- Owner Details -->
               <div class="appt-owner-section">
                 <span class="appt-section-title"><i class='bx bx-user'></i> Owner Details</span>

@@ -39,6 +39,8 @@ from .forms import MedicalRecordForm, RecordEntryForm
 from notifications.utils import (
     notify_medical_record_follow_up,
     sync_medical_record_entry_follow_up,
+    notify_staff_appointment_status_change,
+    notify_appointment_status_change,
 )
 from notifications.models import FollowUp, Notification
 
@@ -212,7 +214,12 @@ def admin_record_create(request):
         from appointments.models import Appointment
         linked_appointment = Appointment.objects.filter(
             pk=appointment_id,
-            status=Appointment.Status.COMPLETED,
+        ).filter(
+            Q(status=Appointment.Status.COMPLETED) |
+            Q(
+                status=Appointment.Status.IN_PROGRESS,
+                medical_record_decision=Appointment.MedicalRecordDecision.REQUIRED,
+            )
         ).select_related('preferred_vet', 'pet', 'branch').first()
         if linked_appointment and linked_appointment.pet_id:
             pet_id = str(linked_appointment.pet_id)
@@ -429,6 +436,25 @@ def admin_record_create(request):
                         if not entry.vet and selected_vet:
                             entry.vet = selected_vet
                         entry.save()
+                        if (
+                            linked_appointment
+                            and linked_appointment.status == Appointment.Status.IN_PROGRESS
+                            and linked_appointment.medical_record_decision
+                            == Appointment.MedicalRecordDecision.REQUIRED
+                        ):
+                            linked_appointment.status = Appointment.Status.AWAITING_PAYMENT
+                            linked_appointment.save(update_fields=['status', 'updated_at'])
+                            if linked_appointment.user:
+                                notify_appointment_status_change(
+                                    linked_appointment,
+                                    linked_appointment.status,
+                                    actor=request.user,
+                                )
+                            notify_staff_appointment_status_change(
+                                linked_appointment,
+                                linked_appointment.status,
+                                actor=request.user,
+                            )
                         notify_medical_record_follow_up(record, request.user)
                         if linked_appointment:
                             Notification.objects.filter(
@@ -921,7 +947,12 @@ def admin_add_entry(request, pk):
         from appointments.models import Appointment
         linked_appointment = Appointment.objects.filter(
             pk=appointment_id,
-            status=Appointment.Status.COMPLETED,
+        ).filter(
+            Q(status=Appointment.Status.COMPLETED) |
+            Q(
+                status=Appointment.Status.IN_PROGRESS,
+                medical_record_decision=Appointment.MedicalRecordDecision.REQUIRED,
+            )
         ).select_related('preferred_vet', 'branch').first()
 
     if request.method == 'POST':
@@ -954,6 +985,25 @@ def admin_add_entry(request, pk):
                 record.vet = selected_vet  # keep record banner in sync
 
             entry.save()
+            if (
+                linked_appointment
+                and linked_appointment.status == Appointment.Status.IN_PROGRESS
+                and linked_appointment.medical_record_decision
+                == Appointment.MedicalRecordDecision.REQUIRED
+            ):
+                linked_appointment.status = Appointment.Status.AWAITING_PAYMENT
+                linked_appointment.save(update_fields=['status', 'updated_at'])
+                if linked_appointment.user:
+                    notify_appointment_status_change(
+                        linked_appointment,
+                        linked_appointment.status,
+                        actor=request.user,
+                    )
+                notify_staff_appointment_status_change(
+                    linked_appointment,
+                    linked_appointment.status,
+                    actor=request.user,
+                )
 
             # Keep the card-level summary fields aligned to the latest visit entry.
             record.date_recorded = entry.date_recorded
