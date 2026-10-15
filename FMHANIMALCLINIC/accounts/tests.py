@@ -558,7 +558,7 @@ class VetDashboardContentTests(TestCase):
                 self.assertContains(response, 'padding: 14px 18px;')
                 self.assertContains(response, 'font-size: 24px')
                 self.assertContains(response, 'height: 240px;')
-                self.assertContains(response, 'height: 210px;')
+                self.assertContains(response, 'height: 190px;')
                 self.assertContains(response, 'chart-body-patient-status')
                 self.assertContains(response, 'font: { size: 10, weight: \'600\' }')
                 self.assertContains(response, 'charts-row-monthly')
