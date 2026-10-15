@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from attendance.models import DailyAttendance, MonthlyAttendanceSummary
 from employees.models import StaffMember
-from payroll.models import Payslip, PayrollPeriod
+from payroll.models import Payslip, PayrollAuditLog, PayrollPeriod
 from payroll.views import get_payroll_report_rows
 from attendance.views import can_import_attendance_for_month
 from settings.utils import set_setting
@@ -53,6 +53,76 @@ class PayrollPeriodDeletionTests(TestCase):
 
         self.assertRedirects(response, reverse('payroll:requests'))
         self.assertFalse(PayrollPeriod.objects.filter(pk=period.pk).exists())
+
+
+class PayrollAuditLogTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username='payroll-audit-admin',
+            email='payroll-audit-admin@example.com',
+            password='test-password',
+        )
+        self.client.force_login(self.admin)
+
+    def test_action_filter_retains_actions_without_matches(self):
+        PayrollAuditLog.objects.create(
+            user=self.admin,
+            action_type=PayrollAuditLog.ActionType.PERIOD_GENERATED,
+            description='Generated a payroll period',
+        )
+
+        response = self.client.get(
+            reverse('payroll:audit_log'),
+            {'action_type': PayrollAuditLog.ActionType.PERIOD_GENERATED},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="PAYSLIP_SENT"')
+
+    def test_creating_payroll_period_writes_audit_record_with_ip(self):
+        response = self.client.get(
+            reverse('payroll:generate'),
+            {
+                'load': '1',
+                'month': '10',
+                'year': '2099',
+                'period_type': PayrollPeriod.PeriodType.SEMI_FIRST,
+                'branch': 'ALL',
+            },
+            REMOTE_ADDR='203.0.113.18',
+        )
+
+        period = PayrollPeriod.objects.get(year=2099, month=10)
+        log = PayrollAuditLog.objects.get(
+            action_type=PayrollAuditLog.ActionType.PERIOD_CREATED,
+            payroll_period=period,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(log.user, self.admin)
+        self.assertEqual(log.ip_address, '203.0.113.18')
+        self.assertEqual(log.metadata['branch'], 'All Branches')
+
+    def test_detail_renders_nested_metadata_and_ip_address(self):
+        log = PayrollAuditLog.objects.create(
+            user=self.admin,
+            action_type=PayrollAuditLog.ActionType.PERIOD_DELETED,
+            description='Deleted September payroll',
+            metadata={
+                'period_name': 'September 2026 - First Half',
+                'period_id': 42,
+                'deleted_payslip': {'employee_name': 'Ana Santos', 'net_pay': '25000.00'},
+            },
+            ip_address='203.0.113.42',
+        )
+
+        response = self.client.get(reverse('payroll:audit_log_detail', args=[log.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'September 2026 - First Half')
+        self.assertContains(response, 'Ana Santos')
+        self.assertContains(response, '25000.00')
+        self.assertContains(response, '203.0.113.42')
 
 
 class PayrollRulesTests(TestCase):

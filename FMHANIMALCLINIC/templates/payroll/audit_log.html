@@ -529,6 +529,7 @@
           <th>Action</th>
           <th>Performed By</th>
           <th>Details</th>
+          <th>IP Address</th>
         </tr>
       </thead>
       <tbody>
@@ -553,13 +554,17 @@
           <td>
             <div class="user-cell">
               <div class="user-avatar">
-                {% if log.user.get_full_name %}
+                {% if log.user and log.user.get_full_name %}
                   {{ log.user.first_name|slice:":1"|upper }}{{ log.user.last_name|slice:":1"|upper }}
-                {% else %}
+                {% elif log.user %}
                   {{ log.user.username|slice:":2"|upper }}
+                {% else %}
+                  --
                 {% endif %}
               </div>
-              <span class="user-name">{{ log.user.get_full_name|default:log.user.username }}</span>
+              <span class="user-name">
+                {% if log.user %}{{ log.user.get_full_name|default:log.user.username }}{% else %}Deleted or unavailable user{% endif %}
+              </span>
             </div>
           </td>
           <td>
@@ -575,6 +580,8 @@
                 {% if log.payroll_period %}
                   {% if log.staff_member or log.payslip %}<br>{% endif %}
                   Period: {{ log.payroll_period.period_display }}
+                {% elif log.metadata.period_name %}
+                  Period: {{ log.metadata.period_name }} (deleted)
                 {% endif %}
               </div>
               {% if log.description %}
@@ -582,6 +589,7 @@
               {% endif %}
             </div>
           </td>
+          <td><span class="ip-address">{{ log.ip_address|default:"Not recorded" }}</span></td>
         </tr>
         {% endfor %}
       </tbody>

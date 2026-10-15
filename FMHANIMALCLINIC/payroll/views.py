@@ -380,13 +380,26 @@ def generate_payslips(request):
                 messages.error(request, restriction)
                 return redirect('payroll:generate')
 
-            period, _ = PayrollPeriod.objects.get_or_create(
+            period, period_created = PayrollPeriod.objects.get_or_create(
                 month=selected_month,
                 year=selected_year,
                 period_type=period_type,
                 branch=selected_branch,
                 defaults={'status': PayrollPeriod.Status.DRAFT},
             )
+            if period_created:
+                from payroll.models import PayrollAuditLog
+                PayrollAuditLog.log(
+                    user=request.user,
+                    action_type=PayrollAuditLog.ActionType.PERIOD_CREATED,
+                    description=f'Created payroll period {period.period_display} for {period.scope_display}',
+                    payroll_period=period,
+                    metadata={
+                        'period_type': period.period_type,
+                        'branch': period.scope_display,
+                    },
+                    ip_address=get_client_ip(request),
+                )
         return redirect('payroll:payslips', period_id=period.id)
 
     return render(request, 'payroll/generate.html', {
@@ -518,7 +531,8 @@ def generate_payslips_action(request, period_id=None):
                     'payslip_count': payslip_count,
                     'period_type': period.period_type,
                     'success_count': successful_count,
-                }
+                },
+                ip_address=get_client_ip(request),
             )
             
             messages.success(
@@ -620,6 +634,17 @@ def payslips_list(request, period_id):
             if was_created:
                 payslip.generate_from_employee()
                 payslip.save()
+                from payroll.models import PayrollAuditLog
+                PayrollAuditLog.log(
+                    user=request.user,
+                    action_type=PayrollAuditLog.ActionType.PAYSLIP_CREATED,
+                    description=f'Created payslip for {employee.full_name} ({period.period_display})',
+                    payroll_period=period,
+                    payslip=payslip,
+                    staff_member=employee,
+                    metadata={'base_salary': str(payslip.base_salary), 'status': payslip.status},
+                    ip_address=get_client_ip(request),
+                )
                 default_deductions = getattr(payslip, '_default_custom_deductions', [])
                 for deduction in default_deductions:
                     payslip.custom_deductions.create(
@@ -1247,7 +1272,8 @@ def release_payroll(request, period_id):
                     'total_net': str(total_net_value),
                     'emails_sent': sent_count,
                     'emails_failed': failed_count
-                }
+                },
+                ip_address=get_client_ip(request),
             )
 
             # Display success message with details
@@ -1334,6 +1360,17 @@ def payslip_approve(request, payslip_id):
     if payslip.status == 'DRAFT':
         payslip.status = 'APPROVED'
         payslip.save()
+        from payroll.models import PayrollAuditLog
+        PayrollAuditLog.log(
+            user=request.user,
+            action_type=PayrollAuditLog.ActionType.PAYSLIP_APPROVED,
+            description=f'Approved payslip for {payslip.employee.full_name} ({payslip.payroll_period.period_display})',
+            payroll_period=payslip.payroll_period,
+            payslip=payslip,
+            staff_member=payslip.employee,
+            metadata={'status': payslip.status},
+            ip_address=get_client_ip(request),
+        )
         messages.success(
             request, f'Payslip for {payslip.employee.full_name} approved.')
 
@@ -1347,6 +1384,15 @@ def approve_all_payslips(request, period_id):
     period = get_object_or_404(PayrollPeriod, id=period_id)
 
     count = period.payslips.filter(status='DRAFT').update(status='APPROVED')
+    from payroll.models import PayrollAuditLog
+    PayrollAuditLog.log(
+        user=request.user,
+        action_type=PayrollAuditLog.ActionType.PAYSLIP_APPROVED,
+        description=f'Approved {count} payslips for {period.period_display}',
+        payroll_period=period,
+        metadata={'approved_count': count},
+        ip_address=get_client_ip(request),
+    )
     messages.success(request, f'{count} payslips approved.')
 
     return redirect('payroll:payslips', period_id=period.id)
@@ -1389,6 +1435,12 @@ def delete_period(request, period_id):
             metadata={
                 'deleted_after_release': is_released,
                 'period_name': period_name,
+                'period_id': period.pk,
+                'year': period.year,
+                'month': period.month,
+                'period_type': period.period_type,
+                'branch': period.scope_display,
+                'status': period.status,
                 'payslip_count': payslip_count,
                 'total_net_pay': str(total_net),
             },
@@ -1812,9 +1864,12 @@ def audit_log_view(request):
         # Stats reflect current filters
         stats['total'] = base_logs.count()
         stats['created'] = base_logs.filter(
-            action_type__in=['PERIOD_GENERATED', 'PAYSLIP_CREATED']).count()
+            action_type__in=['PERIOD_CREATED', 'PERIOD_GENERATED', 'PAYSLIP_CREATED']).count()
         stats['edited'] = base_logs.filter(
-            action_type__in=['PAYSLIP_EDITED', 'VET_SALARY_UPDATED']).count()
+            action_type__in=[
+                'PAYSLIP_EDITED', 'VET_SALARY_UPDATED',
+                'VET_BONUS_ADDED', 'VET_DEDUCTION_ADDED',
+            ]).count()
         stats['released'] = base_logs.filter(
             action_type__in=['PERIOD_RELEASED', 'PAYSLIP_SENT']).count()
     except Exception:
@@ -1825,12 +1880,10 @@ def audit_log_view(request):
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
-    # Get only action types that actually exist in the database or are still mapped to logs.
-    existing_action_types = set(base_logs.values_list('action_type', flat=True).distinct())
+    # Keep every action available so filters remain usable for dates with no matching action.
     action_type_choices = [
         (value, label)
         for value, label in PayrollAuditLog.ActionType.choices
-        if value in existing_action_types
     ]
 
     context = {
@@ -1847,6 +1900,7 @@ def audit_log_view(request):
 @module_permission_required('payroll', 'MANAGE')
 def audit_log_detail(request, log_id):
     """Display detailed information about a specific audit log entry."""
+    import json
     from payroll.models import PayrollAuditLog
 
     try:
@@ -1863,6 +1917,9 @@ def audit_log_detail(request, log_id):
     context = {
         'tab': 'logs',
         'log': log,
+        'metadata_json': json.dumps(
+            log.metadata or {}, ensure_ascii=False, indent=2, sort_keys=True, default=str
+        ),
     }
 
     return render(request, 'payroll/audit_log_detail.html', context)
@@ -2030,7 +2087,8 @@ def export_payslips_csv(request, period_id):
             action_type=PayrollAuditLog.ActionType.SYSTEM_EXPORT,
             description=f"Exported {len(payslips)} payslips to CSV for {period.period_display}",
             payroll_period=period,
-            metadata={'format': 'CSV', 'employee_count': len(payslips)}
+            metadata={'format': 'CSV', 'employee_count': len(payslips)},
+            ip_address=get_client_ip(request),
         )
     except Exception:
         pass
@@ -2197,7 +2255,8 @@ def export_payslips_excel(request, period_id):
             action_type=PayrollAuditLog.ActionType.SYSTEM_EXPORT,
             description=f"Exported {len(payslips)} payslips to Excel for {period.period_display}",
             payroll_period=period,
-            metadata={'format': 'XLSX', 'employee_count': len(payslips)}
+            metadata={'format': 'XLSX', 'employee_count': len(payslips)},
+            ip_address=get_client_ip(request),
         )
     except Exception:
         pass
@@ -2235,12 +2294,13 @@ def send_payslip_email(request, payslip_id):
         recipient = payslip.employee.user.email
         PayrollAuditLog.log(
             user=request.user,
-            action_type=PayrollAuditLog.ActionType.SYSTEM_EXPORT,
+            action_type=PayrollAuditLog.ActionType.PAYSLIP_SENT,
             description=f"Sent payslip email to {payslip.employee.full_name} ({recipient})",
             payslip=payslip,
             payroll_period=payslip.payroll_period,
             staff_member=payslip.employee,
-            metadata={'email': recipient}
+            metadata={'email': recipient},
+            ip_address=get_client_ip(request),
         )
 
         messages.success(request, f'Payslip PDF sent to {recipient}')
@@ -2281,10 +2341,11 @@ def send_payslips_bulk(request, period_id):
         from payroll.models import PayrollAuditLog
         PayrollAuditLog.log(
             user=request.user,
-            action_type=PayrollAuditLog.ActionType.SYSTEM_EXPORT,
+            action_type=PayrollAuditLog.ActionType.PAYSLIP_SENT,
             description=f"Sent {sent_count} payslip emails for {period.period_display} ({failed_count} failed)",
             payroll_period=period,
-            metadata={'sent': sent_count, 'failed': failed_count}
+            metadata={'sent': sent_count, 'failed': failed_count},
+            ip_address=get_client_ip(request),
         )
     except Exception:
         pass

@@ -173,13 +173,15 @@
     margin-top: 2px;
   }
   
-  .metadata-item {
+  .metadata-json {
     background: var(--bg);
     border-left: 4px solid var(--primary);
-    padding: 12px;
-    border-radius: 4px;
-    margin: 8px 0;
-    font-family: 'Courier New', monospace;
+    padding: 16px;
+    border-radius: 6px;
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: 'Consolas', 'Courier New', monospace;
     font-size: 0.85rem;
     color: var(--text-1);
   }
@@ -316,11 +318,18 @@
       <div class="detail-value">
         <div class="user-info">
           <div class="user-avatar">
-            {{ log.user.first_name|slice:":1"|upper }}{{ log.user.last_name|slice:":1"|upper }}
+            {% if log.user %}
+              {% if log.user.get_full_name %}{{ log.user.first_name|slice:":1"|upper }}{{ log.user.last_name|slice:":1"|upper }}{% else %}{{ log.user.username|slice:":2"|upper }}{% endif %}
+            {% else %}--{% endif %}
           </div>
           <div class="user-details">
-            <strong>{{ log.user.get_full_name|default:log.user.username }}</strong>
-            <small>{{ log.user.email }}</small>
+            {% if log.user %}
+              <strong>{{ log.user.get_full_name|default:log.user.username }}</strong>
+              <small>{{ log.user.email|default:"No email recorded" }}</small>
+            {% else %}
+              <strong>Deleted or unavailable user</strong>
+              <small>Original account is no longer linked</small>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -398,18 +407,11 @@
       Additional Information
     </h2>
     
-    <div style="background: var(--bg); padding: 16px; border-radius: 6px; border-left: 4px solid var(--primary); overflow-x: auto;">
-      {% if log.metadata %}
-        {% for key, value in log.metadata.items %}
-        <div class="detail-row" style="padding: 8px 0;">
-          <div class="detail-label">{{ key|title }}:</div>
-          <div class="detail-value">{{ value }}</div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <span style="color: var(--text-3);">No additional data recorded</span>
-      {% endif %}
-    </div>
+    {% if log.metadata %}
+      <pre class="metadata-json">{{ metadata_json }}</pre>
+    {% else %}
+      <span style="color: var(--text-3);">No additional data recorded.</span>
+    {% endif %}
   </div>
   {% endif %}
 </div>
