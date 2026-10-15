@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from branches.models import Branch
 from employees.models import StaffMember
@@ -424,31 +424,74 @@ class Appointment(models.Model):
             if scheduled_at + timedelta(hours=cls.AUTO_CANCEL_AFTER_HOURS) > now:
                 continue
 
-            updated = cls.objects.filter(
-                pk=appointment.pk,
-                status=cls.Status.PENDING,
-            ).update(
-                status=cls.Status.CANCELLED,
-                cancellation_reason=(
+            with transaction.atomic():
+                appointment = cls.objects.select_for_update().filter(
+                    pk=appointment.pk,
+                    status=cls.Status.PENDING,
+                ).first()
+                if not appointment:
+                    continue
+                appointment.status = cls.Status.CANCELLED
+                appointment.cancellation_reason = (
                     'Automatically cancelled because the appointment was not '
                     'confirmed within 24 hours after its scheduled time.'
-                ),
-                updated_at=now,
-            )
-            if not updated:
-                continue
-
-            appointment.status = cls.Status.CANCELLED
-            appointment.cancellation_reason = (
-                'Automatically cancelled because the appointment was not '
-                'confirmed within 24 hours after its scheduled time.'
-            )
+                )
+                appointment.save(update_fields=[
+                    'status',
+                    'cancellation_reason',
+                    'updated_at',
+                ])
             from notifications.utils import notify_appointment_status_change
             notify_appointment_status_change(
                 appointment,
                 cls.Status.CANCELLED,
                 actor_label='the clinic system automatically',
             )
-            cancelled_count += updated
+            cancelled_count += 1
 
         return cancelled_count
+
+
+class AppointmentHistory(models.Model):
+    """Immutable appointment activity entries for staff and owners."""
+
+    class EventType(models.TextChoices):
+        BOOKED = 'BOOKED', 'Booked'
+        STATUS_CHANGED = 'STATUS_CHANGED', 'Status changed'
+        UPDATED = 'UPDATED', 'Updated'
+
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='history_entries',
+    )
+    actor = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='appointment_history_entries',
+    )
+    event_type = models.CharField(max_length=20, choices=EventType.choices)
+    summary = models.CharField(max_length=200)
+    changes = models.JSONField(default=list, blank=True)
+    owner_visible = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        indexes = [
+            models.Index(
+                fields=['appointment', '-created_at'],
+                name='appointmen_appoint_7ad0bd_idx',
+            ),
+            models.Index(
+                fields=['owner_visible', '-created_at'],
+                name='appointmen_owner_v_00c4f7_idx',
+            ),
+        ]
+
+    def __str__(self):
+        return self.summary

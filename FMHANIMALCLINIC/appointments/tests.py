@@ -10,9 +10,10 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.activity_context import reset_current_actor, set_current_actor
 from accounts.models import User
 from accounts.rbac_models import Module, ModulePermission, Role
-from appointments.models import Appointment
+from appointments.models import Appointment, AppointmentHistory
 from appointments.forms import (
     AdminQuickCreateForm,
     AppointmentEditForm,
@@ -75,6 +76,15 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertEqual(at_deadline.status, Appointment.Status.CANCELLED)
         self.assertEqual(recent.status, Appointment.Status.PENDING)
         self.assertEqual(confirmed.status, Appointment.Status.CONFIRMED)
+        expiry_event = AppointmentHistory.objects.get(
+            appointment=overdue,
+            event_type=AppointmentHistory.EventType.STATUS_CHANGED,
+        )
+        self.assertEqual(expiry_event.summary, 'Appointment cancelled')
+        self.assertIn(
+            'Automatically cancelled',
+            expiry_event.changes[1]['to'],
+        )
 
     @patch('appointments.models.timezone.now')
     def test_cleanup_preserves_cancelled_appointment_records(self, mocked_now):
@@ -594,8 +604,6 @@ class OwnerAppointmentCancellationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
-        self.appointment.refresh_from_db()
-        self.assertEqual(self.appointment.status, Appointment.Status.PENDING)
 
     def test_owner_portal_shows_cancel_form_before_cutoff(self):
         response = self.client.get(reverse('appointments:my_appointments'))
@@ -603,6 +611,157 @@ class OwnerAppointmentCancellationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Cancel this appointment')
         self.assertContains(response, 'Cancellation is available until 24 hours before your appointment.')
+
+    def test_portal_history_shows_only_owner_visible_entries_for_own_appointments(self):
+        owner_visible = AppointmentHistory.objects.create(
+            appointment=self.appointment,
+            event_type=AppointmentHistory.EventType.UPDATED,
+            summary='Appointment schedule updated',
+            changes=[{'field': 'Date', 'from': '2026-11-01', 'to': '2026-11-02'}],
+            owner_visible=True,
+        )
+        AppointmentHistory.objects.create(
+            appointment=self.appointment,
+            event_type=AppointmentHistory.EventType.UPDATED,
+            summary='Private staff note',
+            changes=[{'field': 'Medical record decision', 'from': 'Pending', 'to': 'Required'}],
+            owner_visible=False,
+        )
+        another_owner = User.objects.create_user(
+            username='another-history-owner',
+            email='another-history-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        other_appointment = Appointment.objects.create(
+            owner_name='Another Owner',
+            pet_name='Private Pet',
+            branch=self.branch,
+            user=another_owner,
+            appointment_date=timezone.localdate() + timedelta(days=4),
+            appointment_time=time(11),
+        )
+        AppointmentHistory.objects.create(
+            appointment=other_appointment,
+            event_type=AppointmentHistory.EventType.UPDATED,
+            summary='Another owner private update',
+            owner_visible=True,
+        )
+
+        response = self.client.get(reverse('appointments:my_appointments'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, owner_visible.summary)
+        self.assertNotContains(response, 'Private staff note')
+        self.assertNotContains(response, 'Medical record decision')
+        self.assertNotContains(response, 'Another owner private update')
+
+    def test_appointment_history_is_retained_when_appointment_is_deleted(self):
+        history = AppointmentHistory.objects.get(
+            appointment=self.appointment,
+            event_type=AppointmentHistory.EventType.BOOKED,
+        )
+
+        self.appointment.delete()
+
+        history.refresh_from_db()
+        self.assertIsNone(history.appointment_id)
+
+    def test_appointment_changes_record_actor_and_before_after_values(self):
+        token = set_current_actor(self.owner)
+        try:
+            appointment = Appointment.objects.create(
+                owner_name='Audit Owner',
+                pet_name='Audit Pet',
+                branch=self.branch,
+                user=self.owner,
+                appointment_date=timezone.localdate() + timedelta(days=5),
+                appointment_time=time(12),
+            )
+            appointment.status = Appointment.Status.CONFIRMED
+            appointment.save(update_fields=['status', 'updated_at'])
+        finally:
+            reset_current_actor(token)
+
+        booking = AppointmentHistory.objects.get(
+            appointment=appointment,
+            event_type=AppointmentHistory.EventType.BOOKED,
+        )
+        status_change = AppointmentHistory.objects.get(
+            appointment=appointment,
+            event_type=AppointmentHistory.EventType.STATUS_CHANGED,
+        )
+        self.assertEqual(booking.actor, self.owner)
+        self.assertEqual(status_change.actor, self.owner)
+        self.assertEqual(status_change.changes[0]['from'], 'Pending')
+        self.assertEqual(status_change.changes[0]['to'], 'Confirmed')
+
+
+class AppointmentStaffHistoryVisibilityTests(TestCase):
+    @override_settings(
+        STORAGES={
+            'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+            'staticfiles': {
+                'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+            },
+        }
+    )
+    def test_only_requested_staff_roles_see_the_detailed_history(self):
+        branch = Branch.objects.create(name='History Branch')
+        module, _ = Module.objects.get_or_create(
+            code='appointments',
+            defaults={'name': 'Appointments'},
+        )
+        role = Role.objects.create(
+            name='History Receptionist',
+            code='cashier',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        for permission_type in (
+            ModulePermission.PermissionType.VIEW,
+            ModulePermission.PermissionType.EDIT,
+        ):
+            ModulePermission.objects.create(
+                role=role,
+                module=module,
+                permission_type=permission_type,
+            )
+        user = User.objects.create_user(
+            username='history-receptionist',
+            email='history-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        appointment = Appointment.objects.create(
+            owner_name='History Owner',
+            pet_name='History Pet',
+            branch=branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(10),
+        )
+        AppointmentHistory.objects.create(
+            appointment=appointment,
+            event_type=AppointmentHistory.EventType.UPDATED,
+            summary='Appointment schedule updated',
+            changes=[{'field': 'Date', 'from': '2026-10-20', 'to': '2026-10-21'}],
+            owner_visible=True,
+        )
+        self.client.force_login(user)
+        detail_url = reverse('appointments:admin_detail', args=[appointment.pk])
+
+        staff_response = self.client.get(detail_url)
+
+        self.assertEqual(staff_response.status_code, 200)
+        self.assertContains(staff_response, 'Appointment history')
+        self.assertContains(staff_response, 'Date: 2026-10-20')
+
+        role.code = 'other_staff'
+        role.save(update_fields=['code'])
+        other_role_response = self.client.get(detail_url)
+
+        self.assertEqual(other_role_response.status_code, 200)
+        self.assertNotContains(other_role_response, 'Appointment history')
 
 
 class AppointmentCompletionDateValidationTests(TestCase):

@@ -1,0 +1,15 @@
+<section class="appt-card-notes appointment-owner-history">
+  <strong><i class='bx bx-history'></i> Appointment history</strong>
+  {% if appt.history_entries.all %}
+  <ol>
+    {% for entry in appt.history_entries.all %}
+    <li>
+      {{ entry.summary }}
+      <time datetime="{{ entry.created_at|date:'c' }}">{{ entry.created_at|date:"M j, Y, g:i a" }}</time>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p>There are no recorded updates for this appointment yet.</p>
+  {% endif %}
+</section>

@@ -10,6 +10,10 @@
   .appt-owner-cancel-form textarea { width: 100%; max-width: 560px; padding: 9px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; font: inherit; }
   .appt-owner-cancel-form small { color: var(--text-muted, #666); }
   .appt-owner-cancel-form button { justify-self: start; padding: 9px 14px; border: 0; border-radius: 6px; background: #b42318; color: #fff; cursor: pointer; }
+  .appointment-owner-history { margin-top: 16px; }
+  .appointment-owner-history ol { display: grid; gap: 8px; margin: 10px 0 0; padding-left: 22px; }
+  .appointment-owner-history li { padding-left: 3px; }
+  .appointment-owner-history time { display: block; color: var(--text-muted, #666); font-size: .82rem; }
 </style>
 
 <!-- ══════ APPOINTMENTS HERO ══════ -->
@@ -129,6 +133,7 @@
                   {% endif %}
                 </div>
               </div>
+              {% include "components/appointment_owner_history.html" with appt=appt %}
               {% if appt.owner_can_cancel %}
               <form method="post" action="{% url 'appointments:portal_cancel' appt.pk %}" class="appt-owner-cancel-form">
                 {% csrf_token %}
@@ -225,6 +230,7 @@
                   {% endif %}
                 </div>
               </div>
+              {% include "components/appointment_owner_history.html" with appt=appt %}
               {% if appt.owner_can_cancel %}
               <form method="post" action="{% url 'appointments:portal_cancel' appt.pk %}" class="appt-owner-cancel-form">
                 {% csrf_token %}
@@ -364,6 +370,7 @@
                   {% endif %}
                 </div>
               </div>
+              {% include "components/appointment_owner_history.html" with appt=appt %}
             </div>
           </div>
         </div>
@@ -464,6 +471,7 @@
                 <i class='bx bx-note'></i> <strong>Vet Notes:</strong> {{ appt.notes }}
               </div>
               {% endif %}
+              {% include "components/appointment_owner_history.html" with appt=appt %}
             </div>
           </div>
         </div>

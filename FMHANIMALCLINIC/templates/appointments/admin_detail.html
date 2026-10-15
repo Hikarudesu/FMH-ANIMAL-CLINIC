@@ -52,6 +52,10 @@
   .appointment-manage__list strong { color: var(--text-1); }
   .appointment-manage__toolbar { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
   .appointment-manage__separator { height: 1px; margin: 15px 0; border: 0; background: var(--border); }
+  .appointment-history { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .appointment-history__entry { padding: 13px 15px; border-left: 3px solid var(--primary, #087f75); border-radius: 8px; background: var(--bg, #f8fafc); }
+  .appointment-history__entry p { margin: 0; color: var(--text-1); }
+  .appointment-history__entry time, .appointment-history__changes { display: block; margin-top: 5px; color: var(--text-2); font-size: .82rem; }
   @media (max-width: 820px) { .appointment-manage__grid { grid-template-columns: 1fr; } }
   @media (max-width: 560px) {
     .appointment-manage__hero, .appointment-manage__card { padding: 17px; }
@@ -300,5 +304,29 @@
       {% endif %}
     </aside>
   </div>
+  {% if can_view_appointment_history %}
+  <section class="appointment-manage__card" style="margin-top: 18px;">
+    <h2><i class='bx bx-history'></i> Appointment history</h2>
+    {% if appointment_history %}
+    <ol class="appointment-history">
+      {% for entry in appointment_history %}
+      <li class="appointment-history__entry">
+        <p><strong>{{ entry.summary }}</strong>{% if entry.actor %} · {{ entry.actor.get_full_name|default:entry.actor.username }}{% else %} · System{% endif %}</p>
+        <time datetime="{{ entry.created_at|date:'c' }}">{{ entry.created_at|date:"M j, Y, g:i a" }}</time>
+        {% if entry.changes %}
+        <ul class="appointment-history__changes">
+          {% for change in entry.changes %}
+          <li>{{ change.field }}: {{ change.from }} → {{ change.to }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p>No appointment history has been recorded.</p>
+    {% endif %}
+  </section>
+  {% endif %}
 </main>
 {% endblock %}

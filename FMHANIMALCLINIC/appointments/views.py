@@ -10,16 +10,17 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 
 from accounts.models import User
 from accounts.decorators import module_permission_required
+from accounts.rbac_constants import StaffRoles
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
 from notifications.models import FollowUp
 from patients.models import Pet
-from .models import Appointment
+from .models import Appointment, AppointmentHistory
 from .forms import (
     PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm,
     AppointmentEditForm, AppointmentCancellationForm,
@@ -170,8 +171,16 @@ def my_appointments(request):
     """Show the logged-in user's appointments and follow-ups with tabbed data."""
     # Include pending portal bookings even before a Pet record is created.
     # Pending appointments intentionally keep pet_id empty until staff confirms them.
+    owner_history = AppointmentHistory.objects.filter(
+        owner_visible=True,
+    ).select_related('actor').order_by('created_at', 'pk')
     base_appts = Appointment.objects.filter(
-        user=request.user).select_related('branch', 'preferred_vet', 'pet', 'pet__owner')
+        user=request.user,
+    ).select_related(
+        'branch', 'preferred_vet', 'pet', 'pet__owner',
+    ).prefetch_related(
+        Prefetch('history_entries', queryset=owner_history),
+    )
 
     # Categorized queries
     pending_appts = base_appts.filter(status=Appointment.Status.PENDING)
@@ -574,6 +583,13 @@ def admin_detail(request, pk):
             )
 
     appointment = get_object_or_404(appointments, pk=pk)
+    can_view_appointment_history = role_code in StaffRoles.ALL_STAFF_ROLES
+    appointment_history = (
+        appointment.history_entries.select_related('actor').order_by(
+            'created_at', 'pk',
+        )
+        if can_view_appointment_history else ()
+    )
     from records.models import RecordEntry
     record_entries = list(
         RecordEntry.objects.filter(appointment=appointment)
@@ -650,6 +666,8 @@ def admin_detail(request, pk):
     )
     return render(request, 'appointments/admin_detail.html', {
         'appointment': appointment,
+        'appointment_history': appointment_history,
+        'can_view_appointment_history': can_view_appointment_history,
         'record_entries': record_entries,
         'follow_ups': follow_ups,
         'is_veterinarian': is_veterinarian,
