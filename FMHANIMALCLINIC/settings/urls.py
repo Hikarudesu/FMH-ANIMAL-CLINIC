@@ -12,7 +12,6 @@ urlpatterns = [
     path('clinic/', views.settings_main, {'default_tab': 'clinic'}, name='clinic_settings'),
     path('scheduling/', views.settings_main, {'default_tab': 'scheduling'}, name='scheduling_settings'),
     path('inventory/', views.settings_main, {'default_tab': 'inventory'}, name='inventory_settings'),
-    path('notifications/', views.settings_main, {'default_tab': 'notifications'}, name='notification_settings'),
     path('payroll/', views.settings_main, {'default_tab': 'payroll'}, name='payroll_settings'),
     path('system/', views.settings_main, {'default_tab': 'system'}, name='system_settings'),
     path('content/', views.settings_main, {'default_tab': 'content'}, name='content_settings'),

@@ -4,24 +4,16 @@ Provides channel guards using system settings and shared sender metadata.
 """
 
 import logging
-from email.utils import formataddr
 
 from django.conf import settings
 from django.core.mail import EmailMessage, send_mail
 
-from settings.utils import get_setting
-
 logger = logging.getLogger('fmh')
 
 
-def _email_enabled():
-    return bool(get_setting('notification_email_enabled', True))
-
-
 def _from_header():
-    from_email = get_setting('notification_from_email', 'noreply@fmhclinic.com')
-    sender_name = get_setting('notification_sender_name', 'FMH Animal Clinic')
-    return formataddr((sender_name, from_email))
+    """Use the sender configured with the application's email backend."""
+    return settings.DEFAULT_FROM_EMAIL
 
 
 def send_notification_email(
@@ -34,14 +26,11 @@ def send_notification_email(
     attachments=None,
     force=False,
 ):
-    """Send notification email if enabled in settings.
+    """Send a notification email to the explicit recipients selected by its caller.
 
     If ``superuser_only`` is true, recipients are restricted to active superusers.
+    ``force`` remains accepted for compatibility with existing call sites.
     """
-    if not force and not _email_enabled():
-        logger.info("Notification email skipped: email notifications are disabled.")
-        return False
-
     recipients = [email for email in (recipient_list or []) if email]
     if superuser_only and recipients:
         from accounts.models import User

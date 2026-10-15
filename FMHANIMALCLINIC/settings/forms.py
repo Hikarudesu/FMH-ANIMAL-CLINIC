@@ -256,33 +256,6 @@ class InventorySettingsForm(AdminInputMixin, forms.Form):
         return normalized
 
 
-class NotificationSettingsForm(AdminInputMixin, forms.Form):
-    """Form for notification-related settings."""
-
-    email_enabled = forms.BooleanField(
-        label='Enable Email Notifications',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Send notifications via email'
-    )
-    from_email = forms.EmailField(
-        label='From Email Address',
-        widget=forms.EmailInput(attrs={'placeholder': 'noreply@example.com'}),
-        help_text='Sender email address for notifications'
-    )
-    sender_name = forms.CharField(
-        label='Sender Display Name',
-        max_length=100,
-        widget=forms.TextInput(attrs={'placeholder': 'FMH Animal Clinic'}),
-        help_text='Display name for email sender'
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['email_enabled'].initial = get_setting('notification_email_enabled', True)
-        self.fields['from_email'].initial = get_setting('notification_from_email', 'noreply@fmhclinic.com')
-        self.fields['sender_name'].initial = get_setting('notification_sender_name', 'FMH Animal Clinic')
-
 class PayrollSettingsForm(AdminInputMixin, forms.Form):
     """Form for payroll-related settings."""
 

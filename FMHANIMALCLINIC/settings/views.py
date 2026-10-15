@@ -20,7 +20,6 @@ from .models import (
 from .forms import (
     ClinicInfoForm,
     InventorySettingsForm,
-    NotificationSettingsForm,
     PayrollSettingsForm,
     SystemSettingsForm,
     AppointmentSettingsForm,
@@ -44,7 +43,6 @@ SETTINGS_TABS = [
     {'id': 'clinic', 'label': 'Clinic Info', 'icon': 'bx-building'},
     {'id': 'scheduling', 'label': 'Scheduling & Clinical', 'icon': 'bx-calendar-check'},
     {'id': 'inventory', 'label': 'Inventory', 'icon': 'bx-package'},
-    {'id': 'notifications', 'label': 'Notifications', 'icon': 'bx-envelope'},
     {'id': 'payroll', 'label': 'Payroll', 'icon': 'bx-money'},
     {'id': 'system', 'label': 'System', 'icon': 'bx-cog'},
     {'id': 'content', 'label': 'Content Management', 'icon': 'bx-edit'},
@@ -143,7 +141,6 @@ def settings_main(request, default_tab=None):
             'shift_type_form': ShiftTypeForm(),
         },
         'inventory': InventorySettingsForm(),
-        'notifications': NotificationSettingsForm(),
         'payroll': PayrollSettingsForm(),
         'system': SystemSettingsForm(),
         'content': _get_content_forms(),
@@ -190,23 +187,6 @@ def _handle_inventory_form(request):
     else:
         messages.error(request, 'Please correct the errors below.')
         return _render_with_error(request, 'inventory', form)
-
-
-def _handle_notifications_form(request):
-    """Handle notification settings form submission."""
-    form = NotificationSettingsForm(request.POST)
-    if form.is_valid():
-        data = form.cleaned_data
-        set_setting('notification_email_enabled', data['email_enabled'], request.user, 'NOTIFICATION')
-
-        set_setting('notification_from_email', data['from_email'], request.user, 'NOTIFICATION')
-        set_setting('notification_sender_name', data['sender_name'], request.user, 'NOTIFICATION')
-
-        messages.success(request, 'Notification settings updated successfully.')
-        return redirect('settings:notification_settings')
-    else:
-        messages.error(request, 'Please correct the errors below.')
-        return _render_with_error(request, 'notifications', form)
 
 
 def _handle_payroll_form(request):
@@ -306,7 +286,6 @@ def _render_with_error(request, active_tab, error_form):
             'shift_type_form': ShiftTypeForm(),
         },
         'inventory': InventorySettingsForm(),
-        'notifications': NotificationSettingsForm(),
         'payroll': PayrollSettingsForm(),
         'system': SystemSettingsForm(),
         'content': _get_content_forms(),
