@@ -177,10 +177,10 @@ class PayslipEditTests(TestCase):
                 'paid_leave_type': 'Sick Leave',
                 'rest_days_mandatory': 4,
                 'overtime_hours': 0,
-                'overtime_pay': 0,
-                'holiday_pay': 0,
-                'bonus': 0,
-                'staff_allowance': 0,
+                'overtime_pay': '300.00',
+                'holiday_pay': '120.00',
+                'bonus': '250.00',
+                'staff_allowance': '500.00',
                 'sss': 0,
                 'philhealth': 0,
                 'pagibig': 0,
@@ -189,6 +189,8 @@ class PayslipEditTests(TestCase):
                 'other_deductions': 0,
                 'sick_leave_days': 0,
                 'regular_leave_days': 0,
+                'deduction_reason[]': ['Uniform'],
+                'deduction_amount[]': ['75.00'],
                 'notes': '',
             },
         )
@@ -199,6 +201,11 @@ class PayslipEditTests(TestCase):
         ).quantize(Decimal('0.01'))
         self.assertEqual(response.status_code, 302)
         self.assertEqual(payslip.days_absent, 3)
+        self.assertEqual(payslip.paid_leave_days, Decimal('1'))
+        self.assertEqual(payslip.overtime_pay, Decimal('300.00'))
+        self.assertEqual(payslip.holiday_pay, Decimal('120.00'))
+        self.assertEqual(payslip.bonus, Decimal('250.00'))
+        self.assertEqual(payslip.staff_allowance, Decimal('500.00'))
         self.assertEqual(payslip.absent_deduction, expected_absence_deduction)
         self.assertGreaterEqual(payslip.total_deductions, payslip.absent_deduction)
         self.assertEqual(payslip.net_pay, payslip.gross_pay - payslip.total_deductions)
@@ -206,7 +213,15 @@ class PayslipEditTests(TestCase):
         edit_response = self.client.get(reverse('payroll:payslip_edit', args=[payslip.pk]))
         self.assertEqual(edit_response.context['effective_absence_days'], 2)
         self.assertContains(edit_response, 'id="daysAbsentInput" value="2"')
-        self.assertNotContains(edit_response, 'previewAbsentDeduction')
+        self.assertRegex(
+            edit_response.content.decode(),
+            r'name="paid_leave_days" value="1(?:\.0+)?"',
+        )
+        self.assertContains(edit_response, 'name="overtime_pay" class="currency-input" value="300.00"')
+        self.assertContains(edit_response, 'name="holiday_pay" class="currency-input" value="120.00"')
+        self.assertContains(edit_response, 'name="bonus" class="currency-input" value="250.00"')
+        self.assertContains(edit_response, 'name="staff_allowance" class="currency-input" value="500.00"')
+        self.assertContains(edit_response, 'name="deduction_amount[]" class="currency-input" value="75.00"')
 
 
 class PayrollRulesTests(TestCase):

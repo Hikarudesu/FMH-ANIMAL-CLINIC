@@ -119,9 +119,9 @@
       {% endif %}
 
       <div class="form-group">
-        <label>Overtime Pay (₱/Hour)</label>
-        <input type="text" name="overtime_pay" class="currency-input" value="{{ payslip.overtime_pay|default:default_overtime_pay_per_hour }}" inputmode="decimal" placeholder="0.00">
-        <small style="color: var(--text-3); font-size: 0.75rem;">Default hourly OT pay comes from payroll settings and is shown with the ₱ symbol.</small>
+        <label>Overtime Pay (₱)</label>
+        <input type="text" name="overtime_pay" class="currency-input" value="{{ payslip.overtime_pay|default_if_none:0 }}" inputmode="decimal" placeholder="0.00">
+        <small style="color: var(--text-3); font-size: 0.75rem;">The saved overtime earning amount for this payslip.</small>
       </div>
     </div>
 
@@ -179,8 +179,8 @@
       </div>
       <div class="form-group">
         <label>Staff Allowance (₱)</label>
-        <input type="text" name="staff_allowance" class="currency-input" value="{{ staff_allowance_display|default:default_staff_allowance }}" inputmode="decimal" placeholder="0.00" readonly>
-        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only. This value is calculated from the configured staff allowance and current payroll period.</small>
+        <input type="text" name="staff_allowance" class="currency-input" value="{{ payslip.staff_allowance|default_if_none:staff_allowance_display }}" inputmode="decimal" placeholder="0.00">
+        <small style="color: var(--text-3); font-size: 0.75rem;">Saved staff allowance for this payslip.</small>
       </div>
     </div>
   </div>
