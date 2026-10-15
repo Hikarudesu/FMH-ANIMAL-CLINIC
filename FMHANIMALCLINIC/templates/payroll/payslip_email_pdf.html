@@ -58,14 +58,14 @@
     <tr>
       <td><span class="info-label">Branch</span><span class="info-value">{{ payslip.employee.branch.name|default:"Main Branch" }}</span></td>
       <td><span class="info-label">Working Days</span><span class="info-value">{{ payslip.working_days }}</span></td>
-      <td><span class="info-label">Days Absent</span><span class="info-value">{{ payslip.days_absent }}</span></td>
+      <td><span class="info-label">Days Absent</span><span class="info-value">{{ effective_absence_days }}</span></td>
     </tr>
   </table>
 
   <table class="info">
     <tr>
       <td width="50%"><span class="info-label">Overtime</span><span class="info-value">{{ payslip.overtime_hours|overtime_duration }}</span></td>
-      <td width="50%"><span class="info-label">Leave Days</span><span class="info-value">{{ payslip.regular_leave_days|default:0 }}</span></td>
+      <td width="50%"><span class="info-label">Paid Leave Days</span><span class="info-value">{{ payslip.paid_leave_days|floatformat:0 }}</span></td>
     </tr>
   </table>
 

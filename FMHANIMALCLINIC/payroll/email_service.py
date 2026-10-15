@@ -71,6 +71,9 @@ def _build_payslip_pdf(payslip):
 
     html = render_to_string('payroll/payslip_email_pdf.html', {
         'payslip': payslip,
+        'effective_absence_days': max(
+            0, payslip.days_absent - int(payslip.paid_leave_days or 0)
+        ),
         'ledger_rows': ledger_rows,
         'logo_data_uri': logo_data_uri,
     })

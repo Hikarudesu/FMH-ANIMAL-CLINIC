@@ -1338,6 +1338,9 @@ def payslip_print(request, payslip_id):
 
     context = {
         'payslip': payslip,
+        'effective_absence_days': max(
+            0, payslip.days_absent - int(payslip.paid_leave_days or 0)
+        ),
         'print_mode': True,
         'return_to': return_to,
         'payroll_signatory': get_setting('payroll_signatory_name_title', 'Authorized by Finance / Human Resources'),

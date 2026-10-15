@@ -297,7 +297,7 @@
         </td>
         <td>
           <span class="label">Days Absent</span>
-          <span class="val">{{ payslip.days_absent }}</span>
+          <span class="val">{{ effective_absence_days }}</span>
         </td>
       </tr>
     </table>
@@ -305,7 +305,7 @@
     <table class="info-grid" style="margin-top: 12px;">
       <tr>
         <td><span class="label">Overtime</span><span class="val">{{ payslip.overtime_hours|overtime_duration }}</span></td>
-        <td><span class="label">Leave Days</span><span class="val">{{ payslip.regular_leave_days|default:0 }}</span></td>
+        <td><span class="label">Paid Leave Days</span><span class="val">{{ payslip.paid_leave_days|floatformat:0 }}</span></td>
       </tr>
     </table>
     

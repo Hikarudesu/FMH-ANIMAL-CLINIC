@@ -126,6 +126,53 @@ class PayrollAuditLogTests(TestCase):
 
 
 class PayslipEditTests(TestCase):
+    def test_printed_payslip_shows_paid_leave_and_reduced_absences(self):
+        admin = get_user_model().objects.create_superuser(
+            username='payslip-print-admin',
+            email='payslip-print-admin@example.com',
+            password='test-password',
+        )
+        self.client.force_login(admin)
+        staff = StaffMember.objects.create(
+            first_name='Nina',
+            last_name='Garcia',
+            biometric_id='BIO-NINA',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+            user=admin,
+        )
+        period = PayrollPeriod.objects.create(
+            month=4,
+            year=2099,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+            days_absent=3,
+            paid_leave_days=Decimal('1'),
+        )
+
+        response = self.client.get(reverse('payroll:payslip_print', args=[payslip.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['effective_absence_days'], 2)
+        self.assertContains(response, '<span class="val">2</span>')
+        self.assertContains(response, 'Paid Leave Days')
+        self.assertContains(response, '<span class="val">1</span>')
+
+        from django.template.loader import render_to_string
+        email_html = render_to_string('payroll/payslip_email_pdf.html', {
+            'payslip': payslip,
+            'effective_absence_days': response.context['effective_absence_days'],
+            'ledger_rows': [],
+            'logo_data_uri': '',
+        })
+        self.assertIn('Days Absent</span><span class="info-value">2</span>', email_html)
+        self.assertIn('Paid Leave Days</span><span class="info-value">1</span>', email_html)
+
     def test_overtime_setting_is_shown_when_payslip_has_no_saved_overtime_pay(self):
         admin = get_user_model().objects.create_superuser(
             username='payslip-rate-admin',
