@@ -337,7 +337,7 @@ document.addEventListener("DOMContentLoaded", function () {
           // Add AM option if available - use "MORNING" marker instead of specific time
           if (amSlots.length > 0) {
             const opt = document.createElement("option");
-            opt.value = "MORNING"; // Use marker, backend will assign first available slot
+            opt.value = "MORNING"; // The server resolves this to an open morning slot.
             opt.textContent = `Morning (08:00 AM - 12:00 PM)`;
             timeSelect.appendChild(opt);
           }
@@ -345,7 +345,7 @@ document.addEventListener("DOMContentLoaded", function () {
           // Add PM option if available - use "AFTERNOON" marker instead of specific time
           if (pmSlots.length > 0) {
             const opt = document.createElement("option");
-            opt.value = "AFTERNOON"; // Use marker, backend will assign first available slot
+            opt.value = "AFTERNOON"; // The server resolves this to an open afternoon slot.
             opt.textContent = `Afternoon (01:00 PM - 05:00 PM)`;
             timeSelect.appendChild(opt);
           }
