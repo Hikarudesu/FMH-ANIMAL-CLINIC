@@ -126,6 +126,45 @@ class PayrollAuditLogTests(TestCase):
 
 
 class PayslipEditTests(TestCase):
+    def test_overtime_setting_is_shown_when_payslip_has_no_saved_overtime_pay(self):
+        admin = get_user_model().objects.create_superuser(
+            username='payslip-rate-admin',
+            email='payslip-rate-admin@example.com',
+            password='test-password',
+        )
+        self.client.force_login(admin)
+        staff = StaffMember.objects.create(
+            first_name='Tina',
+            last_name='Lopez',
+            biometric_id='BIO-TINA',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+            user=admin,
+        )
+        period = PayrollPeriod.objects.create(
+            month=3,
+            year=2099,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+            overtime_pay=Decimal('0'),
+            paid_leave_days=Decimal('2.00'),
+        )
+        set_setting('payroll_default_overtime_pay_per_hour', Decimal('187.50'))
+
+        response = self.client.get(reverse('payroll:payslip_edit', args=[payslip.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'name="overtime_pay" class="currency-input" value="187.50"',
+        )
+        self.assertContains(response, 'name="paid_leave_days" value="2"')
+
     def test_paid_leave_persists_when_monthly_attendance_summary_is_missing(self):
         admin = get_user_model().objects.create_superuser(
             username='payslip-no-summary-admin',

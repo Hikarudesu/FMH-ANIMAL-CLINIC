@@ -926,7 +926,7 @@ def payslip_edit(request, payslip_id):
                 if payslip.rest_days_mandatory <= 0:
                     payslip.rest_days_mandatory = 4
                 payslip.paid_leave_type = request.POST.get('paid_leave_type', payslip.paid_leave_type or 'Sick Leave')
-                payslip.paid_leave_days = safe_decimal(request.POST.get('paid_leave_days', 0))
+                payslip.paid_leave_days = Decimal(safe_int(request.POST.get('paid_leave_days', 0)))
                 if payslip.paid_leave_days > Decimal(str(payslip.days_absent or 0)):
                     payslip.paid_leave_days = Decimal(str(payslip.days_absent or 0))
                 

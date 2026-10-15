@@ -120,7 +120,7 @@
 
       <div class="form-group">
         <label>Overtime Pay (₱)</label>
-        <input type="text" name="overtime_pay" class="currency-input" value="{{ payslip.overtime_pay|default_if_none:0 }}" inputmode="decimal" placeholder="0.00">
+        <input type="text" name="overtime_pay" class="currency-input" value="{{ payslip.overtime_pay|default:default_overtime_pay_per_hour }}" inputmode="decimal" placeholder="0.00">
         <small style="color: var(--text-3); font-size: 0.75rem;">The saved overtime earning amount for this payslip.</small>
       </div>
     </div>
@@ -159,7 +159,7 @@
 
       <div class="form-group">
         <label>Paid Leave</label>
-        <input type="number" id="paidLeaveInput" name="paid_leave_days" value="{{ payslip.paid_leave_days|default:0 }}" min="0" step="1" placeholder="0">
+        <input type="number" id="paidLeaveInput" name="paid_leave_days" value="{{ payslip.paid_leave_days|floatformat:0 }}" min="0" step="1" placeholder="0">
         <small style="color: var(--text-3); font-size: 0.75rem;">Whole-day paid leave counts. Entering a value automatically reduces the absences total on the form without deducting salary for those days.</small>
       </div>
     </div>
