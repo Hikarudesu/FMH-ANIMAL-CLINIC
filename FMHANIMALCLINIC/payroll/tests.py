@@ -126,6 +126,73 @@ class PayrollAuditLogTests(TestCase):
 
 
 class PayslipEditTests(TestCase):
+    def test_paid_leave_persists_when_monthly_attendance_summary_is_missing(self):
+        admin = get_user_model().objects.create_superuser(
+            username='payslip-no-summary-admin',
+            email='payslip-no-summary-admin@example.com',
+            password='test-password',
+        )
+        self.client.force_login(admin)
+        staff = StaffMember.objects.create(
+            first_name='Lina',
+            last_name='Cruz',
+            biometric_id='BIO-LINA',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+            user=admin,
+        )
+        period = PayrollPeriod.objects.create(
+            month=2,
+            year=2099,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+        )
+
+        response = self.client.post(
+            reverse('payroll:payslip_edit', args=[payslip.pk]),
+            {
+                'paid_leave_days': '1',
+                'paid_leave_type': 'Sick Leave',
+                'rest_days_mandatory': '4',
+                'overtime_hours': '0',
+                'overtime_pay': '0',
+                'holiday_pay': '0',
+                'bonus': '0',
+                'staff_allowance': '0',
+                'sss': '0',
+                'philhealth': '0',
+                'pagibig': '0',
+                'cash_advance': '0',
+                'late_deduction': '0',
+                'other_deductions': '0',
+                'sick_leave_days': '0',
+                'regular_leave_days': '0',
+                'notes': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        payslip.refresh_from_db()
+        self.assertEqual(payslip.paid_leave_days, Decimal('1'))
+
+        edit_response = self.client.get(reverse('payroll:payslip_edit', args=[payslip.pk]))
+
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertEqual(edit_response.context['payslip'].paid_leave_days, Decimal('1'))
+        self.assertEqual(
+            edit_response.context['effective_absence_days'],
+            max(0, payslip.days_absent - 1),
+        )
+        self.assertRegex(
+            edit_response.content.decode(),
+            r'name="paid_leave_days" value="1(?:\.0+)?"',
+        )
+
     def test_saving_paid_leave_reduces_absence_deduction_and_net_pay(self):
         admin = get_user_model().objects.create_superuser(
             username='payslip-edit-admin',

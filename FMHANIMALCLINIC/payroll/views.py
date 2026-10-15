@@ -853,7 +853,6 @@ def payslip_edit(request, payslip_id):
         payslip.absent_deduction = (
             Decimal(str(payslip.days_absent)) * payslip.daily_salary
         ).quantize(Decimal('0.01'))
-        payslip.paid_leave_days = Decimal('0')
         if payslip.base_salary > 0 and payslip.working_days > 0:
             payslip.daily_salary = payslip.base_salary / Decimal(str(payslip.working_days))
         else:
