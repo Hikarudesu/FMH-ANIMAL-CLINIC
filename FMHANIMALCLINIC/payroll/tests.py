@@ -1,7 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
+from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
 
 from attendance.models import DailyAttendance, MonthlyAttendanceSummary
 from employees.models import StaffMember
@@ -9,6 +12,47 @@ from payroll.models import Payslip, PayrollPeriod
 from payroll.views import get_payroll_report_rows
 from attendance.views import can_import_attendance_for_month
 from settings.utils import set_setting
+
+
+class PayrollPeriodDeletionTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username='payroll-delete-admin',
+            email='payroll-delete-admin@example.com',
+            password='test-password',
+        )
+        self.client.force_login(self.admin)
+
+    @patch('payroll.views.timezone.localdate', return_value=date(2026, 10, 15))
+    def test_cannot_delete_payroll_period_from_past_month(self, _mock_today):
+        period = PayrollPeriod.objects.create(
+            month=9,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+            status=PayrollPeriod.Status.GENERATED,
+        )
+
+        response = self.client.post(reverse('payroll:delete_period', args=[period.pk]))
+
+        self.assertRedirects(response, reverse('payroll:requests'))
+        self.assertTrue(PayrollPeriod.objects.filter(pk=period.pk).exists())
+
+        list_response = self.client.get(reverse('payroll:requests'))
+        self.assertContains(list_response, 'Past-month payroll periods cannot be deleted.')
+
+    @patch('payroll.views.timezone.localdate', return_value=date(2026, 10, 15))
+    def test_can_delete_payroll_period_from_current_month(self, _mock_today):
+        period = PayrollPeriod.objects.create(
+            month=10,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+            status=PayrollPeriod.Status.GENERATED,
+        )
+
+        response = self.client.post(reverse('payroll:delete_period', args=[period.pk]))
+
+        self.assertRedirects(response, reverse('payroll:requests'))
+        self.assertFalse(PayrollPeriod.objects.filter(pk=period.pk).exists())
 
 
 class PayrollRulesTests(TestCase):

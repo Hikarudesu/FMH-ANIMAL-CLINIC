@@ -558,7 +558,11 @@
                   <i class='bx bx-send'></i> Release
                 </button>
               {% endif %}
-              {% if period.status != 'RELEASED' or can_delete_released %}
+              {% if period.is_past_month %}
+              <button type="button" class="btn-action btn-danger btn-icon" title="Past-month payroll periods cannot be deleted." aria-label="Past-month payroll periods cannot be deleted." disabled>
+                <i class='bx bx-trash'></i>
+              </button>
+              {% elif period.status != 'RELEASED' or can_delete_released %}
               <button type="button" class="btn-action btn-danger btn-icon" 
                  title="Delete Period" 
                  onclick="openDeleteModal('{% url 'payroll:delete_period' period.id %}', '{{ period.period_display|escapejs }}', '{{ period.payslips.count }}', '{{ period.status|escapejs }}')">
@@ -600,16 +604,35 @@
       <h3 style="color: #e63946;"><i class='bx bx-error-circle'></i> Delete Payroll Period</h3>
       <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
     </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-info-circle' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="deletePayrollName"></span>?</h4>
+      <p id="deletePayrollNote" style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;"></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <button type="button" class="btn-submit" id="continueDeletePayrollBtn" style="background-color: #e63946; border-color: #e63946; color: white;">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Final Delete Payroll Confirmation Modal -->
+<div class="modal-overlay" id="finalDeletePayrollModal" role="dialog" aria-modal="true" aria-labelledby="finalDeletePayrollTitle">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 id="finalDeletePayrollTitle" style="color: #e63946;"><i class='bx bx-error-circle'></i> Final Payroll Deletion Warning</h3>
+      <button type="button" class="modal-close" onclick="closeFinalDeleteModal()">&times;</button>
+    </div>
     <form id="deletePayrollForm" method="post" action="">
       {% csrf_token %}
       <div class="modal-body" style="text-align: center; padding-top: 30px;">
-        <i class='bx bx-info-circle' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
-        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="deletePayrollName"></span>?</h4>
-        <p id="deletePayrollNote" style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;"></p>
+        <i class='bx bx-trash' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Permanently delete <span id="finalDeletePayrollName"></span>?</h4>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">This permanently deletes the payroll period and all associated payslips. This action cannot be undone.</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
-        <button type="submit" class="btn-submit" style="background-color: #e63946; border-color: #e63946; color: white;">Yes, Delete Payroll</button>
+        <button type="button" class="btn-cancel" onclick="closeFinalDeleteModal()">Cancel</button>
+        <button type="submit" class="btn-submit" style="background-color: #e63946; border-color: #e63946; color: white;">Delete Payroll Period</button>
       </div>
     </form>
   </div>
@@ -658,11 +681,13 @@ function closeReleaseModal(){ document.getElementById('releasePayrollModal').cla
     const modal = document.getElementById('deletePayrollModal');
     const form = document.getElementById('deletePayrollForm');
     const nameEl = document.getElementById('deletePayrollName');
+    const finalNameEl = document.getElementById('finalDeletePayrollName');
     const noteEl = document.getElementById('deletePayrollNote');
-    if (!modal || !form || !nameEl || !noteEl) return;
+    if (!modal || !form || !nameEl || !finalNameEl || !noteEl) return;
 
     form.action = url;
     nameEl.textContent = periodName;
+    finalNameEl.textContent = periodName;
     noteEl.textContent = periodStatus === 'RELEASED'
       ? `This payroll period has ${payslipCount} payslips and has already been released. This action cannot be undone. Any references to this payroll period might be affected.`
       : `This payroll period has ${payslipCount} payslips. This action cannot be undone. Any references to this payroll period might be affected.`;
@@ -673,6 +698,25 @@ function closeReleaseModal(){ document.getElementById('releasePayrollModal').cla
     const modal = document.getElementById('deletePayrollModal');
     if (modal) modal.classList.remove('active');
   };
+
+  window.closeFinalDeleteModal = function() {
+    const modal = document.getElementById('finalDeletePayrollModal');
+    if (modal) modal.classList.remove('active');
+  };
+
+  const continueDeletePayrollBtn = document.getElementById('continueDeletePayrollBtn');
+  const finalDeletePayrollModal = document.getElementById('finalDeletePayrollModal');
+  if (continueDeletePayrollBtn && finalDeletePayrollModal) {
+    continueDeletePayrollBtn.addEventListener('click', function() {
+      closeDeleteModal();
+      finalDeletePayrollModal.classList.add('active');
+    });
+    finalDeletePayrollModal.addEventListener('click', function(event) {
+      if (event.target === finalDeletePayrollModal) {
+        closeFinalDeleteModal();
+      }
+    });
+  }
 
   const payrollDeleteModal = document.getElementById('deletePayrollModal');
   if (payrollDeleteModal) {

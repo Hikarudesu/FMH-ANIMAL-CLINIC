@@ -1360,6 +1360,11 @@ def delete_period(request, period_id):
         return redirect('payroll:requests')
     period = get_object_or_404(PayrollPeriod, id=period_id)
 
+    today = timezone.localdate()
+    if (period.year, period.month) < (today.year, today.month):
+        messages.error(request, 'Payroll periods from past months cannot be deleted.')
+        return redirect('payroll:requests')
+
     is_released = period.status == 'RELEASED'
     can_delete = can_edit_released_payslip(request.user)
 
@@ -1529,7 +1534,7 @@ def payroll_vets(request):
 @module_permission_required('payroll', 'MANAGE')
 def payroll_requests(request):
     """View payroll generation and payslip delivery history."""
-    date.today()
+    today = timezone.localdate()
 
     # Get all payroll periods - with error handling
     periods_by_year = {}
@@ -1554,6 +1559,7 @@ def payroll_requests(request):
             try:
                 period = PayrollPeriod.objects.get(id=period_id)
                 year = period.year
+                period.is_past_month = (period.year, period.month) < (today.year, today.month)
                 if year not in periods_by_year:
                     periods_by_year[year] = []
                 periods_by_year[year].append(period)
