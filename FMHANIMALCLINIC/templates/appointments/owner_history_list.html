@@ -10,7 +10,13 @@
 {% include "components/page_hero.html" with title="Appointment History" icon="bx-history" subtitle="Review updates and decisions for your appointments" action_url=appointments_url action_label="My Appointments" action_icon="bx-calendar-event" action_url_2=book_url action_label_2="Book Appointment" action_icon_2="bx-calendar-plus" icons_theme="pets" %}
 
 <main class="appointment-history-page appointment-history-page--owner">
-  <form method="get" id="ownerAppointmentHistorySearch" class="c-filter-bar" autocomplete="off">
+  <form
+    method="get"
+    id="ownerAppointmentHistorySearch"
+    class="c-filter-bar"
+    data-search-url="{% url 'appointments:my_appointment_history_search' %}"
+    autocomplete="off"
+  >
     <div class="c-filter-bar__glow"></div>
     <div class="c-filter-bar__form">
       <div class="c-filter-bar__search">
@@ -24,6 +30,7 @@
           class="c-filter-bar__search-input"
           autocomplete="off"
         >
+        <div class="search-dropdown" id="ownerAppointmentHistorySearchDropdown" role="listbox" aria-label="Appointment suggestions"></div>
         <div class="c-filter-bar__shortcut" aria-hidden="true"><span>⌘</span><span>K</span></div>
       </div>
     </div>
@@ -76,4 +83,5 @@
   </div>
   {% endif %}
 </main>
+<script src="{% static 'js/appointments/owner_history_search.js' %}" defer></script>
 {% endblock %}

@@ -1,16 +1,22 @@
 {% extends 'base/portal_user.html' %}
 {% load static record_filters %}
 
-{% block title %}Appointment Details{% endblock %}
+{% block title %}{% if history_entry %}Appointment Activity{% else %}Appointment Details{% endif %}{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/components/appointment_workflow.css' %}">
 <link rel="stylesheet" href="{% static 'css/components/portal_appointment_detail.css' %}">
+{% if history_entry %}<link rel="stylesheet" href="{% static 'css/components/appointment_history.css' %}">{% endif %}
 {% url 'appointments:my_appointment_history' as history_url %}
-{% include "components/page_hero.html" with title="Appointment Details" icon="bx-calendar-check" subtitle="Review your appointment, pet, and visit information" action_url=history_url action_label="Appointment History" action_icon="bx-history" icons_theme="pets" %}
+{% url 'appointments:my_appointments' as appointments_url %}
+{% include "components/page_hero.html" with title=page_title|default:"Appointment Details" icon="bx-calendar-check" subtitle="Review your appointment, pet, and visit information" action_url=appointments_url action_label="My Appointments" action_icon="bx-calendar-event" action_url_2=history_url action_label_2="Appointment History" action_icon_2="bx-history" icons_theme="pets" %}
 
 <main class="portal-appointment-detail">
+  {% if history_entry %}
+  <a class="portal-appointment-detail__back" href="{% url 'appointments:my_appointment_history' %}"><i class='bx bx-left-arrow-alt'></i> Back to appointment history</a>
+  {% else %}
   <a class="portal-appointment-detail__back" href="{% url 'appointments:my_appointments' %}"><i class='bx bx-left-arrow-alt'></i> Back to appointments</a>
+  {% endif %}
   <section class="portal-appointment-detail__hero">
     <div class="portal-appointment-detail__hero-row">
       <div>
@@ -25,6 +31,33 @@
     </div>
     {% include "components/appointment_workflow_progress.html" with appt=appointment %}
   </section>
+
+  {% if history_entry %}
+  <section class="portal-appointment-detail__panel appointment-history-panel">
+    <span class="appointment-history-event-type"><i class='bx bx-history'></i> {{ history_entry.get_event_type_display }}</span>
+    <h2 class="appointment-history-event-title">{{ history_entry.summary }}</h2>
+    <p class="appointment-history-event-meta">
+      {{ history_entry.created_at|date:"l, F j, Y" }} at {{ history_entry.created_at|date:"g:i a" }}
+      · {% if history_entry.actor %}Updated by the clinic team{% else %}Updated automatically{% endif %}
+    </p>
+    <hr>
+    <h3>What changed</h3>
+    {% if history_entry.visible_changes %}
+    <ul class="appointment-history-changes">
+      {% for change in history_entry.visible_changes %}
+      <li class="appointment-history-change">
+        <span class="appointment-history-change__label">{{ change.field }}</span>
+        <span class="appointment-history-change__value"><small>Previous</small>{{ change.from }}</span>
+        <span class="appointment-history-change__value appointment-history-change__value--new"><small>Updated to</small>{{ change.to }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="appointment-history-detail-empty">This booking predates detailed history tracking, so its original field changes are not available.</p>
+    {% endif %}
+  </section>
+  <p class="appointment-history-current-label"><i class='bx bx-info-circle'></i><span>The appointment details below show the current information and may differ from the values when this activity was recorded.</span></p>
+  {% endif %}
 
   <div class="portal-appointment-detail__grid">
     <div class="portal-appointment-detail__main">

@@ -6,7 +6,26 @@
 }
 
 .appointment-history-page--owner { max-width: 1280px; }
-.appointment-history-page--owner .c-filter-bar { margin-bottom: 18px; }
+.appointment-history-page--owner .c-filter-bar {
+  position: relative;
+  z-index: 30;
+  margin-bottom: 18px;
+}
+
+.appointment-history-page--owner .c-filter-bar__form,
+.appointment-history-page--owner .c-filter-bar__search {
+  z-index: 31;
+}
+
+.appointment-history-page--owner .c-filter-bar__search .search-dropdown {
+  z-index: 32 !important;
+}
+
+.appointment-history-page--owner .appointment-history-list,
+.appointment-history-page--owner .appointment-history-pagination {
+  position: relative;
+  z-index: 1;
+}
 
 .appointment-history-card__status {
   display: inline-flex;

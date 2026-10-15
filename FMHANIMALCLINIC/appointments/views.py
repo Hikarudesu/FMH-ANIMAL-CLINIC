@@ -221,8 +221,6 @@ def my_appointments(request):
 @login_required
 def portal_appointment_detail(request, pk):
     """Show an owner's appointment details without exposing staff-only information."""
-    from records.models import RecordEntry
-
     appointment = get_object_or_404(
         Appointment.objects.select_related(
             'branch',
@@ -237,6 +235,15 @@ def portal_appointment_detail(request, pk):
         pk=pk,
         user=request.user,
     )
+    return render(request, 'appointments/portal_detail.html', {
+        'appointment': appointment,
+        **_portal_appointment_detail_data(appointment),
+    })
+
+
+def _portal_appointment_detail_data(appointment):
+    from records.models import RecordEntry
+
     medical_records = RecordEntry.objects.filter(
         appointment=appointment,
     ).select_related(
@@ -247,20 +254,16 @@ def portal_appointment_detail(request, pk):
     follow_ups = FollowUp.objects.filter(
         appointment=appointment,
     ).order_by('-created_at')
-    return render(request, 'appointments/portal_detail.html', {
-        'appointment': appointment,
+    return {
         'medical_records': medical_records,
         'follow_ups': follow_ups,
-    })
+    }
 
 
-@login_required
-def my_appointment_history(request):
-    """Show owner-visible history for appointments belonging to this portal user."""
-    query = request.GET.get('q', '').strip()
+def _owner_appointment_history_queryset(user, query=''):
     entries = AppointmentHistory.objects.filter(
         owner_visible=True,
-        appointment__user=request.user,
+        appointment__user=user,
     ).select_related(
         'appointment',
         'appointment__branch',
@@ -281,12 +284,53 @@ def my_appointment_history(request):
                 | Q(appointment__reason_for_visit__name__icontains=term)
                 | Q(appointment__status__icontains=status_term)
             )
+    return entries
+
+
+@login_required
+def my_appointment_history(request):
+    """Show owner-visible history for appointments belonging to this portal user."""
+    query = request.GET.get('q', '').strip()
+    entries = _owner_appointment_history_queryset(request.user, query)
     page_obj = Paginator(entries, 20).get_page(request.GET.get('page'))
     return render(request, 'appointments/owner_history_list.html', {
         'history_entries': page_obj,
         'page_obj': page_obj,
         'q': query,
     })
+
+
+@login_required
+@require_GET
+def my_appointment_history_search(request):
+    """Return owner-scoped appointment history suggestions for the portal search."""
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    results = []
+    seen_pet_names = set()
+    for entry in _owner_appointment_history_queryset(
+        request.user,
+        query,
+    )[:30]:
+        appointment = entry.appointment
+        pet_name = appointment.pet_name.strip()
+        normalized_name = pet_name.casefold()
+        if not normalized_name or normalized_name in seen_pet_names:
+            continue
+        seen_pet_names.add(normalized_name)
+        results.append({
+            'value': pet_name,
+            'label': pet_name,
+            'subtitle': (
+                f'{entry.summary} - {appointment.get_status_display()} - '
+                f'{appointment.appointment_date.isoformat()}'
+            ),
+        })
+        if len(results) == 8:
+            break
+    return JsonResponse({'results': results})
 
 
 @login_required
@@ -303,6 +347,20 @@ def my_appointment_history_detail(request, pk):
         owner_visible=True,
         appointment__user=request.user,
     )
+    appointment = get_object_or_404(
+        Appointment.objects.select_related(
+            'branch',
+            'preferred_vet',
+            'reason_for_visit',
+            'pet',
+            'sale',
+        ).prefetch_related(
+            'sale__items',
+            'sale__payments',
+        ),
+        pk=entry.appointment_id,
+        user=request.user,
+    )
     entry.visible_changes = [
         change for change in entry.changes
         if change.get('field') in {
@@ -314,8 +372,11 @@ def my_appointment_history_detail(request, pk):
             'Reason for visit',
         }
     ]
-    return render(request, 'appointments/owner_history_detail.html', {
+    return render(request, 'appointments/portal_detail.html', {
+        'appointment': appointment,
         'history_entry': entry,
+        'page_title': 'Appointment History Details',
+        **_portal_appointment_detail_data(appointment),
     })
 
 

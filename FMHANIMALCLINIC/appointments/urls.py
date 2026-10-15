@@ -18,6 +18,11 @@ urlpatterns = [
     ),
     path('my/history/', views.my_appointment_history, name='my_appointment_history'),
     path(
+        'my/history/search/',
+        views.my_appointment_history_search,
+        name='my_appointment_history_search',
+    ),
+    path(
         'my/history/<int:pk>/',
         views.my_appointment_history_detail,
         name='my_appointment_history_detail',

@@ -833,8 +833,51 @@ class OwnerAppointmentCancellationTests(TestCase):
         self.assertEqual(detail_response.status_code, 200)
         self.assertContains(response, owner_visible.summary)
         self.assertContains(detail_response, '2026-11-01')
+        self.assertContains(detail_response, 'Your information')
+        self.assertContains(detail_response, 'Pet information')
+        self.assertContains(detail_response, 'Clinic location')
+        self.assertContains(detail_response, 'Visit details')
+        self.assertContains(detail_response, 'current information')
         self.assertNotContains(detail_response, 'Medical record decision')
         self.assertNotContains(detail_response, 'Required')
+
+    def test_portal_history_search_suggestions_are_owner_scoped(self):
+        AppointmentHistory.objects.create(
+            appointment=self.appointment,
+            event_type=AppointmentHistory.EventType.UPDATED,
+            summary='Owner visible update',
+            owner_visible=True,
+        )
+        other_owner = User.objects.create_user(
+            username='suggestion-owner',
+            email='suggestion-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        other_appointment = Appointment.objects.create(
+            owner_name='Suggestion Owner',
+            pet_name='Private Suggestion Pet',
+            branch=self.branch,
+            user=other_owner,
+            appointment_date=timezone.localdate() + timedelta(days=4),
+            appointment_time=time(11),
+        )
+        AppointmentHistory.objects.create(
+            appointment=other_appointment,
+            event_type=AppointmentHistory.EventType.BOOKED,
+            summary='Private suggestion',
+            owner_visible=True,
+        )
+
+        response = self.client.get(
+            reverse('appointments:my_appointment_history_search'),
+            {'q': 'Pet'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [result['value'] for result in response.json()['results']],
+            ['Cancellation Pet'],
+        )
 
     def test_portal_history_search_matches_owner_pet_status_and_visit_details(self):
         visible_entry = AppointmentHistory.objects.create(
