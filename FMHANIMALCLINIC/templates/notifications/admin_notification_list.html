@@ -176,7 +176,7 @@
       <!-- Action buttons -->
       <div class="notif-actions-v2">
         {% if not notif.is_read %}
-        <button class="notif-action-btn action-read" onclick="markOneRead(event, this, {{ notif.pk }})" title="Mark as read">
+        <button class="notif-action-btn action-read" data-read-url="{% url 'notifications:mark_read' notif.pk %}" onclick="markOneRead(event, this)" title="Mark as read">
           <span class="action-icon"><i class='bx bx-check'></i></span>
           <span class="action-label">Read</span>
         </button>
@@ -320,24 +320,38 @@ function markAllNotificationsRead() {
   });
 }
 
-function markOneRead(evt, btn, pk) {
+async function markOneRead(evt, btn) {
+  evt.preventDefault();
   evt.stopPropagation();
-  fetch(`/notifications/${pk}/read/`, {
-    method: "POST",
-    headers: {
-      "X-CSRFToken": "{{ csrf_token }}",
-      "Content-Type": "application/json"
+  const card = btn.closest('.notif-card-v2');
+  if (!card || btn.disabled) return;
+
+  btn.disabled = true;
+  try {
+    const response = await fetch(btn.dataset.readUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Could not mark this notification as read.');
     }
-  }).then(response => {
-    if (response.ok) {
-      const card = btn.closest('.notif-card-v2');
-      card.classList.remove('unread');
-      card.dataset.read = 'true';
-      const newBadge = card.querySelector('.notif-new-badge');
-      if (newBadge) newBadge.remove();
-      btn.remove();
-    }
-  });
+
+    card.classList.remove('unread');
+    card.dataset.read = 'true';
+    card.dataset.status = 'read';
+    const newBadge = card.querySelector('.notif-new-badge');
+    if (newBadge) newBadge.remove();
+    btn.remove();
+  } catch (error) {
+    btn.disabled = false;
+    console.error('Unable to mark notification as read:', error);
+    window.alert('This notification could not be marked as read. Please try again.');
+  }
 }
 
 async function deleteNotification(evt, btn) {

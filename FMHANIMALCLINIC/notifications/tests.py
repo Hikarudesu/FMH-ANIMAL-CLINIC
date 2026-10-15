@@ -206,6 +206,24 @@ class NotificationRoutingTests(TestCase):
             defaults={'name': 'Branch Administrator', 'hierarchy_level': 4},
         )
 
+    def test_mark_read_endpoint_marks_only_the_current_users_notification(self):
+        notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Reservation update',
+            message='Your reservation is ready.',
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+        self.client.force_login(self.pet_owner)
+
+        response = self.client.post(
+            reverse('notifications:mark_read', args=[notification.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+
     def test_delete_notification_removes_it_from_database(self):
         notification = Notification.objects.create(
             user=self.pet_owner,
