@@ -73,7 +73,7 @@ def checkout(request):
                 or appointment.sale.cashier_id != request.user.pk
             ):
                 messages.error(request, 'This appointment already has a POS sale assigned to another cashier or has been paid.')
-                return redirect('appointments:admin_list')
+                return redirect('appointments:admin_detail', pk=appointment.pk)
             pending_sale = appointment.sale
         elif appointment:
             pending_sale = Sale.objects.create(

@@ -130,6 +130,14 @@ class AppointmentTimeDisplayTests(TestCase):
         self.assertEqual(afternoon.appointment_time_display, 'Afternoon')
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class ViewOnlyAppointmentScopeTests(TestCase):
     def setUp(self):
         self.old_branch = Branch.objects.create(name='Former Vet Branch')
@@ -193,6 +201,14 @@ class ViewOnlyAppointmentScopeTests(TestCase):
         self.assertEqual(list_response.status_code, 200)
         visible_list = list(list_response.context['appointments'].object_list)
         self.assertEqual([appointment.pk for appointment in visible_list], [self.own_appointment.pk])
+        own_detail_response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.own_appointment.pk])
+        )
+        other_detail_response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.other_appointment.pk])
+        )
+        self.assertEqual(own_detail_response.status_code, 200)
+        self.assertEqual(other_detail_response.status_code, 404)
         self.assertEqual(calendar_response.status_code, 200)
         visible_calendar_ids = [event['id'] for event in calendar_response.json()['events']]
         self.assertEqual(visible_calendar_ids, [self.own_appointment.pk])
@@ -459,6 +475,11 @@ class AppointmentWorkflowActionTests(TestCase):
             module=module,
             permission_type=ModulePermission.PermissionType.EDIT,
         )
+        ModulePermission.objects.create(
+            role=self.role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
         self.user = User.objects.create_user(
             username='workflow-receptionist',
             email='workflow-receptionist@example.com',
@@ -474,6 +495,23 @@ class AppointmentWorkflowActionTests(TestCase):
             appointment_time=time(10),
         )
         self.client.force_login(self.user)
+
+    def test_receptionist_manages_appointment_in_dedicated_workspace(self):
+        list_response = self.client.get(reverse('appointments:admin_list'))
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertContains(list_response, 'Manage appointment')
+        self.assertNotContains(list_response, 'Cancellation reason')
+        self.assertNotContains(list_response, 'Confirm appointment')
+
+        detail_response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk])
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, self.appointment.owner_name)
+        self.assertContains(detail_response, self.appointment.pet_name)
+        self.assertContains(detail_response, 'Confirm appointment')
+        self.assertContains(detail_response, 'Cancellation reason')
 
     def test_cancellation_requires_and_saves_reason(self):
         url = reverse(
@@ -507,7 +545,12 @@ class AppointmentWorkflowActionTests(TestCase):
             args=[self.appointment.pk, 'check-in'],
         )
 
-        self.assertEqual(self.client.post(confirm_url).status_code, 302)
+        response = self.client.post(confirm_url)
+        self.assertRedirects(
+            response,
+            reverse('appointments:admin_detail', args=[self.appointment.pk]),
+            fetch_redirect_response=False,
+        )
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.CONFIRMED)
 
@@ -575,9 +618,17 @@ class AppointmentWorkflowActionTests(TestCase):
             {appointment.pk for appointment in listed_appointments},
             {self.appointment.pk, unassigned_appointment.pk},
         )
-        self.assertContains(response, 'Veterinary visit actions')
-        self.assertContains(response, 'Start visit')
+        self.assertContains(response, 'Open visit')
+        self.assertNotContains(response, 'Veterinary visit actions')
         self.assertNotContains(response, 'Other Branch Pet')
+
+        detail_response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk])
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, 'Veterinary visit')
+        self.assertContains(detail_response, 'Start visit')
+        self.assertNotContains(detail_response, 'Confirm appointment')
 
         calendar_response = self.client.get(
             reverse('appointments:admin_calendar_api'),

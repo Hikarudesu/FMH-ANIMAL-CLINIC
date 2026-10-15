@@ -1091,9 +1091,15 @@
       <button class="pos-modal-btn secondary" onclick="viewStatement()">
         <i class='bx bx-file'></i> View Statement
       </button>
+      {% if appointment %}
+      <button class="pos-modal-btn primary" onclick="returnToAppointment()">
+        <i class='bx bx-left-arrow-alt'></i> Return to appointment
+      </button>
+      {% else %}
       <button class="pos-modal-btn primary" onclick="newSale()">
         <i class='bx bx-plus'></i> New Transaction
       </button>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -2022,7 +2028,15 @@ function newSale() {
 }
 
 function closeSuccessModal() {
+  {% if appointment %}
+  returnToAppointment();
+  {% else %}
   newSale();
+  {% endif %}
+}
+
+function returnToAppointment() {
+  window.location.href = "{% if appointment %}{% url 'appointments:admin_detail' appointment.pk %}{% else %}{% url 'appointments:admin_list' %}{% endif %}";
 }
 
 function viewStatement() {
