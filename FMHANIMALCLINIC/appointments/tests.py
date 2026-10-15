@@ -430,6 +430,17 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertEqual(self.appointment.status, Appointment.Status.CHECKED_IN)
         self.assertIsNotNone(self.appointment.checked_in_at)
 
+    def test_confirmed_appointment_marks_check_in_as_optional(self):
+        self.appointment.status = Appointment.Status.CONFIRMED
+        self.appointment.save(update_fields=['status', 'updated_at'])
+
+        steps = self.appointment.workflow_progress
+
+        self.assertEqual(steps[1]['state'], 'done')
+        self.assertEqual(steps[2]['state'], 'optional')
+        self.assertTrue(steps[2]['optional'])
+        self.assertEqual(steps[3]['state'], 'upcoming')
+
     def test_veterinarian_must_explain_no_record_decision(self):
         vet_role, _ = Role.objects.get_or_create(
             code='veterinarian',
@@ -459,9 +470,9 @@ class AppointmentWorkflowActionTests(TestCase):
             position=StaffMember.Position.VETERINARIAN,
             branch=self.branch,
         )
-        self.appointment.status = Appointment.Status.CHECKED_IN
+        self.appointment.status = Appointment.Status.CONFIRMED
         self.appointment.preferred_vet = vet
-        self.appointment.checked_in_at = timezone.now()
+        self.appointment.checked_in_at = None
         self.appointment.save()
         self.client.force_login(vet_user)
 
@@ -476,6 +487,8 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertEqual(self.client.post(start_url).status_code, 302)
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
+        self.assertIsNone(self.appointment.checked_in_at)
+        self.assertEqual(self.appointment.preferred_vet_id, vet.pk)
 
         self.client.post(no_record_url, {'medical_record_decision_reason': '  '})
         self.appointment.refresh_from_db()

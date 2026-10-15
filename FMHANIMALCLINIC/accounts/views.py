@@ -1563,6 +1563,7 @@ def vet_dashboard_view(request):
         active_visit_appointments = list(
             Appointment.objects.filter(
                 status__in=[
+                    Appointment.Status.CONFIRMED,
                     Appointment.Status.CHECKED_IN,
                     Appointment.Status.IN_PROGRESS,
                 ],

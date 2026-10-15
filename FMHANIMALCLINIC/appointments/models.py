@@ -171,6 +171,125 @@ class Appointment(models.Model):
         return self.time_display()
 
     @property
+    def workflow_next_action(self):
+        """Describe the current workflow state in owner-friendly language."""
+        if self.status == self.Status.PENDING:
+            return 'Waiting for the clinic to confirm your appointment.'
+        if self.status == self.Status.CONFIRMED:
+            return 'Confirmed. Check in when you arrive; the veterinarian can also start your visit directly.'
+        if self.status == self.Status.CHECKED_IN:
+            return 'Checked in. Waiting for the veterinarian to start your visit.'
+        if self.status == self.Status.IN_PROGRESS:
+            if self.medical_record_decision == self.MedicalRecordDecision.UNDECIDED:
+                return 'The veterinarian is deciding whether a medical record is needed.'
+            if self.medical_record_decision == self.MedicalRecordDecision.REQUIRED:
+                if not self.workflow_has_medical_record:
+                    return 'The veterinarian is preparing your medical record.'
+            return 'The visit is ready for POS payment.'
+        if self.status == self.Status.AWAITING_PAYMENT:
+            return 'Please complete payment at the POS before the visit can be closed.'
+        if self.status == self.Status.COMPLETED:
+            return 'Your visit is complete.'
+        if self.status == self.Status.CANCELLED:
+            return 'This appointment was cancelled.'
+        return 'Appointment status is being updated.'
+
+    @property
+    def workflow_has_medical_record(self):
+        """Return whether this appointment has a linked medical-record entry."""
+        if hasattr(self, 'medical_record_added'):
+            return self.medical_record_added
+        return any(self.record_entries.all())
+
+    @property
+    def workflow_progress(self):
+        """Provide role-neutral progress steps for appointment timelines."""
+        status = self.status
+        decision = self.medical_record_decision
+        beyond_check_in = status in (
+            self.Status.IN_PROGRESS,
+            self.Status.AWAITING_PAYMENT,
+            self.Status.COMPLETED,
+        )
+        has_record = (
+            self.workflow_has_medical_record
+            if (
+                decision == self.MedicalRecordDecision.REQUIRED
+                and status in (
+                    self.Status.IN_PROGRESS,
+                    self.Status.AWAITING_PAYMENT,
+                    self.Status.COMPLETED,
+                )
+            ) else False
+        )
+        record_decision_done = (
+            decision == self.MedicalRecordDecision.NOT_REQUIRED
+            or (
+                decision == self.MedicalRecordDecision.REQUIRED
+                and has_record
+            )
+            or status in (self.Status.AWAITING_PAYMENT, self.Status.COMPLETED)
+        )
+        return [
+            {'label': 'Booked', 'state': 'done'},
+            {
+                'label': 'Confirmed',
+                'state': 'current' if status == self.Status.PENDING else 'done',
+            },
+            {
+                'label': 'Check-in',
+                'state': (
+                    'done' if self.checked_in_at else
+                    'skipped' if beyond_check_in else
+                    'optional'
+                ),
+                'optional': True,
+            },
+            {
+                'label': 'Vet visit',
+                'state': (
+                    'current' if status in (
+                        self.Status.CHECKED_IN,
+                    ) else
+                    'done' if status in (
+                        self.Status.IN_PROGRESS,
+                        self.Status.AWAITING_PAYMENT,
+                        self.Status.COMPLETED,
+                    ) else
+                    'upcoming'
+                ),
+            },
+            {
+                'label': 'Record',
+                'state': (
+                    'current' if (
+                        status == self.Status.IN_PROGRESS
+                        and not record_decision_done
+                    ) else
+                    'done' if record_decision_done else
+                    'upcoming'
+                ),
+            },
+            {
+                'label': 'Payment',
+                'state': (
+                    'current' if status == self.Status.AWAITING_PAYMENT else
+                    'current' if (
+                        status == self.Status.IN_PROGRESS
+                        and decision == self.MedicalRecordDecision.REQUIRED
+                        and has_record
+                    ) else
+                    'done' if status == self.Status.COMPLETED else
+                    'upcoming'
+                ),
+            },
+            {
+                'label': 'Completed',
+                'state': 'done' if status == self.Status.COMPLETED else 'upcoming',
+            },
+        ]
+
+    @property
     def is_past(self):
         """Returns True if the appointment date+time has already passed."""
         return self.scheduled_datetime < timezone.now()

@@ -6,6 +6,7 @@
 {% block title %}{{ dashboard_title|default:"Veterinarian Dashboard" }}{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/components/appointment_workflow.css' %}">
 
 <!-- Page Header -->
 {% include "components/page_hero.html" with title=dashboard_title|default:"Veterinarian Dashboard" icon="bx-plus-medical" subtitle="Manage your patients, appointments, and schedule" %}
@@ -82,11 +83,15 @@
         {% for appt in active_visit_appointments %}
         <tr>
           <td><strong>{{ appt.pet_name }}</strong><br><small>{{ appt.owner_name }}</small></td>
-          <td>{{ appt.appointment_date|date:"M d, Y" }} · {{ appt.appointment_time_display }}<br><small>{{ appt.get_status_display }}</small></td>
           <td>
-            {% if appt.status == 'CHECKED_IN' %}
+            {{ appt.appointment_date|date:"M d, Y" }} · {{ appt.appointment_time_display }}<br>
+            <small>{{ appt.get_status_display }}</small>
+            {% include "components/appointment_workflow_progress.html" with appt=appt %}
+          </td>
+          <td>
+            {% if appt.status == 'CONFIRMED' or appt.status == 'CHECKED_IN' %}
             <form method="post" action="{% url 'appointments:vet_workflow_action' appt.pk 'start' %}">
-              {% csrf_token %}<button class="section-link" type="submit">Start visit <i class='bx bx-right-arrow-alt'></i></button>
+              {% csrf_token %}<button class="section-link" type="submit">Start visit{% if appt.status == 'CONFIRMED' %} (check-in optional){% endif %} <i class='bx bx-right-arrow-alt'></i></button>
             </form>
             {% elif appt.medical_record_decision == 'UNDECIDED' %}
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">

@@ -4,6 +4,7 @@
 {% block title %}Appointments{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/components/appointment_workflow.css' %}">
 
 <style>
   /* ══════ MINIMALIST PET MANUAL TOGGLE ══════ */
@@ -596,6 +597,9 @@
         <td style="text-align: center;">
           <div class="cell-stack" style="align-items: center;">
             <span class="admin-badge {{ appt.status|lower }}">{{ appt.get_status_display }}</span>
+            {% if appt.status != 'CANCELLED' %}
+            <span class="appointment-workflow-next">{{ appt.workflow_next_action }}</span>
+            {% endif %}
             {% if appt.auto_cancel_countdown_active %}
               <span class="appointment-auto-cancel-countdown" data-auto-cancel-at="{{ appt.auto_cancel_at|date:'c' }}">
                 <i class='bx bx-hourglass'></i> <time data-countdown-value>24:00:00</time>
@@ -646,9 +650,11 @@
             {% endif %}
             {% if appt.status == 'AWAITING_PAYMENT' %}
             <a href="{% url 'pos:checkout' %}?appointment={{ appt.pk }}" class="action-btn" title="Open linked POS checkout"><i class='bx bx-credit-card'></i></a>
+            {% if appt.sale and appt.sale.status == 'COMPLETED' %}
             <form method="post" action="{% url 'appointments:admin_workflow_action' appt.pk 'complete' %}">
               {% csrf_token %}<button class="action-btn" title="Complete after payment"><i class='bx bx-check-double'></i></button>
             </form>
+            {% endif %}
             {% endif %}
             {% if appt.status == 'PENDING' or appt.status == 'CONFIRMED' or appt.status == 'CHECKED_IN' %}
             <form method="post" action="{% url 'appointments:admin_workflow_action' appt.pk 'cancel' %}" class="appointment-cancel-action">
@@ -668,6 +674,9 @@
       <!-- Expandable Details Row -->
       <tr class="accordion-details" id="details-{{ appt.pk }}" style="display: none;">
         <td colspan="{% if can_edit or can_delete %}7{% else %}6{% endif %}" style="padding: 0; background: var(--bg);">
+          <div style="padding: 16px 24px 0;">
+            {% include "components/appointment_workflow_progress.html" with appt=appt %}
+          </div>
           <div style="padding: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
             <div>
               <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;"><i class='bx bx-id-card'></i> Contact Information</h4>

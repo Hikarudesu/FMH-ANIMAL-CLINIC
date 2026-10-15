@@ -1,0 +1,25 @@
+{% if appt.status == 'CANCELLED' %}
+<div class="appointment-workflow-cancelled">
+  <strong><i class='bx bx-x-circle'></i> Appointment cancelled</strong>
+  {% if appt.cancellation_reason %}<span>{{ appt.cancellation_reason }}</span>{% endif %}
+</div>
+{% else %}
+<section class="appointment-workflow" aria-label="Appointment progress">
+  <div class="appointment-workflow-heading">
+    <strong>Visit progress</strong>
+    <span>{{ appt.workflow_next_action }}</span>
+  </div>
+  <ol class="appointment-workflow-steps">
+    {% for step in appt.workflow_progress %}
+    <li class="appointment-workflow-step is-{{ step.state }}{% if step.optional %} is-optional{% endif %}">
+      <span class="appointment-workflow-marker" aria-hidden="true">
+        {% if step.state == 'done' %}<i class='bx bx-check'></i>
+        {% elif step.state == 'skipped' %}<i class='bx bx-minus'></i>
+        {% else %}{{ forloop.counter }}{% endif %}
+      </span>
+      <span class="appointment-workflow-label">{{ step.label }}{% if step.optional %}<small>Optional</small>{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}

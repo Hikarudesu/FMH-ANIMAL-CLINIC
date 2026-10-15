@@ -451,8 +451,11 @@ def veterinarian_workflow_action(request, pk, action):
     """Apply veterinarian-only visit and medical-record decision transitions."""
     appointment = _workflow_appointment_for_staff(request, pk, veterinarian=True)
     if action == 'start':
-        if appointment.status != Appointment.Status.CHECKED_IN:
-            messages.error(request, 'Only checked-in appointments can be started.')
+        if appointment.status not in (
+            Appointment.Status.CONFIRMED,
+            Appointment.Status.CHECKED_IN,
+        ):
+            messages.error(request, 'Only confirmed or checked-in appointments can be started.')
             return redirect('accounts:vet_dashboard')
         appointment.status = Appointment.Status.IN_PROGRESS
         appointment.visit_started_at = timezone.now()
