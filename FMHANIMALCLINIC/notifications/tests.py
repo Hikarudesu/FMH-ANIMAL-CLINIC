@@ -32,6 +32,7 @@ from notifications.utils import (
     sync_appointment_follow_up_to_medical_record,
 )
 from notifications.views import get_allowed_notification_types_for_user
+from notifications.signals import create_low_inventory_notification
 
 
 class EmailDeliveryTests(TestCase):
@@ -43,6 +44,35 @@ class EmailDeliveryTests(TestCase):
 
         self.assertFalse(sent)
         send_mail_mock.assert_called_once()
+
+
+class InventoryThresholdSettingsTests(TestCase):
+    @patch('notifications.signals.notify_module_users')
+    @patch('notifications.signals.get_setting')
+    def test_zero_critical_threshold_is_not_replaced_by_default(
+        self, get_setting_mock, notify_mock
+    ):
+        get_setting_mock.side_effect = lambda key, default=None: {
+            'inventory_enable_alerts': True,
+            'inventory_low_stock_threshold': 10,
+            'inventory_critical_threshold': 0,
+        }.get(key, default)
+
+        create_low_inventory_notification(
+            sender=Product,
+            instance=SimpleNamespace(
+                stock_quantity=3,
+                name='Zero Threshold Test',
+                branch=SimpleNamespace(pk=1),
+                pk=1,
+                id=1,
+            ),
+        )
+
+        self.assertEqual(
+            notify_mock.call_args.kwargs['title'],
+            'Low Inventory Alert',
+        )
 
     def test_payslip_delivery_is_idempotent(self):
         staff_user = User.objects.create_user(

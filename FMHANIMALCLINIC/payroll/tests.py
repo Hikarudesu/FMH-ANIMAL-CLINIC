@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from attendance.models import DailyAttendance, MonthlyAttendanceSummary
+from attendance.services import AttendanceImportService
 from employees.models import StaffMember
 from payroll.models import Payslip, PayrollAuditLog, PayrollPeriod
 from payroll.views import get_payroll_report_rows
@@ -390,8 +391,35 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(Decimal('120.00'), Decimal(str(__import__('settings.utils', fromlist=['get_setting']).get_setting('payroll_default_overtime_pay_per_hour', 0))))
         self.assertEqual(5, int(__import__('settings.utils', fromlist=['get_setting']).get_setting('payroll_default_rest_days', 4)))
 
+    def test_generated_payslip_uses_configured_rest_days(self):
+        set_setting('payroll_default_rest_days', 6)
+        staff = StaffMember.objects.create(
+            first_name='Rest Day',
+            last_name='Configured',
+            biometric_id='BIO-REST-CONFIGURED',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+        )
+        period = PayrollPeriod.objects.create(
+            month=8,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+        )
+
+        payslip.generate_from_employee()
+
+        self.assertEqual(payslip.rest_days_mandatory, 6)
+        self.assertEqual(payslip.working_days, 12)
+
     def test_payslip_counts_13_eligible_days_for_first_half_overtime(self):
         set_setting('payroll_default_rest_days', 4)
+        set_setting('payroll_default_overtime_pay_per_hour', Decimal('150.00'))
         staff = StaffMember.objects.create(
             first_name='Ariel',
             last_name='Dela Cruz',
@@ -434,6 +462,45 @@ class PayrollRulesTests(TestCase):
         payslip.generate_from_employee()
 
         self.assertEqual(payslip.overtime_hours, Decimal('26'))
+        self.assertEqual(payslip.overtime_pay, Decimal('3900.00'))
+
+    def test_uploaded_overtime_hours_use_configured_payslip_rate(self):
+        set_setting('payroll_default_rest_days', 4)
+        set_setting('payroll_default_overtime_pay_per_hour', Decimal('175.00'))
+        staff = StaffMember.objects.create(
+            first_name='Uploaded OT',
+            last_name='Test',
+            biometric_id='BIO-UPLOADED-OT',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+        )
+        imported, matched, errors = AttendanceImportService().import_summary_records([{
+            'Biometric ID': staff.biometric_id,
+            'Date': '2026-08-13',
+            'Morning In': '08:00',
+            'Morning Out': '12:00',
+            'Afternoon In': '13:00',
+            'Afternoon Out': '17:00',
+            'Overtime In': '18:00',
+            'Overtime Out': '20:00',
+        }])
+        period = PayrollPeriod.objects.create(
+            month=8,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+        )
+
+        payslip.generate_from_employee()
+
+        self.assertEqual((imported, matched, errors), (1, 1, 0))
+        self.assertEqual(payslip.overtime_hours, Decimal('2'))
+        self.assertEqual(payslip.overtime_pay, Decimal('350.00'))
 
     def test_payslip_uses_summary_when_daily_rows_lack_time_metadata(self):
         set_setting('payroll_default_rest_days', 4)
@@ -575,6 +642,7 @@ class PayrollRulesTests(TestCase):
 
     def test_payslip_uses_summary_when_raw_rows_lack_time_metadata(self):
         set_setting('payroll_default_rest_days', 4)
+        set_setting('payroll_default_overtime_pay_per_hour', Decimal('150.00'))
         staff = StaffMember.objects.create(
             first_name='Dina',
             last_name='San Jose',
@@ -626,6 +694,40 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(payslip.days_worked, 0)
         self.assertEqual(payslip.days_absent, 13)
         self.assertEqual(payslip.overtime_hours, Decimal('5.50'))
+        self.assertEqual(payslip.overtime_pay, Decimal('825.00'))
+
+    def test_statutory_master_toggle_controls_employee_deductions(self):
+        settings = {
+            'payroll_auto_statutory': False,
+            'payroll_enable_sss': True,
+            'payroll_sss_rate': Decimal('4.50'),
+            'payroll_enable_philhealth': True,
+            'payroll_philhealth_rate': Decimal('2.00'),
+            'payroll_enable_pagibig': True,
+            'payroll_pagibig_fixed': Decimal('100.00'),
+        }
+        payslip = Payslip(base_salary=Decimal('15000.00'))
+
+        with patch(
+            'settings.utils.get_setting',
+            side_effect=lambda key, default=None: settings.get(key, default),
+        ):
+            payslip.calculate()
+
+        self.assertEqual(payslip.sss, Decimal('0.00'))
+        self.assertEqual(payslip.philhealth, Decimal('0.00'))
+        self.assertEqual(payslip.pagibig, Decimal('0.00'))
+
+        settings['payroll_auto_statutory'] = True
+        with patch(
+            'settings.utils.get_setting',
+            side_effect=lambda key, default=None: settings.get(key, default),
+        ):
+            payslip.calculate()
+
+        self.assertEqual(payslip.sss, Decimal('337.50'))
+        self.assertEqual(payslip.philhealth, Decimal('150.00'))
+        self.assertEqual(payslip.pagibig, Decimal('50.00'))
 
     def test_payslip_uses_half_month_formula_when_no_attendance_data_exists(self):
         set_setting('payroll_default_rest_days', 4)
@@ -655,7 +757,7 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(payslip.working_days, 13)
         self.assertEqual(payslip.days_worked, 0)
         self.assertEqual(payslip.days_absent, 13)
-        self.assertEqual(payslip.rest_days_actual, 4)
+        self.assertEqual(payslip.rest_days_actual, 0)
 
     def test_attendance_import_is_allowed_until_both_half_months_are_generated(self):
         PayrollPeriod.objects.create(
@@ -807,6 +909,7 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(payslip.absent_deduction, Decimal('15000.00'))
 
     def test_report_allowances_include_all_earnings(self):
+        set_setting('payroll_auto_statutory', False)
         staff = StaffMember.objects.create(
             first_name='Noel',
             last_name='Fernandez',

@@ -61,7 +61,7 @@ def create_low_inventory_notification(sender, instance, **kwargs):
         return
 
     low_threshold = int(get_setting('inventory_low_stock_threshold', 10) or 10)
-    critical_threshold = int(get_setting('inventory_critical_threshold', 5) or 5)
+    critical_threshold = int(get_setting('inventory_critical_threshold', 5))
 
     if instance.stock_quantity > low_threshold:
         return

@@ -42,3 +42,20 @@ class MissionVisionPublishingTests(TestCase):
         self.assertContains(homepage, 'Vision Updated For Test')
         self.assertContains(homepage, 'Vision description updated for test.')
         self.assertContains(homepage, 'Values Updated For Test')
+
+
+class NotificationSettingsNavigationTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username='notification-settings-admin',
+            email='notification-settings-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(self.admin)
+
+    def test_notification_settings_route_renders_the_notification_form(self):
+        response = self.client.get(reverse('settings:notification_settings'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['active_tab'], 'notifications')
+        self.assertContains(response, 'Enable Email Notifications')

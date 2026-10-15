@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -12,10 +13,25 @@ from appointments.forms import (
     AdminQuickCreateForm,
     AppointmentEditForm,
     PublicAppointmentForm,
+    _validate_appointment_date,
 )
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
 from settings.models import ReasonForVisit
+
+
+class AppointmentAdvanceWindowSettingsTests(TestCase):
+    def test_configured_maximum_advance_window_is_enforced(self):
+        today = date(2026, 10, 15)
+        with patch('appointments.forms.timezone.localdate', return_value=today):
+            with patch('appointments.forms.get_setting', return_value=30):
+                _validate_appointment_date(date(2026, 11, 14))
+
+                with self.assertRaisesMessage(
+                    ValidationError,
+                    'Appointment date cannot be more than 30 days in advance.',
+                ):
+                    _validate_appointment_date(date(2026, 11, 15))
 
 
 class ExpiredAppointmentCleanupTests(TestCase):

@@ -4,7 +4,7 @@ Forms for the appointments app.
 # pylint: disable=no-member
 
 
-from datetime import time, date
+from datetime import time, date, timedelta
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -12,6 +12,7 @@ from FMHANIMALCLINIC.form_mixins import FormControlMixin, validate_philippines_p
 
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
+from settings.utils import get_setting
 
 from .models import Appointment
 from .services import AppointmentService
@@ -38,6 +39,15 @@ def _validate_appointment_date(appt_date, allow_past=False):
     if appt_date < today:
         raise ValidationError(
             'Appointment date cannot be in the past. Please select a future date.'
+        )
+
+    try:
+        max_advance_days = max(1, int(get_setting('appointment_max_advance_days', 180)))
+    except (TypeError, ValueError):
+        max_advance_days = 180
+    if appt_date > today + timedelta(days=max_advance_days):
+        raise ValidationError(
+            f'Appointment date cannot be more than {max_advance_days} days in advance.'
         )
 
 

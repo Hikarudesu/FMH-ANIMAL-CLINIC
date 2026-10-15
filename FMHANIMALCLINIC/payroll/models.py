@@ -523,6 +523,32 @@ class Payslip(models.Model):
         self.days_worked = min(complete_attendance_days, working_days_for_half)
         self.days_absent = max(0, working_days_for_half - self.days_worked)
 
+        if has_detailed_punches:
+            detailed_overtime = list(
+                daily_records.filter(
+                    is_present=True,
+                    ot_hours_calculated__gt=0,
+                )
+                .order_by('attendance_date')
+                .values_list('ot_hours_calculated', flat=True)[:working_days_for_half]
+            )
+        else:
+            detailed_overtime = []
+
+        if detailed_overtime:
+            self.overtime_hours = sum(detailed_overtime, Decimal('0'))
+        else:
+            self.overtime_hours = Decimal(str(
+                attendance_summary.overtime_hours if attendance_summary else 0
+            ))
+        overtime_rate = Decimal(str(
+            get_setting('payroll_default_overtime_pay_per_hour', 120)
+        ))
+        self.overtime_pay = (
+            (self.overtime_hours * overtime_rate).quantize(Decimal('0.01'))
+            if self.overtime_hours >= 1 else Decimal('0.00')
+        )
+
         # Calculate daily salary based on base salary and the actual working days in-range.
         # When no attendance summary exists, working_days_for_half stays at zero.
         self.daily_salary = (
