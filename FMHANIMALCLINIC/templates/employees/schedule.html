@@ -305,9 +305,30 @@
     </div>
     <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
       <button type="button" class="btn-cancel" id="cancelClearAllModal">Cancel</button>
-      <form method="POST" action="{% url 'employees:schedule_clear_all' %}" style="margin:0;">
+      <button type="button" class="btn-submit" id="confirmClearAllSchedulesBtn" style="background: #e63946; border-color: #e63946; color: #fff;">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- FINAL CLEAR ALL CONFIRMATION MODAL -->
+<div class="modal-overlay" id="finalClearAllModal" role="dialog" aria-modal="true" aria-labelledby="finalClearAllTitle">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 id="finalClearAllTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Final Confirmation</h3>
+      <button type="button" class="modal-close" id="closeFinalClearAllModal">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-trash-alt' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Permanently delete these schedules?</h4>
+      <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+        Every schedule entry you can manage will be deleted, including generated entries. Recurring templates will remain. This cannot be undone.
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+      <button type="button" class="btn-cancel" id="cancelFinalClearAllModal">Cancel</button>
+      <form method="POST" action="{% url 'employees:schedule_clear_all' %}" id="clearAllSchedulesForm" style="margin:0;">
         {% csrf_token %}
-        <button type="submit" class="btn-submit" style="background: #e63946; border-color: #e63946; color: #fff;">Yes, Delete All</button>
+        <button type="submit" class="btn-submit" style="background: #e63946; border-color: #e63946; color: #fff;">Delete All Schedules</button>
       </form>
     </div>
   </div>

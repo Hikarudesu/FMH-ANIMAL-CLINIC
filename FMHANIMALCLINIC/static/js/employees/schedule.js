@@ -59,8 +59,13 @@ function getLocalYMD(d) {
   // Clear All Modal
   const clearAllModal = document.getElementById("clearAllModal");
   const clearAllSchedulesBtn = document.getElementById("clearAllSchedulesBtn");
+  const confirmClearAllSchedulesBtn = document.getElementById("confirmClearAllSchedulesBtn");
+  const clearAllSchedulesForm = document.getElementById("clearAllSchedulesForm");
   const closeClearAllModal = document.getElementById("closeClearAllModal");
   const cancelClearAllModal = document.getElementById("cancelClearAllModal");
+  const finalClearAllModal = document.getElementById("finalClearAllModal");
+  const closeFinalClearAllModal = document.getElementById("closeFinalClearAllModal");
+  const cancelFinalClearAllModal = document.getElementById("cancelFinalClearAllModal");
 
   // Clear All Recurring Modal
   const clearAllRecurringModal = document.getElementById("clearAllRecurringModal");
@@ -606,6 +611,21 @@ function getLocalYMD(d) {
     );
     clearAllModal.addEventListener("click", (e) => {
       if (e.target === clearAllModal) closeModalEl(clearAllModal);
+    });
+  }
+  if (clearAllSchedulesForm) {
+    confirmClearAllSchedulesBtn.addEventListener("click", () => {
+      closeModalEl(clearAllModal);
+      openModal(finalClearAllModal);
+    });
+    closeFinalClearAllModal.addEventListener("click", () =>
+      closeModalEl(finalClearAllModal),
+    );
+    cancelFinalClearAllModal.addEventListener("click", () =>
+      closeModalEl(finalClearAllModal),
+    );
+    finalClearAllModal.addEventListener("click", (event) => {
+      if (event.target === finalClearAllModal) closeModalEl(finalClearAllModal);
     });
   }
 
