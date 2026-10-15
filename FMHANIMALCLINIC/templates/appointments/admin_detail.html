@@ -1,0 +1,305 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+
+{% block title %}Manage Appointment — {{ appointment.pet_name }}{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components/appointment_workflow.css' %}">
+<style>
+  .appointment-manage { max-width: 1240px; margin: 0 auto; padding-bottom: 36px; }
+  .appointment-manage__back { display: inline-flex; align-items: center; gap: 7px; margin: 4px 0 18px; color: var(--text-2); text-decoration: none; font-weight: 600; }
+  .appointment-manage__hero, .appointment-manage__card { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 8px 24px rgba(15, 23, 42, .045); }
+  .appointment-manage__hero { padding: 24px 28px; margin-bottom: 18px; }
+  .appointment-manage__hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .appointment-manage__eyebrow { margin: 0 0 6px; color: var(--text-3); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .appointment-manage__hero h1 { margin: 0; color: var(--text-1); font-size: clamp(1.35rem, 3vw, 1.8rem); }
+  .appointment-manage__sub { margin: 7px 0 0; color: var(--text-2); }
+  .appointment-manage__status { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 8px 13px; background: var(--primary-light, #e0f2f1); color: var(--primary, #087f75); font-size: .82rem; font-weight: 700; white-space: nowrap; }
+  .appointment-manage__grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .85fr); align-items: start; gap: 18px; }
+  .appointment-manage__main, .appointment-manage__side { display: grid; gap: 18px; }
+  .appointment-manage__card { padding: 21px 23px; }
+  .appointment-manage__card h2 { display: flex; align-items: center; gap: 9px; margin: 0 0 16px; color: var(--text-1); font-size: 1rem; }
+  .appointment-manage__card h2 i { color: var(--primary, #087f75); font-size: 1.2rem; }
+  .appointment-manage__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 22px; }
+  .appointment-manage__fact { min-width: 0; }
+  .appointment-manage__fact small { display: block; margin-bottom: 4px; color: var(--text-3); font-size: .73rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .appointment-manage__fact strong, .appointment-manage__fact span { display: block; color: var(--text-1); overflow-wrap: anywhere; }
+  .appointment-manage__fact span { margin-top: 3px; color: var(--text-2); font-size: .85rem; }
+  .appointment-manage__note { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--bg, #f8fafc); color: var(--text-2); line-height: 1.55; overflow-wrap: anywhere; }
+  .appointment-manage__notice { display: flex; align-items: flex-start; gap: 10px; padding: 13px 15px; border: 1px solid #bfdbfe; border-radius: 11px; background: #eff6ff; color: #1e40af; line-height: 1.45; }
+  .appointment-manage__notice--warning { border-color: #fed7aa; background: #fff7ed; color: #9a3412; }
+  .appointment-manage__notice--success { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+  .appointment-manage__actions { display: grid; gap: 12px; }
+  .appointment-manage__action { padding: 15px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg, #f8fafc); }
+  .appointment-manage__action h3 { margin: 0 0 5px; color: var(--text-1); font-size: .92rem; }
+  .appointment-manage__action p { margin: 0 0 12px; color: var(--text-2); font-size: .84rem; line-height: 1.5; }
+  .appointment-manage__button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 8px; padding: 9px 15px; border: 0; border-radius: 9px; background: var(--primary, #087f75); color: #fff; font: inherit; font-size: .86rem; font-weight: 700; text-decoration: none; cursor: pointer; }
+  .appointment-manage__button:hover { filter: brightness(.95); color: #fff; }
+  .appointment-manage__button--secondary { border: 1px solid var(--border); background: var(--surface); color: var(--text-1); }
+  .appointment-manage__button--secondary:hover,
+  .appointment-manage__button--secondary:focus-visible {
+    border-color: var(--primary, #087f75);
+    background: var(--primary-light, #e0f2f1);
+    color: var(--primary, #087f75);
+    filter: none;
+  }
+  .appointment-manage__button--danger { background: #dc2626; }
+  .appointment-manage__form { display: grid; gap: 9px; }
+  .appointment-manage__form label { color: var(--text-1); font-size: .82rem; font-weight: 700; }
+  .appointment-manage__form textarea { width: 100%; min-height: 84px; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-1); font: inherit; resize: vertical; }
+  .appointment-manage__list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .appointment-manage__list li { padding: 11px 12px; border-radius: 9px; background: var(--bg, #f8fafc); color: var(--text-2); font-size: .84rem; line-height: 1.45; }
+  .appointment-manage__list strong { color: var(--text-1); }
+  .appointment-manage__toolbar { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+  .appointment-manage__separator { height: 1px; margin: 15px 0; border: 0; background: var(--border); }
+  @media (max-width: 820px) { .appointment-manage__grid { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) {
+    .appointment-manage__hero, .appointment-manage__card { padding: 17px; }
+    .appointment-manage__hero-top { flex-direction: column; }
+    .appointment-manage__facts { grid-template-columns: 1fr; gap: 13px; }
+    .appointment-manage__button { width: 100%; box-sizing: border-box; }
+  }
+</style>
+
+<main class="appointment-manage">
+  <a href="{% url 'appointments:admin_list' %}" class="appointment-manage__back">
+    <i class='bx bx-left-arrow-alt'></i> Back to appointments
+  </a>
+
+  <section class="appointment-manage__hero">
+    <div class="appointment-manage__hero-top">
+      <div>
+        <p class="appointment-manage__eyebrow">Appointment workspace</p>
+        <h1>{{ appointment.pet_name }} <span style="font-weight: 400;">· {{ appointment.owner_name }}</span></h1>
+        <p class="appointment-manage__sub">
+          {{ appointment.appointment_date|date:"l, F j, Y" }} · {{ appointment.appointment_time_display }}
+          {% if appointment.branch %} · {{ appointment.branch.name }}{% endif %}
+        </p>
+      </div>
+      <span class="appointment-manage__status">
+        <i class='bx bx-calendar-check'></i> {{ appointment.get_status_display }}
+      </span>
+    </div>
+    {% include "components/appointment_workflow_progress.html" with appt=appointment %}
+  </section>
+
+  <div class="appointment-manage__grid">
+    <div class="appointment-manage__main">
+      <section class="appointment-manage__card">
+        <h2><i class='bx bx-user'></i> Owner and pet</h2>
+        <div class="appointment-manage__facts">
+          <div class="appointment-manage__fact"><small>Owner</small><strong>{{ appointment.owner_name }}</strong></div>
+          <div class="appointment-manage__fact"><small>Phone</small><strong>{{ appointment.owner_phone|default:"Not provided" }}</strong></div>
+          <div class="appointment-manage__fact"><small>Email</small><strong>{{ appointment.owner_email|default:"Not provided" }}</strong></div>
+          <div class="appointment-manage__fact"><small>Address</small><strong>{{ appointment.owner_address|default:"Not provided" }}</strong></div>
+          <div class="appointment-manage__fact"><small>Pet</small><strong>{{ appointment.pet_name }}</strong><span>{{ appointment.pet_species|default:"Species not provided" }}{% if appointment.pet_breed %} · {{ appointment.pet_breed }}{% endif %}</span></div>
+          <div class="appointment-manage__fact"><small>Pet details</small><strong>{{ appointment.pet_sex|default:"Sex not provided" }}</strong><span>{% if appointment.pet_dob %}Born {{ appointment.pet_dob }}{% endif %}{% if appointment.pet_color %}{% if appointment.pet_dob %} · {% endif %}{{ appointment.pet_color }}{% endif %}</span></div>
+        </div>
+        {% if appointment.pet_symptoms %}
+        <p class="appointment-manage__note"><strong>Symptoms / concern:</strong><br>{{ appointment.pet_symptoms|linebreaksbr }}</p>
+        {% endif %}
+      </section>
+
+      <section class="appointment-manage__card">
+        <h2><i class='bx bx-notepad'></i> Visit details</h2>
+        <div class="appointment-manage__facts">
+          <div class="appointment-manage__fact"><small>Reason for visit</small><strong>{{ appointment.reason_display }}</strong></div>
+          <div class="appointment-manage__fact"><small>Veterinarian</small><strong>{{ appointment.preferred_vet.full_name|default:"Any available veterinarian" }}</strong></div>
+          <div class="appointment-manage__fact"><small>Appointment source</small><strong>{{ appointment.get_source_display }}</strong></div>
+          <div class="appointment-manage__fact"><small>Booked</small><strong>{{ appointment.created_at|date:"M j, Y · g:i A" }}</strong></div>
+        </div>
+        {% if appointment.notes %}<p class="appointment-manage__note"><strong>Staff notes:</strong><br>{{ appointment.notes|linebreaksbr }}</p>{% endif %}
+        {% if appointment.cancellation_reason %}<p class="appointment-manage__note"><strong>Cancellation reason:</strong><br>{{ appointment.cancellation_reason|linebreaksbr }}</p>{% endif %}
+        {% if appointment.medical_record_decision_reason %}<p class="appointment-manage__note"><strong>Medical-record decision note:</strong><br>{{ appointment.medical_record_decision_reason|linebreaksbr }}</p>{% endif %}
+      </section>
+
+      {% if appointment.status == 'IN_PROGRESS' or appointment.status == 'AWAITING_PAYMENT' or appointment.status == 'COMPLETED' %}
+      <section class="appointment-manage__card">
+        <h2><i class='bx bx-file'></i> Veterinarian handoff and medical record</h2>
+        <div class="appointment-manage__facts">
+          <div class="appointment-manage__fact"><small>Record decision</small><strong>{{ appointment.get_medical_record_decision_display }}</strong></div>
+          <div class="appointment-manage__fact"><small>Record status</small><strong>{% if appointment.medical_record_added %}Record saved{% elif appointment.medical_record_decision == 'REQUIRED' %}Required, not saved yet{% else %}No linked record{% endif %}</strong></div>
+        </div>
+        {% if record_entries %}
+        <hr class="appointment-manage__separator">
+        <ul class="appointment-manage__list">
+          {% for entry in record_entries %}
+          <li><strong>{{ entry.date_recorded|date:"M j, Y" }}</strong>{% if entry.vet %} · {{ entry.vet.full_name }}{% endif %}{% if entry.history_clinical_signs %}<br>{{ entry.history_clinical_signs|truncatechars:220 }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% elif appointment.medical_record_decision == 'REQUIRED' and can_create_medical_record and appointment.pet_id %}
+        <div class="appointment-manage__toolbar">
+          <a class="appointment-manage__button" href="{% url 'records:admin_create' %}?pet={{ appointment.pet_id }}&vet={{ appointment.preferred_vet_id }}&appointment={{ appointment.pk }}"><i class='bx bx-file-plus'></i> Create required medical record</a>
+        </div>
+        {% elif appointment.status == 'COMPLETED' and not appointment.medical_record_added and can_create_medical_record and appointment.pet_id %}
+        <div class="appointment-manage__toolbar">
+          <a class="appointment-manage__button appointment-manage__button--secondary" href="{% url 'records:admin_create' %}?pet={{ appointment.pet_id }}&vet={{ appointment.preferred_vet_id }}&appointment={{ appointment.pk }}"><i class='bx bx-file-plus'></i> Add medical record</a>
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+
+      {% if follow_ups %}
+      <section class="appointment-manage__card">
+        <h2><i class='bx bx-bell'></i> Follow-up schedule</h2>
+        <ul class="appointment-manage__list">
+          {% for follow_up in follow_ups %}
+          <li><strong>{{ follow_up.follow_up_date|date:"M j, Y" }}</strong>{% if follow_up.follow_up_end_date %} – {{ follow_up.follow_up_end_date|date:"M j, Y" }}{% endif %}{% if follow_up.reason %}<br>{{ follow_up.reason }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </div>
+
+    <aside class="appointment-manage__side">
+      <section class="appointment-manage__card">
+        <h2><i class='bx bx-git-branch'></i> Next step</h2>
+        {% if appointment.status == 'CANCELLED' %}
+        <div class="appointment-manage__notice appointment-manage__notice--warning"><i class='bx bx-x-circle'></i><span>This appointment is cancelled.</span></div>
+        {% elif appointment.status == 'COMPLETED' %}
+        <div class="appointment-manage__notice appointment-manage__notice--success"><i class='bx bx-check-circle'></i><span>This visit has been completed.</span></div>
+        {% elif appointment.status == 'CONFIRMED' and not appointment_date_arrived %}
+        <div class="appointment-manage__notice appointment-manage__notice--warning"><i class='bx bx-time-five'></i><span>Confirmed for {{ appointment.appointment_date|date:"F j, Y" }}. Check-in and consultation can begin on the scheduled date.</span></div>
+        {% else %}
+        <div class="appointment-manage__notice"><i class='bx bx-info-circle'></i><span>{{ appointment.workflow_next_action }}</span></div>
+        {% endif %}
+        <div class="appointment-manage__actions" style="margin-top: 15px;">
+          {% if can_edit and appointment.status == 'PENDING' %}
+          <div class="appointment-manage__action">
+            <h3>Review booking request</h3>
+            <p>Confirm to reserve this appointment and notify the owner.</p>
+            <form method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'confirm' %}">
+              {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-check'></i> Confirm appointment</button>
+            </form>
+          </div>
+          {% endif %}
+
+          {% if can_check_in %}
+          <div class="appointment-manage__action">
+            <h3>Owner has arrived?</h3>
+            <p>Check them in here, or the veterinarian may begin the consultation directly.</p>
+            <form method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'check-in' %}">
+              {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-log-in-circle'></i> Check in</button>
+            </form>
+          </div>
+          {% endif %}
+          {% if can_edit and appointment.status == 'CONFIRMED' and not appointment_date_arrived %}
+          <div class="appointment-manage__action">
+            <h3>Appointment confirmed</h3>
+            <p>Check-in will be available on {{ appointment.appointment_date|date:"F j, Y" }}.</p>
+          </div>
+          {% endif %}
+
+          {% if can_start_visit %}
+          <div class="appointment-manage__action">
+            <h3>Veterinary consultation</h3>
+            <p>Begin the consultation. Check-in is optional if the pet is ready.</p>
+            <form method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'start' %}">
+              {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-first-aid'></i> Start consultation</button>
+            </form>
+          </div>
+          {% endif %}
+
+          {% if can_decide_record %}
+          <div class="appointment-manage__action">
+            <h3>Medical-record decision</h3>
+            <p>Choose whether this consultation needs a medical record. Explain the decision if no record is needed.</p>
+            <div class="appointment-manage__toolbar">
+              <form method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'record-required' %}">
+                {% csrf_token %}<button class="appointment-manage__button" type="submit">Record required</button>
+              </form>
+            </div>
+            <form class="appointment-manage__form" method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'no-record' %}" style="margin-top: 12px;">
+              {% csrf_token %}
+              <label for="noRecordReason">Reason no record is needed</label>
+              <textarea id="noRecordReason" name="medical_record_decision_reason" minlength="5" required></textarea>
+              <button class="appointment-manage__button appointment-manage__button--secondary" type="submit">No record needed</button>
+            </form>
+          </div>
+          {% endif %}
+
+          {% if can_send_to_payment %}
+          <div class="appointment-manage__action">
+            <h3>Medical record saved</h3>
+            <p>Hand this consultation to reception for payment at the POS.</p>
+            <form method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'send-to-payment' %}">
+              {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-credit-card'></i> Send to POS</button>
+            </form>
+          </div>
+          {% endif %}
+
+          {% if can_edit and appointment.status == 'AWAITING_PAYMENT' %}
+          <div class="appointment-manage__action">
+            <h3>Payment</h3>
+            {% if appointment.sale and appointment.sale.status == 'COMPLETED' %}
+            <div class="appointment-manage__notice appointment-manage__notice--success"><i class='bx bx-check-circle'></i><span>POS payment is complete.</span></div>
+            {% elif can_access_pos %}
+            <p>Open the linked POS checkout to add charges and record payment.</p>
+            <a class="appointment-manage__button" href="{% url 'pos:checkout' %}?appointment={{ appointment.pk }}"><i class='bx bx-credit-card'></i> Open linked POS checkout</a>
+            {% else %}
+            <p>Payment is still required. Ask a cashier with POS access to process it.</p>
+            {% endif %}
+          </div>
+          {% if can_complete %}
+          <div class="appointment-manage__action">
+            <h3>Final review</h3>
+            <p>Payment and veterinarian handoff are complete. Close the consultation to finish the appointment.</p>
+            <form method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'complete' %}">
+              {% csrf_token %}<button class="appointment-manage__button" type="submit"><i class='bx bx-check-double'></i> Complete appointment</button>
+            </form>
+          </div>
+          {% endif %}
+          {% endif %}
+
+          {% if can_cancel %}
+          <div class="appointment-manage__action">
+            <h3>Cancel appointment</h3>
+            <p>Cancellation requires a reason and will be recorded with the appointment.</p>
+            <form class="appointment-manage__form" method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'cancel' %}">
+              {% csrf_token %}
+              <label for="cancellationReason">Cancellation reason</label>
+              <textarea id="cancellationReason" name="cancellation_reason" minlength="5" maxlength="2000" required></textarea>
+              <button class="appointment-manage__button appointment-manage__button--danger" type="submit"><i class='bx bx-x-circle'></i> Cancel appointment</button>
+            </form>
+          </div>
+          {% endif %}
+
+          {% if appointment.status == 'CHECKED_IN' and not is_veterinarian %}
+          <div class="appointment-manage__action"><h3>Waiting for veterinarian</h3><p>The veterinarian can begin the consultation from this appointment workspace.</p></div>
+          {% endif %}
+
+          {% if appointment.status == 'IN_PROGRESS' and not is_veterinarian %}
+          <div class="appointment-manage__action"><h3>Consultation in progress</h3><p>Waiting for the veterinarian to finish the record decision and hand off the consultation.</p></div>
+          {% endif %}
+        </div>
+
+        {% if can_edit or can_delete %}
+        <div class="appointment-manage__toolbar">
+          {% if can_edit %}<a class="appointment-manage__button appointment-manage__button--secondary" href="{% url 'appointments:admin_edit' appointment.pk %}"><i class='bx bx-edit'></i> Edit details</a>{% endif %}
+          {% if can_delete and appointment.status != 'CHECKED_IN' and appointment.status != 'IN_PROGRESS' and appointment.status != 'AWAITING_PAYMENT' and appointment.status != 'COMPLETED' %}
+          <form method="post" action="{% url 'appointments:admin_delete' appointment.pk %}" onsubmit="return confirm('Delete this appointment? This cannot be undone.');">
+            {% csrf_token %}<button class="appointment-manage__button appointment-manage__button--danger" type="submit"><i class='bx bx-trash'></i> Delete appointment</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endif %}
+      </section>
+
+      {% if appointment.sale %}
+      <section class="appointment-manage__card">
+        <h2><i class='bx bx-receipt'></i> POS summary</h2>
+        <ul class="appointment-manage__list">
+          <li><strong>Transaction</strong><br>{{ appointment.sale.transaction_id }}</li>
+          <li><strong>POS status</strong><br>{{ appointment.sale.get_status_display }}</li>
+          <li><strong>Total</strong><br>₱{{ appointment.sale.total|floatformat:2 }}</li>
+          <li><strong>Paid</strong><br>₱{{ appointment.sale.amount_paid|floatformat:2 }}{% if appointment.sale.balance_due %}<br>Balance due: ₱{{ appointment.sale.balance_due|floatformat:2 }}{% endif %}</li>
+          {% for payment in appointment.sale.payments.all %}
+          <li><strong>{{ payment.get_method_display }}</strong> · ₱{{ payment.amount|floatformat:2 }}{% if payment.reference_number %}<br>Ref: {{ payment.reference_number }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </aside>
+  </div>
+</main>
+{% endblock %}

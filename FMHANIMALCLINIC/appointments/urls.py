@@ -23,6 +23,7 @@ urlpatterns = [
 
     # Admin management
     path('admin/', views.admin_list, name='admin_list'),
+    path('admin/<int:pk>/', views.admin_detail, name='admin_detail'),
     path('admin/calendar-api/', views.admin_calendar_api,
          name='admin_calendar_api'),
     path('admin/quick-create/', views.admin_quick_create,

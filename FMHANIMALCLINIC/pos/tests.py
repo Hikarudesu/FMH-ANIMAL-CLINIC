@@ -46,6 +46,7 @@ class AppointmentCheckoutTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'POS Appointment Pet')
+        self.assertContains(response, 'Return to appointment')
         self.appointment.refresh_from_db()
         self.assertIsNotNone(self.appointment.sale_id)
         self.assertEqual(self.appointment.sale.branch_id, self.branch.pk)
