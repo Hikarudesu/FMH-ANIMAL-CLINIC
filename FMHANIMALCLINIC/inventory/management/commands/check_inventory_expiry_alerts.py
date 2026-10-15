@@ -22,6 +22,7 @@ class Command(BaseCommand):
                 'Inventory expiry alert job complete. '
                 f"warning_days={summary.get('warning_days')} | "
                 f"products_scanned={summary.get('products_scanned')} | "
-                f"notifications_created={summary.get('notifications_created')}"
+                f"notifications_created={summary.get('notifications_created')} | "
+                f"emails_sent={summary.get('emails_sent', 0)}"
             )
         )
