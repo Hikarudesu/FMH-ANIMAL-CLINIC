@@ -8,9 +8,13 @@ from django.utils import timezone
 from accounts.models import User
 from accounts.rbac_models import Module, ModulePermission, Role
 from appointments.models import Appointment
-from appointments.forms import AdminQuickCreateForm, AppointmentEditForm
+from appointments.forms import (
+    AdminQuickCreateForm,
+    AppointmentEditForm,
+    PublicAppointmentForm,
+)
 from branches.models import Branch
-from employees.models import StaffMember
+from employees.models import StaffMember, VetSchedule
 from settings.models import ReasonForVisit
 
 
@@ -239,6 +243,80 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
             'Owner name is required for walk-in appointments.',
         )
 
+
+class FlexibleAppointmentTimeTests(TestCase):
+    def test_morning_booking_uses_first_available_time_not_fixed_eight_am(self):
+        branch = Branch.objects.create(name='Flexible Booking Branch')
+        vet_role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        vet_user = User.objects.create_user(
+            username='flexible-booking-vet',
+            email='flexible-booking-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=vet_role,
+            branch=branch,
+        )
+        vet = StaffMember.objects.create(
+            user=vet_user,
+            first_name='Flexible',
+            last_name='Booking Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=branch,
+        )
+        appointment_date = timezone.localdate() + timedelta(days=1)
+        VetSchedule.objects.create(
+            staff=vet,
+            date=appointment_date,
+            start_time=time(8),
+            end_time=time(12),
+            branch=branch,
+        )
+        Appointment.objects.create(
+            owner_name='Earlier Owner',
+            pet_name='Earlier Pet',
+            branch=branch,
+            preferred_vet=vet,
+            appointment_date=appointment_date,
+            appointment_time=time(8),
+            status=Appointment.Status.CONFIRMED,
+        )
+        other_branch = Branch.objects.create(name='Other Flexible Booking Branch')
+        Appointment.objects.create(
+            owner_name='Other Branch Owner',
+            pet_name='Other Branch Pet',
+            branch=other_branch,
+            preferred_vet=vet,
+            appointment_date=appointment_date,
+            appointment_time=time(8, 30),
+            status=Appointment.Status.CONFIRMED,
+        )
+        reason = ReasonForVisit.objects.create(
+            name='General Consultation',
+            code='FLEXIBLE_BOOKING_GENERAL',
+        )
+
+        form = PublicAppointmentForm(data={
+            'owner_name': 'New Owner',
+            'pet_name': 'New Pet',
+            'pet_species': 'Dog',
+            'pet_sex': 'MALE',
+            'branch': str(branch.pk),
+            'appointment_date': appointment_date.isoformat(),
+            'appointment_time': 'MORNING',
+            'reason': str(reason.pk),
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['appointment_time'], time(8, 30))
+
+
+class AdminQuickCreateOwnerApiTests(TestCase):
     def test_owner_name_field_is_not_required_for_portal_form_rendering(self):
         form = AdminQuickCreateForm()
 

@@ -14,6 +14,7 @@ from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
 
 from .models import Appointment
+from .services import AppointmentService
 
 
 PET_SEX_CHOICES = [
@@ -53,6 +54,8 @@ def _validate_vet_schedule(branch, appt_date, vet=None):
         branch=branch,
         date=appt_date,
         is_available=True,
+        staff__is_active=True,
+        staff__user__is_active=True,
         staff__user__assigned_role__code__in=schedulable_roles,
     ).values_list('staff_id', flat=True).distinct())
 
@@ -99,52 +102,66 @@ def _check_double_booking(cleaned_data, allow_past=False, instance_id=None):
             'Appointments cannot be scheduled between 12:00 PM and 1:00 PM (Lunch Break).'
         )
 
-    if vet:
-        # Specific vet selected — check if that vet is already booked
-        conflict_query = Appointment.objects.filter(
-            preferred_vet=vet,
-            appointment_date=appt_date,
-            appointment_time=appt_time,
-        ).exclude(status='CANCELLED')
-        
-        if instance_id:
-            conflict_query = conflict_query.exclude(pk=instance_id)
-            
-        if conflict_query.exists():
+    available_slots = AppointmentService.get_available_slots(
+        vet_id=vet.pk if vet else None,
+        target_date=appt_date,
+        branch_id=branch.pk,
+        exclude_appointment_id=instance_id,
+    )
+    requested_slot = appt_time.strftime('%H:%M')
+    if not any(
+        slot['time'] == requested_slot and slot['available']
+        for slot in available_slots
+    ):
+        if vet:
             raise ValidationError(
                 'This time slot is already booked for this veterinarian. '
                 'Please select a different time.'
             )
-    else:
-        # No vet selected ("any available") — check if ALL scheduled vets
-        # at this branch+date+time are booked
-        schedulable_roles = ['veterinarian', 'assistant_veterinarian']
-        scheduled_vet_ids = list(VetSchedule.objects.filter(
-            branch=branch,
-            date=appt_date,
-            is_available=True,
-            staff__user__assigned_role__code__in=schedulable_roles,
-        ).values_list('staff_id', flat=True).distinct())
+        raise ValidationError(
+            'All veterinarians are fully booked at this time. '
+            'Please select a different time slot.'
+        )
 
-        if scheduled_vet_ids:
-            booked_query = Appointment.objects.filter(
-                appointment_date=appt_date,
-                appointment_time=appt_time,
-                preferred_vet_id__in=scheduled_vet_ids,
-            ).exclude(status='CANCELLED')
-            
-            if instance_id:
-                booked_query = booked_query.exclude(pk=instance_id)
-                
-            booked_vet_ids = list(booked_query.values_list(
-                'preferred_vet_id', flat=True
-            ))
 
-            if set(scheduled_vet_ids) == set(booked_vet_ids):
-                raise ValidationError(
-                    'All veterinarians are fully booked at this time. '
-                    'Please select a different time slot.'
-                )
+def _resolve_flexible_appointment_time(
+    cleaned_data,
+    requested_period,
+    instance_id=None,
+):
+    """Resolve a Morning/Afternoon choice to an actually available slot."""
+    if requested_period not in ('MORNING', 'AFTERNOON'):
+        return
+
+    branch = cleaned_data.get('branch')
+    appt_date = cleaned_data.get('appointment_date')
+    if not branch or not appt_date:
+        return
+
+    vet = cleaned_data.get('preferred_vet')
+    slots = AppointmentService.get_available_slots(
+        vet_id=vet.pk if vet else None,
+        target_date=appt_date,
+        branch_id=branch.pk,
+        exclude_appointment_id=instance_id,
+    )
+    for slot in slots:
+        if not slot['available']:
+            continue
+        slot_time = time.fromisoformat(slot['time'])
+        if (
+            requested_period == 'MORNING' and slot_time < time(12, 0)
+        ) or (
+            requested_period == 'AFTERNOON' and slot_time >= time(13, 0)
+        ):
+            cleaned_data['appointment_time'] = slot_time
+            return
+
+    period_label = 'morning' if requested_period == 'MORNING' else 'afternoon'
+    raise ValidationError(
+        f'No available {period_label} appointment times remain. '
+        'Please select another time period or date.'
+    )
 
 
 class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
@@ -267,13 +284,10 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        # Handle MORNING/AFTERNOON markers for any available vet mode
-        time_str = self.data.get('appointment_time')
-        if time_str == 'MORNING':
-            cleaned_data['appointment_time'] = time(8, 0)
-        elif time_str == 'AFTERNOON':
-            cleaned_data['appointment_time'] = time(13, 0)
-            
+        _resolve_flexible_appointment_time(
+            cleaned_data,
+            self.data.get('appointment_time'),
+        )
         _check_double_booking(cleaned_data)
         return cleaned_data
 
@@ -282,18 +296,17 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
         Parse time from Select widget.
         Accepts:
         - HH:MM format for specific time slots
-        - "MORNING" marker for any available morning slot (defaults to 08:00)
-        - "AFTERNOON" marker for any available afternoon slot (defaults to 13:00)
+        - "MORNING" and "AFTERNOON" markers resolved to an available slot
         """
         time_str = self.data.get('appointment_time', '')
         if not time_str:
             raise ValidationError('Please select a time slot.')
         
-        # Handle MORNING/AFTERNOON markers for "any available vet" mode
+        # The form's clean() resolves these markers to an available slot.
         if time_str == 'MORNING':
-            return time(8, 0)  # Default morning time, vet will be assigned later
+            return time(8, 0)
         elif time_str == 'AFTERNOON':
-            return time(13, 0)  # Default afternoon time, vet will be assigned later
+            return time(13, 0)
         
         try:
             hours, minutes = map(int, time_str.split(':'))
@@ -482,13 +495,10 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        # Handle MORNING/AFTERNOON markers for any available vet mode
-        time_str = self.data.get('appointment_time')
-        if time_str == 'MORNING':
-            cleaned_data['appointment_time'] = time(8, 0)
-        elif time_str == 'AFTERNOON':
-            cleaned_data['appointment_time'] = time(13, 0)
-            
+        _resolve_flexible_appointment_time(
+            cleaned_data,
+            self.data.get('appointment_time'),
+        )
         _check_double_booking(cleaned_data)
         return cleaned_data
 
@@ -497,18 +507,17 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         Parse time from Select widget.
         Accepts:
         - HH:MM format for specific time slots
-        - "MORNING" marker for any available morning slot (defaults to 08:00)
-        - "AFTERNOON" marker for any available afternoon slot (defaults to 13:00)
+        - "MORNING" and "AFTERNOON" markers resolved to an available slot
         """
         time_str = self.data.get('appointment_time', '')
         if not time_str:
             raise ValidationError('Please select a time slot.')
         
-        # Handle MORNING/AFTERNOON markers for "any available vet" mode
+        # The form's clean() resolves these markers to an available slot.
         if time_str == 'MORNING':
-            return time(8, 0)  # Default morning time, vet will be assigned later
+            return time(8, 0)
         elif time_str == 'AFTERNOON':
-            return time(13, 0)  # Default afternoon time, vet will be assigned later
+            return time(13, 0)
         
         try:
             hours, minutes = map(int, time_str.split(':'))
@@ -778,15 +787,8 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         ):
             self.add_error('owner_name', 'Owner name is required for walk-in appointments.')
         
-        # Handle MORNING/AFTERNOON markers for "any available vet" mode
         time_str = self.data.get('appointment_time')
-        if time_str == 'MORNING':
-            cleaned_data['appointment_time'] = time(8, 0)
-            self.cleaned_data['appointment_time'] = time(8, 0)
-        elif time_str == 'AFTERNOON':
-            cleaned_data['appointment_time'] = time(13, 0)
-            self.cleaned_data['appointment_time'] = time(13, 0)
-            
+        _resolve_flexible_appointment_time(cleaned_data, time_str)
         _check_double_booking(cleaned_data)
         return cleaned_data
 
@@ -945,16 +947,13 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
                 'This appointment cannot be marked completed before its scheduled date.',
             )
         
-        # Handle MORNING/AFTERNOON markers for "any available vet" mode
         time_str = self.data.get('appointment_time')
-        if time_str == 'MORNING':
-            cleaned_data['appointment_time'] = time(8, 0)
-            self.cleaned_data['appointment_time'] = time(8, 0)
-        elif time_str == 'AFTERNOON':
-            cleaned_data['appointment_time'] = time(13, 0)
-            self.cleaned_data['appointment_time'] = time(13, 0)
-            
         instance_id = self.instance.pk if self.instance else None
+        _resolve_flexible_appointment_time(
+            cleaned_data,
+            time_str,
+            instance_id=instance_id,
+        )
         _check_double_booking(cleaned_data, allow_past=True, instance_id=instance_id)
         return cleaned_data
 
