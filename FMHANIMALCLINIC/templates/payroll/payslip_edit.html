@@ -74,6 +74,7 @@
 
 <form method="post" class="form-container" id="payslipEditForm"
       data-base-salary="{{ payslip.base_salary }}"
+  data-attendance-absences="{{ payslip.days_absent }}"
       data-thirteenth-month="{{ payslip.thirteenth_month_pay }}"
       data-rest-days-deduction="{{ payslip.rest_days_exceeded_deduction }}">
   {% csrf_token %}
@@ -133,9 +134,9 @@
       </div>
 
       <div class="form-group">
-        <label>Attendance Absences</label>
-        <input type="number" id="daysAbsentInput" name="days_absent" value="{{ payslip.days_absent|default:0 }}" min="0" step="1" readonly>
-        <small style="color: var(--text-3); font-size: 0.75rem;">Read-only count from attendance. Unpaid absences after paid leave: <strong id="previewUnpaidAbsenceDays">{{ effective_absence_days }}</strong>.</small>
+        <label>Absences</label>
+        <input type="number" id="daysAbsentInput" value="{{ effective_absence_days }}" min="0" step="1" readonly>
+        <small style="color: var(--text-3); font-size: 0.75rem;">Attendance absences minus paid leave days.</small>
       </div>
 
       <div class="form-group">
@@ -236,12 +237,8 @@
       <strong id="previewDailySalary">₱{{ payslip.daily_salary|peso }}</strong>
     </div>
     <div class="summary-row">
-      <span>Unpaid Absences After Paid Leave</span>
-      <strong id="previewUnpaidAbsenceSummary">{{ effective_absence_days }}</strong>
-    </div>
-    <div class="summary-row">
-      <span>Absence Deduction</span>
-      <strong id="previewAbsentDeduction" style="color: #dc2626;">-₱{{ payslip.absent_deduction|peso }}</strong>
+      <span>Deductions</span>
+      <strong id="previewTotalDeductions" style="color: #dc2626;">-₱{{ payslip.total_deductions|peso }}</strong>
     </div>
     <div class="summary-row">
       <span>Allowances</span>
@@ -250,10 +247,6 @@
     <div class="summary-row">
       <span>Gross Pay</span>
       <strong id="previewGrossPay">₱{{ payslip.gross_pay|peso }}</strong>
-    </div>
-    <div class="summary-row">
-      <span>Deductions</span>
-      <strong id="previewTotalDeductions" style="color: #dc2626;">-₱{{ payslip.total_deductions|peso }}</strong>
     </div>
     <div class="summary-row" style="border-bottom: none; margin-top: 8px; padding-top: 12px; border-top: 2px solid var(--border);">
       <span style="font-weight: 700;">Net Pay</span>
@@ -353,7 +346,7 @@
       const baseSalary = parseAmount(form.dataset.baseSalary);
       const thirteenthMonth = parseAmount(form.dataset.thirteenthMonth);
       const workingDays = Math.max(0, fieldAmount('working_days'));
-      const daysAbsent = Math.max(0, fieldAmount('days_absent'));
+      const daysAbsent = Math.max(0, parseAmount(form.dataset.attendanceAbsences));
       const paidLeaveDays = Math.min(daysAbsent, Math.max(0, fieldAmount('paid_leave_days')));
       const unpaidAbsenceDays = Math.max(0, daysAbsent - paidLeaveDays);
       const dailySalary = workingDays > 0 ? baseSalary / workingDays : 0;
@@ -378,13 +371,12 @@
       const netPay = grossPay - deductions;
 
       display('previewDailySalary', formatAmount(dailySalary));
-      display('previewUnpaidAbsenceDays', unpaidAbsenceDays);
-      display('previewUnpaidAbsenceSummary', unpaidAbsenceDays);
-      display('previewAbsentDeduction', `-${formatAmount(absentDeduction)}`);
       display('previewAllowances', formatAmount(allowances));
       display('previewGrossPay', formatAmount(grossPay));
       display('previewTotalDeductions', `-${formatAmount(deductions)}`);
       display('previewNetPay', formatAmount(netPay));
+      const daysAbsentInput = document.getElementById('daysAbsentInput');
+      if (daysAbsentInput) daysAbsentInput.value = unpaidAbsenceDays;
       const dailySalaryInput = document.getElementById('dailySalaryInput');
       if (dailySalaryInput) dailySalaryInput.value = formatAmount(dailySalary);
     }
