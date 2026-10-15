@@ -5,9 +5,10 @@ This module contains the core business logic for appointment management,
 extracted from views for better separation of concerns and testability.
 """
 import logging
-from datetime import datetime, timedelta, time
+from datetime import date, datetime, timedelta, time
 from typing import List, Dict, Optional
 
+from django.db import transaction
 from django.db.models import Q
 
 from branches.models import Branch
@@ -24,6 +25,31 @@ class AppointmentService:
     LUNCH_START = time(12, 0)
     LUNCH_END = time(13, 0)
     SLOT_DURATION_MINUTES = 30
+
+    @staticmethod
+    def lock_booking_schedule(branch_id, appointment_date) -> None:
+        """Serialize appointment bookings for a branch and date."""
+        try:
+            branch_id = int(branch_id)
+            appointment_date = date.fromisoformat(str(appointment_date))
+        except (TypeError, ValueError):
+            return
+
+        if not transaction.get_connection().in_atomic_block:
+            raise RuntimeError(
+                'Booking schedule locks must be acquired inside a transaction.'
+            )
+
+        schedulable_roles = ['veterinarian', 'assistant_veterinarian']
+        schedule_ids = VetSchedule.objects.select_for_update(of=('self',)).filter(
+            branch_id=branch_id,
+            date=appointment_date,
+            is_available=True,
+            staff__is_active=True,
+            staff__user__is_active=True,
+            staff__user__assigned_role__code__in=schedulable_roles,
+        ).order_by('pk').values_list('pk', flat=True)
+        list(schedule_ids)
 
     @staticmethod
     def get_available_slots(

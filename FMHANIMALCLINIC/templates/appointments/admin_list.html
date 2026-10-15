@@ -604,7 +604,7 @@
           data-email="{{ appt.owner_email }}"
           data-pet="{{ appt.pet_name }}"
           data-branch="{{ appt.branch.name }}"
-          data-vet="{{ appt.preferred_vet.full_name|default:'Any available' }}">
+          data-vet="{{ appt.preferred_vet.full_name|default:'Unassigned' }}">
         <td style="text-align: center;">
           <div class="cell-stack" style="align-items: center;">
             <span class="cell-primary">{{ appt.owner_name }}</span>
@@ -612,7 +612,7 @@
           </div>
         </td>
         <td style="text-align: center;">{{ appt.branch.name }}</td>
-        <td style="text-align: center;">{{ appt.preferred_vet.full_name|default:"Any available" }}</td>
+        <td style="text-align: center;">{{ appt.preferred_vet.full_name|default:"Unassigned" }}</td>
         <td style="text-align: center;">
           <div class="cell-stack" style="align-items: center;">
             <span class="cell-primary">{{ appt.appointment_date|date:"M d, Y" }}</span>
@@ -1312,7 +1312,7 @@ document.addEventListener("DOMContentLoaded", function() {
     vetSelect.innerHTML = '<option value="">Loading...</option>';
 
     if (!branchId) {
-      vetSelect.innerHTML = '<option value="">-- Any Available Vet --</option>';
+      vetSelect.innerHTML = '<option value="">-- No preference (unassigned until consultation) --</option>';
       return;
     }
 
@@ -1322,7 +1322,7 @@ document.addEventListener("DOMContentLoaded", function() {
     fetch(url)
       .then(r => r.json())
       .then(data => {
-        vetSelect.innerHTML = '<option value="">-- Any Available Vet --</option>';
+        vetSelect.innerHTML = '<option value="">-- No preference (unassigned until consultation) --</option>';
 
         if (dateVal && !data.has_vets) {
           showTimeHint(
@@ -1436,7 +1436,7 @@ document.addEventListener("DOMContentLoaded", function() {
           }
 
           showTimeHint(
-            '<strong>Flexible Timing:</strong> When you select "Morning" or "Afternoon", any available veterinarian will be assigned.',
+            '<strong>Flexible timing:</strong> Morning or Afternoon selects a free slot. With no preferred veterinarian, the appointment remains unassigned until consultation starts.',
             '#388e3c'
           );
         } else {

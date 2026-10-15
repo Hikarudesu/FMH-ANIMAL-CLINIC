@@ -402,7 +402,7 @@ document.addEventListener("DOMContentLoaded", function() {
     fetch(url)
       .then(r => r.json())
       .then(data => {
-        vetSelect.innerHTML = '<option value="">-- Any Available Vet --</option>';
+        vetSelect.innerHTML = '<option value="">-- No preference (unassigned until consultation) --</option>';
         
         // Show warning if no vets scheduled on the selected date
         if (dateVal && !data.has_vets) {
@@ -440,7 +440,7 @@ document.addEventListener("DOMContentLoaded", function() {
             opt.value = currentVetId;
             opt.textContent = currentVetText + ' (Current)';
             opt.selected = true;
-            vetSelect.insertBefore(opt, vetSelect.options[1]);  // Insert after "-- Any Available Vet --"
+            vetSelect.insertBefore(opt, vetSelect.options[1]);
           }
         }
       })
@@ -553,7 +553,7 @@ document.addEventListener("DOMContentLoaded", function() {
           }
 
           showTimeHint(
-            '<strong>Flexible Timing:</strong> When you select "Morning" or "Afternoon", any available veterinarian will be assigned.',
+            '<strong>Flexible timing:</strong> Morning or Afternoon selects a free slot. With no preferred veterinarian, the appointment remains unassigned until consultation starts.',
             '#388e3c'
           );
         } else {

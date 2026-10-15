@@ -241,7 +241,9 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
         self.fields['preferred_vet'].queryset = StaffMember.objects.none()
         self.fields['preferred_vet'].required = False
-        self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
+        self.fields['preferred_vet'].empty_label = (
+            '-- No preference (unassigned until consultation) --'
+        )
         self.fields['pet_species'].required = True
         self.fields['pet_breed'].required = False
         self.fields['pet_dob'].required = False
@@ -429,7 +431,9 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         self.fields['branch'].queryset = Branch.objects.filter(is_active=True)
         self.fields['preferred_vet'].queryset = StaffMember.objects.none()
         self.fields['preferred_vet'].required = False
-        self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
+        self.fields['preferred_vet'].empty_label = (
+            '-- No preference (unassigned until consultation) --'
+        )
         self.fields['pet_species'].required = True
         self.fields['pet_breed'].required = False
         self.fields['pet_dob'].required = False
@@ -744,7 +748,9 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         
         self.fields['preferred_vet'].queryset = vets_query.select_related('user', 'user__assigned_role')
         self.fields['preferred_vet'].required = False
-        self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
+        self.fields['preferred_vet'].empty_label = (
+            '-- No preference (unassigned until consultation) --'
+        )
         self.fields['owner_email'].required = True
         self.fields['owner_phone'].required = True
         # Portal appointments receive the owner name from the selected account.
@@ -1046,7 +1052,9 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
         self.fields['preferred_vet'].queryset = vets_query.select_related('user', 'user__assigned_role')
         
         self.fields['preferred_vet'].required = False
-        self.fields['preferred_vet'].empty_label = '-- Any Available Vet --'
+        self.fields['preferred_vet'].empty_label = (
+            '-- No preference (unassigned until consultation) --'
+        )
         self.fields['owner_email'].required = True
         self.fields['owner_phone'].required = True
         self.fields['owner_address'].required = False
@@ -1084,7 +1092,7 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
 
 
 class AppointmentCancellationForm(forms.Form):
-    """Require an auditable reason when staff cancel an appointment."""
+    """Require an auditable reason when an owner or staff member cancels."""
 
     cancellation_reason = forms.CharField(
         label='Reason for cancellation',
@@ -1092,6 +1100,6 @@ class AppointmentCancellationForm(forms.Form):
         max_length=2000,
         widget=forms.Textarea(attrs={
             'rows': 3,
-            'placeholder': 'Explain why this appointment is being cancelled.',
+            'placeholder': 'Please explain why this appointment is being cancelled.',
         }),
     )

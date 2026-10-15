@@ -5,6 +5,12 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/components/appointment_workflow.css' %}">
+<style>
+  .appt-owner-cancel-form { display: grid; gap: 8px; margin-top: 16px; padding: 14px; border: 1px solid var(--border-color, #ddd); border-radius: 10px; }
+  .appt-owner-cancel-form textarea { width: 100%; max-width: 560px; padding: 9px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; font: inherit; }
+  .appt-owner-cancel-form small { color: var(--text-muted, #666); }
+  .appt-owner-cancel-form button { justify-self: start; padding: 9px 14px; border: 0; border-radius: 6px; background: #b42318; color: #fff; cursor: pointer; }
+</style>
 
 <!-- ══════ APPOINTMENTS HERO ══════ -->
 {% url 'appointments:portal_book' as book_url %}
@@ -106,7 +112,7 @@
                   <p class="appt-detail-row"><strong>Time:</strong> {{ appt.appointment_time_display }}</p>
                   <p class="appt-detail-row"><strong>Branch:</strong> {{ appt.branch.name|default:"-" }}</p>
                   <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.reason_display|default:"-" }}</p>
-                  <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Any available{% endif %}</p>
+                  <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Not assigned yet; a veterinarian will take the visit when consultation starts.{% endif %}</p>
                   
                   {% if appt.pet_symptoms %}
                   <div class="appt-card-notes symptoms">
@@ -123,6 +129,15 @@
                   {% endif %}
                 </div>
               </div>
+              {% if appt.owner_can_cancel %}
+              <form method="post" action="{% url 'appointments:portal_cancel' appt.pk %}" class="appt-owner-cancel-form">
+                {% csrf_token %}
+                <label for="cancel-reason-pending-{{ appt.pk }}">Cancel this appointment</label>
+                <textarea id="cancel-reason-pending-{{ appt.pk }}" name="cancellation_reason" minlength="5" maxlength="2000" rows="2" required placeholder="Please tell us why you need to cancel."></textarea>
+                <small>Cancellation is available until 24 hours before your appointment.</small>
+                <button type="submit">Cancel appointment</button>
+              </form>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -193,7 +208,7 @@
                   <p class="appt-detail-row"><strong>Time:</strong> {{ appt.appointment_time_display }}</p>
                   <p class="appt-detail-row"><strong>Branch:</strong> {{ appt.branch.name|default:"-" }}</p>
                   <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.reason_display|default:"-" }}</p>
-                  <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Any available{% endif %}</p>
+                  <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Not assigned yet; a veterinarian will take the visit when consultation starts.{% endif %}</p>
                   
                   {% if appt.pet_symptoms %}
                   <div class="appt-card-notes symptoms">
@@ -210,6 +225,15 @@
                   {% endif %}
                 </div>
               </div>
+              {% if appt.owner_can_cancel %}
+              <form method="post" action="{% url 'appointments:portal_cancel' appt.pk %}" class="appt-owner-cancel-form">
+                {% csrf_token %}
+                <label for="cancel-reason-confirmed-{{ appt.pk }}">Cancel this appointment</label>
+                <textarea id="cancel-reason-confirmed-{{ appt.pk }}" name="cancellation_reason" minlength="5" maxlength="2000" rows="2" required placeholder="Please tell us why you need to cancel."></textarea>
+                <small>Cancellation is available until 24 hours before your appointment.</small>
+                <button type="submit">Cancel appointment</button>
+              </form>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -323,7 +347,7 @@
                   <p class="appt-detail-row"><strong>Time:</strong> {{ appt.appointment_time_display }}</p>
                   <p class="appt-detail-row"><strong>Branch:</strong> {{ appt.branch.name|default:"-" }}</p>
                   <p class="appt-detail-row"><strong>Reason:</strong> {{ appt.reason_display|default:"-" }}</p>
-                  <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Any available{% endif %}</p>
+                  <p class="appt-detail-row"><strong>Pref. Vet:</strong> {% if appt.preferred_vet %}{{ appt.preferred_vet.full_name }}{% else %}Not assigned yet{% endif %}</p>
                   
                   {% if appt.pet_symptoms %}
                   <div class="appt-card-notes symptoms">

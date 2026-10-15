@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Q
@@ -77,9 +78,14 @@ def public_book(request):
     Appointment.cleanup_expired()
 
     if request.method == 'POST':
-        form = PublicAppointmentForm(request.POST)
-        if form.is_valid():
-            appointment = form.save()
+        with transaction.atomic():
+            AppointmentService.lock_booking_schedule(
+                request.POST.get('branch'),
+                request.POST.get('appointment_date'),
+            )
+            form = PublicAppointmentForm(request.POST)
+            appointment = form.save() if form.is_valid() else None
+        if appointment:
             send_appointment_confirmation(appointment)
             notify_staff_appointment_status_change(
                 appointment, appointment.status
@@ -114,9 +120,14 @@ def portal_book(request):
     Appointment.cleanup_expired()
 
     if request.method == 'POST':
-        form = PortalAppointmentForm(request.POST, user=request.user)
-        if form.is_valid():
-            appointment = form.save()
+        with transaction.atomic():
+            AppointmentService.lock_booking_schedule(
+                request.POST.get('branch'),
+                request.POST.get('appointment_date'),
+            )
+            form = PortalAppointmentForm(request.POST, user=request.user)
+            appointment = form.save() if form.is_valid() else None
+        if appointment:
             send_appointment_confirmation(appointment)
             notify_staff_appointment_status_change(
                 appointment, appointment.status, actor=request.user
@@ -186,6 +197,57 @@ def my_appointments(request):
         'follow_ups': follow_ups,
     }
     return render(request, 'appointments/appointments.html', context)
+
+
+@login_required
+@require_POST
+def portal_cancel(request, pk):
+    """Allow owners to cancel pending or confirmed appointments at least 24 hours ahead."""
+    with transaction.atomic():
+        appointment = get_object_or_404(
+            Appointment.objects.select_for_update(),
+            pk=pk,
+            user=request.user,
+        )
+        if appointment.status not in (
+            Appointment.Status.PENDING,
+            Appointment.Status.CONFIRMED,
+        ):
+            messages.error(
+                request,
+                'This appointment can no longer be cancelled from the owner portal.',
+            )
+            return redirect('appointments:my_appointments')
+
+        if not appointment.owner_can_cancel:
+            messages.error(
+                request,
+                'Appointments can only be cancelled at least 24 hours before the scheduled time. Please contact the clinic for help.',
+            )
+            return redirect('appointments:my_appointments')
+
+        form = AppointmentCancellationForm(request.POST)
+        if not form.is_valid():
+            messages.error(
+                request,
+                'Enter a cancellation reason with at least five characters.',
+            )
+            return redirect('appointments:my_appointments')
+
+        appointment.status = Appointment.Status.CANCELLED
+        appointment.cancellation_reason = form.cleaned_data['cancellation_reason']
+        appointment.save(update_fields=[
+            'status', 'cancellation_reason', 'updated_at',
+        ])
+
+    notify_appointment_status_change(
+        appointment, appointment.status, actor=request.user,
+    )
+    notify_staff_appointment_status_change(
+        appointment, appointment.status, actor=request.user,
+    )
+    messages.success(request, 'Your appointment has been cancelled.')
+    return redirect('appointments:my_appointments')
 
 
 # ──────────────────────── AJAX API ENDPOINTS ────────────────────────
@@ -346,7 +408,9 @@ def api_available_dates(request):
 def _workflow_appointment_for_staff(request, pk, *, veterinarian=False):
     """Return an appointment inside the caller's permitted branch and role scope."""
     appointment = get_object_or_404(
-        Appointment.objects.select_related('branch', 'preferred_vet', 'sale'),
+        Appointment.objects.select_for_update(of=('self',)).select_related(
+            'branch', 'preferred_vet', 'sale',
+        ),
         pk=pk,
     )
     role_code = getattr(getattr(request.user, 'assigned_role', None), 'code', '')
@@ -381,6 +445,7 @@ def _workflow_appointment_for_staff(request, pk, *, veterinarian=False):
 
 @login_required
 @require_POST
+@transaction.atomic
 def admin_workflow_action(request, pk, action):
     """Apply receptionist-only appointment lifecycle transitions."""
     appointment = _workflow_appointment_for_staff(request, pk)
@@ -605,6 +670,7 @@ def admin_detail(request, pk):
 
 @login_required
 @require_POST
+@transaction.atomic
 def veterinarian_workflow_action(request, pk, action):
     """Apply veterinarian-only visit and medical-record decision transitions."""
     appointment = _workflow_appointment_for_staff(request, pk, veterinarian=True)
@@ -946,7 +1012,10 @@ def admin_calendar_api(request):
                 if getattr(a, 'appointment_time', None) else ''
             ),
             'branch': a.branch.name if getattr(a, 'branch', None) else '',
-            'vetName': a.preferred_vet.full_name if getattr(a, 'preferred_vet', None) else 'Any',
+            'vetName': (
+                a.preferred_vet.full_name
+                if getattr(a, 'preferred_vet', None) else 'Unassigned'
+            ),
             'vetId': a.preferred_vet.id if getattr(a, 'preferred_vet', None) else 0,
             'status': getattr(a, 'status', ''),
             'statusDisplay': (
@@ -972,9 +1041,14 @@ def admin_calendar_api(request):
 def admin_quick_create(request):
     """Admin: quickly create an appointment (walk-in / phone call)."""
     if request.method == 'POST':
-        form = AdminQuickCreateForm(request.POST, user=request.user)
-        if form.is_valid():
-            appointment = form.save()
+        with transaction.atomic():
+            AppointmentService.lock_booking_schedule(
+                request.POST.get('branch'),
+                request.POST.get('appointment_date'),
+            )
+            form = AdminQuickCreateForm(request.POST, user=request.user)
+            appointment = form.save() if form.is_valid() else None
+        if appointment:
 
             # Send email confirmation
             send_appointment_confirmation(appointment)
@@ -1026,12 +1100,21 @@ def admin_edit(request, pk):
     appointment = get_object_or_404(Appointment, pk=pk)
 
     if request.method == 'POST':
-        # Capture original status before update
-        original_status = appointment.status
-
-        form = AppointmentEditForm(request.POST, instance=appointment, user=request.user)
-        if form.is_valid():
-            updated_appointment = form.save()
+        with transaction.atomic():
+            appointment = get_object_or_404(
+                Appointment.objects.select_for_update(),
+                pk=pk,
+            )
+            original_status = appointment.status
+            AppointmentService.lock_booking_schedule(
+                request.POST.get('branch'),
+                request.POST.get('appointment_date'),
+            )
+            form = AppointmentEditForm(
+                request.POST, instance=appointment, user=request.user,
+            )
+            updated_appointment = form.save() if form.is_valid() else None
+        if updated_appointment:
             # Sync / update the linked Patient record with any edited pet details
             from appointments.utils import sync_pet_from_appointment
             sync_pet_from_appointment(updated_appointment)

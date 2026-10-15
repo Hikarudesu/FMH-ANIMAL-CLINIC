@@ -9,6 +9,7 @@ class Appointment(models.Model):
     """Represents a pet appointment / reservation."""
 
     AUTO_CANCEL_AFTER_HOURS = 24
+    OWNER_CANCELLATION_CUTOFF_HOURS = 24
 
     class Source(models.TextChoices):
         WALKIN = 'WALKIN', 'Walk-In / Guest User'
@@ -316,6 +317,16 @@ class Appointment(models.Model):
         return (
             self.status == self.Status.PENDING
             and self.scheduled_datetime <= now < self.auto_cancel_at
+        )
+
+    @property
+    def owner_can_cancel(self):
+        """Return whether an owner may cancel this appointment from the portal."""
+        return (
+            self.status in (self.Status.PENDING, self.Status.CONFIRMED)
+            and timezone.now() <= self.scheduled_datetime - timedelta(
+                hours=self.OWNER_CANCELLATION_CUTOFF_HOURS,
+            )
         )
 
     # ── Dynamic pet/owner data helpers ────────────────────────────────────

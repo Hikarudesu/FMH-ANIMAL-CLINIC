@@ -217,17 +217,17 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((r) => r.json())
       .then((data) => {
         vetSelect.innerHTML =
-          '<option value="">— No preferred vet (any available) —</option>';
+          '<option value="">— No preference (unassigned until consultation) —</option>';
         
         // Show warning if no vets scheduled on the selected date
         if (dt && !data.has_vets) {
           showTimeHint(
-            "⚠ No vets scheduled for this date. Your booking will be pending vet assignment.",
+            "⚠ No veterinarians are scheduled on this date. Choose another date; a veterinarian is not assigned during booking.",
             "#e65100"
           );
         } else if (dt && data.has_vets) {
           showTimeHint(
-            `${data.vets.length} vet(s) available on this date. Select your preferred vet or leave blank for any available.`,
+            `${data.vets.length} vet(s) available on this date. Select a preferred vet, or leave it blank to remain unassigned until a veterinarian starts the consultation.`,
             "#388e3c"
           );
         }
@@ -352,7 +352,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
           // Show helpful hint for any available vet
           showTimeHint(
-            `<strong>Flexible Timing:</strong> When you select "Morning" or "Afternoon", any available veterinarian will be assigned. You can expect to be called within your selected time window. ${amSlots.length > 0 && pmSlots.length > 0 ? 'Both morning and afternoon slots are available.' : ''}`,
+            `<strong>Flexible timing:</strong> "Morning" or "Afternoon" reserves an available slot in that period. If you leave the veterinarian blank, the appointment remains unassigned until a veterinarian starts the consultation. ${amSlots.length > 0 && pmSlots.length > 0 ? 'Both morning and afternoon slots are available.' : ''}`,
             "#388e3c"
           );
         } else {
