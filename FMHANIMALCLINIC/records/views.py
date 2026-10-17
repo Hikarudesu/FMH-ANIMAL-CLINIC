@@ -240,6 +240,28 @@ def admin_record_create(request):
         is_active=True,
         user__is_active=True,
     ).first()
+    default_branch_id = (
+        linked_appointment.branch_id
+        if linked_appointment and linked_appointment.branch_id
+        else current_vet.branch_id
+        if current_vet
+        else request.user.branch_id or None
+    )
+    default_vet_id = (
+        linked_appointment.preferred_vet_id
+        if linked_appointment and linked_appointment.preferred_vet_id
+        else current_vet.pk if current_vet else None
+    )
+    selected_branch_id = (
+        request.POST.get('branch', '').strip()
+        if request.method == 'POST'
+        else str(default_branch_id or '')
+    )
+    selected_vet_id = (
+        request.POST.get('vet', '').strip()
+        if request.method == 'POST'
+        else default_vet_id or ''
+    )
 
     if request.method == 'POST':
         entry_form = RecordEntryForm(request.POST)
@@ -502,8 +524,8 @@ def admin_record_create(request):
             ).order_by('-created_at').first()
             if appointment_followup:
                 initial_data['ff_up'] = appointment_followup.follow_up_date
-        if current_vet:
-            initial_data['vet'] = current_vet.pk
+        if default_vet_id:
+            initial_data['vet'] = default_vet_id
         entry_form = RecordEntryForm(initial=initial_data)
 
     # Build pet details JSON for dynamic form population
@@ -639,6 +661,9 @@ def admin_record_create(request):
         'linked_appointment': linked_appointment,
         'appointment_prefill': appointment_prefill,
         'selected_pet_prefill': selected_pet_prefill,
+        'service_branch_id': default_branch_id,
+        'selected_branch_id': selected_branch_id,
+        'selected_vet_id': selected_vet_id,
     }
     return render(request, 'records/admin_form.html', context)
 
@@ -971,6 +996,30 @@ def admin_add_entry(request, pk):
         is_active=True,
         user__is_active=True,
     ).first()
+    default_branch_id = (
+        linked_appointment.branch_id
+        if linked_appointment and linked_appointment.branch_id
+        else current_vet.branch_id
+        if current_vet
+        else request.user.branch_id or record.branch_id
+    )
+    default_vet_id = (
+        linked_appointment.preferred_vet_id
+        if linked_appointment and linked_appointment.preferred_vet_id
+        else current_vet.pk
+        if current_vet
+        else record.vet_id
+    )
+    selected_branch_id = (
+        request.POST.get('branch_id', '').strip()
+        if request.method == 'POST'
+        else str(default_branch_id or '')
+    )
+    selected_vet_id = (
+        request.POST.get('vet', '').strip()
+        if request.method == 'POST'
+        else default_vet_id or ''
+    )
 
     if request.method == 'POST':
         form = RecordEntryForm(request.POST)
@@ -1060,10 +1109,8 @@ def admin_add_entry(request, pk):
             ).order_by('-created_at').first()
             if appointment_followup:
                 initial_data['ff_up'] = appointment_followup.follow_up_date
-        if record.vet:
-            initial_data.setdefault('vet', record.vet)
-        if current_vet:
-            initial_data['vet'] = current_vet.pk
+        if default_vet_id:
+            initial_data['vet'] = default_vet_id
         form = RecordEntryForm(initial=initial_data)
 
     branches = Branch.objects.filter(is_active=True)
@@ -1075,6 +1122,9 @@ def admin_add_entry(request, pk):
         'branches': branches,
         'vets_json': json.dumps(vets_for_json),
         'from_patients': from_patients,
+        'service_branch_id': default_branch_id or '',
+        'selected_branch_id': selected_branch_id,
+        'selected_vet_id': selected_vet_id,
         'linked_appointment': linked_appointment,
     })
 

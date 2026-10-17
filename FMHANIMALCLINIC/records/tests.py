@@ -1,5 +1,6 @@
 import os
 import tempfile
+from datetime import date, time
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -12,6 +13,7 @@ from django.urls import reverse
 from accounts.activity_signals import log_medical_record_changes
 from accounts.models import ActivityLog
 from accounts.rbac_models import Module, ModulePermission, Role
+from appointments.models import Appointment
 from branches.models import Branch
 from employees.models import StaffMember
 from patients.models import Pet
@@ -192,8 +194,11 @@ class AttendingVeterinarianDefaultTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['form']['vet'].value(), self.vet.pk)
+        self.assertEqual(response.context['service_branch_id'], self.branch.pk)
+        self.assertEqual(response.context['selected_branch_id'], str(self.branch.pk))
+        self.assertContains(response, 'petData.branch_id && !serviceBranchId')
 
-    def test_add_visit_entry_defaults_to_logged_in_vet_over_record_vet(self):
+    def test_add_visit_entry_defaults_to_logged_in_vet_and_clinic_over_record(self):
         previous_vet_user = get_user_model().objects.create_user(
             username='previous-record-vet',
             assigned_role=self.user.assigned_role,
@@ -205,6 +210,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
             position=StaffMember.Position.VETERINARIAN,
             branch=self.branch,
         )
+        record_branch = Branch.objects.create(name='Pet Owner Branch')
         pet = Pet.objects.create(
             name='Attending Vet Pet',
             species='Dog',
@@ -213,7 +219,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
         record = MedicalRecord.objects.create(
             pet=pet,
             vet=previous_vet,
-            branch=self.branch,
+            branch=record_branch,
             date_recorded='2026-10-17',
         )
 
@@ -223,6 +229,53 @@ class AttendingVeterinarianDefaultTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['form']['vet'].value(), self.vet.pk)
+        self.assertEqual(response.context['service_branch_id'], self.branch.pk)
+        self.assertEqual(response.context['selected_branch_id'], str(self.branch.pk))
+
+    def test_linked_appointment_branch_and_vet_override_current_veterinarian(self):
+        appointment_branch = Branch.objects.create(name='Appointment Clinic Branch')
+        assigned_user = get_user_model().objects.create_user(
+            username='appointment-assigned-vet',
+            assigned_role=self.user.assigned_role,
+            branch=appointment_branch,
+        )
+        assigned_vet = StaffMember.objects.create(
+            user=assigned_user,
+            first_name='Appointment',
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=appointment_branch,
+        )
+        pet = Pet.objects.create(
+            name='Appointment Linked Pet',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+        )
+        appointment = Appointment.objects.create(
+            owner_name='Appointment Pet Owner',
+            pet_name=pet.name,
+            pet=pet,
+            branch=appointment_branch,
+            preferred_vet=assigned_vet,
+            appointment_date=date(2026, 10, 17),
+            appointment_time=time(11),
+            status=Appointment.Status.COMPLETED,
+        )
+
+        response = self.client.get(
+            reverse('records:admin_add_entry', args=[record.pk]),
+            {'appointment': appointment.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['service_branch_id'], appointment_branch.pk)
+        self.assertEqual(response.context['form']['vet'].value(), assigned_vet.pk)
 
 
 class MedicalFileValidationTests(SimpleTestCase):
