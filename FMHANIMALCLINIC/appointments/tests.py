@@ -1035,7 +1035,7 @@ class AppointmentStaffHistoryVisibilityTests(TestCase):
             reverse('appointments:admin_list'),
         )
         self.assertEqual(appointments_response.status_code, 200)
-        self.assertContains(appointments_response, 'Appointment History')
+        self.assertNotContains(appointments_response, 'Appointment History')
 
         staff_response = self.client.get(history_url)
 
@@ -1055,6 +1055,25 @@ class AppointmentStaffHistoryVisibilityTests(TestCase):
         self.assertContains(detail_response, '2026-10-20')
         self.assertContains(detail_response, 'Current appointment details')
         self.assertContains(detail_response, 'Reason for visit')
+
+        veterinarian_role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        ModulePermission.objects.get_or_create(
+            role=veterinarian_role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        user.assigned_role = veterinarian_role
+        user.save(update_fields=['assigned_role'])
+        veterinarian_response = self.client.get(reverse('appointments:admin_list'))
+        self.assertEqual(veterinarian_response.status_code, 200)
+        self.assertNotContains(veterinarian_response, 'Appointment History')
 
         role.code = 'other_staff'
         role.save(update_fields=['code'])

@@ -1139,8 +1139,6 @@ def admin_list(request):
     can_create_medical_record = request.user.has_module_permission(
         'medical_records', 'CREATE'
     )
-    can_view_history = role_code in StaffRoles.ALL_STAFF_ROLES
-
     return render(request, 'appointments/admin_list.html', {
         'appointments': page_obj,
         'page_obj': page_obj,
@@ -1161,7 +1159,6 @@ def admin_list(request):
         'can_edit': can_edit,
         'can_delete': can_delete,
         'can_create_medical_record': can_create_medical_record,
-        'can_view_history': can_view_history,
         'is_veterinarian': is_veterinarian,
     })
 
