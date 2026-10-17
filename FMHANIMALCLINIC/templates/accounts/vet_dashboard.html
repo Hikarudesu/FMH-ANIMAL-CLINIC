@@ -102,6 +102,10 @@
       </div>
       <div class="chart-body chart-body-patient-status">
         <canvas id="patientHealthChart"></canvas>
+        <div id="patientHealthEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-heart-circle'></i>
+          <span>No patient status data available yet</span>
+        </div>
       </div>
     </div>
 
@@ -165,7 +169,6 @@
   <div class="section-title">
     <i class='bx bx-plus-medical'></i>
     <span>Pending Follow-ups</span>
-    <span class="section-badge warning">{{ follow_up_count }} pending</span>
   </div>
   
   <div class="followups-list">
@@ -548,6 +551,27 @@
     height: 190px;
   }
 
+  .chart-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-3);
+    text-align: center;
+  }
+
+  .chart-empty-state i {
+    font-size: 42px;
+    margin-bottom: 8px;
+    opacity: 0.4;
+  }
+
+  .chart-empty-state span {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
   .chart-card-supporting {
     min-width: 0;
   }
@@ -702,23 +726,6 @@
   }
   
   .section-link:hover { gap: 8px; }
-  
-  .section-badge {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    background: rgba(0, 150, 136, 0.1);
-    color: #009688;
-  }
-  
-  .section-badge.warning {
-    background: rgba(245, 158, 11, 0.1);
-    color: #f59e0b;
-  }
   
   .no-data {
     text-align: center;
@@ -1730,7 +1737,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const total = extraDelay + stagger;
       setTimeout(() => el.classList.add('visible'), total);
       el.querySelectorAll('canvas').forEach(canvas => {
-        const chart = Chart.getChart(canvas);
+        const chart = typeof Chart !== 'undefined' ? Chart.getChart(canvas) : null;
         if (chart) setTimeout(() => { chart.reset(); chart.update(); }, total + 350);
       });
     }
@@ -1757,12 +1764,22 @@ document.addEventListener('DOMContentLoaded', function() {
   // CHART.JS CONFIGURATION
   // ═══════════════════════════════════════════════════════════════════════
   
-  Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  const chartAvailable = typeof Chart !== 'undefined';
+  if (chartAvailable) {
+    Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  }
   const isGlobalDark = document.body.getAttribute('data-theme') === 'dark';
-  Chart.defaults.color = isGlobalDark ? '#ffffff' : '#64748b';
-  
-  // Set legend label colors for dark mode
-  Chart.defaults.plugins.legend.labels.color = isGlobalDark ? '#ffffff' : '#64748b';
+  if (chartAvailable) {
+    Chart.defaults.color = isGlobalDark ? '#ffffff' : '#64748b';
+    Chart.defaults.plugins.legend.labels.color = isGlobalDark ? '#ffffff' : '#64748b';
+  }
+
+  function showPatientHealthEmptyState() {
+    const canvas = document.getElementById('patientHealthChart');
+    const empty = document.getElementById('patientHealthEmpty');
+    if (canvas) canvas.style.display = 'none';
+    if (empty) empty.style.display = 'flex';
+  }
   
   const commonTooltip = {
     backgroundColor: 'rgba(15, 23, 42, 0.85)',
@@ -1784,7 +1801,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // ═══════════════════════════════════════════════════════════════════════
   
   const patientHealthCtx = document.getElementById('patientHealthChart');
-  if (patientHealthCtx) {
+  if (patientHealthCtx && chartAvailable) {
     const healthData = [
       {% for status in patient_status_distribution %}
       { label: '{{ status.status }}', value: {{ status.count }}, color: '{{ status.color }}' },
@@ -1844,6 +1861,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   });
                 }
               }
+              }
             },
             tooltip: {
               ...commonTooltip,
@@ -1857,7 +1875,11 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }
       });
+    } else {
+      showPatientHealthEmptyState();
     }
+  } else if (patientHealthCtx) {
+    showPatientHealthEmptyState();
   }
 
   // Start all animations after charts are ready

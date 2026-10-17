@@ -38,6 +38,45 @@ from .lifecycle import (
     }
 )
 class ReceptionistDashboardMetricsTests(TestCase):
+    def test_receptionist_charts_remain_visible_without_chart_data(self):
+        branch = Branch.objects.create(
+            name='Empty Chart Receptionist Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        role, _ = Role.objects.get_or_create(
+            code='receptionist',
+            defaults={
+                'name': 'Receptionist',
+                'hierarchy_level': 2,
+                'is_staff_role': True,
+            },
+        )
+        receptionist = get_user_model().objects.create_user(
+            username='empty-chart-receptionist',
+            email='empty-chart-receptionist@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=branch,
+        )
+        self.client.force_login(receptionist)
+
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        monthly_revenue = json.loads(response.context['monthly_revenue_data'])
+        self.assertTrue(all(month['revenue'] == 0 for month in monthly_revenue))
+        self.assertEqual(json.loads(response.context['category_sales']), [])
+        self.assertContains(response, 'id="monthlyRevenueChart"')
+        self.assertContains(response, 'id="monthlyRevenueEmpty"')
+        self.assertContains(response, 'id="categorySalesChart"')
+        self.assertContains(response, 'id="categorySalesEmpty"')
+        self.assertContains(response, 'No revenue data for this year')
+        self.assertContains(response, 'No category data this month')
+
     def test_receptionist_hero_cards_compare_matching_periods(self):
         branch = Branch.objects.create(
             name='Hero Comparison Branch',
@@ -351,6 +390,8 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, 'Monthly Revenue')
         self.assertContains(response, f'Jan - Dec {current_year}')
         self.assertContains(response, 'Sales by Category')
+        self.assertContains(response, 'id="monthlyRevenueEmpty"')
+        self.assertContains(response, 'id="categorySalesEmpty"')
         self.assertContains(response, 'This Month')
         self.assertContains(response, 'container-type: inline-size')
         self.assertContains(response, 'font-size: 24px')
@@ -472,6 +513,7 @@ class ReceptionistDashboardRoutingTests(TestCase):
         self.assertNotContains(response, 'Top 5 Selling Products')
         self.assertNotContains(response, 'Revenue by Branch')
         self.assertNotContains(response, 'Most Appointed Branches')
+        self.assertNotContains(response, 'section-badge warning')
 
 
 @override_settings(
@@ -533,6 +575,7 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, 'Upcoming Appointments')
                 self.assertNotContains(response, 'Active Visits')
                 self.assertNotContains(response, 'Medical Records Pending')
+                self.assertNotContains(response, 'section-badge warning')
                 self.assertNotContains(response, 'monthlyPerformanceChart')
                 self.assertContains(response, 'Recent Medical Records')
                 self.assertContains(response, 'No medical records have been recorded yet.')
@@ -552,6 +595,9 @@ class VetDashboardContentTests(TestCase):
                 self.assertContains(response, 'font-size: 24px')
                 self.assertContains(response, 'height: 190px;')
                 self.assertContains(response, 'chart-body-patient-status')
+                self.assertContains(response, 'id="patientHealthEmpty"')
+                self.assertContains(response, 'No patient status data available yet')
+                self.assertContains(response, "typeof Chart !== 'undefined' ? Chart.getChart(canvas) : null")
                 self.assertContains(response, 'font: { size: 10, weight: \'600\' }')
                 self.assertContains(response, 'charts-row-supporting')
                 self.assertNotContains(response, 'weeklyWorkloadChart')
