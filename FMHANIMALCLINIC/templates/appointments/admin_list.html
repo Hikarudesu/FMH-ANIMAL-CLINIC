@@ -30,6 +30,31 @@
     color: var(--primary, #087f75);
     transform: translateY(-1px);
   }
+  .appointment-status-bubble {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .appointment-status--pending { background: rgba(245, 158, 11, .14); color: #b45309; }
+  .appointment-status--confirmed { background: rgba(16, 185, 129, .14); color: #047857; }
+  .appointment-status--checked_in { background: rgba(59, 130, 246, .14); color: #1d4ed8; }
+  .appointment-status--in_progress { background: rgba(99, 102, 241, .14); color: #4338ca; }
+  .appointment-status--awaiting_payment { background: rgba(139, 92, 246, .14); color: #6d28d9; }
+  .appointment-status--cancelled { background: rgba(239, 68, 68, .14); color: #b91c1c; }
+  .appointment-status--completed { background: rgba(20, 184, 166, .14); color: #0f766e; }
+  [data-theme='dark'] .appointment-status--pending { color: #fbbf24; }
+  [data-theme='dark'] .appointment-status--confirmed { color: #34d399; }
+  [data-theme='dark'] .appointment-status--checked_in { color: #60a5fa; }
+  [data-theme='dark'] .appointment-status--in_progress { color: #a5b4fc; }
+  [data-theme='dark'] .appointment-status--awaiting_payment { color: #c4b5fd; }
+  [data-theme='dark'] .appointment-status--cancelled { color: #f87171; }
+  [data-theme='dark'] .appointment-status--completed { color: #2dd4bf; }
   @media (max-width: 640px) {
     .appointment-manage-link { min-height: 34px; padding: 7px 9px; font-size: .75rem; }
   }
@@ -622,7 +647,7 @@
         <td style="text-align: center;"><span class="cell-secondary">{{ appt.get_source_display }}</span></td>
         <td style="text-align: center;">
           <div class="cell-stack" style="align-items: center;">
-            <span class="cell-primary">{{ appt.get_status_display }}</span>
+            <span class="cell-primary appointment-status-bubble appointment-status--{{ appt.status|lower }}">{{ appt.get_status_display }}</span>
             {% if appt.status != 'CANCELLED' %}
             <span class="appointment-workflow-next">{{ appt.workflow_next_action }}</span>
             {% endif %}

@@ -1315,6 +1315,27 @@ class AppointmentWorkflowActionTests(TestCase):
         )
         self.client.force_login(self.user)
 
+    def test_appointment_statuses_render_as_colored_bubbles(self):
+        for status in Appointment.Status.values:
+            if status != self.appointment.status:
+                Appointment.objects.create(
+                    owner_name=f'{status} Owner',
+                    pet_name=f'{status} Pet',
+                    branch=self.branch,
+                    appointment_date=timezone.localdate(),
+                    appointment_time=time(11),
+                    status=status,
+                )
+
+        response = self.client.get(reverse('appointments:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        for status in Appointment.Status.values:
+            self.assertContains(
+                response,
+                f'appointment-status-bubble appointment-status--{status.lower()}',
+            )
+
     def test_starting_consultation_notifies_only_the_assigned_veterinarian(self):
         vet_role, _ = Role.objects.get_or_create(
             code='veterinarian',
