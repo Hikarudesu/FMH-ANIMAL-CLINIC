@@ -103,6 +103,15 @@ def _check_double_booking(cleaned_data, allow_past=False, instance_id=None):
 
     # Validate appointment date is not in the past (skip for admin editing)
     _validate_appointment_date(appt_date, allow_past=allow_past)
+    if (
+        not allow_past
+        and appt_date == timezone.localdate()
+        and appt_time <= timezone.localtime().time()
+    ):
+        raise ValidationError(
+            'This appointment time has already passed. '
+            'Please select a future time slot.'
+        )
 
     # Validate vets are scheduled at this branch on this date
     _validate_vet_schedule(branch, appt_date, vet)
@@ -117,6 +126,7 @@ def _check_double_booking(cleaned_data, allow_past=False, instance_id=None):
         target_date=appt_date,
         branch_id=branch.pk,
         exclude_appointment_id=instance_id,
+        include_elapsed_slots=allow_past,
     )
     requested_slot = appt_time.strftime('%H:%M')
     if not any(
@@ -138,6 +148,7 @@ def _resolve_flexible_appointment_time(
     cleaned_data,
     requested_period,
     instance_id=None,
+    allow_past=False,
 ):
     """Resolve a Morning/Afternoon choice to an actually available slot."""
     if requested_period not in ('MORNING', 'AFTERNOON'):
@@ -154,6 +165,7 @@ def _resolve_flexible_appointment_time(
         target_date=appt_date,
         branch_id=branch.pk,
         exclude_appointment_id=instance_id,
+        include_elapsed_slots=allow_past,
     )
     for slot in slots:
         if not slot['available']:
@@ -969,6 +981,7 @@ class AppointmentEditForm(FormControlMixin, forms.ModelForm):
             cleaned_data,
             time_str,
             instance_id=instance_id,
+            allow_past=True,
         )
         _check_double_booking(cleaned_data, allow_past=True, instance_id=instance_id)
         return cleaned_data

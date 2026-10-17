@@ -623,6 +623,34 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
         notified_user_ids.add(veterinarian.id)
 
 
+def notify_veterinarian_consultation_started(appointment):
+    """Notify only the veterinarian assigned to the consultation when it starts."""
+    if not appointment or not appointment.preferred_vet_id:
+        return
+
+    veterinarian = getattr(appointment.preferred_vet, 'user', None)
+    if (
+        not veterinarian
+        or not veterinarian.is_active
+        or getattr(getattr(veterinarian, 'assigned_role', None), 'code', None)
+        != 'veterinarian'
+    ):
+        return
+
+    create_notification(
+        user=veterinarian,
+        title=f'Consultation Started: {appointment.pet_name}',
+        message=(
+            f'Your consultation for {appointment.pet_name} has started '
+            f'on {appointment.appointment_date.strftime("%B %d, %Y")} at '
+            f'{appointment.appointment_time.strftime("%I:%M %p")}.'
+        ),
+        notification_type=Notification.NotificationType.APPOINTMENT,
+        module_context=Notification.ModuleContext.APPOINTMENTS,
+        related_object_id=appointment.id,
+    )
+
+
 def notify_veterinarian_medical_record_required(appointment, actor=None):
     """Notify the assigned veterinarian that a completed visit needs a record."""
     if not appointment or not appointment.preferred_vet_id:

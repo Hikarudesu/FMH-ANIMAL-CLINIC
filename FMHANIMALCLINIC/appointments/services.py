@@ -10,6 +10,7 @@ from typing import List, Dict, Optional
 
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
@@ -56,7 +57,8 @@ class AppointmentService:
         vet_id: Optional[int] = None,
         target_date=None,
         branch_id: Optional[int] = None,
-        exclude_appointment_id: Optional[int] = None
+        exclude_appointment_id: Optional[int] = None,
+        include_elapsed_slots: bool = False,
     ) -> List[Dict]:
         """
         Core availability engine.
@@ -71,6 +73,7 @@ class AppointmentService:
             branch_id: Filter by branch.
             exclude_appointment_id: Exclude this appointment from booking check 
                                    (useful for editing).
+            include_elapsed_slots: Include elapsed slots for staff editing.
 
         Returns:
             List of slot dictionaries with time, availability, and vet info.
@@ -113,6 +116,7 @@ class AppointmentService:
 
         slots = []
         slot_duration = timedelta(minutes=AppointmentService.SLOT_DURATION_MINUTES)
+        local_now = timezone.localtime()
 
         for sched in schedules:
             # Generate 30-minute slots within the schedule window
@@ -133,6 +137,12 @@ class AppointmentService:
                     Q(preferred_vet=sched.staff, appointment_time=slot_time) |
                     Q(preferred_vet__isnull=True, appointment_time=slot_time)
                 ).exists()
+                slot_elapsed = (
+                    not include_elapsed_slots
+                    and target_date == local_now.date()
+                    and slot_time <= local_now.time()
+                )
+                slot_available = not slot_booked and not slot_elapsed
 
                 slots.append({
                     'time': slot_time.strftime('%H:%M'),
@@ -142,8 +152,12 @@ class AppointmentService:
                     'vet_id': sched.staff.id,
                     'vet_name': sched.staff.full_name,
                     'shift_type': sched.get_shift_type_display(),
-                    'available': not slot_booked,
-                    'booked_label': 'Appointed already' if slot_booked else '',
+                    'available': slot_available,
+                    'booked_label': (
+                        'Already booked' if slot_booked
+                        else 'Time has passed' if slot_elapsed
+                        else ''
+                    ),
                 })
 
                 current += slot_duration

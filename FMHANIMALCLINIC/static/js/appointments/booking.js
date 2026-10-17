@@ -326,9 +326,9 @@ document.addEventListener("DOMContentLoaded", function () {
           });
 
           if (availableCount === 0) {
-            timeSelect.innerHTML = '<option value="">— All slots booked —</option>';
+            timeSelect.innerHTML = '<option value="">— No available slots —</option>';
             showTimeHint(
-              "All time slots are booked for this selection. Try another date or vet.",
+              "No available time slots remain for this selection. Try another date or vet.",
               "#e65100"
             );
             return;
@@ -373,7 +373,7 @@ document.addEventListener("DOMContentLoaded", function () {
               availableCount++;
             } else {
               // Booked slot - show but disable it
-              label += ' (Booked)';
+              label += ` (${slot.booked_label || 'Booked'})`;
               opt.disabled = true;
               opt.style.color = '#999';
               opt.style.fontStyle = 'italic';
@@ -385,15 +385,15 @@ document.addEventListener("DOMContentLoaded", function () {
           });
 
           if (availableCount === 0) {
-            timeSelect.innerHTML = '<option value="">— All slots booked —</option>';
+            timeSelect.innerHTML = '<option value="">— No available slots —</option>';
             showTimeHint(
-              "All time slots are booked for this selection. Try another date or vet.",
+              "No available time slots remain for this selection. Try another date or vet.",
               "#e65100"
             );
           } else {
             if (bookedCount > 0) {
               showTimeHint(
-                `Found ${availableCount} available slot(s). ${bookedCount} slot(s) already booked for ${vetSelect.options[vetSelect.selectedIndex].text}.`,
+                `Found ${availableCount} available slot(s). ${bookedCount} slot(s) are unavailable for ${vetSelect.options[vetSelect.selectedIndex].text}.`,
                 "#388e3c"
               );
             } else {

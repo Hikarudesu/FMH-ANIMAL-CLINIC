@@ -18,6 +18,7 @@ from appointments.forms import (
     AdminQuickCreateForm,
     AppointmentEditForm,
     PublicAppointmentForm,
+    _check_double_booking,
     _validate_appointment_date,
 )
 from appointments.services import AppointmentService
@@ -442,6 +443,96 @@ class FlexibleAppointmentTimeTests(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['appointment_time'], time(8, 30))
+
+
+class SameDayBookingCutoffTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Same Day Booking Branch')
+        role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        user = User.objects.create_user(
+            username='same-day-booking-vet',
+            email='same-day-booking-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=self.branch,
+        )
+        self.vet = StaffMember.objects.create(
+            user=user,
+            first_name='Same Day',
+            last_name='Booking Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        self.appointment_date = date(2026, 10, 17)
+        self.now = timezone.make_aware(
+            datetime.combine(self.appointment_date, time(10, 43)),
+            timezone.get_current_timezone(),
+        )
+        VetSchedule.objects.create(
+            staff=self.vet,
+            branch=self.branch,
+            date=self.appointment_date,
+            start_time=time(10),
+            end_time=time(12),
+        )
+
+    @patch('appointments.services.timezone.localtime')
+    def test_availability_marks_elapsed_slots_unavailable(self, mocked_localtime):
+        mocked_localtime.return_value = self.now
+
+        slots = AppointmentService.get_available_slots(
+            target_date=self.appointment_date,
+            branch_id=self.branch.pk,
+        )
+
+        slots_by_time = {slot['time']: slot for slot in slots}
+        self.assertFalse(slots_by_time['10:00']['available'])
+        self.assertEqual(slots_by_time['10:00']['booked_label'], 'Time has passed')
+        self.assertFalse(slots_by_time['10:30']['available'])
+        self.assertEqual(slots_by_time['10:30']['booked_label'], 'Time has passed')
+        self.assertTrue(slots_by_time['11:00']['available'])
+        self.assertTrue(slots_by_time['11:30']['available'])
+
+        edit_slots = AppointmentService.get_available_slots(
+            target_date=self.appointment_date,
+            branch_id=self.branch.pk,
+            include_elapsed_slots=True,
+        )
+        self.assertTrue(edit_slots[0]['available'])
+
+    @patch('appointments.forms.AppointmentService.get_available_slots')
+    @patch('appointments.forms.timezone.localtime')
+    @patch('appointments.forms.timezone.localdate')
+    def test_submission_rejects_elapsed_slot_but_accepts_future_slot(
+        self, mocked_localdate, mocked_localtime, mocked_slots,
+    ):
+        mocked_localdate.return_value = self.appointment_date
+        mocked_localtime.return_value = self.now
+        cleaned_data = {
+            'branch': self.branch,
+            'preferred_vet': self.vet,
+            'appointment_date': self.appointment_date,
+            'appointment_time': time(10, 30),
+        }
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            'This appointment time has already passed. Please select a future time slot.',
+        ):
+            _check_double_booking(cleaned_data)
+        mocked_slots.assert_not_called()
+
+        cleaned_data['appointment_time'] = time(11)
+        mocked_slots.return_value = [{'time': '11:00', 'available': True}]
+        _check_double_booking(cleaned_data)
+        mocked_slots.assert_called_once()
 
 
 class AdminQuickCreateOwnerApiTests(TestCase):
@@ -1223,6 +1314,65 @@ class AppointmentWorkflowActionTests(TestCase):
             appointment_time=time(10),
         )
         self.client.force_login(self.user)
+
+    def test_starting_consultation_notifies_only_the_assigned_veterinarian(self):
+        vet_role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        ModulePermission.objects.get_or_create(
+            role=vet_role,
+            module=Module.objects.get(code='appointments'),
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        veterinarian = User.objects.create_user(
+            username='consultation-start-vet',
+            email='consultation-start-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=vet_role,
+            branch=self.branch,
+        )
+        veterinarian_profile = StaffMember.objects.create(
+            user=veterinarian,
+            first_name='Consultation',
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        owner = User.objects.create_user(
+            username='consultation-start-owner',
+            email='consultation-start-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.appointment.user = owner
+        self.appointment.status = Appointment.Status.CONFIRMED
+        self.appointment.preferred_vet = veterinarian_profile
+        self.appointment.save(update_fields=[
+            'user', 'status', 'preferred_vet', 'updated_at',
+        ])
+        Notification.objects.filter(related_object_id=self.appointment.pk).delete()
+        self.client.force_login(veterinarian)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(reverse(
+                'appointments:vet_workflow_action',
+                args=[self.appointment.pk, 'start'],
+            ))
+
+        self.assertEqual(response.status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
+        notifications = Notification.objects.filter(
+            related_object_id=self.appointment.pk,
+            notification_type=Notification.NotificationType.APPOINTMENT,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+        )
+        self.assertEqual(notifications.count(), 1)
+        self.assertEqual(notifications.get().user_id, veterinarian.pk)
 
     def test_receptionist_manages_appointment_in_dedicated_workspace(self):
         list_response = self.client.get(reverse('appointments:admin_list'))

@@ -32,6 +32,7 @@ from notifications.utils import (
     notify_appointment_status_change,
     notify_follow_up_scheduled,
     notify_staff_appointment_status_change,
+    notify_veterinarian_consultation_started,
     notify_veterinarian_medical_record_required,
     sync_appointment_follow_up_to_medical_record,
 )
@@ -984,13 +985,16 @@ def veterinarian_workflow_action(request, pk, action):
         raise PermissionDenied
 
     appointment.save()
-    if appointment.user:
-        notify_appointment_status_change(
+    if action == 'start':
+        notify_veterinarian_consultation_started(appointment)
+    else:
+        if appointment.user:
+            notify_appointment_status_change(
+                appointment, appointment.status, actor=request.user,
+            )
+        notify_staff_appointment_status_change(
             appointment, appointment.status, actor=request.user,
         )
-    notify_staff_appointment_status_change(
-        appointment, appointment.status, actor=request.user,
-    )
     messages.success(
         request,
         f'{appointment.pet_name} visit updated to {appointment.get_status_display()}.',
