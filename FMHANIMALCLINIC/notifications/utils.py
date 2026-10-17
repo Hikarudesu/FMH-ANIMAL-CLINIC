@@ -8,6 +8,7 @@ from django.utils.dateparse import parse_date
 
 from notifications.models import Notification
 from notifications.delivery import send_notification_email
+from notifications.email_utils import send_appointment_cancellation_email
 
 
 def mark_module_notifications_read(user, module_context):
@@ -462,9 +463,6 @@ def notify_statement_released(statement):
 
 def notify_appointment_status_change(appointment, status, actor=None, actor_label=None):
     """Create standardized customer notifications for appointment status changes."""
-    if not appointment.user:
-        return
-
     if actor_label is None:
         actor_label = 'clinic staff'
         if actor is not None:
@@ -499,14 +497,22 @@ def notify_appointment_status_change(appointment, status, actor=None, actor_labe
     else:
         return
 
-    create_notification(
-        user=appointment.user,
-        title=title,
-        message=message,
-        notification_type=Notification.NotificationType.APPOINTMENT,
-        module_context=Notification.ModuleContext.APPOINTMENTS,
-        related_object_id=appointment.id,
-    )
+    if appointment.user:
+        create_notification(
+            user=appointment.user,
+            title=title,
+            message=message,
+            notification_type=Notification.NotificationType.APPOINTMENT,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            related_object_id=appointment.id,
+        )
+    if status == 'CANCELLED':
+        transaction.on_commit(
+            lambda: send_appointment_cancellation_email(
+                appointment,
+                actor_label,
+            )
+        )
 
 
 def notify_staff_appointment_status_change(appointment, status, actor=None):

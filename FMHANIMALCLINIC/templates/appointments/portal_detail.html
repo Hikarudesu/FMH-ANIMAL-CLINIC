@@ -127,7 +127,7 @@
           {% csrf_token %}
           <label for="portal-cancel-reason">Need to cancel?</label>
           <textarea id="portal-cancel-reason" name="cancellation_reason" minlength="5" maxlength="2000" required placeholder="Please tell us why you need to cancel."></textarea>
-          <small>You can cancel until 24 hours before the appointment. After that, contact the clinic.</small>
+          <small>You can cancel until clinic staff check in your pet. A reason is required.</small>
           <button type="submit">Cancel appointment</button>
         </form>
         {% elif appointment.status == 'PENDING' or appointment.status == 'CONFIRMED' %}

@@ -18,7 +18,7 @@ from accounts.decorators import module_permission_required
 from accounts.rbac_constants import StaffRoles
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
-from notifications.models import FollowUp
+from notifications.models import FollowUp, Notification
 from patients.models import Pet
 from .models import Appointment, AppointmentHistory
 from .forms import (
@@ -28,6 +28,7 @@ from .forms import (
 from .services import AppointmentService
 from notifications.email_utils import send_appointment_confirmation
 from notifications.utils import (
+    create_notification,
     notify_appointment_status_change,
     notify_follow_up_scheduled,
     notify_staff_appointment_status_change,
@@ -480,20 +481,10 @@ def portal_cancel(request, pk):
             pk=pk,
             user=request.user,
         )
-        if appointment.status not in (
-            Appointment.Status.PENDING,
-            Appointment.Status.CONFIRMED,
-        ):
-            messages.error(
-                request,
-                'This appointment can no longer be cancelled from the owner portal.',
-            )
-            return redirect('appointments:my_appointments')
-
         if not appointment.owner_can_cancel:
             messages.error(
                 request,
-                'Appointments can only be cancelled at least 24 hours before the scheduled time. Please contact the clinic for help.',
+                'This appointment can no longer be cancelled from the owner portal.',
             )
             return redirect('appointments:my_appointments')
 
@@ -1475,23 +1466,60 @@ def admin_edit(request, pk):
 @login_required
 @module_permission_required('appointments', 'DELETE')
 @require_POST
+@transaction.atomic
 def admin_delete(request, pk):
-    """Admin view: delete an appointment."""
-    appointment = get_object_or_404(Appointment, pk=pk)
-    if appointment.status in (
-        Appointment.Status.CHECKED_IN,
-        Appointment.Status.IN_PROGRESS,
-        Appointment.Status.AWAITING_PAYMENT,
-        Appointment.Status.COMPLETED,
-    ):
+    """Allow staff to delete cancelled appointments after notifying the owner."""
+    appointment = get_object_or_404(
+        Appointment.objects.select_for_update(),
+        pk=pk,
+    )
+    if appointment.status != Appointment.Status.CANCELLED:
         messages.error(
             request,
-            'Appointments with an active or completed visit cannot be deleted.',
+            'Only cancelled appointments can be deleted.',
         )
         return redirect('appointments:admin_list')
+
+    owner_email = (
+        appointment.user.email
+        if appointment.user and appointment.user.email
+        else appointment.owner_email
+    )
+    if not owner_email:
+        messages.error(
+            request,
+            'Add a customer email before deleting this appointment so the customer can be notified.',
+        )
+        return redirect('appointments:admin_list')
+
+    from notifications.email_utils import send_appointment_deletion_email
+    if not send_appointment_deletion_email(appointment):
+        messages.error(
+            request,
+            'The customer could not be notified by email, so the appointment was not deleted.',
+        )
+        return redirect('appointments:admin_list')
+
+    if appointment.user_id:
+        create_notification(
+            user=appointment.user,
+            title=f'Cancelled appointment record removed for {appointment.pet_name}',
+            message=(
+                f'The cancelled appointment for {appointment.pet_name} on '
+                f'{appointment.appointment_date:%B %d, %Y} at '
+                f'{appointment.appointment_time:%I:%M %p} was removed from '
+                'the clinic system by staff. The cancellation remains final.'
+            ),
+            notification_type=Notification.NotificationType.APPOINTMENT_CANCELLED,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+        )
+
     name = appointment.pet_name
     appointment.delete()
-    messages.success(request, f'Appointment for {name} has been deleted.')
+    messages.success(
+        request,
+        f'Cancelled appointment for {name} was deleted after notifying the customer.',
+    )
     return redirect('appointments:admin_list')
 
 

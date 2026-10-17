@@ -275,8 +275,8 @@
         {% if can_edit or can_delete %}
         <div class="appointment-manage__toolbar">
           {% if can_edit %}<a class="appointment-manage__button appointment-manage__button--secondary" href="{% url 'appointments:admin_edit' appointment.pk %}"><i class='bx bx-edit'></i> Edit details</a>{% endif %}
-          {% if can_delete and appointment.status != 'CHECKED_IN' and appointment.status != 'IN_PROGRESS' and appointment.status != 'AWAITING_PAYMENT' and appointment.status != 'COMPLETED' %}
-          <form method="post" action="{% url 'appointments:admin_delete' appointment.pk %}" onsubmit="return confirm('Delete this appointment? This cannot be undone.');">
+          {% if can_delete and appointment.status == 'CANCELLED' %}
+          <form method="post" action="{% url 'appointments:admin_delete' appointment.pk %}" onsubmit="return confirm('Delete this cancelled appointment? The customer will be notified by email and in-app notification. This cannot be undone.');">
             {% csrf_token %}<button class="appointment-manage__button appointment-manage__button--danger" type="submit"><i class='bx bx-trash'></i> Delete appointment</button>
           </form>
           {% endif %}

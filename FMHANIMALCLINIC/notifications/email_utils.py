@@ -88,6 +88,80 @@ def send_appointment_reminder(appointment, reminder_num=1):
     return False
 
 
+def send_appointment_cancellation_email(appointment, actor_label):
+    """Email the appointment owner when an appointment is cancelled."""
+    recipient = (
+        appointment.user.email
+        if appointment.user and appointment.user.email
+        else appointment.owner_email
+    )
+    if not recipient:
+        return False
+
+    subject = f'Appointment Cancelled - FMH Animal Clinic ({appointment.pet_name})'
+    message = (
+        f'Dear {appointment.owner_name or "Pet Owner"},\n\n'
+        f'The appointment for {appointment.pet_name} scheduled on '
+        f'{appointment.appointment_date.strftime("%B %d, %Y")} at '
+        f'{appointment.appointment_time.strftime("%I:%M %p")} at '
+        f'{appointment.branch.name if appointment.branch else "your clinic"} '
+        f'was cancelled by {actor_label}.\n'
+    )
+    if appointment.cancellation_reason:
+        message += f'\nReason: {appointment.cancellation_reason}\n'
+    message += '\nIf you need help, please contact the clinic.\n\nFMH Animal Clinic'
+
+    sent = send_notification_email(
+        subject=subject,
+        message=message,
+        recipient_list=[recipient],
+        fail_silently=True,
+    )
+    if not sent:
+        logger.warning(
+            "Failed to send appointment cancellation email to %s",
+            recipient,
+        )
+    return sent
+
+
+def send_appointment_deletion_email(appointment):
+    """Email the owner when staff permanently remove a cancelled appointment."""
+    recipient = (
+        appointment.user.email
+        if appointment.user and appointment.user.email
+        else appointment.owner_email
+    )
+    if not recipient:
+        return False
+
+    subject = f'Cancelled Appointment Removed - FMH Animal Clinic ({appointment.pet_name})'
+    message = (
+        f'Dear {appointment.owner_name or "Pet Owner"},\n\n'
+        f'The cancelled appointment for {appointment.pet_name} scheduled on '
+        f'{appointment.appointment_date.strftime("%B %d, %Y")} at '
+        f'{appointment.appointment_time.strftime("%I:%M %p")} has been '
+        'removed from the clinic appointment system by clinic staff. '
+        'This does not change the cancellation status of the appointment.\n'
+    )
+    if appointment.cancellation_reason:
+        message += f'\nCancellation reason on file: {appointment.cancellation_reason}\n'
+    message += '\nPlease contact the clinic if you need further information.\n\nFMH Animal Clinic'
+
+    sent = send_notification_email(
+        subject=subject,
+        message=message,
+        recipient_list=[recipient],
+        fail_silently=True,
+    )
+    if not sent:
+        logger.warning(
+            "Failed to send appointment deletion email to %s",
+            recipient,
+        )
+    return sent
+
+
 def send_reservation_notification(reservation):
     """Sends an email when an inventory reservation status changes."""
     status = reservation.get_status_display().lower()
