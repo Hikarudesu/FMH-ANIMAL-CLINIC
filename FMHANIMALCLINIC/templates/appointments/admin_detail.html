@@ -52,12 +52,28 @@
   .appointment-manage__list strong { color: var(--text-1); }
   .appointment-manage__toolbar { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
   .appointment-manage__separator { height: 1px; margin: 15px 0; border: 0; background: var(--border); }
+  .appointment-delete-dialog { width: min(100% - 32px, 480px); padding: 0; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--text-1); box-shadow: 0 24px 80px rgba(15, 23, 42, .28); }
+  .appointment-delete-dialog::backdrop { background: rgba(15, 23, 42, .58); backdrop-filter: blur(3px); }
+  .appointment-delete-dialog__body { padding: 28px; text-align: center; }
+  .appointment-delete-dialog__icon { display: grid; width: 58px; height: 58px; margin: 0 auto 16px; place-items: center; border-radius: 18px; background: #fef2f2; color: #dc2626; font-size: 1.8rem; }
+  .appointment-delete-dialog h2 { margin: 0; color: var(--text-1); font-size: 1.25rem; }
+  .appointment-delete-dialog__summary { margin: 10px 0 18px; color: var(--text-2); font-size: .9rem; line-height: 1.55; }
+  .appointment-delete-dialog__appointment { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg, #f8fafc); color: var(--text-1); font-weight: 700; }
+  .appointment-delete-dialog__notice { display: flex; gap: 10px; padding: 12px 13px; border: 1px solid #bfdbfe; border-radius: 11px; background: #eff6ff; color: #1e40af; font-size: .82rem; line-height: 1.5; text-align: left; }
+  .appointment-delete-dialog__notice i { flex: 0 0 auto; font-size: 1.1rem; }
+  .appointment-delete-dialog__actions { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px; border-top: 1px solid var(--border); background: var(--bg, #f8fafc); }
+  .appointment-delete-dialog__button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; padding: 9px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-1); font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; }
+  .appointment-delete-dialog__button--danger { border-color: #dc2626; background: #dc2626; color: #fff; }
+  .appointment-delete-dialog__button--danger:hover { border-color: #b91c1c; background: #b91c1c; }
   @media (max-width: 820px) { .appointment-manage__grid { grid-template-columns: 1fr; } }
   @media (max-width: 560px) {
     .appointment-manage__hero, .appointment-manage__card { padding: 17px; }
     .appointment-manage__hero-top { flex-direction: column; }
     .appointment-manage__facts { grid-template-columns: 1fr; gap: 13px; }
     .appointment-manage__button { width: 100%; box-sizing: border-box; }
+    .appointment-delete-dialog__body { padding: 24px 20px; }
+    .appointment-delete-dialog__actions { flex-direction: column-reverse; padding: 14px 20px; }
+    .appointment-delete-dialog__button { width: 100%; }
   }
 </style>
 
@@ -276,9 +292,7 @@
         <div class="appointment-manage__toolbar">
           {% if can_edit %}<a class="appointment-manage__button appointment-manage__button--secondary" href="{% url 'appointments:admin_edit' appointment.pk %}"><i class='bx bx-edit'></i> Edit details</a>{% endif %}
           {% if can_delete and appointment.status == 'CANCELLED' %}
-          <form method="post" action="{% url 'appointments:admin_delete' appointment.pk %}" onsubmit="return confirm('Delete this cancelled appointment? The customer will be notified by email and in-app notification. This cannot be undone.');">
-            {% csrf_token %}<button class="appointment-manage__button appointment-manage__button--danger" type="submit"><i class='bx bx-trash'></i> Delete appointment</button>
-          </form>
+          <button class="appointment-manage__button appointment-manage__button--danger" type="button" id="openAppointmentDeleteDialog" aria-haspopup="dialog" aria-controls="appointmentDeleteDialog"><i class='bx bx-trash'></i> Delete appointment</button>
           {% endif %}
         </div>
         {% endif %}
@@ -301,4 +315,50 @@
     </aside>
   </div>
 </main>
+
+{% if can_delete and appointment.status == 'CANCELLED' %}
+<dialog class="appointment-delete-dialog" id="appointmentDeleteDialog" aria-labelledby="appointmentDeleteTitle" aria-describedby="appointmentDeleteDescription">
+  <form method="post" action="{% url 'appointments:admin_delete' appointment.pk %}">
+    {% csrf_token %}
+    <div class="appointment-delete-dialog__body">
+      <span class="appointment-delete-dialog__icon" aria-hidden="true"><i class='bx bx-trash'></i></span>
+      <h2 id="appointmentDeleteTitle">Delete cancelled appointment?</h2>
+      <p class="appointment-delete-dialog__summary" id="appointmentDeleteDescription">This permanently removes the appointment record from the clinic system. It cannot be undone.</p>
+      <p class="appointment-delete-dialog__appointment">{{ appointment.pet_name }} · {{ appointment.appointment_date|date:"M j, Y" }} at {{ appointment.appointment_time_display }}</p>
+      <div class="appointment-delete-dialog__notice">
+        <i class='bx bx-envelope'></i>
+        <span>The customer will receive an email and an in-app notification before this cancelled appointment is deleted.</span>
+      </div>
+    </div>
+    <div class="appointment-delete-dialog__actions">
+      <button class="appointment-delete-dialog__button" type="button" data-close-appointment-delete>Keep appointment</button>
+      <button class="appointment-delete-dialog__button appointment-delete-dialog__button--danger" type="submit"><i class='bx bx-trash'></i> Delete permanently</button>
+    </div>
+  </form>
+</dialog>
+<script>
+  (function () {
+    const dialog = document.getElementById('appointmentDeleteDialog');
+    const openButton = document.getElementById('openAppointmentDeleteDialog');
+    const closeButton = dialog?.querySelector('[data-close-appointment-delete]');
+
+    if (!dialog || !openButton || !closeButton) return;
+
+    openButton.addEventListener('click', function () {
+      dialog.showModal();
+      closeButton.focus();
+    });
+    closeButton.addEventListener('click', function () {
+      dialog.close();
+      openButton.focus();
+    });
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog) {
+        dialog.close();
+        openButton.focus();
+      }
+    });
+  }());
+</script>
+{% endif %}
 {% endblock %}

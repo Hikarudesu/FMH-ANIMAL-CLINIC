@@ -1266,7 +1266,12 @@ class AppointmentWorkflowActionTests(TestCase):
             reverse('appointments:admin_detail', args=[self.appointment.pk]),
         )
         self.assertContains(detail_response, 'Delete appointment')
-        self.assertContains(detail_response, 'customer will be notified by email and in-app notification')
+        self.assertContains(detail_response, 'id="appointmentDeleteDialog"')
+        self.assertContains(detail_response, 'Delete cancelled appointment?')
+        self.assertContains(detail_response, 'email and an in-app notification')
+        self.assertContains(detail_response, 'Keep appointment')
+        self.assertContains(detail_response, 'Delete permanently')
+        self.assertNotContains(detail_response, 'onsubmit="return confirm(')
 
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
