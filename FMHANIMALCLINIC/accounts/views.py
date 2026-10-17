@@ -1425,9 +1425,10 @@ def vet_dashboard_view(request):
     from appointments.models import Appointment
     from patients.models import Pet
     from employees.models import StaffMember
-    from notifications.models import Notification, FollowUp
+    from notifications.models import Notification
     from records.models import MedicalRecord, RecordEntry
     from diagnostics.models import AIDiagnosis
+    from django.db.models.functions import TruncMonth
 
     today = date.today()
     month_start = date(today.year, today.month, 1)
@@ -1552,21 +1553,6 @@ def vet_dashboard_view(request):
     else:
         recent_medical_records = RecordEntry.objects.none()
 
-    # Pending follow-ups (includes overdue — sorted earliest-first) ───────
-    if staff_profile and not appt_restricted_no_branch:
-        follow_ups = (
-            FollowUp.objects.filter(
-                is_completed=False,
-                **{f"appointment__{k}": v for k, v in appt_filter.items()}
-            )
-            .select_related('appointment', 'appointment__pet')
-            .order_by('follow_up_date')[:10]
-        )
-    else:
-        follow_ups = FollowUp.objects.none()
-
-    follow_up_count = follow_ups.count()
-
     # Unread notifications ────────────────────────────────────────────────
     unread_notif_count = Notification.scoped_for_user(request.user).filter(
         is_read=False,
@@ -1596,6 +1582,74 @@ def vet_dashboard_view(request):
             key=lambda x: x['count'],
             reverse=True,
         )
+
+    consultation_reasons = []
+    if staff_profile and not appt_restricted_no_branch:
+        consultation_reasons = list(
+            Appointment.objects.filter(
+                pet__isnull=False,
+                **appt_filter,
+            )
+            .values('reason_for_visit__name')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+        if consultation_reasons:
+            total_reasons = sum(item['count'] for item in consultation_reasons)
+            for item in consultation_reasons:
+                item['reason'] = item.pop('reason_for_visit__name') or 'Unspecified'
+                item['percentage'] = (
+                    round(item['count'] / total_reasons * 100, 1)
+                    if total_reasons else 0
+                )
+
+    consultation_year = today.year if today.month >= 6 else today.year - 1
+    consultation_end_month = today.month if today.month >= 6 else 12
+    consultation_period_end = (
+        today if today.month >= 6 else date(consultation_year, 12, 31)
+    )
+    monthly_consultation_months = list(range(6, consultation_end_month + 1))
+    monthly_consultation_labels = [
+        date(consultation_year, month, 1).strftime('%b')
+        for month in monthly_consultation_months
+    ]
+    monthly_consultations_period = (
+        f'June–{consultation_period_end.strftime("%B")} {consultation_year}'
+    )
+    month_counts = {month: 0 for month in monthly_consultation_months}
+
+    if staff_profile and not appt_restricted_no_branch:
+        matching_vet_record = (
+            Q(vet=staff_profile) |
+            Q(vet__isnull=True, record__vet=staff_profile)
+        )
+        consultation_entries = (
+            RecordEntry.objects.filter(
+                appointment__status=Appointment.Status.COMPLETED,
+                appointment__preferred_vet=staff_profile,
+                appointment__pet__isnull=False,
+                appointment__appointment_date__gte=date(consultation_year, 6, 1),
+                appointment__appointment_date__lte=consultation_period_end,
+                **{
+                    f"appointment__{key}": value
+                    for key, value in appt_filter.items()
+                },
+                **{
+                    f"record__{key}": value
+                    for key, value in records_filter.items()
+                },
+            )
+            .filter(matching_vet_record)
+            .annotate(month=TruncMonth('appointment__appointment_date'))
+            .values('month')
+            .annotate(count=Count('appointment_id', distinct=True))
+        )
+        for row in consultation_entries:
+            month_counts[row['month'].month] = row['count']
+
+    monthly_consultation_counts = [
+        month_counts[month] for month in monthly_consultation_months
+    ]
 
     # ── Average daily consultations (last 30 days) ───────────────────────
     # Divide by actual working days (days that had at least 1 appt), not always 30.
@@ -1642,11 +1696,13 @@ def vet_dashboard_view(request):
         'medical_records_count': medical_records_count,
         'recent_medical_records': recent_medical_records,
         # Lists
-        'follow_ups': follow_ups,
-        'follow_up_count': follow_up_count,
         'unread_notif_count': unread_notif_count,
         # Charts
         'patient_status_distribution': patient_status_distribution,
+        'consultation_reasons': consultation_reasons,
+        'monthly_consultation_labels': monthly_consultation_labels,
+        'monthly_consultation_counts': monthly_consultation_counts,
+        'monthly_consultations_period': monthly_consultations_period,
         # Dashboard supporting metrics
         'avg_daily_consultations': avg_daily_consultations,
         'new_patients_this_month': new_patients_this_month,

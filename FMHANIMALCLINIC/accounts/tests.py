@@ -575,15 +575,22 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, 'Upcoming Appointments')
                 self.assertNotContains(response, 'Active Visits')
                 self.assertNotContains(response, 'Medical Records Pending')
+                self.assertNotContains(response, 'Pending Follow-ups')
+                self.assertNotContains(response, 'followups-section')
+                self.assertNotContains(response, 'follow_up_count')
                 self.assertNotContains(response, 'section-badge warning')
                 self.assertNotContains(response, 'monthlyPerformanceChart')
                 self.assertContains(response, 'Recent Medical Records')
                 self.assertContains(response, 'No medical records have been recorded yet.')
                 dashboard_html = response.content.decode()
-                self.assertNotContains(response, 'Your Completed Consultations')
-                self.assertNotContains(response, 'Appointment Types')
-                self.assertNotContains(response, 'monthlyCompletedConsultationsChart')
-                self.assertNotContains(response, 'appointmentTypesChart')
+                self.assertContains(response, 'Your Completed Consultations')
+                self.assertContains(response, 'Appointment Types')
+                self.assertContains(response, 'monthlyCompletedConsultationsChart')
+                self.assertContains(response, 'appointmentTypesChart')
+                self.assertTrue(response.context['monthly_consultation_counts'])
+                self.assertTrue(
+                    all(count == 0 for count in response.context['monthly_consultation_counts'])
+                )
                 self.assertLess(
                     dashboard_html.index('Patient Status'),
                     dashboard_html.index('Recent Medical Records'),
@@ -622,7 +629,14 @@ class VetDashboardContentTests(TestCase):
             state='NCR',
             zip_code='1000',
         )
-        role = Role.objects.get(code='veterinarian')
+        role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
         medical_records_module, _ = Module.objects.get_or_create(
             code='medical_records',
             defaults={'name': 'Medical Records'},
@@ -746,7 +760,7 @@ class VetDashboardContentTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context['recent_medical_records']), 4)
 
-    def test_vet_dashboard_omits_appointment_history_charts(self):
+    def test_vet_dashboard_renders_appointment_charts_and_data(self):
         from records.models import MedicalRecord, RecordEntry
 
         today = timezone.localdate()
@@ -761,7 +775,14 @@ class VetDashboardContentTests(TestCase):
             state='NCR',
             zip_code='1000',
         )
-        role = Role.objects.get(code='veterinarian')
+        role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
         user = get_user_model().objects.create_user(
             username='vet-monthly-consultations',
             email='vet-monthly-consultations@example.com',
@@ -856,10 +877,13 @@ class VetDashboardContentTests(TestCase):
         response = self.client.get(reverse('vet_dashboard'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'Your Completed Consultations')
-        self.assertNotContains(response, 'Appointment Types')
-        self.assertNotContains(response, 'monthlyCompletedConsultationsChart')
-        self.assertNotContains(response, 'appointmentTypesChart')
+        self.assertContains(response, 'Your Completed Consultations')
+        self.assertContains(response, 'Appointment Types')
+        self.assertContains(response, 'monthlyCompletedConsultationsChart')
+        self.assertContains(response, 'appointmentTypesChart')
+        self.assertEqual(response.context['consultation_reasons'][0]['reason'], 'Unspecified')
+        self.assertEqual(response.context['consultation_reasons'][0]['count'], 4)
+        self.assertEqual(response.context['monthly_consultation_counts'][0], 2)
 
 
 @override_settings(
