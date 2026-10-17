@@ -1419,8 +1419,6 @@ def vet_dashboard_view(request):
     • A vet's patient universe = pets reached via Appointment.preferred_vet
       UNION pets reached via MedicalRecord.vet.  This single queryset
       (`vet_pet_qs`) is built once and reused everywhere.
-    • Calendar months use the exact `get_month_offset()` helper (no timedelta
-      approximation) to guarantee correct labels and zero duplicates.
     • Every context variable is always initialised so the template never
       crashes, even when `staff_profile` is None.
     """
@@ -1430,7 +1428,6 @@ def vet_dashboard_view(request):
     from notifications.models import Notification, FollowUp
     from records.models import MedicalRecord, RecordEntry
     from diagnostics.models import AIDiagnosis
-    from django.db.models.functions import TruncMonth
 
     today = date.today()
     month_start = date(today.year, today.month, 1)
@@ -1600,89 +1597,6 @@ def vet_dashboard_view(request):
             reverse=True,
         )
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # CHART 2 — APPOINTMENT TYPES  (doughnut chart)
-    # ═══════════════════════════════════════════════════════════════════════
-    # All-time breakdown of appointment reasons for this branch.
-
-    consultation_reasons = []
-    if staff_profile and not appt_restricted_no_branch:
-        reasons_qs = (
-            Appointment.objects.filter(
-                pet__isnull=False,
-                **appt_filter
-            )
-            .values('reason_for_visit__name')
-            .annotate(count=Count('id'))
-            .order_by('-count')
-        )
-        consultation_reasons = list(reasons_qs)
-        if consultation_reasons:
-            total_reasons = sum(r['count'] for r in consultation_reasons)
-            for r in consultation_reasons:
-                r['reason'] = r.pop('reason_for_visit__name') or 'Unspecified'
-                r['percentage'] = (
-                    round(r['count'] / total_reasons * 100, 1)
-                    if total_reasons > 0 else 0
-                )
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # CHART 3 — MONTHLY COMPLETED CONSULTATIONS
-    # ═══════════════════════════════════════════════════════════════════════
-
-    consultation_year = today.year if today.month >= 6 else today.year - 1
-    consultation_end_month = today.month if today.month >= 6 else 12
-    consultation_period_end = (
-        today if today.month >= 6
-        else date(consultation_year, 12, 31)
-    )
-    monthly_consultation_months = list(range(6, consultation_end_month + 1))
-    monthly_consultation_labels = [
-        date(consultation_year, month, 1).strftime('%b')
-        for month in monthly_consultation_months
-    ]
-    monthly_consultations_period = (
-        f'June–{consultation_period_end.strftime("%B")} {consultation_year}'
-    )
-    month_counts = {month: 0 for month in monthly_consultation_months}
-
-    if staff_profile and not appt_restricted_no_branch:
-        matching_vet_record = (
-            Q(vet=staff_profile) |
-            Q(vet__isnull=True, record__vet=staff_profile)
-        )
-        consultation_entries = (
-            RecordEntry.objects.filter(
-                appointment__status=Appointment.Status.COMPLETED,
-                appointment__preferred_vet=staff_profile,
-                appointment__pet__isnull=False,
-                appointment__appointment_date__gte=date(consultation_year, 6, 1),
-                appointment__appointment_date__lte=consultation_period_end,
-                **{
-                    f"appointment__{key}": value
-                    for key, value in appt_filter.items()
-                },
-                **{
-                    f"record__{key}": value
-                    for key, value in records_filter.items()
-                },
-            )
-            .filter(matching_vet_record)
-            .annotate(
-                month=TruncMonth('appointment__appointment_date')
-            )
-            .values('month')
-            .annotate(
-                count=Count('appointment_id', distinct=True)
-            )
-        )
-        for row in consultation_entries:
-            month_counts[row['month'].month] = row['count']
-
-    monthly_consultation_counts = [
-        month_counts[month] for month in monthly_consultation_months
-    ]
-
     # ── Average daily consultations (last 30 days) ───────────────────────
     # Divide by actual working days (days that had at least 1 appt), not always 30.
     if staff_profile and not appt_restricted_no_branch:
@@ -1733,10 +1647,6 @@ def vet_dashboard_view(request):
         'unread_notif_count': unread_notif_count,
         # Charts
         'patient_status_distribution': patient_status_distribution,
-        'consultation_reasons': consultation_reasons,
-        'monthly_consultation_labels': monthly_consultation_labels,
-        'monthly_consultation_counts': monthly_consultation_counts,
-        'monthly_consultations_period': monthly_consultations_period,
         # Dashboard supporting metrics
         'avg_daily_consultations': avg_daily_consultations,
         'new_patients_this_month': new_patients_this_month,
@@ -1975,36 +1885,6 @@ def receptionist_dashboard_view(request):
         )
     weekly_sales_count = weekly_sales.count()
     weekly_revenue = sum(sale.total for sale in weekly_sales) if weekly_sales else 0
-
-    # ─── APPOINTMENT WORKLOAD (last six months, branch-specific) ───
-    monthly_appointment_starts = [
-        get_month_offset(today, months_back)
-        for months_back in range(5, -1, -1)
-    ]
-    appointments_by_month = {}
-    if not appt_restricted_no_branch:
-        appointments_by_month = {
-            (item['month'].year, item['month'].month): item['count']
-            for item in Appointment.objects.filter(
-                appointment_date__range=(monthly_appointment_starts[0], today),
-                **appt_filter,
-            ).exclude(
-                status=Appointment.Status.CANCELLED,
-            ).annotate(
-                month=TruncMonth('appointment_date')
-            ).values('month').annotate(
-                count=Count('id'),
-            )
-        }
-    monthly_appointments = [
-        {
-            'month': month_start.strftime('%b %Y'),
-            'count': appointments_by_month.get(
-                (month_start.year, month_start.month), 0
-            ),
-        }
-        for month_start in monthly_appointment_starts
-    ]
 
     # ── Year-to-date revenue and customer mix (branch-specific) ──
     if pos_restricted_no_branch:
@@ -2423,10 +2303,6 @@ def receptionist_dashboard_view(request):
         'low_stock_count': low_stock_count,
         'low_stock_threshold': get_inventory_low_stock_threshold(),
         
-        # Receptionist dashboard chart data
-        'monthly_appointments': json.dumps(
-            monthly_appointments, cls=DjangoJSONEncoder
-        ),
         'appointment_hourly_data': json.dumps(hourly_distribution, cls=DjangoJSONEncoder),
     }
 

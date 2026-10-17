@@ -344,14 +344,9 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertEqual(response.context['annual_revenue'], 290)
         self.assertEqual(response.context['annual_registered_revenue'], 125)
         self.assertEqual(response.context['annual_walkin_revenue'], 165)
-        workload = json.loads(response.context['monthly_appointments'])
-        self.assertEqual(len(workload), 6)
-        self.assertEqual(workload[-1]['month'], today.strftime('%b %Y'))
-        self.assertEqual(workload[-1]['count'], 4)
-        self.assertEqual(sum(month['count'] for month in workload), 4)
-        self.assertContains(response, 'Monthly Appointments')
-        self.assertContains(response, 'Last 6 months')
-        self.assertContains(response, 'id="monthlyAppointmentsChart"')
+        self.assertNotContains(response, 'Monthly Appointments')
+        self.assertNotContains(response, 'Last 6 months')
+        self.assertNotContains(response, 'monthlyAppointmentsChart')
         self.assertContains(response, 'id="monthlyRevenueChart"')
         self.assertContains(response, 'Monthly Revenue')
         self.assertContains(response, f'Jan - Dec {current_year}')
@@ -370,7 +365,7 @@ class ReceptionistDashboardMetricsTests(TestCase):
         self.assertContains(response, 'width: min(100%, 128px)')
         self.assertContains(response, 'min-height: 0')
         self.assertContains(response, '.charts-row.revenue-category-row')
-        self.assertContains(response, '.charts-row.appointments-sales-row')
+        self.assertContains(response, '.charts-row.recent-sales-row')
         self.assertContains(response, 'class="page-hero"')
         self.assertContains(response, 'Front Desk Dashboard')
         self.assertNotContains(response, 'dashboard-topbar-title')
@@ -469,7 +464,8 @@ class ReceptionistDashboardRoutingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/receptionist_dashboard.html')
-        self.assertContains(response, 'Monthly Appointments')
+        self.assertNotContains(response, 'Monthly Appointments')
+        self.assertNotContains(response, 'monthlyAppointmentsChart')
         self.assertContains(response, 'Front Desk Dashboard')
         self.assertContains(response, 'Monthly Revenue')
         self.assertNotContains(response, 'Booking Source')
@@ -541,32 +537,23 @@ class VetDashboardContentTests(TestCase):
                 self.assertContains(response, 'Recent Medical Records')
                 self.assertContains(response, 'No medical records have been recorded yet.')
                 dashboard_html = response.content.decode()
-                self.assertLess(
-                    dashboard_html.index('Your Completed Consultations'),
-                    dashboard_html.index('Appointment Types'),
-                )
-                self.assertLess(
-                    dashboard_html.index('Appointment Types'),
-                    dashboard_html.index('Patient Status'),
-                )
+                self.assertNotContains(response, 'Your Completed Consultations')
+                self.assertNotContains(response, 'Appointment Types')
+                self.assertNotContains(response, 'monthlyCompletedConsultationsChart')
+                self.assertNotContains(response, 'appointmentTypesChart')
                 self.assertLess(
                     dashboard_html.index('Patient Status'),
                     dashboard_html.index('Recent Medical Records'),
                 )
-                self.assertContains(response, 'grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);')
                 self.assertContains(response, 'grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);')
                 self.assertContains(response, 'max-height: 240px;')
                 self.assertContains(response, 'border-radius: 16px;')
                 self.assertContains(response, 'padding: 14px 18px;')
                 self.assertContains(response, 'font-size: 24px')
-                self.assertContains(response, 'height: 220px;')
                 self.assertContains(response, 'height: 190px;')
                 self.assertContains(response, 'chart-body-patient-status')
                 self.assertContains(response, 'font: { size: 10, weight: \'600\' }')
-                self.assertContains(response, 'charts-row-monthly')
                 self.assertContains(response, 'charts-row-supporting')
-                self.assertContains(response, 'chart-body-monthly')
-                self.assertContains(response, 'monthlyCompletedConsultationsChart')
                 self.assertNotContains(response, 'weeklyWorkloadChart')
 
     def test_veterinarian_dashboard_shows_recent_branch_medical_entries(self):
@@ -713,7 +700,7 @@ class VetDashboardContentTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context['recent_medical_records']), 4)
 
-    def test_monthly_consultation_chart_requires_matching_vet_and_counts_appointments_once(self):
+    def test_vet_dashboard_omits_appointment_history_charts(self):
         from records.models import MedicalRecord, RecordEntry
 
         today = timezone.localdate()
@@ -823,14 +810,10 @@ class VetDashboardContentTests(TestCase):
         response = self.client.get(reverse('vet_dashboard'))
 
         self.assertEqual(response.status_code, 200)
-        labels = response.context['monthly_consultation_labels']
-        counts = response.context['monthly_consultation_counts']
-        self.assertEqual(labels[0], 'Jun')
-        self.assertEqual(counts[0], 2)
-        self.assertEqual(
-            len(labels),
-            today.month - 5,
-        )
+        self.assertNotContains(response, 'Your Completed Consultations')
+        self.assertNotContains(response, 'Appointment Types')
+        self.assertNotContains(response, 'monthlyCompletedConsultationsChart')
+        self.assertNotContains(response, 'appointmentTypesChart')
 
 
 @override_settings(
