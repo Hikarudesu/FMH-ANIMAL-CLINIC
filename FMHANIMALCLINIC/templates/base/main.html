@@ -15,6 +15,26 @@
   <meta property="og:url" content="{{ request.build_absolute_uri }}">
   <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'image/fmh-logo.png' %}">
   <title>FMH Animal Clinic | Veterinary Care</title>
+  {% if request.resolver_match.url_name == 'landing_page' %}
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "FMH Animal Clinic",
+      "url": "https://fmhanimalclinic.me/"
+    }
+  </script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "VeterinaryCare",
+      "name": "FMH Animal Clinic",
+      "url": "https://fmhanimalclinic.me/",
+      "logo": "https://fmhanimalclinic.me{% static 'image/fmh-logo.png' %}",
+      "description": "Veterinary consultations, wellness checks, diagnostics, surgery, grooming, vaccination, and pet care across FMH Animal Clinic branches."
+    }
+  </script>
+  {% endif %}
 
   <link rel="icon" type="image/png" sizes="512x512" href="{% static 'image/fmh-logo.png' %}">
   <link rel="apple-touch-icon" href="{% static 'image/fmh-logo.png' %}">
