@@ -498,6 +498,8 @@ class NotificationRoutingTests(TestCase):
             response,
             reverse('notifications:open_notification', args=[notification.pk]),
         )
+        self.assertContains(response, 'id="deleteNotificationModal"')
+        self.assertContains(response, 'onclick="openDeleteNotification(event, this)"')
 
         superadmin = User.objects.create_superuser(
             username='notification-link-admin',
@@ -519,6 +521,8 @@ class NotificationRoutingTests(TestCase):
             response,
             reverse('notifications:open_notification', args=[admin_notification.pk]),
         )
+        self.assertContains(response, 'id="deleteNotificationModal"')
+        self.assertContains(response, 'onclick="openDeleteNotification(event, this)"')
 
     def test_marking_module_notifications_read_does_not_clear_other_modules(self):
         inventory_notification = Notification.objects.create(

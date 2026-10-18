@@ -185,7 +185,7 @@
           <span class="action-label">Read</span>
         </button>
         {% endif %}
-        <button class="notif-action-btn action-delete" data-delete-url="{% url 'notifications:delete_notification' notif.pk %}" onclick="deleteNotification(event, this)" title="Delete notification">
+        <button class="notif-action-btn action-delete" data-delete-url="{% url 'notifications:delete_notification' notif.pk %}" onclick="openDeleteNotification(event, this)" title="Delete notification" aria-label="Delete {{ notif.title }}">
           <span class="action-icon"><i class='bx bx-trash-alt'></i></span>
           <span class="action-ripple"></span>
         </button>
@@ -358,11 +358,29 @@ async function markOneRead(evt, btn) {
   }
 }
 
-async function deleteNotification(evt, btn) {
-  evt.stopPropagation();
-  const card = btn.closest('.notif-card-v2');
-  if (!card) return;
+let pendingDeleteButton = null;
 
+function openDeleteNotification(evt, btn) {
+  evt.stopPropagation();
+  pendingDeleteButton = btn;
+  document.getElementById('deleteNotificationModal').classList.add('active');
+  document.getElementById('confirmDeleteNotificationBtn').focus();
+}
+
+function closeDeleteNotificationModal(restoreFocus = true) {
+  document.getElementById('deleteNotificationModal').classList.remove('active');
+  const trigger = pendingDeleteButton;
+  pendingDeleteButton = null;
+  if (restoreFocus && trigger) trigger.focus();
+}
+
+async function confirmDeleteNotification() {
+  const btn = pendingDeleteButton;
+  if (!btn) return;
+  const card = btn.closest('.notif-card-v2');
+  if (!card || btn.disabled) return;
+
+  closeDeleteNotificationModal(false);
   btn.disabled = true;
   try {
     const response = await fetch(btn.dataset.deleteUrl, {
@@ -386,6 +404,12 @@ async function deleteNotification(evt, btn) {
     window.alert('The notification could not be deleted. Please try again.');
   }
 }
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && pendingDeleteButton) {
+    closeDeleteNotificationModal();
+  }
+});
 
 function clearAllNotifications() {
   if (!document.querySelectorAll('.notif-card-v2').length) return;
@@ -433,6 +457,28 @@ function confirmClearAllNotifications() {
     <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
       <button type="button" class="btn-cancel" onclick="closeClearNotificationsModal()">Cancel</button>
       <button type="button" class="btn-submit" onclick="confirmClearAllNotifications()">Yes, Clear All</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deleteNotificationModal" role="presentation" onclick="if (event.target === this) closeDeleteNotificationModal()">
+  <div class="modal-content" style="max-width: 440px;" role="dialog" aria-modal="true" aria-labelledby="deleteNotificationTitle">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Delete Notification</h3>
+      <button type="button" class="modal-close" onclick="closeDeleteNotificationModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 26px;">
+      <i class='bx bx-trash-alt' style="font-size: 3.5rem; color: var(--accent); margin-bottom: 14px;"></i>
+      <h4 id="deleteNotificationTitle" style="margin-bottom: 12px; font-size: 1.15rem;">Delete this notification?</h4>
+      <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; margin-bottom: 10px;">
+        This notification will be permanently removed from your list.
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+      <button type="button" class="btn-cancel" onclick="closeDeleteNotificationModal()">Cancel</button>
+      <button type="button" class="btn-submit" id="confirmDeleteNotificationBtn" onclick="confirmDeleteNotification()">
+        <i class='bx bx-trash-alt'></i> Delete
+      </button>
     </div>
   </div>
 </div>
