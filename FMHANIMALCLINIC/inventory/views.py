@@ -454,10 +454,14 @@ def product_create_view(request):
                         cost_per_unit=product.unit_cost,
                         reason=f"Initial stock for new item: {product.name}",
                     )
-
-                Product.objects.filter(pk=product.pk).update(
-                    is_available=bool(initial_stock and available_for_sale),
-                )
+                    Product.objects.filter(pk=product.pk).update(
+                        stock_quantity=initial_stock,
+                        is_available=bool(available_for_sale),
+                    )
+                else:
+                    Product.objects.filter(pk=product.pk).update(
+                        is_available=False,
+                    )
 
             messages.success(request, "Item created successfully.")
             return redirect('inventory:management')

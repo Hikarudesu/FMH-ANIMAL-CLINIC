@@ -15,6 +15,7 @@ from appointments.models import Appointment
 from branches.models import Branch
 from employees.models import StaffMember
 from inquiries.models import Inquiry
+from inventory.forms import ProductForm
 from inventory.models import Product
 from inventory.expiry_alerts import run_inventory_expiry_alert_job
 from patients.models import Pet
@@ -162,38 +163,52 @@ class InventoryThresholdSettingsTests(TestCase):
 
 
 class InventoryAlertEmailTests(TestCase):
-    def test_low_stock_alert_sends_email_to_superadmins_and_inventory_staff(self):
+    def test_low_stock_alert_sends_email_only_to_full_inventory_managers(self):
         branch = Branch.objects.create(name='Inventory Branch')
         inventory_module, _ = Module.objects.get_or_create(
             code='inventory',
             defaults={'name': 'Inventory'},
         )
-        inventory_role = Role.objects.create(
-            name='Inventory Staff',
-            code='inventory_staff',
+        manager_role = Role.objects.create(
+            name='Inventory Manager',
+            code='inventory_manager',
             hierarchy_level=4,
         )
-        for permission_type in (
-            ModulePermission.PermissionType.VIEW,
-            ModulePermission.PermissionType.CREATE,
-            ModulePermission.PermissionType.DELETE,
-        ):
-            ModulePermission.objects.create(
-                role=inventory_role,
-                module=inventory_module,
-                permission_type=permission_type,
-            )
+        ModulePermission.objects.create(
+            role=manager_role,
+            module=inventory_module,
+            permission_type=ModulePermission.PermissionType.MANAGE,
+            restrict_to_branch=True,
+        )
+        viewer_role = Role.objects.create(
+            name='Inventory Viewer',
+            code='inventory_viewer',
+            hierarchy_level=3,
+        )
+        ModulePermission.objects.create(
+            role=viewer_role,
+            module=inventory_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+            restrict_to_branch=True,
+        )
 
         superadmin = User.objects.create_superuser(
             username='stock-superadmin',
             email='superadmin@example.com',
             password='A-secure-test-password-923!',
         )
-        inventory_staff = User.objects.create_user(
-            username='inventory-staff',
-            email='inventory.staff@example.com',
+        inventory_manager = User.objects.create_user(
+            username='inventory-manager',
+            email='inventory.manager@example.com',
             password='A-secure-test-password-923!',
-            assigned_role=inventory_role,
+            assigned_role=manager_role,
+            branch=branch,
+        )
+        inventory_viewer = User.objects.create_user(
+            username='inventory-viewer',
+            email='inventory.viewer@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=viewer_role,
             branch=branch,
         )
 
@@ -213,7 +228,40 @@ class InventoryAlertEmailTests(TestCase):
             for email in call.kwargs['recipient_list']
         }
         self.assertIn(superadmin.email, emails)
-        self.assertIn(inventory_staff.email, emails)
+        self.assertIn(inventory_manager.email, emails)
+        self.assertNotIn(inventory_viewer.email, emails)
+
+    def test_new_item_with_initial_stock_does_not_trigger_low_stock_email(self):
+        branch = Branch.objects.create(name='Inventory Branch')
+        admin = User.objects.create_superuser(
+            username='new-item-admin',
+            email='new-item-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        form = ProductForm()
+        form_data = {
+            'branch': str(branch.pk),
+            'item_type': form.fields['item_type'].choices[0][0],
+            'name': 'Fresh Stock Item',
+            'description': '',
+            'sku': '',
+            'manufacturer': '',
+            'unit_of_measurement': form.fields['unit_of_measurement'].choices[0][0],
+            'sale_type': form.fields['sale_type'].choices[0][0],
+            'unit_cost': '15.00',
+            'price': '30.00',
+            'stock_quantity': '50',
+            'expiration_date': '',
+            'is_available': 'on',
+        }
+
+        with patch('notifications.signals.send_notification_email') as email_mock:
+            self.client.force_login(admin)
+            response = self.client.post(reverse('inventory:product_new'), form_data)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(email_mock.called)
+        self.assertEqual(Product.objects.get(name='Fresh Stock Item').stock_quantity, 50)
 
 
 class InventoryExpiryEmailTests(TestCase):

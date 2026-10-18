@@ -2,6 +2,7 @@ from django.db.models.signals import post_save
 from django.db.models import Q
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
+from accounts.rbac_models import ModulePermission
 
 from .models import Notification
 from .utils import (
@@ -53,8 +54,7 @@ def create_inquiry_notification(sender, instance, created, **kwargs):
 def create_low_inventory_notification(sender, instance, **kwargs):
     """
     Creates low/critical inventory notifications using configured system thresholds.
-    Alerts are controlled by inventory settings in the System Settings page.
-    Notifies admins, receptionists, and vet assistants (who have inventory module access).
+    Emails are only sent to users with full inventory management access.
     """
     alerts_enabled = get_setting('inventory_enable_alerts', True)
     if not alerts_enabled:
@@ -62,6 +62,9 @@ def create_low_inventory_notification(sender, instance, **kwargs):
 
     low_threshold = int(get_setting('inventory_low_stock_threshold', 10) or 10)
     critical_threshold = int(get_setting('inventory_critical_threshold', 5))
+
+    if kwargs.get('created') and getattr(instance, 'stock_quantity', 0) == 0:
+        return
 
     if instance.stock_quantity > low_threshold:
         return
@@ -75,7 +78,26 @@ def create_low_inventory_notification(sender, instance, **kwargs):
         f"Thresholds: critical <= {critical_threshold}, low <= {low_threshold}."
     )
 
-    targets = notify_module_users(
+    targets = User.objects.filter(is_active=True).filter(
+        Q(is_superuser=True)
+        | (
+            Q(assigned_role__module_permissions__module__code='inventory')
+            & Q(assigned_role__module_permissions__permission_type=ModulePermission.PermissionType.MANAGE)
+        )
+    ).distinct()
+
+    if instance.branch is not None:
+        targets = targets.filter(Q(is_superuser=True) | Q(branch=instance.branch))
+
+    recipient_emails = []
+    seen = set()
+    for user in targets:
+        email = (getattr(user, 'email', '') or '').strip()
+        if email and email.lower() not in seen:
+            seen.add(email.lower())
+            recipient_emails.append(email)
+
+    notify_module_users(
         module_code='inventory',
         branch=instance.branch,
         title=title,
@@ -84,14 +106,6 @@ def create_low_inventory_notification(sender, instance, **kwargs):
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=instance.id,
     )
-
-    recipient_emails = []
-    seen = set()
-    for user in targets or []:
-        email = (getattr(user, 'email', '') or '').strip()
-        if email and email.lower() not in seen:
-            seen.add(email.lower())
-            recipient_emails.append(email)
 
     if recipient_emails:
         send_notification_email(
