@@ -161,16 +161,30 @@ def get_allowed_notification_types_for_user(user):
 @login_required
 def user_notifications(request):
     """List all notifications for the current user."""
+    return _render_notification_list(request, 'notifications/notification_list.html')
+
+
+def _render_notification_list(request, template_name):
+    """Render the shared Primary/Updates inbox for either portal."""
     notifications = Notification.scoped_for_user(request.user).order_by('-created_at')
     unread_count = notifications.filter(is_read=False).count()
+    unread_primary_count = notifications.filter(
+        is_read=False,
+        inbox_category=Notification.InboxCategory.PRIMARY,
+    ).count()
+    unread_updates_count = notifications.filter(
+        is_read=False,
+        inbox_category=Notification.InboxCategory.UPDATES,
+    ).count()
 
-    current_filter = request.GET.get('filter', 'all')
-    if current_filter == 'unread':
-        notifications = notifications.filter(is_read=False)
-    elif current_filter == 'read':
-        notifications = notifications.filter(is_read=True)
-    
-    # Filter by notification type
+    current_filter = request.GET.get('filter', 'primary')
+    if current_filter not in {
+        Notification.InboxCategory.PRIMARY,
+        Notification.InboxCategory.UPDATES,
+    }:
+        current_filter = Notification.InboxCategory.PRIMARY
+    notifications = notifications.filter(inbox_category=current_filter)
+
     notif_type = request.GET.get('type', '')
     if notif_type and notif_type != 'all':
         notifications = notifications.filter(notification_type=notif_type)
@@ -183,35 +197,151 @@ def user_notifications(request):
             | Q(notification_type__icontains=search_value)
         )
 
-    # Pagination - 10 per page
     paginator = Paginator(notifications, 10)
-    page_num = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_num)
-
+    page_obj = paginator.get_page(request.GET.get('page', 1))
     tab_list = [
-        {'id': 'all', 'label': 'All', 'icon': 'bx-list-ul', 'url': f'?filter=all&type={notif_type}'},
-        {'id': 'unread', 'label': 'Unread', 'icon': 'bx-envelope', 'count': unread_count, 'url': f'?filter=unread&type={notif_type}'},
-        {'id': 'read', 'label': 'Read', 'icon': 'bx-envelope-open', 'url': f'?filter=read&type={notif_type}'},
+        {
+            'id': Notification.InboxCategory.PRIMARY,
+            'label': 'Primary',
+            'icon': 'bx-inbox',
+            'count': unread_primary_count,
+            'url': f'?filter=PRIMARY&type={notif_type}',
+        },
+        {
+            'id': Notification.InboxCategory.UPDATES,
+            'label': 'Updates',
+            'icon': 'bx-bell',
+            'count': unread_updates_count,
+            'url': f'?filter=UPDATES&type={notif_type}',
+        },
     ]
 
-    # Get notification types based on user's role and accessible modules
-    notification_types = get_allowed_notification_types_for_user(request.user)
-
-    return render(request, 'notifications/notification_list.html', {
+    return render(request, template_name, {
         'page_obj': page_obj,
         'notifications': page_obj.object_list,
         'unread_count': unread_count,
+        'unread_primary_count': unread_primary_count,
+        'unread_updates_count': unread_updates_count,
         'current_filter': current_filter,
         'notif_type': notif_type,
-        'notification_types': notification_types,
+        'notification_types': get_allowed_notification_types_for_user(request.user),
         'tab_list': tab_list,
         'search_value': search_value,
     })
 
 
+def _notification_destination(notification, user):
+    """Resolve a notification to its owned record or a safe module fallback."""
+    module_context = notification.module_context
+    related_id = notification.related_object_id
+
+    if module_context == Notification.ModuleContext.APPOINTMENTS:
+        if user.is_pet_owner():
+            from appointments.models import Appointment
+
+            if related_id and Appointment.objects.filter(
+                pk=related_id, user=user
+            ).exists():
+                return reverse('appointments:portal_detail', args=[related_id])
+            return reverse('appointments:my_appointments')
+        if user.has_navigation_module_access('appointments'):
+            from appointments.models import Appointment
+
+            if related_id and Appointment.objects.filter(pk=related_id).exists():
+                return reverse('appointments:admin_detail', args=[related_id])
+            return reverse('appointments:admin_list')
+
+    elif module_context == Notification.ModuleContext.INQUIRIES:
+        if not user.is_superuser and user.has_module_permission('inquiries', 'VIEW'):
+            from inquiries.models import Inquiry
+
+            if related_id and Inquiry.objects.filter(pk=related_id).exists():
+                return reverse('inquiries:detail', args=[related_id])
+            return reverse('inquiries:list')
+
+    elif module_context == Notification.ModuleContext.MEDICAL_RECORDS:
+        from records.models import MedicalRecord
+
+        record = MedicalRecord.objects.filter(pk=related_id).select_related(
+            'pet__owner'
+        ).first() if related_id else None
+        if user.is_pet_owner():
+            if record and record.pet.owner_id == user.pk:
+                return reverse('records:user_detail', args=[related_id])
+            return reverse('patients:my_pets')
+        if user.has_navigation_module_access('medical_records'):
+            if record:
+                return reverse('records:admin_detail', args=[related_id])
+            return reverse('records:admin_list')
+
+    elif module_context == Notification.ModuleContext.INVENTORY:
+        if user.is_pet_owner():
+            from inventory.models import Reservation
+
+            if notification.notification_type in {
+                Notification.NotificationType.PRODUCT_RESERVATION,
+                Notification.NotificationType.RESERVATION_APPROVED,
+                Notification.NotificationType.RESERVATION_REJECTED,
+                Notification.NotificationType.RESERVATION_READY,
+            }:
+                if related_id and Reservation.objects.filter(
+                    pk=related_id, user=user
+                ).exists():
+                    return reverse('inventory:reservation_success', args=[related_id])
+                return reverse('inventory:my_reservations')
+            return reverse('inventory:catalog')
+        if user.has_navigation_module_access('inventory'):
+            if notification.notification_type in {
+                Notification.NotificationType.STOCK_TRANSFER_REQUESTED,
+                Notification.NotificationType.STOCK_TRANSFER_APPROVED,
+                Notification.NotificationType.STOCK_TRANSFER_REJECTED,
+                Notification.NotificationType.STOCK_TRANSFER_COMPLETED,
+            }:
+                return reverse('inventory:transfer_list')
+            from inventory.models import Product
+
+            if notification.notification_type in {
+                Notification.NotificationType.PRODUCT_RESERVATION,
+                Notification.NotificationType.RESERVATION_APPROVED,
+                Notification.NotificationType.RESERVATION_REJECTED,
+                Notification.NotificationType.RESERVATION_READY,
+            }:
+                return reverse('inventory:management')
+            if related_id and Product.objects.filter(pk=related_id).exists():
+                if user.has_module_permission('inventory', 'MANAGE'):
+                    return reverse('inventory:product_edit', args=[related_id])
+            return reverse('inventory:management')
+
+    elif module_context == Notification.ModuleContext.SOA:
+        if user.is_pet_owner():
+            from billing.models import CustomerStatement
+
+            if related_id and CustomerStatement.objects.filter(
+                pk=related_id, customer=user
+            ).exists():
+                return reverse('billing:my_statement_detail', args=[related_id])
+            return reverse('billing:my_statements')
+        if user.has_navigation_special_permission('can_access_pos'):
+            return reverse('pos:sales_list')
+
+    elif module_context == Notification.ModuleContext.PATIENTS:
+        if user.is_pet_owner():
+            return reverse('patients:my_pets')
+        if user.has_navigation_module_access('patients'):
+            return reverse('patients:admin_list')
+    elif module_context == Notification.ModuleContext.AI_DIAGNOSTICS:
+        if user.has_navigation_module_access('ai_diagnostics'):
+            return reverse('diagnostics:dashboard')
+    elif module_context == Notification.ModuleContext.PAYROLL:
+        if user.has_navigation_module_access('payroll'):
+            return reverse('payroll:dashboard')
+
+    return reverse('notifications:notification_list')
+
+
 @login_required
 def open_notification(request, pk):
-    """Mark a visible notification read and open its owning module."""
+    """Mark a visible notification read and open its related record."""
     notification = get_object_or_404(
         Notification.scoped_for_user(request.user),
         pk=pk,
@@ -220,52 +350,7 @@ def open_notification(request, pk):
         notification.is_read = True
         notification.save(update_fields=['is_read'])
 
-    module_context = notification.module_context
-    user = request.user
-    target = reverse('notifications:notification_list')
-
-    if module_context == Notification.ModuleContext.INVENTORY:
-        if user.is_pet_owner():
-            target = reverse('inventory:catalog')
-        elif user.has_navigation_module_access('inventory'):
-            target = reverse('inventory:management')
-    elif module_context == Notification.ModuleContext.INQUIRIES:
-        if not user.is_superuser and user.has_module_permission('inquiries', 'VIEW'):
-            if notification.related_object_id:
-                target = reverse('inquiries:detail', args=[notification.related_object_id])
-            else:
-                target = reverse('inquiries:list')
-    elif module_context == Notification.ModuleContext.APPOINTMENTS:
-        if user.is_pet_owner():
-            target = reverse('appointments:my_appointments')
-        elif user.has_navigation_module_access('appointments'):
-            target = reverse('appointments:admin_list')
-    elif module_context == Notification.ModuleContext.PATIENTS:
-        if user.is_clinic_staff() and user.has_navigation_module_access('patients'):
-            target = reverse('patients:admin_list')
-        elif user.is_pet_owner():
-            target = reverse('patients:my_pets')
-    elif module_context == Notification.ModuleContext.MEDICAL_RECORDS:
-        if user.is_pet_owner():
-            target = reverse('patients:my_pets')
-        elif user.has_navigation_module_access('medical_records'):
-            if notification.related_object_id:
-                target = reverse('records:admin_detail', args=[notification.related_object_id])
-            else:
-                target = reverse('records:admin_list')
-    elif module_context == Notification.ModuleContext.AI_DIAGNOSTICS:
-        if user.has_navigation_module_access('ai_diagnostics'):
-            target = reverse('diagnostics:dashboard')
-    elif module_context == Notification.ModuleContext.PAYROLL:
-        if user.has_navigation_module_access('payroll'):
-            target = reverse('payroll:dashboard')
-    elif module_context == Notification.ModuleContext.SOA:
-        if user.is_pet_owner():
-            target = reverse('billing:my_statements')
-        elif user.has_navigation_special_permission('can_access_pos'):
-            target = reverse('pos:sales_list')
-
-    return redirect(target)
+    return redirect(_notification_destination(notification, request.user))
 
 
 
@@ -312,49 +397,4 @@ def delete_all_notifications(request):
 @login_required
 def admin_notification_list(request):
     """List all notifications for the current staff user's account."""
-    notifications = Notification.scoped_for_user(request.user).order_by('-created_at')
-    unread_count = notifications.filter(is_read=False).count()
-
-    current_filter = request.GET.get('filter', 'all')
-    if current_filter == 'unread':
-        notifications = notifications.filter(is_read=False)
-    elif current_filter == 'read':
-        notifications = notifications.filter(is_read=True)
-    
-    # Filter by notification type
-    notif_type = request.GET.get('type', '')
-    if notif_type and notif_type != 'all':
-        notifications = notifications.filter(notification_type=notif_type)
-
-    search_value = request.GET.get('q', '').strip()
-    if search_value:
-        notifications = notifications.filter(
-            Q(title__icontains=search_value)
-            | Q(message__icontains=search_value)
-            | Q(notification_type__icontains=search_value)
-        )
-
-    # Pagination - 10 per page
-    paginator = Paginator(notifications, 10)
-    page_num = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_num)
-
-    tab_list = [
-        {'id': 'all', 'label': 'All', 'icon': 'bx-list-ul', 'url': f'?filter=all&type={notif_type}'},
-        {'id': 'unread', 'label': 'Unread', 'icon': 'bx-envelope', 'count': unread_count, 'url': f'?filter=unread&type={notif_type}'},
-        {'id': 'read', 'label': 'Read', 'icon': 'bx-envelope-open', 'url': f'?filter=read&type={notif_type}'},
-    ]
-
-    # Get notification types based on user's role and accessible modules
-    notification_types = get_allowed_notification_types_for_user(request.user)
-
-    return render(request, 'notifications/admin_notification_list.html', {
-        'page_obj': page_obj,
-        'notifications': page_obj.object_list,
-        'unread_count': unread_count,
-        'current_filter': current_filter,
-        'notif_type': notif_type,
-        'notification_types': notification_types,
-        'tab_list': tab_list,
-        'search_value': search_value,
-    })
+    return _render_notification_list(request, 'notifications/admin_notification_list.html')

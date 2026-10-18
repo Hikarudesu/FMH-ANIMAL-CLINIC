@@ -3,7 +3,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import Client, RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.core.management import call_command
 from django.urls import resolve, reverse
 from django.utils import timezone
@@ -476,6 +476,145 @@ class NotificationRoutingTests(TestCase):
         notification.refresh_from_db()
         self.assertTrue(notification.is_read)
 
+    def test_notification_categories_depend_on_recipient_workflow(self):
+        staff = User.objects.create_user(
+            username='category-staff',
+            password='A-secure-test-password-923!',
+            assigned_role=self.cashier_role,
+        )
+
+        self.assertEqual(
+            Notification.inbox_category_for_user(
+                staff, Notification.NotificationType.APPOINTMENT
+            ),
+            Notification.InboxCategory.PRIMARY,
+        )
+        self.assertEqual(
+            Notification.inbox_category_for_user(
+                self.pet_owner, Notification.NotificationType.APPOINTMENT
+            ),
+            Notification.InboxCategory.UPDATES,
+        )
+
+    @override_settings(STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    })
+    def test_notification_inbox_uses_primary_and_updates_categories(self):
+        Notification.objects.create(
+            user=self.pet_owner,
+            title='Appointment action',
+            message='Please review the appointment.',
+            notification_type=Notification.NotificationType.APPOINTMENT,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            inbox_category=Notification.InboxCategory.PRIMARY,
+        )
+        Notification.objects.create(
+            user=self.pet_owner,
+            title='Appointment update',
+            message='Your appointment was confirmed.',
+            notification_type=Notification.NotificationType.APPOINTMENT,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            inbox_category=Notification.InboxCategory.UPDATES,
+        )
+        self.client.force_login(self.pet_owner)
+
+        response = self.client.get(
+            reverse('notifications:notification_list') + '?filter=PRIMARY'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Primary')
+        self.assertContains(response, 'Updates')
+        self.assertContains(response, 'Appointment action')
+        self.assertEqual(
+            [notification.title for notification in response.context['notifications']],
+            ['Appointment action'],
+        )
+        self.assertNotContains(response, 'Mark All Read')
+
+    @override_settings(STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    })
+    def test_staff_notification_inbox_renders_updates_and_open_link(self):
+        staff = User.objects.create_superuser(
+            username='notification-staff',
+            password='A-secure-test-password-923!',
+            email='notification-staff@example.com',
+        )
+        notification = Notification.objects.create(
+            user=staff,
+            title='System update',
+            message='Clinic settings were updated.',
+            module_context=Notification.ModuleContext.GENERAL,
+            inbox_category=Notification.InboxCategory.UPDATES,
+        )
+        self.client.force_login(staff)
+
+        response = self.client.get(
+            reverse('notifications:admin_notifications') + '?filter=UPDATES'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Updates')
+        self.assertContains(
+            response,
+            reverse('notifications:open_notification', args=[notification.pk]),
+        )
+
+    def test_open_appointment_notification_opens_owned_appointment(self):
+        appointment, _record, _entry = self.create_linked_record_and_appointment(
+            ff_up=timezone.localdate()
+        )
+        notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Appointment update',
+            message='Your appointment was updated.',
+            notification_type=Notification.NotificationType.APPOINTMENT,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            related_object_id=appointment.pk,
+        )
+        self.client.force_login(self.pet_owner)
+
+        response = self.client.get(
+            reverse('notifications:open_notification', args=[notification.pk])
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:portal_detail', args=[appointment.pk]),
+            fetch_redirect_response=False,
+        )
+
+    def test_open_medical_record_notification_opens_owned_record(self):
+        _appointment, record, _entry = self.create_linked_record_and_appointment(
+            ff_up=timezone.localdate()
+        )
+        notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Medical record update',
+            message='A new medical record is available.',
+            notification_type=Notification.NotificationType.MEDICAL_RECORD_UPDATE,
+            module_context=Notification.ModuleContext.MEDICAL_RECORDS,
+            related_object_id=record.pk,
+        )
+        self.client.force_login(self.pet_owner)
+
+        response = self.client.get(
+            reverse('notifications:open_notification', args=[notification.pk])
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('records:user_detail', args=[record.pk]),
+            fetch_redirect_response=False,
+        )
+
     def test_marking_module_notifications_read_does_not_clear_other_modules(self):
         inventory_notification = Notification.objects.create(
             user=self.pet_owner,
@@ -500,7 +639,7 @@ class NotificationRoutingTests(TestCase):
         self.assertTrue(inventory_notification.is_read)
         self.assertFalse(inquiry_notification.is_read)
 
-    def test_module_navigation_marks_only_its_notifications_read(self):
+    def test_module_navigation_does_not_mark_notifications_read(self):
         inventory_notification = Notification.objects.create(
             user=self.pet_owner,
             title='Reservation update',
@@ -523,7 +662,7 @@ class NotificationRoutingTests(TestCase):
 
         inventory_notification.refresh_from_db()
         inquiry_notification.refresh_from_db()
-        self.assertTrue(inventory_notification.is_read)
+        self.assertFalse(inventory_notification.is_read)
         self.assertFalse(inquiry_notification.is_read)
 
     def test_module_read_middleware_ignores_inventory_api_requests(self):
@@ -555,7 +694,7 @@ class NotificationRoutingTests(TestCase):
 
         self.assertIsNone(result)
 
-    def test_pet_portal_combines_and_clears_pet_and_medical_record_alerts(self):
+    def test_pet_portal_keeps_pet_and_medical_record_alerts_unread(self):
         patient_notification = Notification.objects.create(
             user=self.pet_owner,
             title='Pet update',
@@ -580,8 +719,8 @@ class NotificationRoutingTests(TestCase):
         self.assertEqual(context['unread_pet_notifications_count'], 2)
         patient_notification.refresh_from_db()
         record_notification.refresh_from_db()
-        self.assertTrue(patient_notification.is_read)
-        self.assertTrue(record_notification.is_read)
+        self.assertFalse(patient_notification.is_read)
+        self.assertFalse(record_notification.is_read)
 
     @patch('notifications.followup_email_service.send_follow_up_email')
     def test_scheduled_follow_up_notifies_portal_and_registered_email(self, send_email):

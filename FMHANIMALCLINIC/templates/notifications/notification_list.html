@@ -17,12 +17,6 @@
       {% endif %}
     </div>
     <div class="page-hero-actions">
-      {% if unread_count > 0 %}
-      <button id="markAllReadBtn" class="page-hero-btn" onclick="markAllNotificationsRead()">
-        <i class='bx bx-check-double'></i> Mark All Read
-        <span class="notif-badge-count">{{ unread_count }}</span>
-      </button>
-      {% endif %}
       {% if page_obj.object_list and page_obj.paginator.count > 0 %}
       <button id="clearAllBtn" class="page-hero-btn" onclick="clearAllNotifications()">
         <i class='bx bx-trash-alt'></i>
@@ -40,6 +34,7 @@
 <div class="c-filter-bar" style="margin-bottom: 22px;">
   <div class="c-filter-bar__glow"></div>
   <form method="GET" action="{% url 'notifications:notification_list' %}" class="c-filter-bar__form" autocomplete="off">
+    <input type="hidden" name="filter" value="{{ current_filter }}">
     <!-- Search Input -->
     <div class="c-filter-bar__search">
       <i class='bx bx-search c-filter-bar__search-icon'></i>
@@ -104,7 +99,7 @@
       {% else %}accent-general{% endif %}"></div>
 
     <!-- Main content area -->
-    <div class="notif-card-body">
+    <a class="notif-card-body notif-card-link" href="{% url 'notifications:open_notification' notif.pk %}" aria-label="Open {{ notif.title }}">
       <!-- Icon with glow effect -->
       <div class="notif-icon-v2
         {% if notif.notification_type == 'APPOINTMENT' %}icon-appointment
@@ -172,17 +167,15 @@
             <span class="chip-dot"></span>
             {{ notif.get_notification_type_display }}
           </span>
+          <span class="notif-category-chip notif-category-chip--{{ notif.inbox_category|lower }}">
+            {{ notif.get_inbox_category_display }}
+          </span>
         </div>
       </div>
+    </a>
 
       <!-- Action buttons -->
       <div class="notif-actions-v2">
-        {% if not notif.is_read %}
-        <button class="notif-action-btn action-read" data-read-url="{% url 'notifications:mark_read' notif.pk %}" onclick="markOneRead(event, this)" title="Mark as read">
-          <span class="action-icon"><i class='bx bx-check'></i></span>
-          <span class="action-label">Read</span>
-        </button>
-        {% endif %}
         <button class="notif-action-btn action-delete" data-delete-url="{% url 'notifications:delete_notification' notif.pk %}" onclick="deleteNotification(event, this)" title="Delete notification">
           <span class="action-icon"><i class='bx bx-trash-alt'></i></span>
           <span class="action-ripple"></span>
@@ -307,53 +300,6 @@
 // Reinitialize searchable dropdowns for filter bar
 if (window.SearchableDropdown) {
   SearchableDropdown.init();
-}
-
-// ══════ NOTIFICATION ACTIONS ══════
-function markAllNotificationsRead() {
-  fetch("{% url 'notifications:mark_all_read' %}", {
-    method: "POST",
-    headers: {
-      "X-CSRFToken": "{{ csrf_token }}",
-      "Content-Type": "application/json"
-    }
-  }).then(response => {
-    if (response.ok) window.location.reload();
-  });
-}
-
-async function markOneRead(evt, btn) {
-  evt.preventDefault();
-  evt.stopPropagation();
-  const card = btn.closest('.notif-card-v2');
-  if (!card || btn.disabled) return;
-
-  btn.disabled = true;
-  try {
-    const response = await fetch(btn.dataset.readUrl, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'X-CSRFToken': '{{ csrf_token }}',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    });
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || 'Could not mark this notification as read.');
-    }
-
-    card.classList.remove('unread');
-    card.dataset.read = 'true';
-    card.dataset.status = 'read';
-    const newBadge = card.querySelector('.notif-new-badge');
-    if (newBadge) newBadge.remove();
-    btn.remove();
-  } catch (error) {
-    btn.disabled = false;
-    console.error('Unable to mark notification as read:', error);
-    window.alert('This notification could not be marked as read. Please try again.');
-  }
 }
 
 async function deleteNotification(evt, btn) {
