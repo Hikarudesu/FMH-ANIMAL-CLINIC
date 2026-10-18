@@ -735,6 +735,11 @@
   border-radius: 18px;
 }
 .admin-notif-page .notif-card-link {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  gap: 16px;
   color: inherit;
   text-decoration: none;
 }
