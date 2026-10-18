@@ -695,9 +695,8 @@
   border-color: transparent;
 }
 .admin-notif-page .notif-card-v2.unread {
-  border-color: rgba(0, 150, 136, 0.48);
-  border-left: 5px solid var(--primary);
-  background: linear-gradient(145deg, var(--surface) 0%, rgba(0, 150, 136, 0.09) 100%);
+  border-color: rgba(0, 150, 136, 0.25);
+  background: linear-gradient(145deg, var(--surface) 0%, rgba(0, 150, 136, 0.03) 100%);
 }
 .admin-notif-page .notif-card-v2.unread:hover {
   box-shadow: 0 16px 40px rgba(0, 150, 136, 0.12);
@@ -734,20 +733,6 @@
   gap: 16px;
   box-shadow: var(--shadow-card);
   border-radius: 18px;
-}
-.admin-notif-page .notif-card-link {
-  color: inherit;
-  text-decoration: none;
-  flex: 1;
-  min-width: 0;
-  cursor: pointer;
-}
-.admin-notif-page .notif-card-link:focus-visible {
-  outline: 3px solid var(--primary);
-  outline-offset: -3px;
-}
-.admin-notif-page .notif-card-v2.unread .notif-title-v2 {
-  font-weight: 800;
 }
 
 /* ══════ ICON V2 — WITH GLOW EFFECT ══════ */
@@ -916,26 +901,6 @@
   border-color: rgba(139, 92, 246, 0.2);
 }
 .admin-notif-page .notif-type-chip.chip-general .chip-dot { background: #8b5cf6; }
-.admin-notif-page .notif-category-chip {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-.admin-notif-page .notif-category-chip--primary {
-  background: rgba(0, 150, 136, 0.12);
-  border-color: rgba(0, 150, 136, 0.26);
-  color: var(--primary);
-}
-.admin-notif-page .notif-category-chip--updates {
-  background: rgba(107, 114, 128, 0.1);
-  border-color: rgba(107, 114, 128, 0.2);
-  color: var(--text-2);
-}
 
 /* ══════ ACTION BUTTONS V2 ══════ */
 .admin-notif-page .notif-actions-v2 {

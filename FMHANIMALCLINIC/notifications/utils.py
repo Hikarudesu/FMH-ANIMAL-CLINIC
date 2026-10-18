@@ -91,9 +91,6 @@ def create_notification(
         'message': safe_message,
         'notification_type': notification_type,
         'module_context': module_context,
-        'inbox_category': Notification.inbox_category_for_user(
-            user, notification_type
-        ),
         'related_object_id': related_object_id,
         'related_follow_up': related_follow_up,
     }

@@ -97,10 +97,6 @@ class Notification(models.Model):
         PAYROLL_RELEASED = 'PAYROLL_RELEASED', 'Payroll Released'
         GENERAL = 'GENERAL', 'General'
 
-    class InboxCategory(models.TextChoices):
-        PRIMARY = 'PRIMARY', 'Primary'
-        UPDATES = 'UPDATES', 'Updates'
-
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -131,11 +127,6 @@ class Notification(models.Model):
         blank=True,
         help_text="ID of the related object (e.g., Appointment ID or Product ID)"
     )
-    inbox_category = models.CharField(
-        max_length=10,
-        choices=InboxCategory.choices,
-        default=InboxCategory.UPDATES,
-    )
     is_read = models.BooleanField(default=False)
 
     # Timestamps
@@ -151,38 +142,6 @@ class Notification(models.Model):
 
     def __str__(self):
         return f'{self.title} — {self.user.username}'
-
-    @classmethod
-    def inbox_category_for_user(cls, user, notification_type):
-        """Classify workflow-critical alerts separately from routine updates."""
-        primary_types = {
-            cls.NotificationType.FOLLOW_UP,
-            cls.NotificationType.FOLLOW_UP_OVERDUE,
-            cls.NotificationType.MEDICAL_RECORD_UPDATE,
-            cls.NotificationType.LOW_INVENTORY,
-            cls.NotificationType.INVENTORY_EXPIRY_ALERT,
-            cls.NotificationType.LOW_STOCK_ALERT,
-            cls.NotificationType.INQUIRY_NEW,
-            cls.NotificationType.STOCK_TRANSFER_REQUESTED,
-            cls.NotificationType.STATEMENT_RELEASED,
-            cls.NotificationType.PAYROLL_GENERATED,
-            cls.NotificationType.PAYROLL_RELEASED,
-            cls.NotificationType.RESERVATION_READY,
-            cls.NotificationType.RESERVATION_REJECTED,
-        }
-        if notification_type in primary_types:
-            return cls.InboxCategory.PRIMARY
-
-        if notification_type == cls.NotificationType.APPOINTMENT:
-            if not user.is_pet_owner():
-                return cls.InboxCategory.PRIMARY
-        elif notification_type in {
-            cls.NotificationType.APPOINTMENT_CANCELLED,
-            cls.NotificationType.APPOINTMENT_RESCHEDULED,
-        } and user.is_pet_owner():
-            return cls.InboxCategory.PRIMARY
-
-        return cls.InboxCategory.UPDATES
 
     @classmethod
     def visible_module_contexts_for_user(cls, user):
