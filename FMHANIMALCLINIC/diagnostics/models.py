@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from patients.models import Pet
 from employees.models import StaffMember
@@ -141,3 +142,23 @@ class AIDiagnosis(models.Model):
                 'is_primary': False
             })
         return conditions
+
+
+class AIDiagnosisRateLimit(models.Model):
+    """Shared per-user hourly quota for Groq-backed diagnosis requests."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='ai_diagnosis_rate_limits',
+    )
+    window_start = models.DateTimeField()
+    request_count = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'window_start'],
+                name='unique_ai_diagnosis_user_window',
+            ),
+        ]

@@ -6,9 +6,12 @@ Vet-in-the-Loop Workflow:
   Phase B: Vet Assessment & Selection (diagnosis_detail + review UI)
   Phase C: ORM Data Migration (mark_reviewed POST)
 """
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.db.models import F, Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
@@ -21,8 +24,64 @@ from patients.models import Pet
 from records.models import MedicalRecord, RecordEntry
 from settings.models import ClinicalStatus
 
-from .models import AIDiagnosis
+from .models import AIDiagnosis, AIDiagnosisRateLimit
 from .services import get_ai_diagnosis
+
+
+AI_DIAGNOSIS_REQUESTS_PER_HOUR = 20
+AI_SYMPTOMS_MAX_LENGTH = 4000
+
+
+def _accessible_pets(user):
+    """Return the pet scope visible to a user in the AI diagnostics module."""
+    pets = Pet.objects.all()
+    if not user.is_module_branch_restricted('ai_diagnostics'):
+        return pets
+    if not user.branch_id:
+        return pets.none()
+
+    branch_id = user.branch_id
+    appointment_pet_ids = Appointment.objects.filter(
+        branch_id=branch_id,
+        pet__isnull=False,
+    ).values('pet_id')
+    record_pet_ids = MedicalRecord.objects.filter(
+        branch_id=branch_id,
+    ).values('pet_id')
+    return pets.filter(
+        Q(branch_id=branch_id)
+        | Q(owner__branch_id=branch_id)
+        | Q(pk__in=appointment_pet_ids)
+        | Q(pk__in=record_pet_ids)
+    )
+
+
+def _consume_ai_diagnosis_quota(user):
+    """Atomically consume a shared database-backed hourly AI request slot."""
+    now = timezone.now()
+    window_start = now.replace(minute=0, second=0, microsecond=0)
+    with transaction.atomic():
+        bucket, _created = AIDiagnosisRateLimit.objects.get_or_create(
+            user=user,
+            window_start=window_start,
+        )
+        updated = AIDiagnosisRateLimit.objects.filter(
+            pk=bucket.pk,
+            request_count__lt=AI_DIAGNOSIS_REQUESTS_PER_HOUR,
+        ).update(request_count=F('request_count') + 1)
+        AIDiagnosisRateLimit.objects.filter(
+            user=user,
+            window_start__lt=now - timedelta(days=1),
+        ).delete()
+
+    if updated:
+        return 0
+    return max(1, int((window_start + timedelta(hours=1) - now).total_seconds()))
+
+
+def _accessible_diagnoses(user):
+    """Return AI diagnoses whose pets are visible to the user."""
+    return AIDiagnosis.objects.filter(pet__in=_accessible_pets(user))
 
 
 @login_required
@@ -33,24 +92,14 @@ def dashboard(request):
     can_create = request.user.has_module_permission('ai_diagnostics', 'CREATE')
     can_delete = request.user.has_module_permission('ai_diagnostics', 'DELETE')
     
-    # Check if user is branch-restricted
     is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
-    user_branch = getattr(request.user, 'branch', None)
-    
-    recent_diagnoses = AIDiagnosis.objects.select_related(
+    accessible_pets = _accessible_pets(request.user)
+    recent_diagnoses = _accessible_diagnoses(request.user).select_related(
         'pet', 'pet__owner', 'requested_by'
     ).order_by('-created_at')
-    
-    # Filter by branch if user is restricted
-    if is_branch_restricted and user_branch:
-        recent_diagnoses = recent_diagnoses.filter(pet__owner__branch=user_branch)
     recent_diagnoses = recent_diagnoses[:20]
 
-    pets_query = Pet.objects.filter(is_active=True).select_related('owner')
-    
-    # Filter pets by branch if restricted
-    if is_branch_restricted and user_branch:
-        pets_query = pets_query.filter(owner__branch=user_branch)
+    pets_query = accessible_pets.filter(is_active=True).select_related('owner')
 
     search = request.GET.get('search', '').strip()
     if search:
@@ -81,16 +130,7 @@ def run_diagnosis(request, pet_id):
     GET: Display form for symptom input
     POST: Run AI diagnosis and redirect to detail page
     """
-    pet = get_object_or_404(Pet, pk=pet_id)
-
-    # Check branch access if user is branch-restricted
-    is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
-    user_branch = getattr(request.user, 'branch', None)
-    
-    if is_branch_restricted and user_branch:
-        if pet.owner and pet.owner.branch != user_branch:
-            from django.http import Http404
-            raise Http404("You don't have access to this pet's records.")
+    pet = get_object_or_404(_accessible_pets(request.user), pk=pet_id)
 
     # Get last 10 medical history entries
     entries = RecordEntry.objects.filter(
@@ -106,9 +146,38 @@ def run_diagnosis(request, pet_id):
     previous_diagnoses = AIDiagnosis.objects.filter(
         pet=pet
     ).order_by('-created_at')[:5]
+    form_context = {
+        'pet': pet,
+        'entries': entries,
+        'latest_appointment': latest_appointment,
+        'previous_diagnoses': previous_diagnoses,
+        'has_history': bool(entries),
+    }
 
     if request.method == 'POST':
         current_symptoms = request.POST.get('current_symptoms', '').strip()
+        if len(current_symptoms) > AI_SYMPTOMS_MAX_LENGTH:
+            messages.error(
+                request,
+                f'Symptoms must be {AI_SYMPTOMS_MAX_LENGTH} characters or fewer.',
+            )
+            return render(request, 'diagnostics/run_diagnosis.html', form_context, status=400)
+
+        retry_after = _consume_ai_diagnosis_quota(request.user)
+        if retry_after:
+            messages.error(
+                request,
+                'You have reached the AI diagnosis limit of '
+                f'{AI_DIAGNOSIS_REQUESTS_PER_HOUR} requests per hour. Please try again later.',
+            )
+            response = render(
+                request,
+                'diagnostics/run_diagnosis.html',
+                form_context,
+                status=429,
+            )
+            response['Retry-After'] = str(retry_after)
+            return response
 
         # Call AI service with symptoms + history
         result = get_ai_diagnosis(
@@ -141,13 +210,7 @@ def run_diagnosis(request, pet_id):
         messages.success(request, f'AI diagnosis completed for {pet.name}.')
         return redirect('diagnostics:detail', pk=diagnosis.pk)
 
-    return render(request, 'diagnostics/run_diagnosis.html', {
-        'pet': pet,
-        'entries': entries,
-        'latest_appointment': latest_appointment,
-        'previous_diagnoses': previous_diagnoses,
-        'has_history': entries.exists() if hasattr(entries, 'exists') else bool(entries),
-    })
+    return render(request, 'diagnostics/run_diagnosis.html', form_context)
 
 
 @login_required
@@ -159,21 +222,7 @@ def diagnosis_detail(request, pk):
     Display AI results with selectable conditions and tests.
     Vet can select one condition, multiple tests, and enter Rx.
     """
-    diagnosis = get_object_or_404(
-        AIDiagnosis.objects.select_related(
-            'pet', 'requested_by', 'reviewed_by', 'linked_record_entry'
-        ),
-        pk=pk
-    )
-
-    # Check branch access if user is branch-restricted
-    is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
-    user_branch = getattr(request.user, 'branch', None)
-    
-    if is_branch_restricted and user_branch:
-        if diagnosis.pet.owner and diagnosis.pet.owner.branch != user_branch:
-            from django.http import Http404
-            raise Http404("You don't have access to this diagnosis.")
+    diagnosis = get_object_or_404(_accessible_diagnoses(request.user), pk=pk)
 
     # All selectable conditions (primary + differentials)
     all_conditions = diagnosis.get_all_conditions()
@@ -207,16 +256,7 @@ def mark_reviewed(request, pk):
     3. Create RecordEntry with mapped data
     4. Signal triggers Pet.status update
     """
-    diagnosis = get_object_or_404(AIDiagnosis, pk=pk)
-
-    # Check branch access if user is branch-restricted
-    is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
-    user_branch = getattr(request.user, 'branch', None)
-    
-    if is_branch_restricted and user_branch:
-        if diagnosis.pet.owner and diagnosis.pet.owner.branch != user_branch:
-            from django.http import Http404
-            raise Http404("You don't have access to this diagnosis.")
+    diagnosis = get_object_or_404(_accessible_diagnoses(request.user), pk=pk)
 
     if diagnosis.is_reviewed:
         messages.warning(request, 'This diagnosis has already been reviewed.')
@@ -305,7 +345,7 @@ def mark_reviewed(request, pk):
 @module_permission_required('ai_diagnostics', 'VIEW')
 def pet_diagnosis_history(request, pet_id):
     """JSON API: Get diagnosis history for a pet."""
-    pet = get_object_or_404(Pet, pk=pet_id)
+    pet = get_object_or_404(_accessible_pets(request.user), pk=pet_id)
     diagnoses = AIDiagnosis.objects.filter(pet=pet).order_by('-created_at')[:20]
 
     return JsonResponse({
@@ -333,16 +373,7 @@ def delete_diagnosis(request, pk):
     Note: The linked medical record (if any) is NOT deleted - 
     the ForeignKey uses SET_NULL, so the record entry remains intact.
     """
-    diagnosis = get_object_or_404(AIDiagnosis, pk=pk)
-
-    # Check branch access if user is branch-restricted
-    is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
-    user_branch = getattr(request.user, 'branch', None)
-    
-    if is_branch_restricted and user_branch:
-        if diagnosis.pet.owner and diagnosis.pet.owner.branch != user_branch:
-            from django.http import Http404
-            raise Http404("You don't have access to this diagnosis.")
+    diagnosis = get_object_or_404(_accessible_diagnoses(request.user), pk=pk)
     
     pet_name = diagnosis.pet.name
     

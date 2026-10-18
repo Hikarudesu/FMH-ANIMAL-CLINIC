@@ -2437,6 +2437,24 @@ class BrowserLoginLockoutTests(TestCase):
             another_browser.session.get('_auth_user_id'), str(self.user.pk),
         )
 
+    def test_shared_login_limit_applies_across_browsers(self):
+        login_url = reverse('accounts:login_page')
+
+        for _ in range(10):
+            response = Client().post(login_url, {
+                'username': self.user.username,
+                'password': 'wrong-password',
+            })
+            self.assertEqual(response.status_code, 200)
+
+        response = Client().post(login_url, {
+            'username': self.user.username,
+            'password': 'wrong-password',
+        })
+
+        self.assertEqual(response.status_code, 429)
+        self.assertGreater(int(response['Retry-After']), 0)
+
     def test_locking_one_account_does_not_block_another_in_same_browser(self):
         second_user = get_user_model().objects.create_user(
             username='anotherloginowner',
@@ -2495,6 +2513,7 @@ class BrowserLoginLockoutTests(TestCase):
         from datetime import timedelta
         from unittest.mock import patch
 
+        from accounts.rate_limits import clear_rate_limit
         from django.utils import timezone
 
         browser = Client()
@@ -2502,6 +2521,7 @@ class BrowserLoginLockoutTests(TestCase):
         now = timezone.now()
 
         for expected_seconds in (60, 5 * 60, 15 * 60, 15 * 60):
+            clear_rate_limit('login', str(self.user.pk))
             with patch('accounts.views.timezone.now', return_value=now):
                 for _ in range(5):
                     response = browser.post(login_url, {
@@ -2526,3 +2546,106 @@ class BrowserLoginLockoutTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(browser.session.get('login_lockouts'), {})
+
+
+class SharedAuthenticationRateLimitTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='otp-rate-limit-user',
+            email='otp-rate-limit@example.com',
+            password='A-secure-test-password-926!',
+        )
+
+    def test_password_reset_send_limit_is_generic_and_shared(self):
+        url = reverse('accounts:forgot_password')
+        for _ in range(3):
+            response = self.client.post(url, {'email': 'unknown@example.com'})
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'If an account with that email exists')
+
+        response = self.client.post(url, {'email': 'unknown@example.com'})
+
+        self.assertEqual(response.status_code, 429)
+        self.assertGreater(int(response['Retry-After']), 0)
+        self.assertContains(response, 'If an account with that email exists', status_code=429)
+
+    def test_password_reset_otp_guesses_are_limited(self):
+        session = self.client.session
+        session['reset_email'] = self.user.email
+        session.save()
+        url = reverse('accounts:verify_otp')
+
+        for _ in range(5):
+            response = self.client.post(url, {'otp_code': '000000'})
+            self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(url, {'otp_code': '000000'})
+
+        self.assertEqual(response.status_code, 429)
+        self.assertGreater(int(response['Retry-After']), 0)
+
+    def test_password_reset_otp_is_consumed_once(self):
+        from django.contrib.auth.hashers import check_password
+        from accounts.otp_models import OTPToken
+
+        token = OTPToken.generate(self.user)
+        session = self.client.session
+        session['reset_email'] = self.user.email
+        session.save()
+        url = reverse('accounts:verify_otp')
+
+        first_response = self.client.post(url, {'otp_code': token.delivery_code})
+        replay_response = self.client.post(url, {'otp_code': token.delivery_code})
+
+        self.assertRedirects(first_response, reverse('accounts:reset_password'))
+        self.assertEqual(replay_response.status_code, 200)
+        token.refresh_from_db()
+        self.assertTrue(token.is_used)
+        self.assertNotEqual(token.otp_code, token.delivery_code)
+        self.assertTrue(check_password(token.delivery_code, token.otp_code))
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_profile_otp_sends_and_guesses_are_limited(self):
+        self.client.force_login(self.user)
+        send_url = reverse('accounts:profile_send_otp_api')
+        for _ in range(3):
+            self.assertEqual(self.client.post(send_url).status_code, 200)
+        response = self.client.post(send_url)
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(len(mail.outbox), 3)
+
+        verify_url = reverse('accounts:profile_verify_otp_api')
+        payload = json.dumps({'otp_code': '000000'})
+        for _ in range(5):
+            response = self.client.post(
+                verify_url,
+                payload,
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 200)
+        response = self.client.post(
+            verify_url,
+            payload,
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertGreater(int(response['Retry-After']), 0)
+
+    def test_inline_password_reset_requires_recent_otp_verification(self):
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['inline_otp_verified_at'] = timezone.now().timestamp() - (5 * 60 + 1)
+        session.save()
+
+        response = self.client.post(
+            reverse('accounts:profile_reset_password_api'),
+            json.dumps({
+                'password1': 'A-new-secure-password-927!',
+                'password2': 'A-new-secure-password-927!',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(self.user.check_password('A-new-secure-password-927!'))

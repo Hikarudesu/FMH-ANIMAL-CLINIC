@@ -17,9 +17,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
@@ -27,6 +29,7 @@ from branches.models import Branch
 from .models import User
 from .decorators import module_permission_required, admin_only, special_permission_required, staff_only
 from .forms import PetOwnerRegistrationForm
+from .rate_limits import clear_rate_limit, consume_rate_limit
 from settings.utils import get_inventory_low_stock_threshold, get_setting
 
 EMAIL_VERIFICATION_SALT = 'accounts.email-verification'
@@ -111,6 +114,18 @@ def login_view(request):
                 username = stored_user.username
             else:
                 pass  # Let authenticate() handle the invalid user
+        login_identity = str(stored_user.pk) if stored_user else username.casefold()
+        retry_after = consume_rate_limit('login', login_identity, 10, 15 * 60)
+        if retry_after:
+            messages.error(request, 'Too many login attempts. Please try again later.')
+            response = render(
+                request,
+                'accounts/login.html',
+                {'show_maintenance_popup': show_maintenance_popup},
+                status=429,
+            )
+            response['Retry-After'] = str(retry_after)
+            return response
         lockout_key = salted_hmac(
             'accounts.login-lockout',
             username.casefold(),
@@ -163,6 +178,7 @@ def login_view(request):
         )
 
         if user is not None:
+            clear_rate_limit('login', login_identity)
             lockouts.pop(lockout_key, None)
             request.session[LOGIN_LOCKOUTS_SESSION_KEY] = lockouts
             from .lifecycle import resolve_owner_deactivation_on_login
@@ -706,6 +722,14 @@ def resend_email_verification(request):
     if request.user.email_verified:
         messages.info(request, 'Your email address is already verified.')
     else:
+        retry_after = consume_rate_limit(
+            'email-verification-send', str(request.user.pk), 3, 60 * 60,
+        )
+        if retry_after:
+            messages.error(request, 'Too many verification emails requested. Please try again later.')
+            response = redirect('accounts:profile')
+            response['Retry-After'] = str(retry_after)
+            return response
         try:
             _send_email_verification(request, request.user)
         except Exception:
@@ -2471,6 +2495,19 @@ def forgot_password_view(request):
             messages.error(request, 'Please enter your email address.')
             return render(request, 'accounts/forgot_password.html')
 
+        retry_after = consume_rate_limit(
+            'password-reset-send', email.casefold(), 3, 60 * 60,
+        )
+        if retry_after:
+            messages.success(
+                request,
+                'If an account with that email exists, an OTP has been sent. '
+                'Please wait before requesting another code.',
+            )
+            response = render(request, 'accounts/forgot_password.html', status=429)
+            response['Retry-After'] = str(retry_after)
+            return response
+
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
@@ -2491,7 +2528,7 @@ def forgot_password_view(request):
                 message=(
                     f'Hello {user.get_full_name() or user.username},\n\n'
                     f'Your one-time password (OTP) for password reset is:\n\n'
-                    f'    {token.otp_code}\n\n'
+                    f'    {token.delivery_code}\n\n'
                     f'This code is valid for 10 minutes.\n'
                     f'If you did not request this, please ignore this email.\n\n'
                     f'— FMH Animal Clinic'
@@ -2534,22 +2571,31 @@ def verify_otp_view(request):
         return redirect('accounts:forgot_password')
 
     if request.method == 'POST':
+        retry_after = consume_rate_limit(
+            'password-reset-verify', email.casefold(), 5, 10 * 60,
+        )
+        if retry_after:
+            messages.error(request, 'Too many code attempts. Request a new code later.')
+            response = render(
+                request,
+                'accounts/verify_otp.html',
+                {'email': email},
+                status=429,
+            )
+            response['Retry-After'] = str(retry_after)
+            return response
+
         otp_code = request.POST.get('otp_code', '').strip()
         if not otp_code or len(otp_code) != 6:
             messages.error(request, 'Please enter a valid 6-digit OTP code.')
             return render(request, 'accounts/verify_otp.html', {'email': email})
 
-        user = OTPToken.verify(email, otp_code)
+        user = OTPToken.verify_and_consume(email, otp_code)
         if user:
-            # Mark OTP as used
-            token = OTPToken.objects.filter(
-                user=user, otp_code=otp_code, is_used=False
-            ).first()
-            if token:
-                token.mark_used()
-
+            clear_rate_limit('password-reset-verify', email.casefold())
             # Store user ID in session for reset step
             request.session['reset_user_id'] = user.pk
+            request.session.set_expiry(5 * 60)
             return redirect('accounts:reset_password')
         else:
             messages.error(request, 'Invalid or expired OTP. Please try again.')
@@ -2584,6 +2630,13 @@ def reset_password_view(request):
 
         if len(password1) < 8:
             messages.error(request, 'Password must be at least 8 characters.')
+            return render(request, 'accounts/reset_password.html')
+
+        try:
+            validate_password(password1, user=user)
+        except ValidationError as error:
+            for validation_error in error.messages:
+                messages.error(request, validation_error)
             return render(request, 'accounts/reset_password.html')
 
         user.set_password(password1)
@@ -2623,6 +2676,13 @@ def change_password_view(request):
             messages.error(request, 'New password must be at least 8 characters.')
             return redirect('accounts:profile')
 
+        try:
+            validate_password(new_password1, user=request.user)
+        except ValidationError as error:
+            for validation_error in error.messages:
+                messages.error(request, validation_error)
+            return redirect('accounts:profile')
+
         request.user.set_password(new_password1)
         request.user.save()
 
@@ -2656,6 +2716,16 @@ def profile_send_otp_api(request):
         if not user.email:
             return JsonResponse({'success': False, 'error': 'You do not have a registered email address.'})
 
+        retry_after = consume_rate_limit(
+            'profile-otp-send', str(user.pk), 3, 60 * 60,
+        )
+        if retry_after:
+            return JsonResponse(
+                {'success': False, 'error': 'Too many codes requested. Please try again later.'},
+                status=429,
+                headers={'Retry-After': str(retry_after)},
+            )
+
         # Generate OTP
         token = OTPToken.generate(user)
         
@@ -2664,7 +2734,7 @@ def profile_send_otp_api(request):
         message = (
             f"Hello {user.get_full_name()},\n\n"
             f"Your one-time password (OTP) for password reset is:\n\n"
-            f"    {token.otp_code}\n\n"
+            f"    {token.delivery_code}\n\n"
             f"This code is valid for 10 minutes.\n"
             f"If you did not request this, please ignore this email.\n\n"
             f"— FMH Animal Clinic"
@@ -2686,11 +2756,23 @@ def profile_send_otp_api(request):
                 obscured = f"{'*'*len(parts[0])}@{parts[1]}"
                 
             return JsonResponse({'success': True, 'email': obscured})
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': f"Failed to send email: {str(e)}"})
+        except Exception:
+            logger = logging.getLogger('fmh')
+            logger.exception('Profile OTP email delivery failed for user %s.', user.pk)
+            token.delete()
+            return JsonResponse(
+                {'success': False, 'error': 'Email could not be sent. Please try again later.'},
+                status=503,
+            )
             
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except Exception:
+        logging.getLogger('fmh').exception(
+            'Profile OTP request failed for user %s.', request.user.pk,
+        )
+        return JsonResponse(
+            {'success': False, 'error': 'The request could not be completed.'},
+            status=500,
+        )
 
 
 @login_required
@@ -2701,29 +2783,41 @@ def profile_verify_otp_api(request):
     import json
     
     try:
+        retry_after = consume_rate_limit(
+            'profile-otp-verify', str(request.user.pk), 5, 10 * 60,
+        )
+        if retry_after:
+            return JsonResponse(
+                {'success': False, 'error': 'Too many code attempts. Please try again later.'},
+                status=429,
+                headers={'Retry-After': str(retry_after)},
+            )
+
         data = json.loads(request.body)
         otp_code = data.get('otp_code', '').strip()
         
         if not otp_code or len(otp_code) != 6:
             return JsonResponse({'success': False, 'error': 'Invalid 6-digit code format.'})
             
-        user = OTPToken.verify(request.user.email, otp_code)
+        user = OTPToken.verify_and_consume(request.user.email, otp_code)
         if user and user == request.user:
-            # Mark OTP as used
-            token = OTPToken.objects.filter(
-                user=user, otp_code=otp_code, is_used=False
-            ).first()
-            if token:
-                token.mark_used()
-                
+            clear_rate_limit('profile-otp-verify', str(request.user.pk))
             # Put a short-lived token in session guaranteeing they verified
-            request.session['inline_otp_verified'] = True
+            request.session['inline_otp_verified_at'] = timezone.now().timestamp()
             return JsonResponse({'success': True})
         else:
             return JsonResponse({'success': False, 'error': 'Invalid or expired OTP.'})
             
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'success': False, 'error': 'Invalid request format.'}, status=400)
+    except Exception:
+        logging.getLogger('fmh').exception(
+            'Profile OTP verification failed for user %s.', request.user.pk,
+        )
+        return JsonResponse(
+            {'success': False, 'error': 'The code could not be verified.'},
+            status=500,
+        )
 
 
 @login_required
@@ -2734,8 +2828,17 @@ def profile_reset_password_api(request):
     from django.contrib.auth import update_session_auth_hash
     
     try:
-        if not request.session.get('inline_otp_verified'):
-            return JsonResponse({'success': False, 'error': 'OTP not verified.'})
+        verified_at = request.session.get('inline_otp_verified_at')
+        try:
+            verification_is_current = (
+                verified_at is not None
+                and 0 <= timezone.now().timestamp() - float(verified_at) <= 5 * 60
+            )
+        except (TypeError, ValueError):
+            verification_is_current = False
+        if not verification_is_current:
+            request.session.pop('inline_otp_verified_at', None)
+            return JsonResponse({'success': False, 'error': 'OTP verification expired.'}, status=403)
             
         data = json.loads(request.body)
         password1 = data.get('password1', '')
@@ -2749,6 +2852,14 @@ def profile_reset_password_api(request):
             
         if len(password1) < 8:
             return JsonResponse({'success': False, 'error': 'Password must be at least 8 characters.'})
+
+        try:
+            validate_password(password1, user=request.user)
+        except ValidationError as error:
+            return JsonResponse(
+                {'success': False, 'errors': error.messages},
+                status=400,
+            )
             
         request.user.set_password(password1)
         request.user.save()
@@ -2757,9 +2868,17 @@ def profile_reset_password_api(request):
         update_session_auth_hash(request, request.user)
         
         # Clear session key
-        request.session.pop('inline_otp_verified', None)
+        request.session.pop('inline_otp_verified_at', None)
         
         return JsonResponse({'success': True})
         
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'success': False, 'error': 'Invalid request format.'}, status=400)
+    except Exception:
+        logging.getLogger('fmh').exception(
+            'Profile password reset failed for user %s.', request.user.pk,
+        )
+        return JsonResponse(
+            {'success': False, 'error': 'The password could not be updated.'},
+            status=500,
+        )

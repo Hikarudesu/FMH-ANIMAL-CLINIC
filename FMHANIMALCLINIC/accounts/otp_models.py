@@ -1,12 +1,14 @@
 """OTP (One-Time Password) model for password reset flows."""
 
-import random
+import secrets
 import string
 from datetime import timedelta
 
-from django.db import models
+from django.contrib.auth.hashers import check_password, make_password
+from django.db import models, transaction
 from django.conf import settings
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 
 
 class OTPToken(models.Model):
@@ -21,8 +23,8 @@ class OTPToken(models.Model):
         related_name='otp_tokens',
     )
     otp_code = models.CharField(
-        max_length=6,
-        help_text='6-digit OTP code',
+        max_length=128,
+        help_text='One-way OTP verifier; the original code is not stored.',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
@@ -34,7 +36,6 @@ class OTPToken(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['user', '-created_at']),
-            models.Index(fields=['otp_code', 'is_used']),
         ]
 
     def __str__(self):
@@ -49,6 +50,17 @@ class OTPToken(models.Model):
         self.is_used = True
         self.save(update_fields=['is_used'])
 
+    @property
+    def delivery_code(self):
+        """Return the plaintext code only on the object that generated it."""
+        return getattr(self, '_delivery_code', '')
+
+    def matches_code(self, submitted_code):
+        """Verify new password-hashed tokens and legacy plaintext tokens."""
+        if self.otp_code.isdigit() and len(self.otp_code) == 6:
+            return constant_time_compare(self.otp_code, submitted_code)
+        return check_password(submitted_code, self.otp_code)
+
     @classmethod
     def generate(cls, user):
         """
@@ -60,14 +72,15 @@ class OTPToken(models.Model):
         cls.objects.filter(user=user, is_used=False).update(is_used=True)
 
         # Generate 6-digit numeric OTP
-        otp_code = ''.join(random.choices(string.digits, k=6))
+        otp_code = ''.join(secrets.choice(string.digits) for _ in range(6))
 
         # Create new token (expires in 10 minutes)
         token = cls.objects.create(
             user=user,
-            otp_code=otp_code,
+            otp_code=make_password(otp_code),
             expires_at=timezone.now() + timedelta(minutes=10),
         )
+        token._delivery_code = otp_code
         return token
 
     @classmethod
@@ -78,18 +91,38 @@ class OTPToken(models.Model):
         """
         from accounts.models import User
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
+        user = User.objects.filter(email__iexact=email).first()
+        if user is None:
             return None
 
         token = cls.objects.filter(
             user=user,
-            otp_code=otp_code,
             is_used=False,
+            expires_at__gt=timezone.now(),
         ).order_by('-created_at').first()
 
-        if token and token.is_valid():
+        if token and token.matches_code(otp_code):
             return user
+
+        return None
+
+    @classmethod
+    def verify_and_consume(cls, email, otp_code):
+        """Atomically verify and mark a matching code used exactly once."""
+        from accounts.models import User
+
+        with transaction.atomic():
+            user = User.objects.filter(email__iexact=email).first()
+            if user is None:
+                return None
+
+            token = cls.objects.select_for_update().filter(
+                user=user,
+                is_used=False,
+                expires_at__gt=timezone.now(),
+            ).order_by('-created_at').first()
+            if token and token.matches_code(otp_code):
+                token.mark_used()
+                return user
 
         return None

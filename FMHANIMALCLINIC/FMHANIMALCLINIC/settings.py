@@ -75,16 +75,19 @@ def _resolve_runtime_path(default_path, env_name, fallback_dir_name):
 
 # Load environment variables from .env file
 env_path = BASE_DIR / '.env'
-_load_environment_file(env_path)
+if not IS_RAILWAY_DEPLOYMENT:
+    _load_environment_file(env_path)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 DEPLOYMENT_ENV = os.environ.get('DJANGO_ENV', 'development').strip().lower()
-DEBUG = os.environ.get(
-    'DEBUG', 'true' if DEPLOYMENT_ENV != 'production' else 'false'
-).lower() in ('true', '1', 'yes')
+IS_PRODUCTION = IS_RAILWAY_DEPLOYMENT or DEPLOYMENT_ENV == 'production'
+default_debug = not IS_PRODUCTION
+DEBUG = os.environ.get('DEBUG', str(default_debug)).lower() in ('true', '1', 'yes')
+if IS_PRODUCTION and DEBUG:
+    raise RuntimeError('DEBUG must be false in production deployments.')
 
 SECRET_KEY = os.environ.get('SECRET_KEY', '')
 if not SECRET_KEY:

@@ -18,6 +18,7 @@ from pathlib import Path
 from django.conf import settings
 
 logger = logging.getLogger('fmh')
+AI_HISTORY_MAX_CHARS = 12000
 
 
 def _get_groq_api_key(settings_obj):
@@ -153,7 +154,7 @@ def get_ai_diagnosis(pet, record_entries, appointment=None, additional_symptoms=
         logger.error("GROQ_API_KEY not configured in settings, environment, or .env")
         return _error_response("API key not configured")
 
-    groq_client = Groq(api_key=api_key)
+    groq_client = Groq(api_key=api_key, timeout=30.0, max_retries=0)
 
     pet_info = _build_pet_info(pet)
     history_text = _build_history_text(record_entries)
@@ -226,7 +227,7 @@ def _attempt_groq_call(groq_client, user_content, retry=False):
 
     except Exception as e:  # noqa: BLE001, pylint: disable=broad-exception-caught
         error_str = str(e)
-        logger.warning("GROQ API call failed: %s", error_str)
+        logger.warning("GROQ API call failed (%s)", type(e).__name__)
 
         # Try to extract the failed_generation from the error and repair it
         repaired = _try_extract_and_repair(error_str)
@@ -303,7 +304,7 @@ def _repair_and_parse(raw_json):
                 '_repaired': True,
             }
     except json.JSONDecodeError:
-        logger.debug("JSON repair failed for: %s…", text[:200])
+        logger.debug("JSON repair failed for Groq response")
 
     return None
 
@@ -337,7 +338,11 @@ Treatment: {entry.treatment or 'None'}
 Prescription: {entry.rx or 'None'}
     Status: {status_text}
 ---""")
-    return "\n".join(parts)
+    history_text = "\n".join(parts)
+    if len(history_text) > AI_HISTORY_MAX_CHARS:
+        truncation_note = '\n[Older clinical history truncated.]'
+        history_text = history_text[:AI_HISTORY_MAX_CHARS - len(truncation_note)] + truncation_note
+    return history_text
 
 
 def _calculate_age(dob):

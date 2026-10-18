@@ -408,6 +408,9 @@ class ActivityLog(models.Model):
         return f"[{self.category}] {self.user.username}: {self.action}"
 
 
+from .rate_limit_models import SharedRateLimitBucket
+
+
 def log_activity(user, action, category, action_type=ActivityLog.ActionType.OTHER, 
                  branch=None, details='', object_type='', object_id=None, ip_address=None):
     """Utility function to log activity."""
