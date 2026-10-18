@@ -16,6 +16,7 @@ from django.db.models import Q, Sum
 from django.db import transaction
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.utils.text import slugify
 
 from accounts.decorators import module_permission_required, special_permission_required
 from accounts.models import User
@@ -24,12 +25,20 @@ from branches.models import Branch
 from inventory.models import Product
 from patients.models import Pet
 from appointments.models import Appointment
+from settings.utils import get_inventory_item_type_options
 
 from .models import Sale, SaleItem, Payment, Refund
 from .forms import RefundForm
 from .services import create_or_release_soa_for_sale
 
 logger = logging.getLogger(__name__)
+
+
+def _sale_item_type_for_inventory_type(item_type):
+    """Map configurable inventory types to the POS stock item classes."""
+    if item_type.casefold() == 'medication':
+        return SaleItem.ItemType.MEDICATION
+    return SaleItem.ItemType.PRODUCT
 
 
 # =============================================================================
@@ -124,6 +133,7 @@ def checkout(request):
         'appointment': appointment,
         'items': pending_sale.items.all(),
         'services': services,
+        'inventory_item_types': get_inventory_item_type_options(),
         'products': products,
         'medications': medications,
         'branches': branches,
@@ -772,52 +782,24 @@ def search_items(request):
                 'stock': None,
             })
 
-    # Search products from all branches
-    if category in ['all', 'product']:
+    for item_type in get_inventory_item_type_options():
+        category_slug = slugify(item_type)
+        if category not in ('all', category_slug):
+            continue
+
         products = Product.objects.filter(
-            item_type='Product',
-            name__icontains=query
+            item_type=item_type,
+            name__icontains=query,
         ).select_related('branch')[:10]
-        for p in products:
+        for product in products:
             results.append({
-                'id': p.pk,
-                'type': 'PRODUCT',
-                'name': p.name,
-                'category': 'Product',
-                'price': str(p.price),
-                'stock': p.stock_quantity,
-            })
-
-    # Search accessories
-    if category in ['all', 'accessory']:
-        accessories = Product.objects.filter(
-            item_type='Accessories',
-            name__icontains=query
-        ).select_related('branch')[:10]
-        for a in accessories:
-            results.append({
-                'id': a.pk,
-                'type': 'PRODUCT',
-                'name': a.name,
-                'category': 'Accessory',
-                'price': str(a.price),
-                'stock': a.stock_quantity,
-            })
-
-    # Search medications from all branches
-    if category in ['all', 'medication']:
-        medications = Product.objects.filter(
-            item_type='Medication',
-            name__icontains=query
-        ).select_related('branch')[:10]
-        for m in medications:
-            results.append({
-                'id': m.pk,
-                'type': 'MEDICATION',
-                'name': m.name,
-                'category': 'Medication',
-                'price': str(m.price),
-                'stock': m.stock_quantity,
+                'id': product.pk,
+                'type': _sale_item_type_for_inventory_type(item_type),
+                'name': product.name,
+                'category': category_slug,
+                'category_label': item_type,
+                'price': str(product.price),
+                'stock': product.stock_quantity,
             })
 
     return JsonResponse({'results': results})
@@ -898,73 +880,38 @@ def search_customer_pets(request):
 @special_permission_required('can_access_pos')
 @require_GET
 def filter_items_by_branch(request):
-    """Filter products and medications by branch via AJAX."""
+    """Return configured inventory item types for the POS via AJAX."""
     branch_id = request.GET.get('branch_id', '').strip()
 
     results = []
 
-    # Get products from selected branch or all branches
     if branch_id:
         try:
             branch = Branch.objects.get(pk=branch_id)
-            products = Product.objects.filter(
-                item_type='Product', branch=branch, is_available=True).select_related('branch')
-            medications = Product.objects.filter(
-                item_type='Medication', branch=branch, is_available=True).select_related('branch')
-            accessories = Product.objects.filter(
-                item_type='Accessories', branch=branch, is_available=True).select_related('branch')
         except Branch.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Branch not found'}, status=404)
-    else:
-        # All branches
+
+    for item_type in get_inventory_item_type_options():
         products = Product.objects.filter(
-            item_type='Product', is_available=True).select_related('branch')
-        medications = Product.objects.filter(
-            item_type='Medication', is_available=True).select_related('branch')
-        accessories = Product.objects.filter(
-            item_type='Accessories', is_available=True).select_related('branch')
+            item_type=item_type,
+            is_available=True,
+        ).select_related('branch')
+        if branch_id:
+            products = products.filter(branch=branch)
 
-    # Add products to results
-    for p in products.order_by('name'):
-        results.append({
-            'id': p.pk,
-            'type': 'PRODUCT',
-            'name': p.name,
-            'price': str(p.price),
-            'stock': p.stock_quantity,
-            'branch_name': p.branch.name if p.branch else 'Unknown',
-            'category': 'product',
-            'unit_display': p.unit_display,
-            'sale_type_label': p.sale_type_label,
-        })
-
-    # Add medications to results
-    for m in medications.order_by('name'):
-        results.append({
-            'id': m.pk,
-            'type': 'MEDICATION',
-            'name': m.name,
-            'price': str(m.price),
-            'stock': m.stock_quantity,
-            'branch_name': m.branch.name if m.branch else 'Unknown',
-            'category': 'medication',
-            'unit_display': m.unit_display,
-            'sale_type_label': m.sale_type_label,
-        })
-
-    # Add accessories to results
-    for a in accessories.order_by('name'):
-        results.append({
-            'id': a.pk,
-            'type': 'PRODUCT',
-            'name': a.name,
-            'price': str(a.price),
-            'stock': a.stock_quantity,
-            'branch_name': a.branch.name if a.branch else 'Unknown',
-            'category': 'accessory',
-            'unit_display': a.unit_display,
-            'sale_type_label': a.sale_type_label,
-        })
+        for product in products.order_by('name'):
+            results.append({
+                'id': product.pk,
+                'type': _sale_item_type_for_inventory_type(item_type),
+                'name': product.name,
+                'price': str(product.price),
+                'stock': product.stock_quantity,
+                'branch_name': product.branch.name if product.branch else 'Unknown',
+                'category': slugify(item_type),
+                'category_label': item_type,
+                'unit_display': product.unit_display,
+                'sale_type_label': product.sale_type_label,
+            })
 
     return JsonResponse({'success': True, 'results': results})
 

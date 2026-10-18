@@ -37,6 +37,7 @@ from settings.utils import (
     get_inventory_unit_options,
     get_inventory_sale_type_options,
     get_inventory_sale_type_value,
+    get_inventory_item_type_options,
 )
 
 
@@ -287,12 +288,12 @@ def inventory_management_view(request):
             'has_value': bool(selected_type),
             'selected_label': selected_type,
             'options': [
-                {'value': 'Product', 'label': 'Products',
-                    'selected': selected_type == 'Product'},
-                {'value': 'Medication', 'label': 'Medications',
-                    'selected': selected_type == 'Medication'},
-                {'value': 'Accessories', 'label': 'Accessories',
-                    'selected': selected_type == 'Accessories'},
+                {
+                    'value': item_type,
+                    'label': item_type if item_type.casefold().endswith('s') else f'{item_type}s',
+                    'selected': selected_type == item_type,
+                }
+                for item_type in get_inventory_item_type_options()
             ]
         },
         {

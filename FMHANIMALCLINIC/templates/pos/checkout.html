@@ -910,9 +910,9 @@
     <div class="pos-category-tabs">
       <button class="pos-category-tab active" data-category="all">All Items</button>
       <button class="pos-category-tab" data-category="service">Services</button>
-      <button class="pos-category-tab" data-category="product">Products</button>
-      <button class="pos-category-tab" data-category="medication">Medications</button>
-      <button class="pos-category-tab" data-category="accessory">Accessories</button>
+      {% for item_type in inventory_item_types %}
+      <button class="pos-category-tab" data-category="{{ item_type|slugify }}">{{ item_type }}</button>
+      {% endfor %}
     </div>
 
     <div class="pos-items-grid" id="posItemsGrid">
@@ -1300,7 +1300,7 @@ function populateItemsGrid(items) {
              data-name="${item.name}"
              data-price="${item.price}"
              data-stock="${item.stock}">
-          <span class="pos-item-type ${item.category ? item.category.toLowerCase() : item.type.toLowerCase()}">${item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : item.type}</span>
+          <span class="pos-item-type ${item.category || item.type.toLowerCase()}">${item.category_label || item.category || item.type}</span>
           <div class="pos-item-name">${item.name}</div>
           <div style="font-size: 0.72rem; color: var(--text-3); margin-top: -4px;">
             ${item.unit_display || ''}${item.sale_type_label ? ' · ' + item.sale_type_label : ''}

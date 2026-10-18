@@ -10,6 +10,7 @@ from branches.models import Branch
 from inventory.forms import ProductForm, StockAdjustmentForm
 from inventory.models import Product, Reservation, StockAdjustment, StockTransfer
 from settings.forms import InventorySettingsForm
+from settings.utils import set_setting
 
 
 class InventoryWorkflowTests(TestCase):
@@ -50,6 +51,39 @@ class InventoryWorkflowTests(TestCase):
 
     def test_allow_negative_stock_control_is_not_available(self):
         self.assertNotIn('allow_negative', InventorySettingsForm().fields)
+
+    def test_management_type_filter_uses_configured_inventory_item_types(self):
+        set_setting('inventory_item_type_options', ['Medical Supplies'])
+        matching_product = Product.objects.create(
+            branch=self.branch,
+            item_type='Medical Supplies',
+            name='Sterile Gauze',
+            price=25,
+            stock_quantity=8,
+        )
+        Product.objects.create(
+            branch=self.branch,
+            item_type='Medication',
+            name='Hidden Medication',
+            price=10,
+            stock_quantity=4,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('inventory:management'),
+            {'type': 'Medical Supplies'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [option['value'] for option in response.context['status_filters'][0]['options']],
+            ['Medical Supplies'],
+        )
+        self.assertEqual(
+            [product.pk for product in response.context['products']],
+            [matching_product.pk],
+        )
 
     def create_branch_restricted_user(self, branch):
         module, _ = Module.objects.get_or_create(

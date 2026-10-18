@@ -9,6 +9,7 @@ from appointments.models import Appointment
 from branches.models import Branch
 from inventory.models import Product
 from pos.models import Payment, Sale, SaleItem
+from settings.utils import set_setting
 
 
 @override_settings(STORAGES={
@@ -53,6 +54,60 @@ class AppointmentCheckoutTests(TestCase):
         self.assertEqual(self.appointment.sale.branch_id, self.branch.pk)
         self.assertEqual(self.appointment.sale.cashier_id, self.cashier.pk)
         self.assertEqual(self.appointment.sale.status, 'PENDING')
+
+    def test_pos_tabs_and_inventory_results_follow_configured_item_types(self):
+        set_setting('inventory_item_type_options', ['Medical Supplies'])
+        supply = Product.objects.create(
+            branch=self.branch,
+            item_type='Medical Supplies',
+            name='Sterile Gauze',
+            price=25,
+            stock_quantity=8,
+        )
+        Product.objects.create(
+            branch=self.branch,
+            item_type='Medication',
+            name='Hidden Medication',
+            price=10,
+            stock_quantity=4,
+        )
+
+        checkout_response = self.client.get(reverse('pos:checkout'))
+        self.assertContains(
+            checkout_response,
+            'data-category="medical-supplies">Medical Supplies',
+        )
+        self.assertNotContains(checkout_response, 'data-category="medication"')
+
+        items_response = self.client.get(
+            reverse('pos:filter_items'),
+            {'branch_id': self.branch.pk},
+        )
+
+        self.assertEqual(items_response.status_code, 200)
+        self.assertEqual(
+            [item['id'] for item in items_response.json()['results']],
+            [supply.pk],
+        )
+        self.assertEqual(items_response.json()['results'][0]['type'], 'PRODUCT')
+        self.assertEqual(items_response.json()['results'][0]['category'], 'medical-supplies')
+        self.assertEqual(items_response.json()['results'][0]['category_label'], 'Medical Supplies')
+
+        sale = checkout_response.context['sale']
+        add_response = self.client.post(
+            reverse('pos:add_item'),
+            {
+                'sale_id': sale.pk,
+                'item_type': items_response.json()['results'][0]['type'],
+                'item_id': supply.pk,
+                'quantity': 1,
+            },
+        )
+
+        self.assertEqual(add_response.status_code, 200)
+        self.assertTrue(add_response.json()['success'])
+        sale_item = SaleItem.objects.get(sale=sale, product=supply)
+        self.assertEqual(sale_item.item_type, SaleItem.ItemType.PRODUCT)
 
     def test_linked_appointment_payment_reaches_validation(self):
         sale = Sale.objects.create(
