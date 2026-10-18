@@ -734,6 +734,14 @@
   box-shadow: var(--shadow-card);
   border-radius: 18px;
 }
+.admin-notif-page .notif-card-link {
+  color: inherit;
+  text-decoration: none;
+}
+.admin-notif-page .notif-card-link:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: -3px;
+}
 
 /* ══════ ICON V2 — WITH GLOW EFFECT ══════ */
 .admin-notif-page .notif-icon-v2 {

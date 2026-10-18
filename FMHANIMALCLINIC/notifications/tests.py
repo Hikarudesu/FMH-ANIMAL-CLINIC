@@ -3,7 +3,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import Client, RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.core.management import call_command
 from django.urls import resolve, reverse
 from django.utils import timezone
@@ -475,6 +475,50 @@ class NotificationRoutingTests(TestCase):
         self.assertEqual(response['Location'], reverse('inventory:catalog'))
         notification.refresh_from_db()
         self.assertTrue(notification.is_read)
+
+    @override_settings(STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    })
+    def test_notification_cards_link_to_open_route_in_both_portals(self):
+        notification = Notification.objects.create(
+            user=self.pet_owner,
+            title='Appointment update',
+            message='Your appointment was updated.',
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+        )
+        self.client.force_login(self.pet_owner)
+
+        response = self.client.get(reverse('notifications:notification_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse('notifications:open_notification', args=[notification.pk]),
+        )
+
+        superadmin = User.objects.create_superuser(
+            username='notification-link-admin',
+            password='A-secure-test-password-923!',
+            email='notification-link-admin@example.com',
+        )
+        admin_notification = Notification.objects.create(
+            user=superadmin,
+            title='Clinic update',
+            message='Clinic notification.',
+            module_context=Notification.ModuleContext.GENERAL,
+        )
+        self.client.force_login(superadmin)
+
+        response = self.client.get(reverse('notifications:admin_notifications'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse('notifications:open_notification', args=[admin_notification.pk]),
+        )
 
     def test_marking_module_notifications_read_does_not_clear_other_modules(self):
         inventory_notification = Notification.objects.create(

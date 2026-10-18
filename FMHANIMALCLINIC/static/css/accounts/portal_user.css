@@ -3298,6 +3298,14 @@
   box-shadow: var(--shadow-card);
   border-radius: 18px;
 }
+.notif-card-link {
+  color: inherit;
+  text-decoration: none;
+}
+.notif-card-link:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: -3px;
+}
 
 /* ══════ ICON V2 — WITH GLOW EFFECT ══════ */
 .notif-icon-v2 {
