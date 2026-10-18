@@ -8,6 +8,7 @@ from django.utils.dateparse import parse_date
 
 from notifications.models import Notification
 from notifications.delivery import send_notification_email
+from notifications.email_utils import send_appointment_cancellation_email
 
 
 def mark_module_notifications_read(user, module_context):
@@ -462,9 +463,6 @@ def notify_statement_released(statement):
 
 def notify_appointment_status_change(appointment, status, actor=None, actor_label=None):
     """Create standardized customer notifications for appointment status changes."""
-    if not appointment.user:
-        return
-
     if actor_label is None:
         actor_label = 'clinic staff'
         if actor is not None:
@@ -499,14 +497,22 @@ def notify_appointment_status_change(appointment, status, actor=None, actor_labe
     else:
         return
 
-    create_notification(
-        user=appointment.user,
-        title=title,
-        message=message,
-        notification_type=Notification.NotificationType.APPOINTMENT,
-        module_context=Notification.ModuleContext.APPOINTMENTS,
-        related_object_id=appointment.id,
-    )
+    if appointment.user:
+        create_notification(
+            user=appointment.user,
+            title=title,
+            message=message,
+            notification_type=Notification.NotificationType.APPOINTMENT,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            related_object_id=appointment.id,
+        )
+    if status == 'CANCELLED':
+        transaction.on_commit(
+            lambda: send_appointment_cancellation_email(
+                appointment,
+                actor_label,
+            )
+        )
 
 
 def notify_staff_appointment_status_change(appointment, status, actor=None):
@@ -615,6 +621,34 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
             related_object_id=appointment.id,
         )
         notified_user_ids.add(veterinarian.id)
+
+
+def notify_veterinarian_consultation_started(appointment):
+    """Notify only the veterinarian assigned to the consultation when it starts."""
+    if not appointment or not appointment.preferred_vet_id:
+        return
+
+    veterinarian = getattr(appointment.preferred_vet, 'user', None)
+    if (
+        not veterinarian
+        or not veterinarian.is_active
+        or getattr(getattr(veterinarian, 'assigned_role', None), 'code', None)
+        != 'veterinarian'
+    ):
+        return
+
+    create_notification(
+        user=veterinarian,
+        title=f'Consultation Started: {appointment.pet_name}',
+        message=(
+            f'Your consultation for {appointment.pet_name} has started '
+            f'on {appointment.appointment_date.strftime("%B %d, %Y")} at '
+            f'{appointment.appointment_time.strftime("%I:%M %p")}.'
+        ),
+        notification_type=Notification.NotificationType.APPOINTMENT,
+        module_context=Notification.ModuleContext.APPOINTMENTS,
+        related_object_id=appointment.id,
+    )
 
 
 def notify_veterinarian_medical_record_required(appointment, actor=None):

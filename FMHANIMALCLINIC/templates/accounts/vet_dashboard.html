@@ -70,28 +70,8 @@
   </div>
 </div>
 
-<!-- ALERT BANNER (Follow-ups) -->
-{% if follow_up_count > 0 %}
-<div class="alert-banner-modern">
-  <div class="alert-icon">
-    <i class='bx bx-bell bx-tada'></i>
-  </div>
-  <div class="alert-content">
-    <h4>Pending Follow-ups</h4>
-    <div class="alert-items">
-      <span class="alert-item">
-        <i class='bx bx-plus-medical'></i>
-        <span>{{ follow_up_count }} patients need follow-up</span>
-      </span>
-    </div>
-  </div>
-  <i class='bx bx-x alert-close' onclick="this.parentElement.style.display='none'"></i>
-</div>
-{% endif %}
-
 <!-- MAIN CHARTS GRID -->
 <div class="charts-section">
-  <!-- ROW 1: Consultations and appointment types -->
   <div class="charts-row charts-row-monthly">
     <div class="chart-card-modern large chart-card-monthly">
       <div class="chart-header">
@@ -119,7 +99,6 @@
     </div>
   </div>
 
-  <!-- ROW 2: Patient status and recent records -->
   <div class="charts-row charts-row-supporting">
     <div class="chart-card-modern chart-card-supporting">
       <div class="chart-header">
@@ -131,6 +110,10 @@
       </div>
       <div class="chart-body chart-body-patient-status">
         <canvas id="patientHealthChart"></canvas>
+        <div id="patientHealthEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-heart-circle'></i>
+          <span>No patient status data available yet</span>
+        </div>
       </div>
     </div>
 
@@ -187,46 +170,6 @@
     </section>
   </div>
 </div>
-
-<!-- PENDING FOLLOW-UPS SECTION -->
-{% if follow_ups %}
-<div class="followups-section">
-  <div class="section-title">
-    <i class='bx bx-plus-medical'></i>
-    <span>Pending Follow-ups</span>
-    <span class="section-badge warning">{{ follow_up_count }} pending</span>
-  </div>
-  
-  <div class="followups-list">
-    {% for followup in follow_ups %}
-    <div class="followup-item">
-      <div class="followup-icon">
-        <i class='bx bx-plus-medical'></i>
-      </div>
-      <div class="followup-content">
-        <div class="followup-title">
-          <strong>{{ followup.appointment.pet_name }}</strong>
-          <span class="followup-reason">{{ followup.title }}</span>
-        </div>
-        <div class="followup-meta">
-          <span><i class='bx bx-calendar'></i> Due: {{ followup.follow_up_date|date:"M j, Y" }}</span>
-          <span><i class='bx bx-user'></i> {{ followup.appointment.owner_name }}</span>
-        </div>
-      </div>
-      <div class="followup-due">
-        {% if followup.follow_up_date|is_today %}
-        <span class="due-badge today">Today</span>
-        {% elif followup.follow_up_date < today %}
-        <span class="due-badge overdue">Overdue</span>
-        {% else %}
-        <span class="due-badge upcoming">In {{ followup.follow_up_date|timeuntil }}</span>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
 
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <!-- MODERN VET DASHBOARD STYLES -->
@@ -593,6 +536,27 @@
     height: 190px;
   }
 
+  .chart-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-3);
+    text-align: center;
+  }
+
+  .chart-empty-state i {
+    font-size: 42px;
+    margin-bottom: 8px;
+    opacity: 0.4;
+  }
+
+  .chart-empty-state span {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
   .chart-card-supporting {
     min-width: 0;
   }
@@ -748,23 +712,6 @@
   }
   
   .section-link:hover { gap: 8px; }
-  
-  .section-badge {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    background: rgba(0, 150, 136, 0.1);
-    color: #009688;
-  }
-  
-  .section-badge.warning {
-    background: rgba(245, 158, 11, 0.1);
-    color: #f59e0b;
-  }
   
   .no-data {
     text-align: center;
@@ -1307,123 +1254,6 @@
     }
   }
 
-  .followups-section {
-    margin-bottom: 28px;
-  }
-  
-  .followups-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .followup-item {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 18px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: var(--shadow-card);
-  }
-  
-  .followup-item:hover {
-    transform: translateX(8px) translateY(-2px);
-    border-color: var(--primary);
-    box-shadow: 0 12px 32px rgba(0, 150, 136, 0.1);
-  }
-  
-  .followup-icon {
-    width: 44px;
-    height: 44px;
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  
-  .followup-icon i {
-    font-size: 20px;
-    color: white;
-  }
-  
-  .followup-content {
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .followup-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 6px;
-  }
-  
-  .followup-title strong {
-    font-size: 14px;
-    color: var(--text-1);
-  }
-  
-  .followup-reason {
-    font-size: 12px;
-    color: var(--text-3);
-    padding: 2px 8px;
-    background: var(--bg);
-    border-radius: 4px;
-  }
-  
-  .followup-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-  
-  .followup-meta span {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: var(--text-3);
-  }
-  
-  .followup-meta i {
-    font-size: 14px;
-  }
-  
-  .followup-due {
-    flex-shrink: 0;
-  }
-  
-  .due-badge {
-    display: inline-flex;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-  
-  .due-badge.today {
-    background: rgba(245, 158, 11, 0.1);
-    color: #f59e0b;
-  }
-  
-  .due-badge.overdue {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-  }
-  
-  .due-badge.upcoming {
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
-  }
-
   /* ═══════════════════════════════════════════════ */
   /* MODERN UPCOMING TABLE */
   /* ═══════════════════════════════════════════════ */
@@ -1722,10 +1552,6 @@ document.addEventListener('DOMContentLoaded', function() {
       card.classList.add('dash-fade', `stagger-${i + 1}`);
     });
     
-    // Alert banner
-    const alert = document.querySelector('.alert-banner-modern');
-    if (alert) alert.classList.add('dash-fade');
-    
     // Chart cards — alternate left/right per row
     document.querySelectorAll('.charts-row').forEach(row => {
       const cards = row.querySelectorAll('.chart-card-modern');
@@ -1735,19 +1561,9 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
     
-    // Section titles
-    document.querySelectorAll('.followups-section > .section-title').forEach(el => {
-      el.classList.add('dash-fade', 'from-left');
-    });
-    
     // Table wrappers — fade in the whole table together (no per-row stagger)
     document.querySelectorAll('.schedule-table-wrapper').forEach(wrapper => {
       wrapper.classList.add('dash-fade');
-    });
-    
-    // Followup list — fade the whole list as one unit
-    document.querySelectorAll('.followups-list').forEach(list => {
-      list.classList.add('dash-fade');
     });
     
     // Empty state cards
@@ -1776,7 +1592,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const total = extraDelay + stagger;
       setTimeout(() => el.classList.add('visible'), total);
       el.querySelectorAll('canvas').forEach(canvas => {
-        const chart = Chart.getChart(canvas);
+        const chart = typeof Chart !== 'undefined' ? Chart.getChart(canvas) : null;
         if (chart) setTimeout(() => { chart.reset(); chart.update(); }, total + 350);
       });
     }
@@ -1803,12 +1619,22 @@ document.addEventListener('DOMContentLoaded', function() {
   // CHART.JS CONFIGURATION
   // ═══════════════════════════════════════════════════════════════════════
   
-  Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  const chartAvailable = typeof Chart !== 'undefined';
+  if (chartAvailable) {
+    Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  }
   const isGlobalDark = document.body.getAttribute('data-theme') === 'dark';
-  Chart.defaults.color = isGlobalDark ? '#ffffff' : '#64748b';
-  
-  // Set legend label colors for dark mode
-  Chart.defaults.plugins.legend.labels.color = isGlobalDark ? '#ffffff' : '#64748b';
+  if (chartAvailable) {
+    Chart.defaults.color = isGlobalDark ? '#ffffff' : '#64748b';
+    Chart.defaults.plugins.legend.labels.color = isGlobalDark ? '#ffffff' : '#64748b';
+  }
+
+  function showPatientHealthEmptyState() {
+    const canvas = document.getElementById('patientHealthChart');
+    const empty = document.getElementById('patientHealthEmpty');
+    if (canvas) canvas.style.display = 'none';
+    if (empty) empty.style.display = 'flex';
+  }
   
   const commonTooltip = {
     backgroundColor: 'rgba(15, 23, 42, 0.85)',
@@ -1825,12 +1651,8 @@ document.addEventListener('DOMContentLoaded', function() {
     displayColors: true
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // CHART 1: MONTHLY COMPLETED CONSULTATIONS
-  // ═══════════════════════════════════════════════════════════════════════
-  
   const monthlyConsultationsCtx = document.getElementById('monthlyCompletedConsultationsChart');
-  if (monthlyConsultationsCtx) {
+  if (monthlyConsultationsCtx && chartAvailable) {
     const consultationMonths = {{ monthly_consultation_labels|safe }};
     const consultationCounts = {{ monthly_consultation_counts|safe }};
 
@@ -1872,66 +1694,54 @@ document.addEventListener('DOMContentLoaded', function() {
             grid: { display: false, drawBorder: false },
             ticks: { font: { size: 12, weight: '600' } }
           },
-          y: { 
-            beginAtZero: true, 
-            grid: { color: isGlobalDark ? '#334155' : '#e2e8f0', drawBorder: false, borderDash: [5, 5] },
-            ticks: { 
-              font: { size: 11 },
-              precision: 0
-            } 
-          }
-        },
-        animation: {
-          duration: 1500,
-          easing: 'easeInOutCubic',
-          delay(ctx) {
-            return ctx.type === 'data' ? ctx.dataIndex * 100 : 0;
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: isGlobalDark ? '#334155' : '#e2e8f0',
+              drawBorder: false,
+              borderDash: [5, 5]
+            },
+            ticks: { font: { size: 11 }, precision: 0 }
           }
         }
       }
     });
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // CHART 2: APPOINTMENT TYPES (Doughnut)
-  // ═══════════════════════════════════════════════════════════════════════
-  
   const appointmentTypesCtx = document.getElementById('appointmentTypesChart');
-  if (appointmentTypesCtx) {
+  if (appointmentTypesCtx && chartAvailable) {
     const palette = ['#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#f43f5e'];
     const appointmentData = [
       {% for item in consultation_reasons %}
-      { label: '{{ item.reason|escapejs }}', value: {{ item.count }}, color: palette[{{ forloop.counter0 }} % palette.length] }{% if not forloop.last %},{% endif %}
-      {% empty %}
-      { label: 'No Data', value: 0, color: isGlobalDark ? '#334155' : '#e2e8f0' }
+      {
+        label: '{{ item.reason|escapejs }}',
+        value: {{ item.count }},
+        color: palette[{{ forloop.counter0 }} % palette.length]
+      }{% if not forloop.last %},{% endif %}
       {% endfor %}
-    ].filter(item => item.value > 0);
-    
+    ];
     const totalAppointments = appointmentData.reduce((sum, item) => sum + item.value, 0);
-    
-    // Center text plugin
     const centerTextPlugin = {
       id: 'appointmentCenterText',
       afterDraw: function(chart) {
         const ctx = chart.ctx;
         const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
         const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
-        
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+
         ctx.save();
         ctx.font = 'bold 28px Inter, sans-serif';
-        const isDark = document.body.getAttribute('data-theme') === 'dark';
         ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(totalAppointments.toString(), centerX, centerY - 8);
-        
         ctx.font = '500 12px Inter, sans-serif';
         ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
         ctx.fillText('All Time', centerX, centerY + 16);
         ctx.restore();
       }
     };
-    
+
     new Chart(appointmentTypesCtx, {
       type: 'doughnut',
       data: {
@@ -1947,12 +1757,6 @@ document.addEventListener('DOMContentLoaded', function() {
         responsive: true,
         maintainAspectRatio: false,
         cutout: '70%',
-        layout: {
-          padding: {
-            top: 0,
-            bottom: 0
-          }
-        },
         plugins: {
           legend: {
             display: true,
@@ -1963,44 +1767,10 @@ document.addEventListener('DOMContentLoaded', function() {
               padding: 8,
               boxWidth: 8,
               boxHeight: 8,
-              font: { size: 10, weight: '600', family: 'Inter, sans-serif' },
-              color: isGlobalDark ? '#ffffff' : '#64748b',
-              generateLabels: function(chart) {
-                const data = chart.data;
-                return data.labels.map((label, i) => {
-                  const value = data.datasets[0].data[i];
-                  const percentage = totalAppointments > 0 ? ((value / totalAppointments) * 100).toFixed(1) : 0;
-                  return {
-                    text: `${label}: ${value} (${percentage}%)`,
-                    fillStyle: data.datasets[0].backgroundColor[i],
-                    strokeStyle: data.datasets[0].backgroundColor[i],
-                    lineWidth: 0,
-                    fontColor: isGlobalDark ? '#ffffff' : '#64748b',
-                    color: isGlobalDark ? '#ffffff' : '#64748b',
-                    pointStyle: 'circle',
-                    hidden: false,
-                    index: i
-                  };
-                });
-              }
-            },
-            align: 'center'
-          },
-          tooltip: {
-            ...commonTooltip,
-            callbacks: {
-              label: function(context) {
-                const percent = totalAppointments > 0 ? ((context.raw / totalAppointments) * 100).toFixed(1) : 0;
-                return `${context.label}: ${context.raw} (${percent}%)`;
-              }
+              font: { size: 10, weight: '600', family: 'Inter, sans-serif' }
             }
-          }
-        },
-        animation: {
-          animateRotate: true,
-          animateScale: false,
-          duration: 1500,
-          easing: 'easeInOutCubic'
+          },
+          tooltip: commonTooltip
         }
       },
       plugins: [centerTextPlugin]
@@ -2008,11 +1778,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // CHART 3: PATIENT HEALTH STATUS (Pie Chart)
+  // CHART 1: PATIENT HEALTH STATUS (Pie Chart)
   // ═══════════════════════════════════════════════════════════════════════
   
   const patientHealthCtx = document.getElementById('patientHealthChart');
-  if (patientHealthCtx) {
+  if (patientHealthCtx && chartAvailable) {
     const healthData = [
       {% for status in patient_status_distribution %}
       { label: '{{ status.status }}', value: {{ status.count }}, color: '{{ status.color }}' },
@@ -2072,6 +1842,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   });
                 }
               }
+              }
             },
             tooltip: {
               ...commonTooltip,
@@ -2085,7 +1856,11 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }
       });
+    } else {
+      showPatientHealthEmptyState();
     }
+  } else if (patientHealthCtx) {
+    showPatientHealthEmptyState();
   }
 
   // Start all animations after charts are ready

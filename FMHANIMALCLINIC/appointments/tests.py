@@ -18,12 +18,13 @@ from appointments.forms import (
     AdminQuickCreateForm,
     AppointmentEditForm,
     PublicAppointmentForm,
+    _check_double_booking,
     _validate_appointment_date,
 )
 from appointments.services import AppointmentService
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
-from notifications.models import FollowUp
+from notifications.models import FollowUp, Notification
 from patients.models import Pet
 from pos.models import Payment, Sale, SaleItem
 from records.models import MedicalRecord, RecordEntry
@@ -444,6 +445,96 @@ class FlexibleAppointmentTimeTests(TestCase):
         self.assertEqual(form.cleaned_data['appointment_time'], time(8, 30))
 
 
+class SameDayBookingCutoffTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Same Day Booking Branch')
+        role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        user = User.objects.create_user(
+            username='same-day-booking-vet',
+            email='same-day-booking-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=self.branch,
+        )
+        self.vet = StaffMember.objects.create(
+            user=user,
+            first_name='Same Day',
+            last_name='Booking Vet',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        self.appointment_date = date(2026, 10, 17)
+        self.now = timezone.make_aware(
+            datetime.combine(self.appointment_date, time(10, 43)),
+            timezone.get_current_timezone(),
+        )
+        VetSchedule.objects.create(
+            staff=self.vet,
+            branch=self.branch,
+            date=self.appointment_date,
+            start_time=time(10),
+            end_time=time(12),
+        )
+
+    @patch('appointments.services.timezone.localtime')
+    def test_availability_marks_elapsed_slots_unavailable(self, mocked_localtime):
+        mocked_localtime.return_value = self.now
+
+        slots = AppointmentService.get_available_slots(
+            target_date=self.appointment_date,
+            branch_id=self.branch.pk,
+        )
+
+        slots_by_time = {slot['time']: slot for slot in slots}
+        self.assertFalse(slots_by_time['10:00']['available'])
+        self.assertEqual(slots_by_time['10:00']['booked_label'], 'Time has passed')
+        self.assertFalse(slots_by_time['10:30']['available'])
+        self.assertEqual(slots_by_time['10:30']['booked_label'], 'Time has passed')
+        self.assertTrue(slots_by_time['11:00']['available'])
+        self.assertTrue(slots_by_time['11:30']['available'])
+
+        edit_slots = AppointmentService.get_available_slots(
+            target_date=self.appointment_date,
+            branch_id=self.branch.pk,
+            include_elapsed_slots=True,
+        )
+        self.assertTrue(edit_slots[0]['available'])
+
+    @patch('appointments.forms.AppointmentService.get_available_slots')
+    @patch('appointments.forms.timezone.localtime')
+    @patch('appointments.forms.timezone.localdate')
+    def test_submission_rejects_elapsed_slot_but_accepts_future_slot(
+        self, mocked_localdate, mocked_localtime, mocked_slots,
+    ):
+        mocked_localdate.return_value = self.appointment_date
+        mocked_localtime.return_value = self.now
+        cleaned_data = {
+            'branch': self.branch,
+            'preferred_vet': self.vet,
+            'appointment_date': self.appointment_date,
+            'appointment_time': time(10, 30),
+        }
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            'This appointment time has already passed. Please select a future time slot.',
+        ):
+            _check_double_booking(cleaned_data)
+        mocked_slots.assert_not_called()
+
+        cleaned_data['appointment_time'] = time(11)
+        mocked_slots.return_value = [{'time': '11:00', 'available': True}]
+        _check_double_booking(cleaned_data)
+        mocked_slots.assert_called_once()
+
+
 class AdminQuickCreateOwnerApiTests(TestCase):
     def test_owner_name_field_is_not_required_for_portal_form_rendering(self):
         form = AdminQuickCreateForm()
@@ -561,7 +652,7 @@ class OwnerAppointmentCancellationTests(TestCase):
             'Plans have changed.',
         )
 
-    def test_owner_cannot_cancel_within_24_hours_of_appointment(self):
+    def test_owner_can_cancel_within_24_hours_of_appointment(self):
         appointment_time = timezone.localtime(
             timezone.now() + timedelta(hours=23),
         )
@@ -582,13 +673,11 @@ class OwnerAppointmentCancellationTests(TestCase):
             fetch_redirect_response=False,
         )
         self.appointment.refresh_from_db()
-        self.assertEqual(self.appointment.status, Appointment.Status.PENDING)
+        self.assertEqual(self.appointment.status, Appointment.Status.CANCELLED)
 
-    @patch('appointments.models.timezone.now')
-    def test_owner_can_cancel_at_exact_24_hour_cutoff(self, mocked_now):
-        mocked_now.return_value = (
-            self.appointment.scheduled_datetime - timedelta(hours=24)
-        )
+    def test_owner_can_cancel_after_appointment_time_if_not_checked_in(self):
+        self.appointment.appointment_date = timezone.localdate() - timedelta(days=1)
+        self.appointment.save(update_fields=['appointment_date', 'updated_at'])
         self.assertTrue(self.appointment.owner_can_cancel)
 
     def test_owner_cancellation_requires_reason_and_appointment_ownership(self):
@@ -609,7 +698,7 @@ class OwnerAppointmentCancellationTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_owner_portal_shows_cancel_form_before_cutoff(self):
+    def test_owner_portal_shows_cancellation_form_without_time_cutoff(self):
         response = self.client.get(reverse('appointments:my_appointments'))
 
         self.assertEqual(response.status_code, 200)
@@ -626,10 +715,26 @@ class OwnerAppointmentCancellationTests(TestCase):
         ))
         self.assertEqual(detail_response.status_code, 200)
         self.assertContains(detail_response, 'Cancel appointment')
-        self.assertContains(detail_response, 'You can cancel until 24 hours before the appointment.')
+        self.assertContains(detail_response, 'You can cancel until clinic staff check in your pet.')
         self.assertContains(detail_response, 'Your information')
         self.assertContains(detail_response, 'Pet information')
         self.assertContains(detail_response, 'Visit details')
+
+    @patch('notifications.email_utils.send_notification_email', return_value=True)
+    def test_owner_cancellation_sends_customer_email(self, send_email):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.cancel_url,
+                {'cancellation_reason': 'Emergency appointment cancellation.'},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        send_email.assert_called_once()
+        self.assertEqual(
+            send_email.call_args.kwargs['recipient_list'],
+            [self.owner.email],
+        )
+        self.assertIn('Emergency appointment cancellation.', send_email.call_args.kwargs['message'])
 
     def test_each_portal_appointment_tab_paginates_after_ten_entries(self):
         appointments_by_status = {}
@@ -1035,7 +1140,7 @@ class AppointmentStaffHistoryVisibilityTests(TestCase):
             reverse('appointments:admin_list'),
         )
         self.assertEqual(appointments_response.status_code, 200)
-        self.assertContains(appointments_response, 'Appointment History')
+        self.assertNotContains(appointments_response, 'Appointment History')
 
         staff_response = self.client.get(history_url)
 
@@ -1055,6 +1160,25 @@ class AppointmentStaffHistoryVisibilityTests(TestCase):
         self.assertContains(detail_response, '2026-10-20')
         self.assertContains(detail_response, 'Current appointment details')
         self.assertContains(detail_response, 'Reason for visit')
+
+        veterinarian_role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        ModulePermission.objects.get_or_create(
+            role=veterinarian_role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        user.assigned_role = veterinarian_role
+        user.save(update_fields=['assigned_role'])
+        veterinarian_response = self.client.get(reverse('appointments:admin_list'))
+        self.assertEqual(veterinarian_response.status_code, 200)
+        self.assertNotContains(veterinarian_response, 'Appointment History')
 
         role.code = 'other_staff'
         role.save(update_fields=['code'])
@@ -1170,6 +1294,11 @@ class AppointmentWorkflowActionTests(TestCase):
             module=module,
             permission_type=ModulePermission.PermissionType.VIEW,
         )
+        ModulePermission.objects.create(
+            role=self.role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.DELETE,
+        )
         self.user = User.objects.create_user(
             username='workflow-receptionist',
             email='workflow-receptionist@example.com',
@@ -1185,6 +1314,86 @@ class AppointmentWorkflowActionTests(TestCase):
             appointment_time=time(10),
         )
         self.client.force_login(self.user)
+
+    def test_appointment_statuses_render_as_colored_bubbles(self):
+        for status in Appointment.Status.values:
+            if status != self.appointment.status:
+                Appointment.objects.create(
+                    owner_name=f'{status} Owner',
+                    pet_name=f'{status} Pet',
+                    branch=self.branch,
+                    appointment_date=timezone.localdate(),
+                    appointment_time=time(11),
+                    status=status,
+                )
+
+        response = self.client.get(reverse('appointments:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        for status in Appointment.Status.values:
+            self.assertContains(
+                response,
+                f'appointment-status-bubble appointment-status--{status.lower()}',
+            )
+
+    def test_starting_consultation_notifies_only_the_assigned_veterinarian(self):
+        vet_role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        ModulePermission.objects.get_or_create(
+            role=vet_role,
+            module=Module.objects.get(code='appointments'),
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        veterinarian = User.objects.create_user(
+            username='consultation-start-vet',
+            email='consultation-start-vet@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=vet_role,
+            branch=self.branch,
+        )
+        veterinarian_profile = StaffMember.objects.create(
+            user=veterinarian,
+            first_name='Consultation',
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        owner = User.objects.create_user(
+            username='consultation-start-owner',
+            email='consultation-start-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.appointment.user = owner
+        self.appointment.status = Appointment.Status.CONFIRMED
+        self.appointment.preferred_vet = veterinarian_profile
+        self.appointment.save(update_fields=[
+            'user', 'status', 'preferred_vet', 'updated_at',
+        ])
+        Notification.objects.filter(related_object_id=self.appointment.pk).delete()
+        self.client.force_login(veterinarian)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(reverse(
+                'appointments:vet_workflow_action',
+                args=[self.appointment.pk, 'start'],
+            ))
+
+        self.assertEqual(response.status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
+        notifications = Notification.objects.filter(
+            related_object_id=self.appointment.pk,
+            notification_type=Notification.NotificationType.APPOINTMENT,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+        )
+        self.assertEqual(notifications.count(), 1)
+        self.assertEqual(notifications.get().user_id, veterinarian.pk)
 
     def test_receptionist_manages_appointment_in_dedicated_workspace(self):
         list_response = self.client.get(reverse('appointments:admin_list'))
@@ -1205,6 +1414,92 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(detail_response, self.appointment.pet_name)
         self.assertContains(detail_response, 'Confirm appointment')
         self.assertContains(detail_response, 'Cancellation reason')
+        self.assertNotContains(detail_response, 'Delete appointment')
+
+    @patch('notifications.email_utils.send_appointment_deletion_email', return_value=True)
+    def test_staff_can_delete_cancelled_appointment_after_customer_notification(
+        self, send_deletion_email,
+    ):
+        owner = User.objects.create_user(
+            username='deleted-appointment-owner',
+            email='deleted-appointment-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.appointment.user = owner
+        self.appointment.owner_email = owner.email
+        self.appointment.status = Appointment.Status.CANCELLED
+        self.appointment.cancellation_reason = 'Emergency cancellation.'
+        self.appointment.save(update_fields=[
+            'user', 'owner_email', 'status', 'cancellation_reason', 'updated_at',
+        ])
+
+        detail_response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk]),
+        )
+        self.assertContains(detail_response, 'Delete appointment')
+        self.assertContains(detail_response, 'id="appointmentDeleteDialog"')
+        self.assertContains(detail_response, 'Delete cancelled appointment?')
+        self.assertContains(detail_response, 'email and an in-app notification')
+        self.assertContains(detail_response, 'Keep appointment')
+        self.assertContains(detail_response, 'Delete permanently')
+        self.assertNotContains(detail_response, 'onsubmit="return confirm(')
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse('appointments:admin_delete', args=[self.appointment.pk]),
+            )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:admin_list'),
+            fetch_redirect_response=False,
+        )
+        send_deletion_email.assert_called_once()
+        self.assertFalse(Appointment.objects.filter(pk=self.appointment.pk).exists())
+        self.assertTrue(Notification.objects.filter(
+            user=owner,
+            notification_type=Notification.NotificationType.APPOINTMENT_CANCELLED,
+            title__icontains='record removed',
+        ).exists())
+
+    @patch('notifications.email_utils.send_appointment_deletion_email')
+    def test_staff_cannot_delete_non_cancelled_appointment(self, send_deletion_email):
+        response = self.client.post(
+            reverse('appointments:admin_delete', args=[self.appointment.pk]),
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:admin_list'),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(Appointment.objects.filter(pk=self.appointment.pk).exists())
+        send_deletion_email.assert_not_called()
+
+    @patch('notifications.email_utils.send_appointment_deletion_email', return_value=False)
+    def test_staff_deletion_is_blocked_when_customer_email_fails(
+        self, send_deletion_email,
+    ):
+        owner = User.objects.create_user(
+            username='failed-delete-notice-owner',
+            email='failed-delete-notice-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.appointment.user = owner
+        self.appointment.status = Appointment.Status.CANCELLED
+        self.appointment.save(update_fields=['user', 'status', 'updated_at'])
+
+        response = self.client.post(
+            reverse('appointments:admin_delete', args=[self.appointment.pk]),
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:admin_list'),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(Appointment.objects.filter(pk=self.appointment.pk).exists())
+        send_deletion_email.assert_called_once()
 
     def test_completed_appointment_list_hides_record_status_indicators(self):
         self.appointment.status = Appointment.Status.COMPLETED

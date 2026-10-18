@@ -233,6 +233,36 @@ def admin_record_create(request):
                     f"?appointment={linked_appointment.pk}{from_patients_query}"
                 )
 
+    vets, vets_for_json = get_veterinarians_for_json()
+    current_vet = StaffMember.objects.filter(
+        user=request.user,
+        position=StaffMember.Position.VETERINARIAN,
+        is_active=True,
+        user__is_active=True,
+    ).first()
+    default_branch_id = (
+        linked_appointment.branch_id
+        if linked_appointment and linked_appointment.branch_id
+        else current_vet.branch_id
+        if current_vet
+        else request.user.branch_id or None
+    )
+    default_vet_id = (
+        linked_appointment.preferred_vet_id
+        if linked_appointment and linked_appointment.preferred_vet_id
+        else current_vet.pk if current_vet else None
+    )
+    selected_branch_id = (
+        request.POST.get('branch', '').strip()
+        if request.method == 'POST'
+        else str(default_branch_id or '')
+    )
+    selected_vet_id = (
+        request.POST.get('vet', '').strip()
+        if request.method == 'POST'
+        else default_vet_id or ''
+    )
+
     if request.method == 'POST':
         entry_form = RecordEntryForm(request.POST)
         if entry_form.is_valid():
@@ -494,6 +524,8 @@ def admin_record_create(request):
             ).order_by('-created_at').first()
             if appointment_followup:
                 initial_data['ff_up'] = appointment_followup.follow_up_date
+        if default_vet_id:
+            initial_data['vet'] = default_vet_id
         entry_form = RecordEntryForm(initial=initial_data)
 
     # Build pet details JSON for dynamic form population
@@ -532,7 +564,6 @@ def admin_record_create(request):
         }
 
     branches = Branch.objects.filter(is_active=True)  # pylint: disable=no-member
-    vets, vets_for_json = get_veterinarians_for_json()
     # Support ?pet=<pk> to pre-fill form with the specified pet's data
     selected_pet = None
     prefill_pet_name = ''
@@ -630,6 +661,9 @@ def admin_record_create(request):
         'linked_appointment': linked_appointment,
         'appointment_prefill': appointment_prefill,
         'selected_pet_prefill': selected_pet_prefill,
+        'service_branch_id': default_branch_id,
+        'selected_branch_id': selected_branch_id,
+        'selected_vet_id': selected_vet_id,
     }
     return render(request, 'records/admin_form.html', context)
 
@@ -955,6 +989,38 @@ def admin_add_entry(request, pk):
             )
         ).select_related('preferred_vet', 'branch').first()
 
+    vets, vets_for_json = get_veterinarians_for_json()
+    current_vet = StaffMember.objects.filter(
+        user=request.user,
+        position=StaffMember.Position.VETERINARIAN,
+        is_active=True,
+        user__is_active=True,
+    ).first()
+    default_branch_id = (
+        linked_appointment.branch_id
+        if linked_appointment and linked_appointment.branch_id
+        else current_vet.branch_id
+        if current_vet
+        else request.user.branch_id or record.branch_id
+    )
+    default_vet_id = (
+        linked_appointment.preferred_vet_id
+        if linked_appointment and linked_appointment.preferred_vet_id
+        else current_vet.pk
+        if current_vet
+        else record.vet_id
+    )
+    selected_branch_id = (
+        request.POST.get('branch_id', '').strip()
+        if request.method == 'POST'
+        else str(default_branch_id or '')
+    )
+    selected_vet_id = (
+        request.POST.get('vet', '').strip()
+        if request.method == 'POST'
+        else default_vet_id or ''
+    )
+
     if request.method == 'POST':
         form = RecordEntryForm(request.POST)
         if form.is_valid():
@@ -1043,11 +1109,10 @@ def admin_add_entry(request, pk):
             ).order_by('-created_at').first()
             if appointment_followup:
                 initial_data['ff_up'] = appointment_followup.follow_up_date
-        if record.vet:
-            initial_data.setdefault('vet', record.vet)
+        if default_vet_id:
+            initial_data['vet'] = default_vet_id
         form = RecordEntryForm(initial=initial_data)
 
-    vets, vets_for_json = get_veterinarians_for_json()
     branches = Branch.objects.filter(is_active=True)
 
     return render(request, 'records/admin_add_entry.html', {
@@ -1057,6 +1122,9 @@ def admin_add_entry(request, pk):
         'branches': branches,
         'vets_json': json.dumps(vets_for_json),
         'from_patients': from_patients,
+        'service_branch_id': default_branch_id or '',
+        'selected_branch_id': selected_branch_id,
+        'selected_vet_id': selected_vet_id,
         'linked_appointment': linked_appointment,
     })
 

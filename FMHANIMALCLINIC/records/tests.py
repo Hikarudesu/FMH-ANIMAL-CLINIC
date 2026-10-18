@@ -1,5 +1,6 @@
 import os
 import tempfile
+from datetime import date, time
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -12,7 +13,9 @@ from django.urls import reverse
 from accounts.activity_signals import log_medical_record_changes
 from accounts.models import ActivityLog
 from accounts.rbac_models import Module, ModulePermission, Role
+from appointments.models import Appointment
 from branches.models import Branch
+from employees.models import StaffMember
 from patients.models import Pet
 from .models import MedicalFile, MedicalRecord, RecordEntry
 from .models import validate_laboratory_image, validate_medical_file
@@ -140,6 +143,139 @@ class BranchRestrictedMedicalRecordListTests(TestCase):
         self.assertTrue(response.context['branch_assignment_required'])
         self.assertEqual(response.context['records'].paginator.count, 0)
         self.assertContains(response, 'Ask an administrator to assign your branch')
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class AttendingVeterinarianDefaultTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Attending Vet Default Branch')
+        role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        module, _ = Module.objects.get_or_create(
+            code='medical_records',
+            defaults={'name': 'Medical Records'},
+        )
+        ModulePermission.objects.get_or_create(
+            role=role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.CREATE,
+        )
+        self.user = get_user_model().objects.create_user(
+            username='attending-vet-default',
+            email='attending-vet-default@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+            branch=self.branch,
+        )
+        self.vet = StaffMember.objects.create(
+            user=self.user,
+            first_name='Attending',
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        self.client.force_login(self.user)
+
+    def test_new_visit_entry_defaults_to_logged_in_veterinarian(self):
+        response = self.client.get(reverse('records:admin_create'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['form']['vet'].value(), self.vet.pk)
+        self.assertEqual(response.context['service_branch_id'], self.branch.pk)
+        self.assertEqual(response.context['selected_branch_id'], str(self.branch.pk))
+        self.assertContains(response, 'petData.branch_id && !serviceBranchId')
+
+    def test_add_visit_entry_defaults_to_logged_in_vet_and_clinic_over_record(self):
+        previous_vet_user = get_user_model().objects.create_user(
+            username='previous-record-vet',
+            assigned_role=self.user.assigned_role,
+        )
+        previous_vet = StaffMember.objects.create(
+            user=previous_vet_user,
+            first_name='Previous',
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        record_branch = Branch.objects.create(name='Pet Owner Branch')
+        pet = Pet.objects.create(
+            name='Attending Vet Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            vet=previous_vet,
+            branch=record_branch,
+            date_recorded='2026-10-17',
+        )
+
+        response = self.client.get(
+            reverse('records:admin_add_entry', args=[record.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['form']['vet'].value(), self.vet.pk)
+        self.assertEqual(response.context['service_branch_id'], self.branch.pk)
+        self.assertEqual(response.context['selected_branch_id'], str(self.branch.pk))
+
+    def test_linked_appointment_branch_and_vet_override_current_veterinarian(self):
+        appointment_branch = Branch.objects.create(name='Appointment Clinic Branch')
+        assigned_user = get_user_model().objects.create_user(
+            username='appointment-assigned-vet',
+            assigned_role=self.user.assigned_role,
+            branch=appointment_branch,
+        )
+        assigned_vet = StaffMember.objects.create(
+            user=assigned_user,
+            first_name='Appointment',
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=appointment_branch,
+        )
+        pet = Pet.objects.create(
+            name='Appointment Linked Pet',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+        )
+        appointment = Appointment.objects.create(
+            owner_name='Appointment Pet Owner',
+            pet_name=pet.name,
+            pet=pet,
+            branch=appointment_branch,
+            preferred_vet=assigned_vet,
+            appointment_date=date(2026, 10, 17),
+            appointment_time=time(11),
+            status=Appointment.Status.COMPLETED,
+        )
+
+        response = self.client.get(
+            reverse('records:admin_add_entry', args=[record.pk]),
+            {'appointment': appointment.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['service_branch_id'], appointment_branch.pk)
+        self.assertEqual(response.context['form']['vet'].value(), assigned_vet.pk)
 
 
 class MedicalFileValidationTests(SimpleTestCase):

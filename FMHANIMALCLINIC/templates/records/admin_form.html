@@ -267,7 +267,7 @@
                     <select name="branch" id="id_branch" class="form-control-custom" required>
                         <option value="">— Select Branch —</option>
                         {% for branch in branches %}
-                        <option value="{{ branch.id }}">{{ branch.name }}</option>
+                        <option value="{{ branch.id }}" {% if selected_branch_id == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -414,6 +414,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const branchSelect = document.getElementById('id_branch');
     const vetSelect = document.getElementById('id_vet');
     const sourceSelect = document.getElementById('id_client_source');
+    const serviceBranchId = "{{ service_branch_id|default:'' }}";
+    const selectedVetId = "{{ selected_vet_id|default:'' }}";
 
     // ====== Vet Filtering by Branch ======
     function filterVets(selectedBranchId) {
@@ -421,7 +423,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentVet = vetSelect.value;
         vetSelect.innerHTML = '<option value="">— Select Veterinarian —</option>';
         vetsData.forEach(function(vet) {
-            if (!selectedBranchId || String(vet.branch_id) === String(selectedBranchId)) {
+            const isDefaultVetAtServiceBranch = (
+                String(vet.id) === String(selectedVetId) &&
+                String(selectedBranchId) === String(serviceBranchId)
+            );
+            if (!selectedBranchId || String(vet.branch_id) === String(selectedBranchId) || isDefaultVetAtServiceBranch) {
                 const opt = document.createElement('option');
                 opt.value = vet.id;
                 opt.dataset.branch = vet.branch_id;
@@ -433,10 +439,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (branchSelect) {
+        if (serviceBranchId) {
+            branchSelect.value = serviceBranchId;
+        }
         branchSelect.addEventListener('change', function() {
             filterVets(branchSelect.value);
         });
         filterVets(branchSelect.value);
+        if (selectedVetId) {
+            vetSelect.value = selectedVetId;
+        }
     }
 
     // ====== Owner Select / Source Toggle Setup ======
@@ -731,7 +743,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('ro-pet-species').value = petData.pet_species || '';
 
         // Auto-select branch from pet's last record
-        if (branchSelect && petData.branch_id) {
+        if (branchSelect && petData.branch_id && !serviceBranchId) {
             branchSelect.value = petData.branch_id;
             filterVets(petData.branch_id);
         }

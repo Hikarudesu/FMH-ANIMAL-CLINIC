@@ -305,16 +305,15 @@
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
 }
 
-.charts-row.appointments-sales-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.charts-row.recent-sales-row {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (max-width: 1024px) {
   .charts-row,
   .charts-row:nth-child(odd),
   .charts-row.equal,
-  .charts-row.revenue-category-row,
-  .charts-row.appointments-sales-row { grid-template-columns: 1fr; }
+  .charts-row.revenue-category-row { grid-template-columns: 1fr; }
   .charts-row.three-col { grid-template-columns: 1fr; }
   .charts-row.appointments-category-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -354,8 +353,7 @@
   grid-column: span 2;
 }
 
-.revenue-category-row .chart-card-modern.large,
-.appointments-sales-row .chart-card-modern.large {
+.revenue-category-row .chart-card-modern.large {
   grid-column: auto;
 }
 
@@ -439,11 +437,6 @@
 .appointments-category-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 8px;
-}
-
-.monthly-appointments-card .chart-body {
-  height: 240px;
-  padding-top: 20px;
 }
 
 .recent-sales-body {
@@ -1144,26 +1137,8 @@
     </div>
   </div>
 
-  <!-- Pair appointment trends with recent transactions for quick front-desk review. -->
-  <div class="charts-row appointments-sales-row" id="recent-sales">
-    <div class="chart-card-modern monthly-appointments-card">
-      <div class="chart-header">
-        <div class="chart-title">
-          <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Monthly Appointments</span>
-        </div>
-        <div class="chart-badge blue">Last 6 months</div>
-      </div>
-      <div class="chart-body">
-        <canvas id="monthlyAppointmentsChart"></canvas>
-        <div id="monthlyAppointmentsEmpty" class="chart-empty-state" style="display: none;">
-          <i class='bx bx-calendar-x'></i>
-          <span>No appointments in the last 6 months</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="recent-sales-card chart-card-modern large">
+  <div class="charts-row recent-sales-row" id="recent-sales">
+    <div class="recent-sales-card chart-card-modern">
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-shopping-bag'></i>
@@ -1343,7 +1318,6 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof Chart === 'undefined') {
     [
       ['monthlyRevenueChart', 'monthlyRevenueEmpty'],
-      ['monthlyAppointmentsChart', 'monthlyAppointmentsEmpty'],
       ['categorySalesChart', 'categorySalesEmpty']
     ].forEach(([chartId, emptyId]) => showEmptyState(chartId, emptyId));
     startDashAnimations();
@@ -1421,60 +1395,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // 2. SIX-MONTH APPOINTMENT WORKLOAD
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-  const monthlyAppointmentsCtx = document.getElementById('monthlyAppointmentsChart');
-  if (monthlyAppointmentsCtx) {
-    const appointmentData = {{ monthly_appointments|safe }};
-    const workloadGradient = monthlyAppointmentsCtx.getContext('2d')
-      .createLinearGradient(0, 0, 0, 280);
-    workloadGradient.addColorStop(0, '#009688');
-    workloadGradient.addColorStop(1, '#00bcd4');
-
-    if (appointmentData.some(month => month.count > 0)) {
-      new Chart(monthlyAppointmentsCtx, {
-        type: 'bar',
-        data: {
-          labels: appointmentData.map(month => month.month),
-          datasets: [{
-            label: 'Appointments',
-            data: appointmentData.map(month => month.count),
-            backgroundColor: workloadGradient,
-            borderRadius: 4,
-            borderSkipped: 'bottom',
-            barThickness: 36,
-            maxBarThickness: 44
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              ...commonTooltip
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: { color: 'rgba(0,0,0,0.05)' },
-              ticks: { precision: 0, stepSize: 1, color: '#94a3b8' }
-            },
-            x: {
-              grid: { display: false },
-              ticks: {
-                font: { size: 11, weight: '600' },
-                color: '#64748b'
-              }
-            }
-          }
-        }
-      });
-    } else {
-      showEmptyState('monthlyAppointmentsChart', 'monthlyAppointmentsEmpty');
-    }
-  }
 
   const categorySalesCtx = document.getElementById('categorySalesChart');
   if (categorySalesCtx) {
