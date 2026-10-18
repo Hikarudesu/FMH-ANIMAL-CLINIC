@@ -15,6 +15,7 @@ from accounts.models import ActivityLog
 from accounts.rbac_models import Module, ModulePermission, Role
 from appointments.models import Appointment
 from branches.models import Branch
+from diagnostics.models import AIDiagnosis
 from employees.models import StaffMember
 from patients.models import Pet
 from .models import MedicalFile, MedicalRecord, RecordEntry
@@ -74,6 +75,33 @@ class ArchiveSoftDeleteTests(TestCase):
         self.assertTrue(self.entry.is_deleted)
         self.assertFalse(RecordEntry.objects.filter(pk=self.entry.pk).exists())
         self.assertTrue(RecordEntry.all_objects.filter(pk=self.entry.pk).exists())
+
+    def test_archiving_medical_record_deletes_linked_ai_diagnosis(self):
+        diagnosis = AIDiagnosis.objects.create(
+            pet=self.pet,
+            primary_condition='Test diagnosis',
+            linked_record_entry=self.entry,
+        )
+
+        self.record.delete()
+
+        self.assertFalse(AIDiagnosis.objects.filter(pk=diagnosis.pk).exists())
+        self.assertTrue(RecordEntry.all_objects.filter(pk=self.entry.pk).exists())
+
+    def test_deleting_ai_diagnosis_preserves_medical_record_and_entry(self):
+        diagnosis = AIDiagnosis.objects.create(
+            pet=self.pet,
+            primary_condition='Test diagnosis',
+            linked_record_entry=self.entry,
+        )
+
+        diagnosis.delete()
+
+        self.record.refresh_from_db()
+        self.entry.refresh_from_db()
+        self.assertFalse(self.record.is_deleted)
+        self.assertFalse(self.entry.is_deleted)
+        self.assertTrue(RecordEntry.objects.filter(pk=self.entry.pk).exists())
 
 
 class MedicalRecordActivitySignalTests(SimpleTestCase):

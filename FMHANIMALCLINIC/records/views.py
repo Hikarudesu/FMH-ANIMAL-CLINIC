@@ -849,7 +849,9 @@ def admin_record_delete(request, pk):
         pet_name = record.pet.name
         record.delete()
         messages.success(
-            request, f'Medical record for {pet_name} has been deleted.')
+            request,
+            f'Medical record for {pet_name} moved to the archive. Any linked AI diagnoses were deleted.',
+        )
         return redirect('records:admin_list')
 
     # Redirect to list if accessed directly with GET (modal is on list page)

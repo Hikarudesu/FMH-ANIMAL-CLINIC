@@ -67,10 +67,16 @@ class MedicalRecord(SoftDeleteModel):
 
     @transaction.atomic
     def delete(self, using=None, keep_parents=False):
-        """Soft-delete the record and its visit history and attachments together."""
+        """Archive the record and remove diagnoses linked to its visit history."""
         if self.is_deleted:
             return
         deleted_at = timezone.now()
+        entry_ids = RecordEntry.all_objects.filter(
+            record_id=self.pk,
+        ).values_list('pk', flat=True)
+        from diagnostics.models import AIDiagnosis
+        AIDiagnosis.objects.filter(linked_record_entry_id__in=entry_ids).delete()
+
         self.is_deleted = True
         self.deleted_at = deleted_at
         self.save(update_fields=['is_deleted', 'deleted_at'])
