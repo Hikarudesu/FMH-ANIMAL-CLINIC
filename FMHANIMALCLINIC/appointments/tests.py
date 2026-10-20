@@ -761,6 +761,22 @@ class FollowUpAppointmentBookingTests(TestCase):
         self.assertContains(response, 'Book Return Visit')
         self.assertContains(response, 'followupBookingData')
 
+    def test_quick_create_exposes_optional_follow_up_recommendation(self):
+        staff = User.objects.create_superuser(
+            username='quick-create-follow-up-admin',
+            email='quick-create-follow-up-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(staff)
+
+        response = self.client.get(reverse('appointments:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'quickFollowUpEnabled')
+        self.assertContains(response, 'quickFollowUpFields')
+        self.assertContains(response, 'does not require a medical record')
+        self.assertContains(response, 'followUpToggle.addEventListener')
+
     @patch('appointments.views.notify_staff_appointment_status_change')
     @patch('appointments.views.notify_appointment_status_change')
     def test_completing_booked_return_visit_completes_recommendation(

@@ -100,7 +100,7 @@ def create_notification(
     def _create_after_commit():
         created['obj'] = Notification.objects.create(**payload)
 
-    transaction.on_commit(_create_after_commit)
+    transaction.on_commit(_create_after_commit, robust=True)
     return created['obj']
 
 

@@ -3,6 +3,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.db import IntegrityError
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.core.management import call_command
 from django.urls import resolve, reverse
@@ -27,6 +28,7 @@ from notifications.context_processors import unread_notifications
 from notifications.delivery import send_notification_email
 from notifications.middleware import NotificationModuleReadMiddleware
 from notifications.utils import (
+    create_notification,
     mark_module_notifications_read,
     notify_medical_record_follow_up,
     notify_follow_up_scheduled,
@@ -390,6 +392,22 @@ class NotificationRoutingTests(TestCase):
             code='executive_officer',
             defaults={'name': 'Branch Administrator', 'hierarchy_level': 4},
         )
+
+    def test_notification_insert_failure_does_not_fail_committed_action(self):
+        with patch(
+            'notifications.utils.Notification.objects.create',
+            side_effect=IntegrityError('notification schema mismatch'),
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                notification = create_notification(
+                    user=self.pet_owner,
+                    title='Appointment update',
+                    message='The appointment was saved.',
+                    notification_type=Notification.NotificationType.APPOINTMENT,
+                    module_context=Notification.ModuleContext.APPOINTMENTS,
+                )
+
+        self.assertIsNone(notification)
 
     def test_mark_read_endpoint_marks_only_the_current_users_notification(self):
         notification = Notification.objects.create(

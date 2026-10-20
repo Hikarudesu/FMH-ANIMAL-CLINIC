@@ -1581,6 +1581,44 @@ def admin_quick_create(request):
     """Admin: quickly create an appointment (walk-in / phone call)."""
     if request.method == 'POST':
         followup = None
+        follow_up_enabled = (
+            request.POST.get('follow_up_enabled') == 'on'
+            and not request.POST.get('follow_up_id')
+        )
+        follow_up_date = None
+        follow_up_end_date = None
+        follow_up_reason = request.POST.get('follow_up_reason', '').strip()
+        if follow_up_enabled:
+            try:
+                follow_up_date = date.fromisoformat(
+                    request.POST.get('follow_up_date', ''),
+                )
+                follow_up_end_date_value = request.POST.get(
+                    'follow_up_end_date', '',
+                ).strip()
+                follow_up_end_date = (
+                    date.fromisoformat(follow_up_end_date_value)
+                    if follow_up_end_date_value else None
+                )
+            except ValueError:
+                messages.error(
+                    request,
+                    'Enter a valid recommended follow-up date and date range.',
+                )
+                return redirect('appointments:admin_list')
+            if follow_up_date < timezone.localdate():
+                messages.error(
+                    request,
+                    'The recommended follow-up date cannot be in the past.',
+                )
+                return redirect('appointments:admin_list')
+            if follow_up_end_date and follow_up_end_date < follow_up_date:
+                messages.error(
+                    request,
+                    'The follow-up end date cannot be before its start date.',
+                )
+                return redirect('appointments:admin_list')
+
         with transaction.atomic():
             follow_up_id = request.POST.get('follow_up_id')
             if follow_up_id:
@@ -1698,26 +1736,21 @@ def admin_quick_create(request):
                 notify_veterinarian_medical_record_required(appointment, actor=request.user)
 
             # A follow-up booking is distinct from a new follow-up recommendation.
-            follow_up_enabled = request.POST.get('follow_up_enabled')
-            if follow_up_enabled == 'on' and not followup:
-                follow_up_date = request.POST.get('follow_up_date')
-                follow_up_end_date = request.POST.get('follow_up_end_date')
-                follow_up_reason = request.POST.get('follow_up_reason', '')
-                if follow_up_date:
-                    followup = FollowUp.objects.create(
-                        appointment=appointment,
-                        pet_name=appointment.pet_name,
-                        follow_up_date=follow_up_date,
-                        follow_up_end_date=follow_up_end_date if follow_up_end_date else None,
-                        reason=follow_up_reason,
-                        created_by=request.user,
-                    )
+            if follow_up_enabled and not followup:
+                followup = FollowUp.objects.create(
+                    appointment=appointment,
+                    pet_name=appointment.pet_name,
+                    follow_up_date=follow_up_date,
+                    follow_up_end_date=follow_up_end_date,
+                    reason=follow_up_reason,
+                    created_by=request.user,
+                )
 
-                    notify_follow_up_scheduled(
-                        appointment=appointment,
-                        followup=followup,
-                        follow_up_reason=follow_up_reason,
-                    )
+                notify_follow_up_scheduled(
+                    appointment=appointment,
+                    followup=followup,
+                    follow_up_reason=follow_up_reason,
+                )
 
             messages.success(
                 request,
