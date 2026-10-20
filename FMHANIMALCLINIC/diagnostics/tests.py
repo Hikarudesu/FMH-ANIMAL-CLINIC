@@ -11,7 +11,12 @@ from branches.models import Branch
 from patients.models import Pet
 
 from .models import AIDiagnosis, AIDiagnosisRateLimit
-from .services import AI_HISTORY_MAX_CHARS, _SYSTEM_PROMPT, _build_history_text
+from .services import (
+    AI_HISTORY_MAX_CHARS,
+    _SYSTEM_PROMPT,
+    _build_history_text,
+    get_ai_diagnosis,
+)
 from .views import AI_DIAGNOSIS_REQUESTS_PER_HOUR
 
 
@@ -202,6 +207,85 @@ class AIDiagnosticsSecurityTests(TestCase):
         self.assertIn('Taglish', _SYSTEM_PROMPT)
         self.assertIn('spelling and spacing errors', _SYSTEM_PROMPT)
         self.assertIn('in clear English', _SYSTEM_PROMPT)
+
+    @patch('diagnostics.services._attempt_groq_call')
+    @patch('diagnostics.services._get_groq_api_key', return_value='test-key')
+    def test_current_symptoms_are_a_prioritized_prompt_section(
+        self, _get_api_key, groq_call,
+    ):
+        history_entry = SimpleNamespace(
+            action_required=SimpleNamespace(name='Follow up'),
+            date_recorded=date(2026, 10, 10),
+            weight=12,
+            temperature=39,
+            history_clinical_signs='Nagsusuka at matamlay',
+            treatment='Oral fluids and monitoring',
+            rx='Medication prescribed',
+        )
+        groq_call.return_value = {
+            'primary_diagnosis': {
+                'condition': 'Test condition',
+                'reasoning': 'Test reasoning',
+            },
+            'differential_diagnoses': [],
+            'recommended_tests': [],
+            'warning_signs': [],
+            'summary': 'Test summary',
+        }
+
+        get_ai_diagnosis(
+            pet=self.foreign_pet,
+            record_entries=[history_entry],
+            additional_symptoms='Nagsusuka at ayaw kumain',
+        )
+
+        prompt = groq_call.call_args.args[1]
+        self.assertIn('Current Symptoms / Clinical Signs (prioritized presenting complaint):', prompt)
+        self.assertIn('Nagsusuka at ayaw kumain', prompt)
+        self.assertIn('Pet Information:', prompt)
+        self.assertIn('Species: Dog', prompt)
+        self.assertIn('Medical Visit History (all supplied entries; clinical context):', prompt)
+        self.assertIn('Nagsusuka at matamlay', prompt)
+        self.assertIn('Oral fluids and monitoring', prompt)
+        self.assertIn('explicitly name relevant symptoms', _SYSTEM_PROMPT)
+        self.assertIn('Review the pet\'s supplied species, breed, age, sex, and clinical status', _SYSTEM_PROMPT)
+
+    @patch('diagnostics.services._attempt_groq_call')
+    @patch('diagnostics.services._get_groq_api_key', return_value='test-key')
+    def test_medical_history_is_used_when_current_symptoms_are_empty(
+        self, _get_api_key, groq_call,
+    ):
+        groq_call.return_value = {
+            'primary_diagnosis': {
+                'condition': 'Test condition',
+                'reasoning': 'Based on recorded visit history',
+            },
+            'differential_diagnoses': [],
+            'recommended_tests': [],
+            'warning_signs': [],
+            'summary': 'Assessment based on recorded history.',
+        }
+        history_entry = SimpleNamespace(
+            action_required=None,
+            date_recorded=date(2026, 10, 10),
+            weight=None,
+            temperature=None,
+            history_clinical_signs='Previously recorded recurring cough',
+            treatment='Prior supportive care',
+            rx='',
+        )
+
+        get_ai_diagnosis(
+            pet=self.foreign_pet,
+            record_entries=[history_entry],
+        )
+
+        prompt = groq_call.call_args.args[1]
+        self.assertIn('Current Symptoms / Clinical Signs (prioritized presenting complaint):\nNone provided.', prompt)
+        self.assertIn('Previously recorded recurring cough', prompt)
+        self.assertIn('Prior supportive care', prompt)
+        self.assertIn('If no current symptoms are provided', _SYSTEM_PROMPT)
+        self.assertIn('Base the assessment on the pet information and all', _SYSTEM_PROMPT)
 
     def test_clinical_history_prompt_has_a_fixed_character_limit(self):
         entry = SimpleNamespace(

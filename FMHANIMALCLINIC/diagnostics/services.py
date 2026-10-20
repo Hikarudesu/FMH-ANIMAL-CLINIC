@@ -59,6 +59,30 @@ neurology, and clinical pathology.
 Task: Analyze the pet's medical history and current symptoms to provide \
 the most clinically accurate diagnostic suggestions.
 
+OPTIONAL CURRENT SYMPTOMS:
+Current Symptoms / Clinical Signs may be blank. If provided, treat them as the
+prioritized presenting complaint and evaluate them together with the supplied
+medical history and pet information; do not analyze them in isolation.
+When current symptoms are provided, explicitly name relevant symptoms and
+explain how they support, do not support, or limit the primary diagnosis in the
+reasoning. Mention the key current symptoms in the summary.
+If no current symptoms are provided, do not ask for them or treat their absence
+as a blocker. Base the assessment on the pet information and all supplied
+medical history. Use recorded dates to distinguish past findings from current
+signs; do not claim historical signs are currently present.
+If the available symptoms and history are insufficient, say so. Never invent
+symptoms or clinical facts.
+
+USE THE COMPLETE PROVIDED CONTEXT:
+- Review the pet's supplied species, breed, age, sex, and clinical status, plus \
+every provided medical visit's date, signs, vitals, treatment, prescription, \
+and required-action status. Use these details to interpret the current complaint.
+- Use older visits to identify relevant recurrence, progression, prior findings, \
+or treatment context, but do not describe an old symptom as current unless the \
+record dates or current complaint support that conclusion.
+- Mention relevant pet details or history in the reasoning when they affect \
+the assessment. Never omit the current complaint merely because history exists.
+
 LANGUAGE AND INPUT NORMALIZATION:
 - Current symptoms and visit history may be written in English, Filipino/Tagalog, \
 or Taglish, and may contain shorthand, phonetic spelling, or typos. Understand \
@@ -170,18 +194,28 @@ def get_ai_diagnosis(pet, record_entries, appointment=None, additional_symptoms=
     pet_info = _build_pet_info(pet)
     history_text = _build_history_text(record_entries)
 
-    # Include appointment symptoms if available
-    if appointment and appointment.pet_symptoms:
-        history_text = (
-            f"Current presenting symptoms (from appointment): "
-            f"{appointment.pet_symptoms}\n\n{history_text}"
+    current_symptom_sources = []
+    if additional_symptoms and additional_symptoms.strip():
+        current_symptom_sources.append(
+            f"Entered for this diagnosis: {additional_symptoms.strip()}"
         )
+    appointment_symptoms = (
+        appointment.pet_symptoms.strip()
+        if appointment and appointment.pet_symptoms else ''
+    )
+    if appointment_symptoms and appointment_symptoms not in (additional_symptoms or ''):
+        current_symptom_sources.append(
+            f"Reported at the latest appointment: {appointment_symptoms}"
+        )
+    current_symptoms_text = '\n'.join(current_symptom_sources) or 'None provided.'
 
-    # Include additional symptoms if provided
-    if additional_symptoms:
-        history_text = f"Current symptoms being analyzed: {additional_symptoms}\n\n{history_text}"
-
-    user_content = f"Pet Information:\n{pet_info}\n\nMedical History:\n{history_text}"
+    user_content = (
+        f"Pet Information:\n{pet_info}\n\n"
+        f"Current Symptoms / Clinical Signs (prioritized presenting complaint):\n"
+        f"{current_symptoms_text}\n\n"
+        f"Medical Visit History (all supplied entries; clinical context):\n"
+        f"{history_text}"
+    )
 
     # ── Attempt 1: normal request ────────────────────────────────────
     result = _attempt_groq_call(groq_client, user_content)
