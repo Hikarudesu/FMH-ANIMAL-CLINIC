@@ -546,22 +546,30 @@
 
   .chart-empty-state {
     display: flex;
-    flex-direction: column;
+    position: absolute;
+    inset: auto 12px 8px;
+    z-index: 1;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    gap: 6px;
+    height: auto;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: var(--surface);
     color: var(--text-3);
     text-align: center;
+    font-size: 11px;
+    pointer-events: none;
   }
 
   .chart-empty-state i {
-    font-size: 42px;
-    margin-bottom: 8px;
+    font-size: 14px;
     opacity: 0.4;
   }
 
   .chart-empty-state span {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 500;
   }
 
@@ -1666,8 +1674,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const monthlyConsultationsCtx = document.getElementById('monthlyCompletedConsultationsChart');
   const consultationMonths = {{ monthly_consultation_labels|safe }};
   const consultationCounts = {{ monthly_consultation_counts|safe }};
-  if (monthlyConsultationsCtx && chartAvailable && consultationCounts.some(count => count > 0)) {
-
+  if (monthlyConsultationsCtx && chartAvailable) {
     new Chart(monthlyConsultationsCtx, {
       type: 'bar',
       data: {
@@ -1718,14 +1725,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
     });
+    if (!consultationCounts.some(count => count > 0)) {
+      showChartEmptyState(
+        'monthlyCompletedConsultationsChart',
+        'monthlyConsultationsEmpty',
+        'No completed consultations in this period'
+      );
+    }
   } else if (monthlyConsultationsCtx) {
     showChartEmptyState(
       'monthlyCompletedConsultationsChart',
       'monthlyConsultationsEmpty',
-      chartAvailable
-        ? 'No completed consultations in this period'
-        : 'Charts could not load. Check your connection and refresh the page.'
+      'Charts could not load. Check your connection and refresh the page.'
     );
+    const empty = document.getElementById('monthlyConsultationsEmpty');
+    if (empty) empty.classList.add('chart-load-error');
   }
 
   const appointmentTypesCtx = document.getElementById('appointmentTypesChart');
@@ -1741,6 +1755,10 @@ document.addEventListener('DOMContentLoaded', function() {
       {% endfor %}
     ];
     const totalAppointments = appointmentData.reduce((sum, item) => sum + item.value, 0);
+    const hasAppointmentData = totalAppointments > 0;
+    const chartAppointmentData = hasAppointmentData
+      ? appointmentData
+      : [{ label: 'No data', value: 1, color: isGlobalDark ? '#334155' : '#e2e8f0' }];
     const centerTextPlugin = {
       id: 'appointmentCenterText',
       afterDraw: function(chart) {
@@ -1762,15 +1780,15 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     };
 
-    if (totalAppointments > 0) new Chart(appointmentTypesCtx, {
+    new Chart(appointmentTypesCtx, {
       type: 'doughnut',
       data: {
-        labels: appointmentData.map(item => item.label),
+        labels: chartAppointmentData.map(item => item.label),
         datasets: [{
-          data: appointmentData.map(item => item.value),
-          backgroundColor: appointmentData.map(item => item.color),
+          data: chartAppointmentData.map(item => item.value),
+          backgroundColor: chartAppointmentData.map(item => item.color),
           borderWidth: 0,
-          hoverOffset: 8
+          hoverOffset: hasAppointmentData ? 8 : 0
         }]
       },
       options: {
@@ -1779,7 +1797,7 @@ document.addEventListener('DOMContentLoaded', function() {
         cutout: '70%',
         plugins: {
           legend: {
-            display: true,
+            display: hasAppointmentData,
             position: 'bottom',
             labels: {
               usePointStyle: true,
@@ -1790,22 +1808,26 @@ document.addEventListener('DOMContentLoaded', function() {
               font: { size: 10, weight: '600', family: 'Inter, sans-serif' }
             }
           },
-          tooltip: commonTooltip
+          tooltip: { ...commonTooltip, enabled: hasAppointmentData }
         }
       },
       plugins: [centerTextPlugin]
     });
-    else showChartEmptyState(
-      'appointmentTypesChart',
-      'appointmentTypesEmpty',
-      'No appointment reason data available yet'
-    );
+    if (!hasAppointmentData) {
+      showChartEmptyState(
+        'appointmentTypesChart',
+        'appointmentTypesEmpty',
+        'No appointment reason data available yet'
+      );
+    }
   } else if (appointmentTypesCtx) {
     showChartEmptyState(
       'appointmentTypesChart',
       'appointmentTypesEmpty',
       'Charts could not load. Check your connection and refresh the page.'
     );
+    const empty = document.getElementById('appointmentTypesEmpty');
+    if (empty) empty.classList.add('chart-load-error');
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1820,74 +1842,83 @@ document.addEventListener('DOMContentLoaded', function() {
       {% endfor %}
     ];
     
-    if (healthData.length > 0) {
-      const totalPatients = healthData.reduce((sum, item) => sum + item.value, 0);
+    const hasPatientData = healthData.length > 0;
+    const chartHealthData = hasPatientData
+      ? healthData
+      : [{
+          label: 'No data',
+          value: 1,
+          color: isGlobalDark ? '#334155' : '#e2e8f0'
+        }];
+    const totalPatients = hasPatientData
+      ? healthData.reduce((sum, item) => sum + item.value, 0)
+      : 0;
       
-      new Chart(patientHealthCtx, {
-        type: 'pie',
-        data: {
-          labels: healthData.map(item => item.label),
-          datasets: [{
-            data: healthData.map(item => item.value),
-            backgroundColor: healthData.map(item => item.color),
-            borderColor: isGlobalDark ? '#1e293b' : '#ffffff',
-            borderWidth: 3,
-            hoverOffset: 12
-          }]
+    new Chart(patientHealthCtx, {
+      type: 'pie',
+      data: {
+        labels: chartHealthData.map(item => item.label),
+        datasets: [{
+          data: chartHealthData.map(item => item.value),
+          backgroundColor: chartHealthData.map(item => item.color),
+          borderColor: isGlobalDark ? '#1e293b' : '#ffffff',
+          borderWidth: 3,
+          hoverOffset: hasPatientData ? 12 : 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 2000,
+          easing: 'easeInOutQuart'
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: {
-            animateRotate: true,
-            animateScale: true,
-            duration: 2000,
-            easing: 'easeInOutQuart'
+        plugins: {
+          legend: {
+            display: hasPatientData,
+            position: 'bottom',
+            labels: {
+              padding: 10,
+              usePointStyle: true,
+              pointStyle: 'circle',
+              font: { size: 10, weight: '600' },
+              color: isGlobalDark ? '#ffffff' : '#64748b',
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => {
+                  const value = data.datasets[0].data[i];
+                  const pct = totalPatients > 0 ? ((value / totalPatients) * 100).toFixed(0) : 0;
+                  return {
+                    text: `${label}: ${value} (${pct}%)`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    strokeStyle: data.datasets[0].backgroundColor[i],
+                    lineWidth: 0,
+                    fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                    color: isGlobalDark ? '#ffffff' : '#64748b',
+                    pointStyle: 'circle',
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            }
           },
-          plugins: {
-            legend: {
-              display: true,
-              position: 'bottom',
-              labels: {
-                padding: 10,
-                usePointStyle: true,
-                pointStyle: 'circle',
-                font: { size: 10, weight: '600' },
-                color: isGlobalDark ? '#ffffff' : '#64748b',
-                generateLabels: function(chart) {
-                  const data = chart.data;
-                  return data.labels.map((label, i) => {
-                    const value = data.datasets[0].data[i];
-                    const pct = totalPatients > 0 ? ((value / totalPatients) * 100).toFixed(0) : 0;
-                    return {
-                      text: `${label}: ${value} (${pct}%)`,
-                      fillStyle: data.datasets[0].backgroundColor[i],
-                      strokeStyle: data.datasets[0].backgroundColor[i],
-                      lineWidth: 0,
-                      fontColor: isGlobalDark ? '#ffffff' : '#64748b',
-                      color: isGlobalDark ? '#ffffff' : '#64748b',
-                      pointStyle: 'circle',
-                      hidden: false,
-                      index: i
-                    };
-                  });
-                }
-              }
-              }
-            },
-            tooltip: {
-              ...commonTooltip,
-              callbacks: {
-                label: function(context) {
-                  const pct = totalPatients > 0 ? ((context.raw / totalPatients) * 100).toFixed(1) : 0;
-                  return `${context.label}: ${context.raw} patients (${pct}%)`;
-                }
+          tooltip: {
+            ...commonTooltip,
+            enabled: hasPatientData,
+            callbacks: {
+              label: function(context) {
+                const pct = totalPatients > 0 ? ((context.raw / totalPatients) * 100).toFixed(1) : 0;
+                return `${context.label}: ${context.raw} patients (${pct}%)`;
               }
             }
           }
         }
-      });
-    } else {
+      }
+    });
+    if (!hasPatientData) {
       showChartEmptyState(
         'patientHealthChart',
         'patientHealthEmpty',
@@ -1900,6 +1931,8 @@ document.addEventListener('DOMContentLoaded', function() {
       'patientHealthEmpty',
       'Charts could not load. Check your connection and refresh the page.'
     );
+    const empty = document.getElementById('patientHealthEmpty');
+    if (empty) empty.classList.add('chart-load-error');
   }
 
   // Start all animations after charts are ready

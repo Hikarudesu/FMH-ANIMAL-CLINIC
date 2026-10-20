@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.rbac_models import Module, ModulePermission, Role
@@ -179,6 +179,14 @@ class BranchRestrictedPatientListTests(TestCase):
         )
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class PetDeleteConfirmationModalTests(TestCase):
     def setUp(self):
         self.owner = get_user_model().objects.create_user(
@@ -199,13 +207,30 @@ class PetDeleteConfirmationModalTests(TestCase):
 
         self.assertRedirects(response, reverse('patients:my_pets'))
 
-    def test_owner_pet_pages_render_the_delete_modal(self):
+    def test_owner_pet_pages_do_not_render_pet_delete_controls_or_upcoming_section(self):
         list_response = self.client.get(reverse('patients:my_pets'))
         detail_response = self.client.get(
             reverse('patients:user_pet_detail', args=[self.pet.pk]),
         )
 
-        self.assertContains(list_response, 'petDeleteModal')
-        self.assertContains(list_response, 'data-pet-name="Modal Patient"')
-        self.assertContains(detail_response, 'petDeleteModal')
-        self.assertContains(detail_response, 'data-pet-name="Modal Patient"')
+        for response in (list_response, detail_response):
+            self.assertEqual(response.status_code, 200)
+            self.assertNotContains(response, 'petDeleteModal')
+            self.assertNotContains(response, 'pet-delete-trigger')
+            self.assertNotContains(response, 'data-delete-url')
+        self.assertNotContains(list_response, 'Upcoming Appointments')
+
+    def test_admin_pet_list_does_not_render_delete_controls(self):
+        admin = get_user_model().objects.create_superuser(
+            username='patient-list-admin',
+            email='patient-list-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('patients:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'admin_delete_pet')
+        self.assertNotContains(response, 'deletePetModal')
+        self.assertNotContains(response, 'bx-trash')

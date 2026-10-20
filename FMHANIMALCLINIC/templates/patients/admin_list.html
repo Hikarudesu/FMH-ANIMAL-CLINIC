@@ -319,9 +319,6 @@
             {% if can_edit %}
             <a href="{% url 'patients:admin_edit_pet' pet.id %}" class="action-btn" title="Edit Patient"><i class='bx bx-edit-alt'></i></a>
             {% endif %}
-            {% if can_delete %}
-            <button type="button" class="action-btn danger" title="Delete" onclick="openDeleteModal('{% url 'patients:admin_delete_pet' pet.id %}', '{{ pet.name|escapejs }}')"><i class='bx bx-trash'></i></button>
-            {% endif %}
           </div>
         </td>
       </tr>
@@ -433,16 +430,6 @@
     }
   });
 
-  function openDeleteModal(url, petName) {
-    document.getElementById('deletePetName').textContent = petName;
-    document.getElementById('deletePetForm').action = url;
-    document.getElementById('deletePetModal').classList.add('active');
-  }
-
-  function closeDeleteModal() {
-    document.getElementById('deletePetModal').classList.remove('active');
-  }
-
   // ══════ SEARCH AUTOCOMPLETE + LIVE FILTER ══════
   (function initPatientSearch() {
     const searchInput = document.getElementById('patientSearch');
@@ -549,30 +536,6 @@
     });
   }());
 </script>
-
-<!-- Delete Patient Modal -->
-<div class="modal-overlay" id="deletePetModal">
-  <div class="modal-content" role="alertdialog" aria-modal="true" aria-labelledby="deletePetTitle" style="max-width: 480px;">
-    <div class="modal-header">
-      <h3 id="deletePetTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Archive Patient</h3>
-      <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
-    </div>
-    <form id="deletePetForm" method="post" action="">
-      {% csrf_token %}
-      <div class="modal-body" style="text-align: center; padding-top: 30px;">
-        <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
-        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Move <span id="deletePetName"></span> to Archive?</h4>
-        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
-          This patient and its medical history will be kept in the Archive for 30 days, then permanently deleted.
-        </p>
-      </div>
-      <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
-        <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
-        <button type="submit" class="btn-submit">Move to Archive</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <style>
   .modal-footer .btn-cancel {

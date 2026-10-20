@@ -694,6 +694,10 @@ class VetDashboardContentTests(TestCase):
                 self.assertContains(response, 'Appointment Types')
                 self.assertContains(response, 'monthlyCompletedConsultationsChart')
                 self.assertContains(response, 'appointmentTypesChart')
+                self.assertContains(response, 'new Chart(monthlyConsultationsCtx')
+                self.assertContains(response, 'new Chart(appointmentTypesCtx')
+                self.assertContains(response, 'new Chart(patientHealthCtx')
+                self.assertContains(response, "label: 'No data'")
                 self.assertTrue(response.context['monthly_consultation_counts'])
                 self.assertTrue(
                     all(count == 0 for count in response.context['monthly_consultation_counts'])
@@ -1027,6 +1031,97 @@ class VetDashboardContentTests(TestCase):
     }
 )
 class UserPortalDashboardTests(TestCase):
+    def test_dashboard_upcoming_appointments_exclude_completed_and_cancelled(self):
+        owner = get_user_model().objects.create_user(
+            username='dashboard-upcoming-owner',
+            email='dashboard-upcoming-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        pet = Pet.objects.create(
+            owner=owner,
+            name='Upcoming Status Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        statuses = (
+            (Appointment.Status.COMPLETED, 1),
+            (Appointment.Status.CANCELLED, 2),
+            (Appointment.Status.PENDING, 3),
+            (Appointment.Status.CONFIRMED, 4),
+        )
+        appointments = {}
+        for status, day_offset in statuses:
+            appointments[status] = Appointment.objects.create(
+                user=owner,
+                pet=pet,
+                owner_name=owner.get_full_name() or owner.username,
+                pet_name=pet.name,
+                appointment_date=date.today() + timedelta(days=day_offset),
+                appointment_time=time(9, 0),
+                status=status,
+            )
+
+        self.client.force_login(owner)
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['upcoming_count'], 2)
+        self.assertEqual(
+            response.context['next_visit'].pk,
+            appointments[Appointment.Status.PENDING].pk,
+        )
+
+    def test_pet_summary_includes_all_owned_pets_across_branch_links(self):
+        owner_branch = Branch.objects.create(
+            name='Pet Dashboard Owner Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        other_branch = Branch.objects.create(
+            name='Pet Dashboard Other Branch',
+            phone_number='09123456780',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        owner = get_user_model().objects.create_user(
+            username='dashboard-pets-multi-branch',
+            email='dashboard-pets-multi-branch@example.com',
+            password='A-secure-test-password-923!',
+            branch=owner_branch,
+        )
+        Pet.objects.create(
+            owner=owner,
+            branch=owner_branch,
+            name='Owner Branch Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        Pet.objects.create(
+            owner=owner,
+            branch=other_branch,
+            name='Other Branch Pet',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+
+        self.client.force_login(owner)
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['pet_count'], 2)
+        self.assertEqual(
+            response.context['pet_species_breakdown'],
+            [
+                {'species': 'Cat', 'count': 1},
+                {'species': 'Dog', 'count': 1},
+            ],
+        )
+
     def test_dashboard_serializes_data_for_every_chart(self):
         owner = get_user_model().objects.create_user(
             username='dashboard-owner',

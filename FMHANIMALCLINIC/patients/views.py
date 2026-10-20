@@ -125,7 +125,6 @@ def admin_list_view(request):
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('patients', 'CREATE')
     can_edit = request.user.has_module_permission('patients', 'EDIT')
-    can_delete = request.user.has_module_permission('patients', 'DELETE')
 
     return render(request, 'patients/admin_list.html', {
         'pets': page_obj,
@@ -142,7 +141,6 @@ def admin_list_view(request):
         'selected_source': source_filter,
         'can_create': can_create,
         'can_edit': can_edit,
-        'can_delete': can_delete,
         'is_branch_restricted': is_branch_restricted,
         'branch_assignment_required': is_branch_restricted and not user_branch,
     })
@@ -286,7 +284,9 @@ def my_pets_view(request):
         upcoming_appointments = Appointment.objects.filter(
             pet=pet,
             appointment_date__gte=today,
-        ).exclude(status='CANCELLED').count()
+        ).exclude(
+            status__in=[Appointment.Status.CANCELLED, Appointment.Status.COMPLETED]
+        ).count()
         
         total_records = MedicalRecord.objects.filter(pet=pet).count()
         
@@ -315,14 +315,6 @@ def my_pets_view(request):
             active_pets_data.append(pet_dict)
         else:
             inactive_pets_data.append(pet_dict)
-
-    # Get upcoming appointments across all pets (check by pet__owner, not just user field)
-    upcoming_appointments = Appointment.objects.filter(
-        pet__owner=request.user,
-        appointment_date__gte=today,
-    ).exclude(status='CANCELLED').select_related(
-        'pet', 'branch', 'preferred_vet'
-    ).order_by('appointment_date', 'appointment_time')[:5]
 
     # Get recent medical records across all pets
     recent_records = MedicalRecord.objects.filter(
@@ -362,7 +354,6 @@ def my_pets_view(request):
         {
             'active_pets_data': active_pets_data,
             'inactive_pets_data': inactive_pets_data,
-            'upcoming_appointments': upcoming_appointments,
             'recent_records': recent_records,
             'record_warnings': record_warnings,
             'pending_followups': pending_followups,

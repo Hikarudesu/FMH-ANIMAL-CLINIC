@@ -401,10 +401,9 @@ def user_dashboard_view(request):
     appt_branch_filter = {'branch': user_branch} if user_branch else {}
 
     # Pet count and pets list
-    owned_pets = request.user.pets.all()
-    user_pets = owned_pets.filter(**branch_filter) if user_branch else owned_pets
-    if user_branch and not user_pets.exists():
-        user_pets = owned_pets
+    # Ownership is authoritative for a pet owner's portal; branch links may
+    # differ after a branch transfer or while older records are being reconciled.
+    user_pets = request.user.pets.all()
     pet_count = user_pets.count()
 
     # Upcoming appointments (next 7 days) - filter out deleted pets
@@ -414,7 +413,9 @@ def user_dashboard_view(request):
         appointment_date__gte=today,
         appointment_date__lte=today + timedelta(days=7),
         **appt_branch_filter,
-    ).exclude(status='CANCELLED')
+    ).exclude(
+        status__in=[Appointment.Status.CANCELLED, Appointment.Status.COMPLETED]
+    )
     upcoming_count = upcoming_appointments.count()
     
     # Confirmed vs pending for upcoming
@@ -576,7 +577,9 @@ def user_dashboard_view(request):
         pet__isnull=False,
         appointment_date__gte=today,
         **appt_branch_filter,
-    ).exclude(status='CANCELLED').select_related(
+    ).exclude(
+        status__in=[Appointment.Status.CANCELLED, Appointment.Status.COMPLETED]
+    ).select_related(
         'pet', 'branch'
     ).order_by('appointment_date', 'appointment_time').first()
 
