@@ -92,3 +92,59 @@ class DiseaseVisitAggregationTests(TestCase):
         self.assertEqual(prediction['distinct_pets'], 2)
         self.assertIn('Dog / Labrador / Male', prediction['pet_profile_summary'])
         self.assertIn('Cat / Siamese / Female', prediction['pet_profile_summary'])
+
+    def test_unmatched_visit_does_not_create_a_fake_disease_prediction(self):
+        pet = Pet.objects.create(
+            name='Unmatched Visit Pet', species='Dog', sex=Pet.Sex.MALE,
+            branch=self.branch,
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet, branch=self.branch, date_recorded=date(2026, 10, 20),
+        )
+        RecordEntry.objects.create(
+            record=record,
+            date_recorded=date(2026, 10, 20),
+            history_clinical_signs='Routine follow-up; no specific symptoms recorded',
+        )
+
+        result = summarize_branch_disease_trends(
+            self.branch,
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 20),
+        )
+
+        self.assertEqual(result['total_cases'], 1)
+        self.assertEqual(result['disease_counts'], [])
+        self.assertIn('No supported disease pattern', result['summary'])
+
+    def test_visit_total_includes_unmatched_history_without_predicting_it(self):
+        pets = [
+            Pet.objects.create(
+                name=f'Mixed History Pet {index}',
+                species='Dog',
+                sex=Pet.Sex.MALE,
+                branch=self.branch,
+            )
+            for index in range(3)
+        ]
+        for index, pet in enumerate(pets):
+            record = MedicalRecord.objects.create(
+                pet=pet, branch=self.branch, date_recorded=date(2026, 10, 20),
+            )
+            RecordEntry.objects.create(
+                record=record,
+                date_recorded=date(2026, 10, 20),
+                history_clinical_signs=(
+                    'Persistent cough' if index < 2 else 'Routine follow-up'
+                ),
+            )
+
+        result = summarize_branch_disease_trends(
+            self.branch,
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 20),
+        )
+
+        self.assertEqual(result['total_cases'], 3)
+        self.assertEqual(len(result['disease_counts']), 1)
+        self.assertEqual(result['disease_counts'][0]['value'], 2)

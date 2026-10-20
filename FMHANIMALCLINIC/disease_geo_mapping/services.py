@@ -274,32 +274,9 @@ MIN_CONFIDENCE_TO_DISPLAY = 0.2
 def get_disease_details(disease_name):
     """
     Retrieve comprehensive disease details from the reference database.
-    Returns formatted disease information including breakdown, prevention, actions, etc.
+    Return no details when the condition is not in the reference database.
     """
-    if disease_name in DISEASE_REFERENCE_DATABASE:
-        return DISEASE_REFERENCE_DATABASE[disease_name]
-    
-    # Return default structure for unknown diseases
-    return {
-        'disease_breakdown': f'{disease_name} has been detected in your patient records based on clinical presentation and diagnostic results.',
-        'specific_examples': [
-            'Specific presentation variant 1',
-            'Specific presentation variant 2',
-            'Specific presentation variant 3',
-            'Specific presentation variant 4',
-            'Specific presentation variant 5'
-        ],
-        'prevention_guidance': 'Maintain proper hygiene protocols, isolate affected animals from others, monitor closely, and consult with the veterinary team for appropriate management strategies.',
-        'recommended_actions': 'Review recent case files for commonalities. Monitor new admissions matching this condition pattern. Consult with veterinary staff for clinical assessment and treatment planning.',
-        'clinical_summary': 'This condition presents with variable clinical signs depending on severity and individual factors. Appropriate diagnostics and clinical assessment are recommended.',
-        'suggested_investigations': [
-            'Complete physical examination',
-            'Laboratory work (CBC, chemistry panel)',
-            'Imaging studies as indicated',
-            'Specialized diagnostics based on suspected cause',
-            'Follow-up monitoring and assessment'
-        ]
-    }
+    return DISEASE_REFERENCE_DATABASE.get(disease_name)
 
 
 
@@ -356,7 +333,7 @@ def _predict_disease_name(text):
         return 'Skin Condition'
     if 'bone' in combined or 'ortho' in combined:
         return 'Orthopedic Injury'
-    return 'Undetermined Condition'
+    return None
 
 
 def _map_disease_name_to_type(disease_name):
@@ -441,18 +418,24 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
         visits = visits.filter(record__pet__in=pet_queryset)
 
     insights = []
+    total_visits = 0
     # Track per-disease stats: total records and distinct pets affected
     disease_counter = Counter()
     disease_pet_map = defaultdict(set)
     disease_pet_profiles = defaultdict(dict)
 
     for visit in visits.iterator(chunk_size=500):
+        total_visits += 1
         combined_text = ' '.join([
             visit.history_clinical_signs or '',
             visit.treatment or '',
             visit.rx or '',
         ])
         disease_name = _predict_disease_name(combined_text)
+        disease_details = get_disease_details(disease_name) if disease_name else None
+        if disease_details is None:
+            continue
+
         location_name = getattr(branch, 'city', '') or branch.name
 
         # Record stats
@@ -488,15 +471,22 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
             })
 
     if not insights:
+        summary = (
+            f'No supported disease pattern was identified in {total_visits} '
+            f'recorded visit{"s" if total_visits != 1 else ""}.'
+            if total_visits else
+            'No medical visits were found for this branch and date range.'
+        )
         return {
-            'summary': 'Insufficient case history for this branch.',
-            'warning': 'No results yet. There is not enough data for this branch to estimate trends.',
+            'summary': summary,
+            'warning': '',
             'insights': [],
             'disease_counts': [],
             'branch_label': branch.name,
             'trend_labels': [],
             'trend_values': [],
             'available_diseases': [],
+            'total_cases': total_visits,
             'show_warning': True,
         }
 
@@ -514,7 +504,6 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
         )
 
         # Get detailed disease information
-        disease_details = get_disease_details(name)
         profile_counts = Counter(disease_pet_profiles[name].values())
         pet_profile_summary = '; '.join(
             f'{profile} ({count} pet{"s" if count != 1 else ""})'
@@ -543,7 +532,7 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
         (datetime.now().month - index) % 12 + 1 for index in range(min(6, len(top_diseases)))
     ]
     trend_values = [max(1, int(item['value'] * 2.4)) for item in disease_counts if item.get('outbreak')]
-    total_cases = sum(disease_counter.values())
+    total_cases = total_visits
 
     if top_diseases:
         summary = f'AI-assisted prediction highlights {", ".join(top_diseases[:3])} as potential outbreaks across {total_cases} reviewed visits.'

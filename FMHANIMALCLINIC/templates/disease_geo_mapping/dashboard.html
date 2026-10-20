@@ -495,7 +495,7 @@
                     {% endfor %}
                   </div>
                 {% else %}
-                  <div id="noDataWarning" class="geo-warning" style="display:none;">No data available for the selected filters.</div>
+                  <div id="noDataWarning" class="geo-warning">{{ summary|default:'No supported disease patterns were identified in the selected visit history.' }}</div>
                 {% endif %}
               </div>
             </div>
