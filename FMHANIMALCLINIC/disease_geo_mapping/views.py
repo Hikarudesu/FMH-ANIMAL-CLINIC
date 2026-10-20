@@ -1,9 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import render
+from django.utils import timezone
 from django.utils.dateparse import parse_date
+from dateutil.relativedelta import relativedelta
 
 from accounts.decorators import module_permission_required
 from branches.models import Branch
@@ -16,6 +18,20 @@ def _parse_iso_date(value):
         return None
     parsed = parse_date(value)
     return parsed
+
+
+def _get_analysis_date_range(date_from, date_to, today):
+    """Keep analysis dates within the previous six calendar months."""
+    earliest_date = today - relativedelta(months=6)
+    start_date = _parse_iso_date(date_from) or earliest_date
+    end_date = _parse_iso_date(date_to) or today
+
+    start_date = min(max(start_date, earliest_date), today)
+    end_date = min(max(end_date, earliest_date), today)
+    if start_date > end_date:
+        start_date = end_date
+
+    return earliest_date, start_date, end_date
 
 
 def _branch_has_records(branch):
@@ -59,11 +75,12 @@ def dashboard(request):
 
     selected_branch = _get_branch_selection(request, branches, branch_restricted)
 
-    today = datetime.now().date()
-    one_month_ago = today - timedelta(days=30)
-    
-    start_date = _parse_iso_date(request.GET.get('date_from')) or one_month_ago
-    end_date = _parse_iso_date(request.GET.get('date_to')) or today
+    today = timezone.localdate()
+    earliest_date, start_date, end_date = _get_analysis_date_range(
+        request.GET.get('date_from'),
+        request.GET.get('date_to'),
+        today,
+    )
     disease_type = request.GET.get('disease_type') or ''
 
     payload = summarize_branch_disease_trends(
@@ -79,8 +96,10 @@ def dashboard(request):
         'branch_restricted': branch_restricted,
         'selected_disease_type': disease_type,
         'available_diseases': payload.get('available_diseases', []),
-        'date_from': request.GET.get('date_from', '') or start_date.isoformat(),
-        'date_to': request.GET.get('date_to', '') or end_date.isoformat(),
+        'date_from': start_date.isoformat(),
+        'date_to': end_date.isoformat(),
+        'date_min': earliest_date.isoformat(),
+        'date_max': today.isoformat(),
         'show_assumption_banner': True,
     })
 

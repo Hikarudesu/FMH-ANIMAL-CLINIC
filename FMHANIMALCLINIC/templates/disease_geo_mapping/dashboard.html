@@ -406,7 +406,7 @@
   <div class="geo-banner">
     <i class='bx bx-info-circle'></i>
     <div>
-      <strong>Assumption Notice:</strong> This module provides AI-assisted trend estimates from historical case patterns and should be reviewed with local clinical judgment. It is not a fully accurate forecast.
+      <strong>Data basis:</strong> Predictions use all eligible medical-record visit history in the selected period, including clinical signs, treatment, and prescriptions, with pet species, breed, and sex shown as cohort context. The date range is limited to the past six months. These are estimates and require veterinary review.
     </div>
   </div>
 
@@ -440,11 +440,11 @@
           <div class="geo-filter-grid">
             <div>
               <label class="form-label">Date From</label>
-              <input type="date" name="date_from" value="{{ date_from }}" class="geo-input" />
+              <input type="date" name="date_from" value="{{ date_from }}" min="{{ date_min }}" max="{{ date_max }}" class="geo-input" />
             </div>
             <div>
               <label class="form-label">Date To</label>
-              <input type="date" name="date_to" value="{{ date_to }}" class="geo-input" />
+              <input type="date" name="date_to" value="{{ date_to }}" min="{{ date_min }}" max="{{ date_max }}" class="geo-input" />
             </div>
             <div>
               <label class="form-label">Disease Type</label>
@@ -487,6 +487,7 @@
                         </div>
                         <strong>{{ disease.name }}</strong>
                         <small>{{ disease.detail }}</small>
+                        <small>Pet profiles: {{ disease.pet_profile_summary }}</small>
                         <div class="geo-prediction-meta">
                           <span>{{ disease.value }} visit{{ disease.value|pluralize }}</span>
                         </div>

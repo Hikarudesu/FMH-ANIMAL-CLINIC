@@ -444,9 +444,9 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
     # Track per-disease stats: total records and distinct pets affected
     disease_counter = Counter()
     disease_pet_map = defaultdict(set)
-    disease_visits = defaultdict(list)
+    disease_pet_profiles = defaultdict(dict)
 
-    for visit in visits[:500]:
+    for visit in visits.iterator(chunk_size=500):
         combined_text = ' '.join([
             visit.history_clinical_signs or '',
             visit.treatment or '',
@@ -465,21 +465,27 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
             pet_id = None
         if pet_id is not None:
             disease_pet_map[disease_name].add(pet_id)
-        disease_visits[disease_name].append(visit)
-
-        # generate per-visit insight for debugging / timeline
-        trend_score = min(0.95, 0.45 + (len(disease_name) % 7) * 0.07 + (visit.date_recorded.day % 5) * 0.02)
-        seasonality = 'Seasonal increase likely' if visit.date_recorded.month in {8, 9, 10} else 'Steady monitoring'
-        confidence = min(0.98, 0.58 + (len(disease_name) % 5) * 0.07)
-        insights.append({
-            'disease': disease_name,
-            'location': location_name,
-            'case_count': 1,
-            'trend_score': round(trend_score, 2),
-            'seasonality': seasonality,
-            'summary': f'AI-assisted prediction suggests {disease_name} based on this visit history.',
-            'confidence': round(confidence, 2),
-        })
+            pet = visit.record.pet
+            disease_pet_profiles[disease_name][pet_id] = ' / '.join(
+                value for value in (
+                    pet.species,
+                    pet.breed,
+                    pet.get_sex_display(),
+                ) if value
+            ) or 'Pet details unavailable'
+        if len(insights) < 8:
+            trend_score = min(0.95, 0.45 + (len(disease_name) % 7) * 0.07 + (visit.date_recorded.day % 5) * 0.02)
+            seasonality = 'Seasonal increase likely' if visit.date_recorded.month in {8, 9, 10} else 'Steady monitoring'
+            confidence = min(0.98, 0.58 + (len(disease_name) % 5) * 0.07)
+            insights.append({
+                'disease': disease_name,
+                'location': location_name,
+                'case_count': 1,
+                'trend_score': round(trend_score, 2),
+                'seasonality': seasonality,
+                'summary': f'AI-assisted prediction suggests {disease_name} based on this visit history.',
+                'confidence': round(confidence, 2),
+            })
 
     if not insights:
         return {
@@ -509,6 +515,11 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
 
         # Get detailed disease information
         disease_details = get_disease_details(name)
+        profile_counts = Counter(disease_pet_profiles[name].values())
+        pet_profile_summary = '; '.join(
+            f'{profile} ({count} pet{"s" if count != 1 else ""})'
+            for profile, count in profile_counts.most_common()
+        ) or 'Pet details unavailable'
 
         disease_counts.append({
             'name': name,
@@ -517,6 +528,7 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
             'confidence': confidence,
             'outbreak': is_outbreak,
             'detail': f'Predicted from recent visit patterns',
+            'pet_profile_summary': pet_profile_summary,
             # Enhanced details
             'disease_breakdown': disease_details['disease_breakdown'],
             'specific_examples': disease_details['specific_examples'],
