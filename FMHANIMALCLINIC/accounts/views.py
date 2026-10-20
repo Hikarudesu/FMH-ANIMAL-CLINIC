@@ -22,6 +22,7 @@ from django.db import transaction
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
+from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
@@ -800,6 +801,14 @@ def admin_dashboard_view(request):
     if request.user.is_receptionist():
         return redirect('receptionist_dashboard')
 
+    can_access_admin_dashboard = (
+        request.user.is_admin_role()
+        or request.user.has_module_permission('dashboard', 'MANAGE')
+        or request.user.has_special_permission('can_access_admin_dashboard')
+    )
+    if not can_access_admin_dashboard:
+        return HttpResponseForbidden('You do not have access to the admin dashboard.')
+
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
@@ -1457,6 +1466,15 @@ def vet_dashboard_view(request):
     from diagnostics.models import AIDiagnosis
     from django.db.models.functions import TruncMonth
 
+    role_code = getattr(request.user.assigned_role, 'code', '')
+    can_access_vet_dashboard = (
+        request.user.is_superuser
+        or request.user.is_admin_role()
+        or role_code in {'veterinarian', 'assistant_veterinarian', 'vet_assistant'}
+    )
+    if not can_access_vet_dashboard:
+        return HttpResponseForbidden('You do not have access to the veterinary dashboard.')
+
     today = date.today()
     month_start = date(today.year, today.month, 1)
     if today.month == 12:
@@ -1748,6 +1766,14 @@ def receptionist_dashboard_view(request):
     from notifications.models import Notification
     from inventory.models import Product, StockAdjustment
     from django.db.models.functions import TruncMonth
+
+    can_access_receptionist_dashboard = (
+        request.user.is_superuser
+        or request.user.is_admin_role()
+        or request.user.is_receptionist()
+    )
+    if not can_access_receptionist_dashboard:
+        return HttpResponseForbidden('You do not have access to the front desk dashboard.')
 
     today = date.today()
     yesterday = today - timedelta(days=1)

@@ -18,6 +18,7 @@ from .forms import ServiceForm
 
 
 @login_required
+@module_permission_required('clinic_services', 'VIEW')
 def service_list(request):
     """View for listing all clinic services with filtering and search."""
     services = Service.objects.all()
