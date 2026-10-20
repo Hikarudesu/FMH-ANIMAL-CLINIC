@@ -873,6 +873,17 @@ def admin_record_detail(request, pk):
     clinic_profile = ClinicProfile.get_instance()
     from_patients = request.GET.get('from_patients', '0') == '1'
     active_tab = 'patients' if from_patients else 'medical_records'
+    follow_up = FollowUp.objects.filter(
+        medical_record=record,
+    ).select_related('booked_appointment').first()
+    follow_up_branch_id = record.branch_id or record.pet.branch_id
+    can_book_follow_up = (
+        request.user.has_module_permission('appointments', 'CREATE')
+        and (
+            not request.user.is_module_branch_restricted('appointments')
+            or follow_up_branch_id == request.user.branch_id
+        )
+    )
 
     return render(request, 'records/admin_detail.html', {
         'record': record,
@@ -888,6 +899,8 @@ def admin_record_detail(request, pk):
         'active_tab': active_tab,
         'medical_files': medical_files,
         'laboratory_types': get_laboratory_type_options(),
+        'follow_up': follow_up,
+        'can_book_follow_up': can_book_follow_up,
     })
 
 

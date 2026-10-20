@@ -87,17 +87,25 @@
     {% for followup in follow_ups %}
     <article class="portal-followup-card">
       <div>
-        <h3>{{ followup.pet_name }} · Return Visit</h3>
+        <h3>{{ followup.pet_name }} · Recommended Return Visit</h3>
+        {% if not followup.booked_appointment or followup.booked_appointment.status == 'CANCELLED' %}<p>This is a recommendation; it is not yet an appointment booking.</p>{% endif %}
         <p><i class='bx bx-calendar'></i> {{ followup.follow_up_date|date:"M j, Y" }}{% if followup.follow_up_end_date and followup.follow_up_end_date != followup.follow_up_date %} – {{ followup.follow_up_end_date|date:"M j, Y" }}{% endif %}</p>
         {% if followup.reason %}<p><i class='bx bx-info-circle'></i> {{ followup.reason }}</p>{% endif %}
+        {% if followup.booked_appointment %}
+        <p><i class='bx bx-check-circle'></i> Appointment: {{ followup.booked_appointment.appointment_date|date:"M j, Y" }} · {{ followup.booked_appointment.get_status_display }}</p>
+        {% endif %}
       </div>
-      <a class="portal-appointment-card__action" href="{% url 'appointments:portal_detail' followup.appointment_id %}">View appointment <i class='bx bx-right-arrow-alt'></i></a>
+      {% if followup.booked_appointment and followup.booked_appointment.status != 'CANCELLED' %}
+      <a class="portal-appointment-card__action" href="{% url 'appointments:portal_detail' followup.booked_appointment_id %}">View booked visit <i class='bx bx-right-arrow-alt'></i></a>
+      {% elif not followup.is_completed %}
+      <a class="portal-appointment-card__action" href="{% url 'appointments:portal_book' %}?follow_up={{ followup.pk }}">Book return visit <i class='bx bx-right-arrow-alt'></i></a>
+      {% endif %}
     </article>
     {% endfor %}
   </div>
   {% include "components/portal_appointment_pagination.html" with page_obj=follow_ups tab_name="followups" %}
   {% else %}
-  <div class="appt-empty"><div class="appt-empty-icon"><i class='bx bx-revision'></i></div><h3>No follow-up visits</h3><p>No follow-up visits requested by the veterinarian.</p></div>
+  <div class="appt-empty"><div class="appt-empty-icon"><i class='bx bx-revision'></i></div><h3>No follow-up recommendations</h3><p>No return visits have been recommended by the veterinary team.</p></div>
   {% endif %}
 </div>
 

@@ -143,6 +143,10 @@ class RecordEntry(SoftDeleteModel):
         verbose_name="Rx (Prescription)", blank=True, null=True)
     ff_up = models.DateField(
         verbose_name="FF-UP (Follow-Up)", blank=True, null=True)
+    follow_up_reason = models.TextField(
+        blank=True,
+        help_text='Reason for the recommended follow-up visit.',
+    )
     action_required = models.ForeignKey(
         'settings.ClinicalStatus',
         on_delete=models.SET_NULL,

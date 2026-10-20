@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 from django.utils import timezone
 
 from notifications.followup_email_service import (
@@ -22,11 +23,17 @@ class Command(BaseCommand):
             is_completed=False,
             email_sent_at__isnull=True,
             follow_up_date__gte=today,
+        ).filter(
+            Q(booked_appointment__isnull=True)
+            | Q(booked_appointment__status='CANCELLED')
         ).select_related('appointment', 'medical_record__pet__owner')
         followups = FollowUp.objects.filter(
             is_completed=False,
             reminder_email_sent_at__isnull=True,
             follow_up_date=reminder_date,
+        ).filter(
+            Q(booked_appointment__isnull=True)
+            | Q(booked_appointment__status='CANCELLED')
         ).select_related('appointment', 'medical_record__pet__owner')
         sent = failed = reminders_sent = 0
         for follow_up in pending_followups:

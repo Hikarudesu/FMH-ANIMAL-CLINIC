@@ -36,6 +36,13 @@
 <div class="book-card">
   <form method="POST" id="bookingForm" class="book-form">
     {% csrf_token %}
+    {% if followup %}
+    <input type="hidden" name="follow_up_id" value="{{ followup.pk }}">
+    <div class="book-form-error" role="status">
+      <p><i class='bx bx-revision'></i> Booking a return visit for {{ followup.pet_name }}.
+        The suggested date is {{ followup.follow_up_date|date:"M j, Y" }}; choose an available appointment slot below.</p>
+    </div>
+    {% endif %}
 
     {% if form.non_field_errors %}
     <div class="book-form-error">

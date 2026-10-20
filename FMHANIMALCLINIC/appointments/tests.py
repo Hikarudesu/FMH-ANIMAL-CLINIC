@@ -584,6 +584,232 @@ class AppointmentEditVeterinarianOptionalTests(TestCase):
         },
     }
 )
+class FollowUpAppointmentBookingTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Follow-up Booking Branch')
+        self.owner = User.objects.create_user(
+            username='follow-up-booking-owner',
+            email='follow-up-booking@example.com',
+            password='A-secure-test-password-923!',
+            phone_number='09123456789',
+        )
+        self.pet = Pet.objects.create(
+            owner=self.owner,
+            source=Pet.Source.PORTAL,
+            name='Follow-up Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        reason = ReasonForVisit.objects.create(
+            name='Follow-up Examination',
+            code='FOLLOW_UP_BOOKING_EXAM',
+        )
+        today = timezone.localdate()
+        self.source_appointment = Appointment.objects.create(
+            owner_name='Follow-up Owner',
+            owner_email=self.owner.email,
+            owner_phone=self.owner.phone_number,
+            pet_name=self.pet.name,
+            pet=self.pet,
+            user=self.owner,
+            branch=self.branch,
+            reason_for_visit=reason,
+            appointment_date=today,
+            appointment_time=time(10),
+            status=Appointment.Status.COMPLETED,
+        )
+        self.followup = FollowUp.objects.create(
+            appointment=self.source_appointment,
+            pet_name=self.pet.name,
+            follow_up_date=today + timedelta(days=7),
+            reason='Post-treatment recheck',
+        )
+        vet_role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+        vet_user = User.objects.create_user(
+            username='follow-up-booking-vet',
+            email='follow-up-booking-vet@example.com',
+            assigned_role=vet_role,
+            branch=self.branch,
+        )
+        vet = StaffMember.objects.create(
+            user=vet_user,
+            first_name='Follow-up',
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+        self.booking_date = today + timedelta(days=7)
+        VetSchedule.objects.create(
+            staff=vet,
+            branch=self.branch,
+            date=self.booking_date,
+            start_time=time(9),
+            end_time=time(12),
+        )
+        self.client.force_login(self.owner)
+
+    @patch('appointments.views.notify_staff_appointment_status_change')
+    @patch('appointments.views.send_appointment_confirmation')
+    def test_owner_books_follow_up_as_a_separate_appointment(
+        self, send_confirmation, _notify_staff,
+    ):
+        response = self.client.post(
+            reverse('appointments:portal_book'),
+            {
+                'follow_up_id': self.followup.pk,
+                'selected_pet_id': self.pet.pk,
+                'owner_name': 'Follow-up Owner',
+                'owner_email': self.owner.email,
+                'owner_phone': self.owner.phone_number,
+                'owner_address': '',
+                'pet_name': self.pet.name,
+                'pet_species': self.pet.species,
+                'pet_breed': '',
+                'pet_dob': '',
+                'pet_sex': self.pet.sex,
+                'pet_color': '',
+                'pet_symptoms': 'Post-treatment recheck',
+                'branch': self.branch.pk,
+                'appointment_date': self.booking_date.isoformat(),
+                'appointment_time': '09:00',
+                'preferred_vet': '',
+                'reason': self.source_appointment.reason_for_visit_id,
+                'notes': '',
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:my_appointments'),
+            fetch_redirect_response=False,
+        )
+        self.followup.refresh_from_db()
+        booked_appointment = self.followup.booked_appointment
+        self.assertIsNotNone(booked_appointment)
+        self.assertNotEqual(booked_appointment.pk, self.source_appointment.pk)
+        self.assertEqual(booked_appointment.user_id, self.owner.pk)
+        self.assertEqual(booked_appointment.pet_id, self.pet.pk)
+        self.assertEqual(
+            booked_appointment.appointment_date,
+            self.booking_date,
+        )
+        self.assertFalse(self.followup.is_completed)
+        send_confirmation.assert_called_once_with(booked_appointment)
+
+    def test_owner_cannot_open_another_owners_follow_up_booking(self):
+        another_owner = User.objects.create_user(
+            username='different-follow-up-owner',
+            email='different-follow-up-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(another_owner)
+
+        response = self.client.get(
+            reverse('appointments:portal_book'),
+            {'follow_up': self.followup.pk},
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_medical_record_only_follow_up_is_visible_and_prefills_pet(self):
+        record = MedicalRecord.objects.create(
+            pet=self.pet,
+            branch=self.branch,
+            date_recorded=timezone.localdate(),
+        )
+        followup = FollowUp.objects.create(
+            medical_record=record,
+            pet_name=self.pet.name,
+            follow_up_date=timezone.localdate() + timedelta(days=9),
+            reason='Follow-up from a medical record',
+        )
+
+        response = self.client.get(
+            reverse('appointments:portal_book'),
+            {'follow_up': followup.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['selected_pet_id'],
+            self.pet.pk,
+        )
+        self.assertContains(response, 'Booking a return visit')
+
+    def test_staff_follow_up_link_opens_prefilled_booking_modal(self):
+        staff = User.objects.create_superuser(
+            username='follow-up-booking-admin',
+            email='follow-up-booking-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(staff)
+
+        response = self.client.get(
+            reverse('appointments:admin_list'),
+            {'follow_up': self.followup.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['followup_booking'].pk, self.followup.pk)
+        self.assertContains(response, 'Book Return Visit')
+        self.assertContains(response, 'followupBookingData')
+
+    @patch('appointments.views.notify_staff_appointment_status_change')
+    @patch('appointments.views.notify_appointment_status_change')
+    def test_completing_booked_return_visit_completes_recommendation(
+        self, _notify_owner, _notify_staff,
+    ):
+        staff = User.objects.create_superuser(
+            username='follow-up-completion-admin',
+            email='follow-up-completion-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        booked_appointment = Appointment.objects.create(
+            owner_name='Follow-up Owner',
+            owner_email=self.owner.email,
+            pet_name=self.pet.name,
+            pet=self.pet,
+            user=self.owner,
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(10),
+            status=Appointment.Status.AWAITING_PAYMENT,
+            medical_record_decision=Appointment.MedicalRecordDecision.NOT_REQUIRED,
+        )
+        sale = Sale.objects.create(
+            branch=self.branch,
+            subtotal=100,
+            total=100,
+            amount_paid=100,
+            status=Sale.Status.COMPLETED,
+        )
+        booked_appointment.sale = sale
+        booked_appointment.save(update_fields=['sale', 'updated_at'])
+        self.followup.booked_appointment = booked_appointment
+        self.followup.save(update_fields=['booked_appointment'])
+        self.client.force_login(staff)
+
+        response = self.client.post(
+            reverse(
+                'appointments:admin_workflow_action',
+                args=[booked_appointment.pk, 'complete'],
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.followup.refresh_from_db()
+        booked_appointment.refresh_from_db()
+        self.assertEqual(booked_appointment.status, Appointment.Status.COMPLETED)
+        self.assertTrue(self.followup.is_completed)
+
+
 class OwnerAppointmentCancellationTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(name='Owner Cancellation Branch')

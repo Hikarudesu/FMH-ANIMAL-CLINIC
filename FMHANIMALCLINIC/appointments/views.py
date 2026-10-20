@@ -121,29 +121,132 @@ def book_success(request):
 def portal_book(request):
     """Logged-in user appointment booking."""
     Appointment.cleanup_expired()
+    follow_up_id = (
+        request.POST.get('follow_up_id')
+        or request.GET.get('follow_up')
+    )
+    followup = None
+    selected_pet = None
+    if follow_up_id:
+        followup = get_object_or_404(
+            FollowUp.objects.select_related(
+                'appointment__pet',
+                'medical_record__pet',
+            ).filter(
+                Q(appointment__user=request.user)
+                | Q(appointment__pet__owner=request.user)
+                | Q(medical_record__pet__owner=request.user)
+            ),
+            pk=follow_up_id,
+        )
+        if followup.is_completed:
+            messages.info(request, 'This follow-up has already been completed.')
+            return redirect('appointments:my_appointments')
+        if followup.booked_appointment_id and (
+            followup.booked_appointment.status != Appointment.Status.CANCELLED
+        ):
+            return redirect(
+                'appointments:portal_detail',
+                pk=followup.booked_appointment_id,
+            )
+        selected_pet = (
+            followup.appointment.pet
+            if followup.appointment_id else None
+        )
+        if (
+            not selected_pet
+            and followup.medical_record_id
+            and followup.medical_record.pet.owner_id == request.user.pk
+        ):
+            selected_pet = followup.medical_record.pet
 
     if request.method == 'POST':
         with transaction.atomic():
+            if followup:
+                followup = get_object_or_404(
+                    FollowUp.objects.select_for_update(),
+                    pk=followup.pk,
+                )
+                if (
+                    not (
+                        followup.appointment_id
+                        and (
+                            followup.appointment.user_id == request.user.pk
+                            or (
+                                followup.appointment.pet_id
+                                and followup.appointment.pet.owner_id
+                                == request.user.pk
+                            )
+                        )
+                    )
+                    and not (
+                        followup.medical_record_id
+                        and followup.medical_record.pet.owner_id
+                        == request.user.pk
+                    )
+                ):
+                    raise PermissionDenied
+                if followup.is_completed:
+                    messages.info(
+                        request,
+                        'This follow-up has already been completed.',
+                    )
+                    return redirect('appointments:my_appointments')
+                if (
+                    followup.booked_appointment_id
+                    and followup.booked_appointment.status != Appointment.Status.CANCELLED
+                ):
+                    messages.info(
+                        request,
+                        'An appointment is already booked for this follow-up.',
+                    )
+                    return redirect(
+                        'appointments:portal_detail',
+                        pk=followup.booked_appointment_id,
+                    )
             AppointmentService.lock_booking_schedule(
                 request.POST.get('branch'),
                 request.POST.get('appointment_date'),
             )
-            form = PortalAppointmentForm(request.POST, user=request.user)
-            appointment = form.save() if form.is_valid() else None
+            form = PortalAppointmentForm(
+                request.POST,
+                user=request.user,
+                selected_pet=selected_pet,
+            )
+            appointment = None
+            if form.is_valid():
+                if (
+                    selected_pet
+                    and form.cleaned_data.get('selected_pet_id') != selected_pet.pk
+                ):
+                    form.add_error(
+                        None,
+                        'Choose the pet linked to this follow-up recommendation.',
+                    )
+                else:
+                    appointment = form.save()
+                    if followup:
+                        followup.booked_appointment = appointment
+                        followup.save(update_fields=['booked_appointment'])
         if appointment:
             send_appointment_confirmation(appointment)
             notify_staff_appointment_status_change(
                 appointment, appointment.status, actor=request.user
             )
             messages.success(
-                request, 'Your appointment has been booked successfully!')
+                request,
+                (
+                    'Your follow-up appointment has been booked successfully.'
+                    if followup
+                    else 'Your appointment has been booked successfully!'
+                ),
+            )
             return redirect('appointments:my_appointments')
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        selected_pet = None
         pet_id = request.GET.get('pet')
-        if pet_id:
+        if pet_id and not selected_pet:
             try:
                 selected_pet = request.user.pets.get(
                     pk=int(pet_id), is_active=True
@@ -153,6 +256,21 @@ def portal_book(request):
         form = PortalAppointmentForm(
             user=request.user, selected_pet=selected_pet
         )
+        if followup:
+            source_appointment = followup.appointment
+            source_branch = (
+                source_appointment.branch
+                if source_appointment else
+                followup.medical_record.branch
+                if followup.medical_record_id else None
+            )
+            if source_branch and source_branch.is_active:
+                form.initial['branch'] = source_branch.pk
+            if followup.follow_up_date >= timezone.localdate():
+                form.initial['appointment_date'] = followup.follow_up_date
+            if source_appointment and source_appointment.reason_for_visit_id:
+                form.initial['reason'] = source_appointment.reason_for_visit_id
+            form.initial['pet_symptoms'] = followup.reason
 
     branches = Branch.objects.filter(is_active=True)
     user_pets = request.user.pets.filter(is_active=True) if hasattr(request.user, 'pets') else []
@@ -161,6 +279,7 @@ def portal_book(request):
         'form': form,
         'branches': branches,
         'user_pets': user_pets,
+        'followup': followup,
         'selected_pet_id': (
             form.initial.get('selected_pet_id')
             if request.method != 'POST' else None
@@ -190,8 +309,14 @@ def my_appointments(request):
     cancelled_qs = base_appts.filter(status=Appointment.Status.CANCELLED)
 
     follow_ups_qs = FollowUp.objects.filter(
-        appointment__user=request.user
-    ).select_related('appointment', 'appointment__pet')
+        Q(appointment__user=request.user)
+        | Q(appointment__pet__owner=request.user)
+        | Q(medical_record__pet__owner=request.user)
+    ).select_related(
+        'appointment',
+        'appointment__pet',
+        'booked_appointment',
+    )
 
     paginated_lists = {}
     for tab_name, queryset in (
@@ -255,10 +380,14 @@ def _portal_appointment_detail_data(appointment):
     ).order_by('-date_recorded', '-created_at')
     follow_ups = FollowUp.objects.filter(
         appointment=appointment,
-    ).order_by('-created_at')
+    ).select_related('booked_appointment').order_by('-created_at')
+    originating_follow_ups = FollowUp.objects.filter(
+        booked_appointment=appointment,
+    ).select_related('appointment').order_by('-created_at')
     return {
         'medical_records': medical_records,
         'follow_ups': follow_ups,
+        'originating_follow_ups': originating_follow_ups,
     }
 
 
@@ -770,6 +899,11 @@ def admin_workflow_action(request, pk, action):
         raise PermissionDenied
 
     appointment.save()
+    if action == 'complete':
+        FollowUp.objects.filter(
+            booked_appointment=appointment,
+            is_completed=False,
+        ).update(is_completed=True)
     if appointment.user:
         notify_appointment_status_change(
             appointment, appointment.status, actor=request.user,
@@ -846,7 +980,10 @@ def admin_detail(request, pk):
     appointment.medical_record_added = bool(record_entries)
     follow_ups = FollowUp.objects.filter(
         appointment=appointment,
-    ).order_by('-created_at')
+    ).select_related('booked_appointment').order_by('-created_at')
+    originating_follow_ups = FollowUp.objects.filter(
+        booked_appointment=appointment,
+    ).select_related('appointment').order_by('-created_at')
 
     can_edit = (
         request.user.has_module_permission('appointments', 'EDIT')
@@ -859,6 +996,16 @@ def admin_detail(request, pk):
     )
     can_create_medical_record = request.user.has_module_permission(
         'medical_records', 'CREATE'
+    )
+    can_create_appointment = request.user.has_module_permission(
+        'appointments', 'CREATE'
+    )
+    can_book_followup = (
+        can_create_appointment
+        and (
+            not request.user.is_module_branch_restricted('appointments')
+            or appointment.branch_id == request.user.branch_id
+        )
     )
     can_access_pos = request.user.has_special_permission('can_access_pos')
     appointment_date_arrived = (
@@ -915,11 +1062,14 @@ def admin_detail(request, pk):
         'appointment': appointment,
         'record_entries': record_entries,
         'follow_ups': follow_ups,
+        'originating_follow_ups': originating_follow_ups,
         'is_veterinarian': is_veterinarian,
         'can_edit': can_edit,
         'can_manage_workflow': can_manage_workflow,
         'can_delete': can_delete,
         'can_create_medical_record': can_create_medical_record,
+        'can_create_appointment': can_create_appointment,
+        'can_book_followup': can_book_followup,
         'can_access_pos': can_access_pos,
         'appointment_date_arrived': appointment_date_arrived,
         'can_check_in': can_check_in,
@@ -1095,7 +1245,138 @@ def admin_list(request):
         vets_query = vets_query.filter(branch=user_branch)
     
     vets = vets_query.select_related('user', 'user__assigned_role')
-    quick_form = AdminQuickCreateForm(initial={'status': 'CONFIRMED'}, user=request.user)
+    followup_booking = None
+    followup_booking_data = None
+    quick_initial = {'status': Appointment.Status.CONFIRMED}
+    follow_up_id = request.GET.get('follow_up')
+    if follow_up_id:
+        if not request.user.has_module_permission('appointments', 'CREATE'):
+            raise PermissionDenied
+        followup_booking = get_object_or_404(
+            FollowUp.objects.select_related(
+                'appointment__pet',
+                'appointment__user',
+                'appointment__branch',
+                'appointment__reason_for_visit',
+                'medical_record__pet',
+                'medical_record__pet__owner',
+                'medical_record__branch',
+            ).filter(is_completed=False).filter(
+                Q(booked_appointment__isnull=True)
+                | Q(booked_appointment__status=Appointment.Status.CANCELLED)
+            ),
+            pk=follow_up_id,
+        )
+        source_appointment = followup_booking.appointment
+        followup_pet = (
+            source_appointment.pet
+            if source_appointment else
+            followup_booking.medical_record.pet
+            if followup_booking.medical_record_id else None
+        )
+        followup_owner = (
+            source_appointment.user
+            if source_appointment and source_appointment.user_id
+            else followup_pet.owner if followup_pet else None
+        )
+        source_branch = (
+            source_appointment.branch
+            if source_appointment else
+            followup_booking.medical_record.branch
+            if followup_booking.medical_record_id else
+            followup_pet.branch if followup_pet else None
+        )
+        if (
+            is_branch_restricted
+            and (
+                not user_branch
+                or not source_branch
+                or source_branch.pk != user_branch.pk
+            )
+        ):
+            raise PermissionDenied
+
+        owner_name = (
+            source_appointment.current_owner_name
+            if source_appointment else
+            followup_pet.owner_display_name if followup_pet else ''
+        )
+        owner_email = (
+            source_appointment.current_owner_email
+            if source_appointment else
+            followup_pet.owner_display_email if followup_pet else ''
+        )
+        owner_phone = (
+            source_appointment.current_owner_phone
+            if source_appointment else
+            followup_pet.owner_display_phone if followup_pet else ''
+        )
+        owner_address = (
+            source_appointment.current_owner_address
+            if source_appointment else
+            followup_pet.owner_display_address if followup_pet else ''
+        )
+        if owner_name == '—':
+            owner_name = ''
+        if owner_email == '—':
+            owner_email = ''
+        if owner_phone == '—':
+            owner_phone = ''
+        if owner_address == '—':
+            owner_address = ''
+
+        quick_initial.update({
+            'source': (
+                Appointment.Source.PORTAL
+                if followup_owner else Appointment.Source.WALKIN
+            ),
+            'owner_name': owner_name,
+            'owner_email': owner_email,
+            'owner_phone': owner_phone,
+            'owner_address': owner_address,
+            'pet_name': followup_pet.name if followup_pet else followup_booking.pet_name,
+            'pet_species': followup_pet.species if followup_pet else source_appointment.pet_species,
+            'pet_breed': followup_pet.breed if followup_pet else source_appointment.pet_breed,
+            'pet_dob': followup_pet.date_of_birth if followup_pet else source_appointment.pet_dob,
+            'pet_sex': followup_pet.sex if followup_pet else source_appointment.pet_sex,
+            'pet_color': followup_pet.color if followup_pet else source_appointment.pet_color,
+            'branch': user_branch.pk if is_branch_restricted and user_branch else (
+                source_branch.pk if source_branch else None
+            ),
+            'appointment_date': max(
+                followup_booking.follow_up_date,
+                timezone.localdate(),
+            ),
+            'reason': (
+                source_appointment.reason_for_visit_id
+                if source_appointment else None
+            ),
+            'notes': followup_booking.reason,
+            'selected_user_id': followup_owner.pk if followup_owner else None,
+            'selected_pet_id': (
+                followup_pet.pk if followup_pet else None
+            ),
+        })
+        followup_booking_data = {
+            'source': quick_initial['source'],
+            'user_id': followup_owner.pk if followup_owner else '',
+            'pet_id': followup_pet.pk if followup_pet else '',
+            'owner_name': quick_initial['owner_name'] or '',
+            'owner_email': quick_initial['owner_email'] or '',
+            'owner_phone': quick_initial['owner_phone'] or '',
+            'owner_address': quick_initial['owner_address'] or '',
+            'pet_name': quick_initial['pet_name'] or '',
+            'pet_species': quick_initial['pet_species'] or '',
+            'pet_breed': quick_initial['pet_breed'] or '',
+            'pet_dob': (
+                followup_pet.date_of_birth.isoformat()
+                if followup_pet and followup_pet.date_of_birth else ''
+            ),
+            'pet_sex': quick_initial['pet_sex'] or '',
+            'pet_color': quick_initial['pet_color'] or '',
+            'follow_up_id': followup_booking.pk,
+        }
+    quick_form = AdminQuickCreateForm(initial=quick_initial, user=request.user)
 
     # Pagination (only for table view)
     page_number = request.GET.get('page', 1)
@@ -1148,6 +1429,8 @@ def admin_list(request):
         'selected_vet': vet_id,
         'current_view': current_view,
         'quick_form': quick_form,
+        'followup_booking': followup_booking,
+        'followup_booking_data': followup_booking_data,
         'is_branch_restricted': is_branch_restricted,
         'user_branch': user_branch,
         'can_create': can_create,
@@ -1297,13 +1580,109 @@ def admin_calendar_api(request):
 def admin_quick_create(request):
     """Admin: quickly create an appointment (walk-in / phone call)."""
     if request.method == 'POST':
+        followup = None
         with transaction.atomic():
+            follow_up_id = request.POST.get('follow_up_id')
+            if follow_up_id:
+                followup = get_object_or_404(
+                    FollowUp.objects.select_for_update(),
+                    pk=follow_up_id,
+                )
+                if followup.is_completed or (
+                    followup.booked_appointment_id
+                    and followup.booked_appointment.status
+                    != Appointment.Status.CANCELLED
+                ):
+                    messages.error(
+                        request,
+                        'This follow-up already has an active or completed visit.',
+                    )
+                    return redirect('appointments:admin_list')
+                source_appointment = followup.appointment
+                followup_pet = (
+                    source_appointment.pet
+                    if source_appointment else
+                    followup.medical_record.pet
+                    if followup.medical_record_id else None
+                )
+                source_branch = (
+                    source_appointment.branch
+                    if source_appointment else
+                    followup.medical_record.branch
+                    if followup.medical_record_id else
+                    followup_pet.branch if followup_pet else None
+                )
+                if request.user.is_module_branch_restricted('appointments'):
+                    if (
+                        not request.user.branch_id
+                        or not source_branch
+                        or source_branch.pk != request.user.branch_id
+                        or request.POST.get('branch')
+                        != str(request.user.branch_id)
+                    ):
+                        raise PermissionDenied
             AppointmentService.lock_booking_schedule(
                 request.POST.get('branch'),
                 request.POST.get('appointment_date'),
             )
             form = AdminQuickCreateForm(request.POST, user=request.user)
             appointment = form.save() if form.is_valid() else None
+            if appointment and followup:
+                source_appointment = followup.appointment
+                followup_pet = (
+                    source_appointment.pet
+                    if source_appointment else
+                    followup.medical_record.pet
+                    if followup.medical_record_id else None
+                )
+                appointment.owner_name = (
+                    source_appointment.current_owner_name
+                    if source_appointment else
+                    followup_pet.owner_display_name if followup_pet else
+                    appointment.owner_name
+                )
+                appointment.owner_email = (
+                    source_appointment.current_owner_email
+                    if source_appointment else
+                    followup_pet.owner_display_email if followup_pet else
+                    appointment.owner_email
+                )
+                appointment.owner_phone = (
+                    source_appointment.current_owner_phone
+                    if source_appointment else
+                    followup_pet.owner_display_phone if followup_pet else
+                    appointment.owner_phone
+                )
+                appointment.owner_address = (
+                    source_appointment.current_owner_address
+                    if source_appointment else
+                    followup_pet.owner_display_address if followup_pet else
+                    appointment.owner_address
+                )
+                appointment.user = (
+                    source_appointment.user
+                    if source_appointment and source_appointment.user_id
+                    else followup_pet.owner if followup_pet else None
+                )
+                if followup_pet:
+                    appointment.pet = followup_pet
+                    appointment.pet_name = followup_pet.name
+                    appointment.pet_species = followup_pet.species
+                    appointment.pet_breed = followup_pet.breed
+                appointment.save(update_fields=[
+                    'owner_name',
+                    'owner_email',
+                    'owner_phone',
+                    'owner_address',
+                    'user',
+                    'pet',
+                    'pet_name',
+                    'pet_species',
+                    'pet_breed',
+                    'updated_at',
+                ])
+                followup.booked_appointment = appointment
+                followup.save(update_fields=['booked_appointment'])
         if appointment:
 
             # Send email confirmation
@@ -1318,9 +1697,9 @@ def admin_quick_create(request):
             if appointment.status == Appointment.Status.COMPLETED:
                 notify_veterinarian_medical_record_required(appointment, actor=request.user)
 
-            # Handle follow-up creation
+            # A follow-up booking is distinct from a new follow-up recommendation.
             follow_up_enabled = request.POST.get('follow_up_enabled')
-            if follow_up_enabled == 'on':
+            if follow_up_enabled == 'on' and not followup:
                 follow_up_date = request.POST.get('follow_up_date')
                 follow_up_end_date = request.POST.get('follow_up_end_date')
                 follow_up_reason = request.POST.get('follow_up_reason', '')
@@ -1340,7 +1719,14 @@ def admin_quick_create(request):
                         follow_up_reason=follow_up_reason,
                     )
 
-            messages.success(request, 'Appointment created successfully.')
+            messages.success(
+                request,
+                (
+                    'Follow-up appointment booked successfully.'
+                    if followup
+                    else 'Appointment created successfully.'
+                ),
+            )
         else:
             # Include specific form errors in the message for easier debugging
             error_details = ' | '.join([f"{k}: {', '.join(v)}" for k, v in form.errors.items()])
@@ -1441,7 +1827,7 @@ def admin_edit(request, pk):
                     if follow_up_end_date and follow_up_end_date != follow_up_date:
                         date_str = f"{follow_up_date} to {follow_up_end_date}"
                     messages.info(
-                        request, f'Follow-up scheduled from {date_str}.')
+                            request, f'Follow-up recommended for {date_str}.')
 
             messages.success(
                 request, f'Appointment for {updated_appointment.pet_name} updated.')

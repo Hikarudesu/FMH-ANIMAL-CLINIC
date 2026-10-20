@@ -719,8 +719,8 @@
       <div class="qc-header-title">
         <div class="qc-icon"><i class='bx bx-calendar-plus'></i></div>
         <div>
-          <h3>Quick Appointment</h3>
-          <p>Manual booking for walk-ins or calls</p>
+          <h3>{% if followup_booking %}Book Return Visit{% else %}Quick Appointment{% endif %}</h3>
+          <p>{% if followup_booking %}Choose an available slot for {{ followup_booking.pet_name }}{% else %}Manual booking for walk-ins or calls{% endif %}</p>
         </div>
       </div>
       <button class="qc-close" id="closeQuickCreate"><i class='bx bx-x'></i></button>
@@ -730,6 +730,9 @@
       {% csrf_token %}
       {{ quick_form.selected_user_id }}
       {{ quick_form.selected_pet_id }}
+      {% if followup_booking %}
+      <input type="hidden" name="follow_up_id" value="{{ followup_booking.pk }}">
+      {% endif %}
       <div class="qc-body">
         <div class="qc-section-title">Client Source</div>
         <div class="qc-grid">
@@ -912,17 +915,17 @@
           </div>
         </div>
 
-        <div class="qc-section-title mt-3">Follow-up (Optional)</div>
+        <div class="qc-section-title mt-3">Follow-up Recommendation (Optional)</div>
         <div class="qc-grid">
           <div class="qc-group qc-full">
             <label class="qc-checkbox">
               <input type="checkbox" name="follow_up_enabled" id="quickFollowUpEnabled">
-              <span>Schedule a follow-up visit</span>
+              <span>Recommend that this pet return</span>
             </label>
           </div>
           <div id="quickFollowUpFields" style="display: none;">
             <div class="qc-group">
-              <label>Follow-up Start Date</label>
+              <label>Recommended Return Date</label>
               <input type="date" name="follow_up_date" class="qc-input" id="quickFollowUpDate">
             </div>
             <div class="qc-group">
@@ -1279,6 +1282,9 @@
   .cal-day-schedule-dot { display: block; width: 6px; height: 6px; border-radius: 50%; margin: -4px 0 8px; }
 </style>
 
+{% if followup_booking_data %}
+{{ followup_booking_data|json_script:"followupBookingData" }}
+{% endif %}
 <script>
 const CALENDAR_API = "{% url 'appointments:admin_calendar_api' %}";
 const API_DATES = "{% url 'appointments:api_dates' %}";
@@ -1519,6 +1525,9 @@ document.addEventListener("DOMContentLoaded", function() {
   // Auto-initialize if branch is pre-filled
   if (branchSelect.value) {
     fetchVets();
+    if (dateInput.value) {
+      fetchTimeSlots();
+    }
   }
 });
 // ── Quick Create Modal Open/Close ──
@@ -2000,6 +2009,34 @@ if (walkinNewPetToggle) {
       walkinPetSelect.disabled = false;
     }
   });
+}
+
+const followupBookingElement = document.getElementById('followupBookingData');
+if (followupBookingElement && quickCreateModal) {
+  const bookingData = JSON.parse(followupBookingElement.textContent);
+  quickCreateModal.classList.add('active');
+  if (clientSourceSelect) {
+    clientSourceSelect.value = bookingData.source;
+    clientSourceSelect.dispatchEvent(new Event('change'));
+  }
+  if (sourceHidden) sourceHidden.value = bookingData.source;
+  if (selectedUserIdField) selectedUserIdField.value = bookingData.user_id;
+  if (selectedPetIdField) selectedPetIdField.value = bookingData.pet_id;
+  if (ownerSearchInput) ownerSearchInput.value = bookingData.owner_name;
+  if (ownerNameField) ownerNameField.value = bookingData.owner_name;
+  if (ownerPhoneField) ownerPhoneField.value = bookingData.owner_phone;
+  if (ownerEmailField) ownerEmailField.value = bookingData.owner_email;
+  if (ownerAddressField) ownerAddressField.value = bookingData.owner_address;
+  if (petNameField) petNameField.value = bookingData.pet_name;
+  if (petSpeciesField) petSpeciesField.value = bookingData.pet_species;
+  if (petBreedField) petBreedField.value = bookingData.pet_breed;
+  if (petDobField) petDobField.value = bookingData.pet_dob;
+  if (petSexField) petSexField.value = bookingData.pet_sex;
+  if (petColorField) petColorField.value = bookingData.pet_color;
+  const branchField = document.getElementById('id_branch');
+  const appointmentDateField = document.getElementById('id_appointment_date');
+  if (branchField) branchField.dispatchEvent(new Event('change'));
+  if (appointmentDateField) appointmentDateField.dispatchEvent(new Event('change'));
 }
 </script>
 

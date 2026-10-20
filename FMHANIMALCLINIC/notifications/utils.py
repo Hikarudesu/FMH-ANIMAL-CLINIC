@@ -682,7 +682,7 @@ def notify_veterinarian_medical_record_required(appointment, actor=None):
 def notify_follow_up_scheduled(
     appointment, followup, follow_up_reason='', event='scheduled'
 ):
-    """Notify the owner about a scheduled or updated follow-up."""
+    """Notify the owner that a follow-up was recommended or updated."""
 
     follow_up_date = followup.follow_up_date
     if isinstance(follow_up_date, str):
@@ -708,14 +708,15 @@ def notify_follow_up_scheduled(
     notification_user = get_follow_up_owner(appointment)
 
     if notification_user:
-        action_text = 'updated' if event == 'updated' else 'scheduled'
+        action_text = 'updated' if event == 'updated' else 'recommended'
         create_notification(
             user=notification_user,
             title=f'Follow-up {action_text.title()} for {appointment.pet_name}',
             message=(
                 f'A follow-up visit has been {action_text} for {appointment.pet_name} '
                 f'for {date_str}, which is {countdown}. '
-                f'Reason: {follow_up_reason or "Routine follow-up"}'
+                f'Reason: {follow_up_reason or followup.reason or "Routine follow-up"}. '
+                'This is a recommendation, not a confirmed appointment.'
             ),
             notification_type=Notification.NotificationType.FOLLOW_UP,
             module_context=Notification.ModuleContext.APPOINTMENTS,
@@ -750,13 +751,13 @@ def notify_medical_record_follow_up(record, actor=None):
     )
 
     if not record.ff_up:
-        if record_followup:
+        if record_followup and not record_followup.booked_appointment_id:
             record_followup.delete()
         if appointment_followup and appointment_followup.medical_record_id in (
             None, record.pk,
         ) and (
             not record_followup or appointment_followup.pk != record_followup.pk
-        ):
+        ) and not appointment_followup.booked_appointment_id:
             appointment_followup.delete()
         return None
 
@@ -771,7 +772,11 @@ def notify_medical_record_follow_up(record, actor=None):
         followup = FollowUp(
             pet_name=record.pet.name,
             follow_up_date=record.ff_up,
-            reason='Medical record follow-up',
+            reason=(
+                latest_entry.follow_up_reason.strip()
+                if latest_entry and latest_entry.follow_up_reason.strip()
+                else 'Medical record follow-up'
+            ),
             created_by=actor,
         )
 
@@ -779,6 +784,12 @@ def notify_medical_record_follow_up(record, actor=None):
         record_followup.delete()
 
     date_changed = followup.follow_up_date != record.ff_up
+    reason = (
+        latest_entry.follow_up_reason.strip()
+        if latest_entry and latest_entry.follow_up_reason.strip()
+        else followup.reason
+    )
+    reason_changed = followup.reason != reason
     update_fields = []
     if followup.pet_name != record.pet.name:
         followup.pet_name = record.pet.name
@@ -789,7 +800,10 @@ def notify_medical_record_follow_up(record, actor=None):
     if followup.medical_record_id != record.pk:
         followup.medical_record = record
         update_fields.append('medical_record')
-    if date_changed:
+    if reason_changed:
+        followup.reason = reason
+        update_fields.append('reason')
+    if date_changed or reason_changed:
         followup.follow_up_date = record.ff_up
         if followup.follow_up_end_date and followup.follow_up_end_date < record.ff_up:
             followup.follow_up_end_date = None
@@ -815,10 +829,11 @@ def notify_medical_record_follow_up(record, actor=None):
         date_text = record.ff_up.strftime('%B %d, %Y')
         create_notification(
             user=owner,
-            title=f'Follow-up Scheduled for {record.pet.name}',
+            title=f'Follow-up Recommended for {record.pet.name}',
             message=(
-                f'A follow-up visit for {record.pet.name} has been scheduled for '
-                f'{date_text}.'
+                f'A follow-up visit for {record.pet.name} has been recommended for '
+                f'{date_text}. Reason: {followup.reason or "Routine follow-up"}. '
+                'This is a recommendation, not a confirmed appointment.'
             ),
             notification_type=Notification.NotificationType.FOLLOW_UP,
             module_context=Notification.ModuleContext.MEDICAL_RECORDS,
@@ -826,7 +841,7 @@ def notify_medical_record_follow_up(record, actor=None):
             related_follow_up=followup,
         )
 
-    event = 'updated' if date_changed else 'scheduled'
+    event = 'updated' if date_changed or reason_changed else 'scheduled'
     transaction.on_commit(lambda: send_follow_up_email(followup, event=event))
     return followup
 
@@ -856,24 +871,27 @@ def sync_medical_record_entry_follow_up(entry, actor=None):
     if followup and followup.medical_record_id == record.pk:
         return followup
     if not entry.ff_up:
-        if followup:
+        if followup and not followup.booked_appointment_id:
             followup.delete()
         return None
 
     event = 'updated' if followup else 'scheduled'
+    reason = entry.follow_up_reason.strip() or 'Medical record follow-up'
     if not followup:
         followup = FollowUp.objects.create(
             appointment=appointment,
             pet_name=record.pet.name,
             follow_up_date=entry.ff_up,
-            reason='Medical record follow-up',
+            reason=reason,
             created_by=actor,
         )
     else:
         date_changed = followup.follow_up_date != entry.ff_up
+        reason_changed = followup.reason != reason
         followup.pet_name = record.pet.name
         followup.follow_up_date = entry.ff_up
-        if date_changed:
+        followup.reason = reason
+        if date_changed or reason_changed:
             followup.email_sent_at = None
             followup.reminder_email_sent_at = None
             followup.email_attempts = 0
@@ -904,7 +922,8 @@ def sync_appointment_follow_up_to_medical_record(appointment, followup):
         return None
 
     entry.ff_up = followup.follow_up_date
-    entry.save(update_fields=['ff_up', 'updated_at'])
+    entry.follow_up_reason = followup.reason
+    entry.save(update_fields=['ff_up', 'follow_up_reason', 'updated_at'])
 
     record = entry.record
     latest_entry = RecordEntry.objects.filter(

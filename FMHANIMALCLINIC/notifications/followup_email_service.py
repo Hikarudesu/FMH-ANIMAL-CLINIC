@@ -1,4 +1,4 @@
-"""Idempotent email delivery for scheduled follow-up visits."""
+"""Idempotent email delivery for follow-up recommendations."""
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.conf import settings
@@ -36,6 +36,7 @@ def send_follow_up_email(follow_up, event='scheduled'):
         follow_up.save(update_fields=['email_attempts', 'email_last_error'])
         return False, follow_up.email_last_error
 
+    action_text = 'updated' if event == 'updated' else 'recommended'
     date_text = str(follow_up.follow_up_date)
     follow_up_date = follow_up.follow_up_date
     if isinstance(follow_up_date, str):
@@ -58,15 +59,17 @@ def send_follow_up_email(follow_up, event='scheduled'):
     try:
         sent = send_notification_email(
             subject=(
-                f'Follow-up {"Updated" if event == "updated" else "Scheduled"} '
+                f'Follow-up {action_text.title()} '
                 f'- FMH Animal Clinic ({follow_up.pet_name})'
             ),
             message=(
                 f'Dear {(appointment.owner_name if appointment else owner.get_full_name() if owner else "Pet Owner")},\n\n'
-                f'Your follow-up visit for {follow_up.pet_name} has been '
-                f'{"updated" if event == "updated" else "scheduled"} for {date_text} '
+                f'A follow-up visit for {follow_up.pet_name} has been '
+                f'{action_text} for {date_text} '
                 f'({countdown}).\n'
                 f'Reason: {follow_up.reason or "Routine follow-up"}.\n\n'
+                'This is a recommendation, not a confirmed appointment. '
+                'Please book a separate appointment with the clinic.\n\n'
                 'Please contact FMH Animal Clinic if you need to reschedule.\n'
             ),
             recipient_list=[recipient],
@@ -115,8 +118,8 @@ def send_follow_up_reminder_email(follow_up):
             subject=f'Follow-up Reminder in 3 Days - FMH Animal Clinic ({follow_up.pet_name})',
             message=(
                 f'Dear {(appointment.owner_name if appointment else owner.get_full_name() if owner else "Pet Owner")},\n\n'
-                f'This is your 3-day reminder: {follow_up.pet_name} has a follow-up visit '
-                f'scheduled for {date_text} (in {days_until} days).\n'
+                f'This is your 3-day reminder: a follow-up visit for {follow_up.pet_name} '
+                f'has been recommended for {date_text} (in {days_until} days).\n'
                 f'Reason: {follow_up.reason or "Routine follow-up"}.\n\n'
                 'Please contact FMH Animal Clinic if you need to reschedule.\n'
             ),

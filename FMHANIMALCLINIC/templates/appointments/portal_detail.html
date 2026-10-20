@@ -95,10 +95,18 @@
 
       {% if follow_ups %}
       <section class="portal-appointment-detail__panel">
-        <h2><i class='bx bx-revision'></i> Follow-up visits</h2>
+        <h2><i class='bx bx-revision'></i> Follow-up recommendations</h2>
         <ul class="portal-appointment-detail__followups">
           {% for follow_up in follow_ups %}
-          <li><strong>{{ follow_up.follow_up_date|date:"M j, Y" }}</strong>{% if follow_up.follow_up_end_date and follow_up.follow_up_end_date != follow_up.follow_up_date %} – {{ follow_up.follow_up_end_date|date:"M j, Y" }}{% endif %}{% if follow_up.reason %}<br>{{ follow_up.reason }}{% endif %}</li>
+          <li>
+            <strong>{{ follow_up.follow_up_date|date:"M j, Y" }}</strong>{% if follow_up.follow_up_end_date and follow_up.follow_up_end_date != follow_up.follow_up_date %} – {{ follow_up.follow_up_end_date|date:"M j, Y" }}{% endif %}
+            {% if follow_up.reason %}<br>{{ follow_up.reason }}{% endif %}
+            {% if follow_up.booked_appointment and follow_up.booked_appointment.status != 'CANCELLED' %}
+            <br>Booked visit: <a href="{% url 'appointments:portal_detail' follow_up.booked_appointment_id %}">{{ follow_up.booked_appointment.appointment_date|date:"M j, Y" }} · {{ follow_up.booked_appointment.get_status_display }}</a>
+            {% elif not follow_up.is_completed %}
+            <br><a href="{% url 'appointments:portal_book' %}?follow_up={{ follow_up.pk }}">Book this return visit</a>
+            {% endif %}
+          </li>
           {% endfor %}
         </ul>
       </section>
@@ -135,6 +143,18 @@
         {% endif %}
       </section>
 
+      {% if originating_follow_ups %}
+      <section class="portal-appointment-detail__panel">
+        <h2><i class='bx bx-revision'></i> Return visit</h2>
+        {% for follow_up in originating_follow_ups %}
+        <p>This appointment was booked from a follow-up recommendation for {{ follow_up.pet_name }}{% if follow_up.reason %}: {{ follow_up.reason }}{% endif %}.</p>
+        {% if follow_up.appointment_id %}
+        <a href="{% url 'appointments:portal_detail' follow_up.appointment_id %}">View the original visit</a>
+        {% endif %}
+        {% endfor %}
+      </section>
+      {% endif %}
+
       {% if medical_records %}
       <section class="portal-appointment-detail__panel">
         <h2><i class='bx bx-first-aid'></i> Medical record for this visit</h2>
@@ -145,7 +165,7 @@
           <dl class="portal-appointment-detail__facts">
             {% if entry.weight %}<div><dt>Weight</dt><dd>{{ entry.weight }} kg</dd></div>{% endif %}
             {% if entry.temperature %}<div><dt>Temperature</dt><dd>{{ entry.temperature }} °C</dd></div>{% endif %}
-            {% if entry.ff_up %}<div><dt>Follow-up date</dt><dd>{{ entry.ff_up|date:"M j, Y" }}</dd></div>{% endif %}
+            {% if entry.ff_up %}<div><dt>Recommended follow-up</dt><dd>{{ entry.ff_up|date:"M j, Y" }}{% if entry.follow_up_reason %} — {{ entry.follow_up_reason }}{% endif %}</dd></div>{% endif %}
             {% if entry.action_required %}<div><dt>Next step</dt><dd>{{ entry.action_required.name }}</dd></div>{% endif %}
           </dl>
           {% if entry.history_clinical_signs %}<p class="portal-appointment-detail__note"><strong>Clinical signs and history:</strong><br>{{ entry.history_clinical_signs|linebreaksbr }}</p>{% endif %}

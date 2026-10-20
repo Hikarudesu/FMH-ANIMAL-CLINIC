@@ -603,7 +603,7 @@ try:
 
     @receiver(post_save, sender=FollowUp)
     def log_follow_up_changes(sender, instance, created, **kwargs):
-        """Log scheduled and updated follow-up visits."""
+        """Log recommended and updated follow-up visits."""
         user = getattr(instance, 'created_by', None) or _resolve_actor(instance)
         if not user:
             return
@@ -615,7 +615,7 @@ try:
         else:
             branch = None
 
-        action = 'Follow-up scheduled' if created else 'Follow-up updated'
+        action = 'Follow-up recommended' if created else 'Follow-up updated'
         log_activity(
             user=user,
             action=f'{action}: {instance.pet_name}',

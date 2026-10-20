@@ -89,7 +89,7 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
         fields = [
             'vet', 'date_recorded', 'weight', 'temperature',
             'history_clinical_signs', 'treatment', 'rx', 'ff_up',
-            'action_required',
+            'follow_up_reason', 'action_required',
         ]
         widgets = {
             'vet': forms.Select(attrs={'id': 'id_vet'}),
@@ -100,6 +100,10 @@ class RecordEntryForm(FormControlMixin, forms.ModelForm):
             'treatment': forms.Textarea(attrs={'rows': 3}),
             'rx': forms.Textarea(attrs={'rows': 3}),
             'ff_up': forms.DateInput(attrs={'type': 'date'}),
+            'follow_up_reason': forms.Textarea(attrs={
+                'rows': 2,
+                'placeholder': 'Why should this pet return?',
+            }),
             'action_required': forms.Select(),
         }
 

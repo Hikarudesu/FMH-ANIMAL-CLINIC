@@ -3,7 +3,7 @@ from django.conf import settings
 
 
 class FollowUp(models.Model):
-    """Represents a follow-up visit scheduled by an admin for a pet."""
+    """Represents a recommended return visit, separate from its booking."""
 
     appointment = models.ForeignKey(
         'appointments.Appointment',
@@ -11,6 +11,14 @@ class FollowUp(models.Model):
         related_name='follow_ups',
         null=True,
         blank=True,
+    )
+    booked_appointment = models.ForeignKey(
+        'appointments.Appointment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='originating_follow_ups',
+        help_text='Separate appointment booked in response to this follow-up.',
     )
     medical_record = models.OneToOneField(
         'records.MedicalRecord',

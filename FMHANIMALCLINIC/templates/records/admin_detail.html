@@ -1367,6 +1367,16 @@
         <span><i class='bx bx-building'></i> <strong>Branch:</strong>&nbsp;{{ record.branch.name|default:"—" }}{% if record.branch.clinic_license_number %} &mdash; Lic. No. {{ record.branch.clinic_license_number }}{% endif %}</span>
         <span><i class='bx bx-pulse'></i> <strong>Status:</strong>&nbsp;{{ record.status }}</span>
     </div>
+    {% if follow_up %}
+    <div class="rv-vet-banner">
+        <span><i class='bx bx-revision'></i> <strong>Recommended return:</strong>&nbsp;{{ follow_up.follow_up_date|date:"M j, Y" }}{% if follow_up.reason %} — {{ follow_up.reason }}{% endif %}</span>
+        {% if follow_up.booked_appointment and follow_up.booked_appointment.status != 'CANCELLED' %}
+        <span>Appointment: <a href="{% url 'appointments:admin_detail' follow_up.booked_appointment_id %}">{{ follow_up.booked_appointment.get_status_display }} · {{ follow_up.booked_appointment.appointment_date|date:"M j, Y" }}</a></span>
+        {% elif can_book_follow_up %}
+        <a href="{% url 'appointments:admin_list' %}?follow_up={{ follow_up.pk }}">Book return appointment</a>
+        {% endif %}
+    </div>
+    {% endif %}
 
     <!-- Clinical Data Table -->
     <div class="rv-records-table-wrap">
@@ -1378,7 +1388,7 @@
                     <th class="col-history">History / Clinical Signs</th>
                     <th class="col-tx">Treatment (Tx)</th>
                     <th class="col-rx">Prescription (Rx)</th>
-                    <th class="col-ffup">Follow-Up</th>
+                    <th class="col-ffup">Recommended Follow-Up</th>
                     <th class="col-actions">Actions</th>
                 </tr>
             </thead>
@@ -1393,6 +1403,7 @@
                     data-treatment="{{ entry.treatment|default:''|escapejs }}"
                     data-rx="{{ entry.rx|default:''|escapejs }}"
                     data-ffup="{{ entry.ff_up|date:'Y-m-d'|default:'' }}"
+                    data-follow-up-reason="{{ entry.follow_up_reason|default:''|escapejs }}"
                     data-vet="{{ entry.vet_id|default:'' }}"
                     data-action="{{ entry.action_required_id|default:'' }}">
                     <td class="col-date">{{ entry.date_recorded|date:"M j, Y" }}</td>
@@ -1867,8 +1878,14 @@
                         <input type="date" name="date_recorded" id="emDate" required>
                     </div>
                     <div class="em-field">
-                        <label>Follow-Up Date</label>
+                        <label>Recommended Follow-Up Date</label>
                         <input type="date" name="ff_up" id="emFfup">
+                    </div>
+                </div>
+                <div class="em-row single">
+                    <div class="em-field">
+                        <label>Follow-Up Reason</label>
+                        <textarea name="follow_up_reason" id="emFollowUpReason" placeholder="Why should this pet return?"></textarea>
                     </div>
                 </div>
                 
@@ -1985,6 +2002,7 @@ function openEntryModal(row) {
     document.getElementById('emTreatment').value = decodeDjangoEscapeJS(row.dataset.treatment);
     document.getElementById('emRx').value        = decodeDjangoEscapeJS(row.dataset.rx);
     document.getElementById('emFfup').value      = row.dataset.ffup;
+    document.getElementById('emFollowUpReason').value = decodeDjangoEscapeJS(row.dataset.followUpReason || '');
     if (document.getElementById('emAction')) {
         document.getElementById('emAction').value = row.dataset.action || '';
     }

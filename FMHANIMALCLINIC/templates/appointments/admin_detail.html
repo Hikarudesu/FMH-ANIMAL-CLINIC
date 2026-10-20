@@ -156,10 +156,32 @@
 
       {% if follow_ups %}
       <section class="appointment-manage__card">
-        <h2><i class='bx bx-bell'></i> Follow-up schedule</h2>
+        <h2><i class='bx bx-bell'></i> Follow-up recommendations</h2>
         <ul class="appointment-manage__list">
           {% for follow_up in follow_ups %}
-          <li><strong>{{ follow_up.follow_up_date|date:"M j, Y" }}</strong>{% if follow_up.follow_up_end_date %} – {{ follow_up.follow_up_end_date|date:"M j, Y" }}{% endif %}{% if follow_up.reason %}<br>{{ follow_up.reason }}{% endif %}</li>
+          <li>
+            <strong>{{ follow_up.follow_up_date|date:"M j, Y" }}</strong>{% if follow_up.follow_up_end_date %} – {{ follow_up.follow_up_end_date|date:"M j, Y" }}{% endif %}{% if follow_up.reason %}<br>{{ follow_up.reason }}{% endif %}
+            {% if follow_up.booked_appointment and follow_up.booked_appointment.status != 'CANCELLED' %}
+            <br>Booked visit: <a href="{% url 'appointments:admin_detail' follow_up.booked_appointment_id %}">{{ follow_up.booked_appointment.appointment_date|date:"M j, Y" }} · {{ follow_up.booked_appointment.get_status_display }}</a>
+            {% elif can_book_followup %}
+            <br><a href="{% url 'appointments:admin_list' %}?follow_up={{ follow_up.pk }}">Book a return appointment</a>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+      {% if originating_follow_ups %}
+      <section class="appointment-manage__card">
+        <h2><i class='bx bx-revision'></i> Return visit booking</h2>
+        <ul class="appointment-manage__list">
+          {% for follow_up in originating_follow_ups %}
+          <li>
+            Booked from recommendation for {{ follow_up.pet_name }} on
+            <strong>{{ follow_up.follow_up_date|date:"M j, Y" }}</strong>
+            {% if follow_up.reason %}<br>{{ follow_up.reason }}{% endif %}
+            {% if follow_up.appointment_id %}<br><a href="{% url 'appointments:admin_detail' follow_up.appointment_id %}">View original visit</a>{% endif %}
+          </li>
           {% endfor %}
         </ul>
       </section>

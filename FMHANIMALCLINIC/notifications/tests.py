@@ -455,6 +455,7 @@ class NotificationRoutingTests(TestCase):
             appointment=appointment,
             date_recorded=today,
             ff_up=ff_up,
+            follow_up_reason='Medical record follow-up',
         )
         return appointment, record, entry
 
@@ -475,6 +476,36 @@ class NotificationRoutingTests(TestCase):
         self.assertEqual(response['Location'], reverse('inventory:catalog'))
         notification.refresh_from_db()
         self.assertTrue(notification.is_read)
+
+    @patch(
+        'notifications.followup_email_service.send_notification_email',
+        return_value=True,
+    )
+    def test_follow_up_email_identifies_recommendation_not_booking(self, send_email):
+        appointment = Appointment.objects.create(
+            owner_name='Pet Owner',
+            owner_email='owner@example.com',
+            pet_name='Milo',
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=timezone.localtime().time().replace(microsecond=0),
+            user=self.pet_owner,
+        )
+        follow_up = FollowUp.objects.create(
+            appointment=appointment,
+            pet_name='Milo',
+            follow_up_date=timezone.localdate() + timedelta(days=7),
+            reason='Medication recheck',
+        )
+        from notifications.followup_email_service import send_follow_up_email
+
+        result = send_follow_up_email(follow_up)
+
+        self.assertEqual(result, (True, 'Sent.'))
+        email_message = send_email.call_args.kwargs['message']
+        self.assertIn('recommended', email_message)
+        self.assertIn('not a confirmed appointment', email_message)
+        self.assertIn('Medication recheck', email_message)
 
     @override_settings(STORAGES={
         'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
@@ -715,6 +746,32 @@ class NotificationRoutingTests(TestCase):
         self.assertEqual(follow_up.medical_record_id, record.pk)
         self.assertEqual(entry.ff_up, updated_date)
         send_email.assert_called_once_with(follow_up, event='updated')
+
+    @patch('notifications.utils.create_notification')
+    @patch('notifications.followup_email_service.send_follow_up_email')
+    def test_medical_record_follow_up_saves_reason_and_emails_owner(
+        self, send_email, create_notification_mock,
+    ):
+        follow_up_date = timezone.localdate() + timedelta(days=8)
+        appointment, record, entry = self.create_linked_record_and_appointment(
+            follow_up_date,
+        )
+        entry.follow_up_reason = 'Recheck response to medication'
+        entry.save(update_fields=['follow_up_reason'])
+        send_email.return_value = (True, 'Sent.')
+
+        with self.captureOnCommitCallbacks(execute=True):
+            followup = notify_medical_record_follow_up(record, self.pet_owner)
+
+        self.assertEqual(followup.appointment_id, appointment.pk)
+        self.assertEqual(
+            followup.reason,
+            'Recheck response to medication',
+        )
+        notification_message = create_notification_mock.call_args.kwargs['message']
+        self.assertIn('Recheck response to medication', notification_message)
+        self.assertIn('not a confirmed appointment', notification_message)
+        send_email.assert_called_once_with(followup, event='scheduled')
 
     def test_appointment_follow_up_updates_its_linked_medical_record(self):
         original_date = timezone.localdate() + timezone.timedelta(days=7)
