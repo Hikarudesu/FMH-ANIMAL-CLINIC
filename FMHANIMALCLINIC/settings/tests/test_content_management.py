@@ -146,7 +146,7 @@ class QuickAccessContentManagementTests(TestCase):
                 'subject_image': SimpleUploadedFile(
                     'transparent-subject.png',
                     image_buffer.getvalue(),
-                    content_type='image/png',
+                    content_type='application/octet-stream',
                 ),
             },
             follow=True,

@@ -742,9 +742,6 @@ class QuickAccessCardForm(AdminInputMixin, forms.ModelForm):
         if not upload:
             return upload
 
-        if getattr(upload, 'content_type', '') != 'image/png':
-            raise ValidationError('Upload a transparent PNG subject image.')
-
         try:
             upload.seek(0)
             with Image.open(upload) as source:
