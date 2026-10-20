@@ -498,10 +498,18 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         # Schedulable roles: veterinarians and vet assistants
         schedulable_roles = ['veterinarian', 'assistant_veterinarian']
 
-        if 'branch' in self.data:
+        branch_value = (
+            self.data.get('branch')
+            or self.initial.get('branch')
+            or self.fields['branch'].initial
+        )
+        if branch_value:
             try:
-                branch_id = int(self.data.get('branch'))
-                appt_date = self.data.get('appointment_date')
+                branch_id = int(getattr(branch_value, 'pk', branch_value))
+                appt_date = (
+                    self.data.get('appointment_date')
+                    or self.initial.get('appointment_date')
+                )
 
                 # If date is provided, get vets/vet assistants scheduled at this branch on this date
                 # This matches the API behavior (api_available_vets)

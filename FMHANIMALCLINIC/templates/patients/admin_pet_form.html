@@ -919,6 +919,13 @@
             </div>
             {% if form.is_active.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.is_active.errors.0 }}</span>{% endif %}
           </div>
+          <div class="apf-field {% if form.inactive_reason.errors %}has-error{% endif %}"
+               id="inactiveReasonField"
+               {% if form.is_active.value %}hidden{% endif %}>
+            <label for="{{ form.inactive_reason.id_for_label }}">Reason for Inactive Status <span class="req">*</span></label>
+            {{ form.inactive_reason }}
+            {% if form.inactive_reason.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.inactive_reason.errors.0 }}</span>{% endif %}
+          </div>
         </div>
       </div>
 
@@ -1025,6 +1032,7 @@
     const activeCheckbox = document.getElementById('{{ form.is_active.id_for_label }}');
     const activeStatusIcon = document.getElementById('activeStatusIcon');
     const activeStatusText = document.getElementById('activeStatusText');
+    const inactiveReasonField = document.getElementById('inactiveReasonField');
 
     function updateToggleStatus() {
       const isChecked = activeCheckbox.checked;
@@ -1033,6 +1041,7 @@
       activeStatusIcon.classList.toggle('bxs-check-circle', isChecked);
       activeStatusIcon.classList.toggle('bxs-circle', !isChecked);
       activeStatusText.textContent = isChecked ? 'Active' : 'Inactive';
+      inactiveReasonField.hidden = isChecked;
     }
 
     if (activeCheckbox) {
@@ -1413,5 +1422,9 @@
     }
   })();
 </script>
+
+<style>
+  .apf-field[hidden] { display: none; }
+</style>
 
 {% endblock %}

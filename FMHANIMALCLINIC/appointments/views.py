@@ -148,7 +148,11 @@ def portal_book(request):
         followup = get_object_or_404(
             FollowUp.objects.select_related(
                 'appointment__pet',
+                'appointment__preferred_vet',
+                'appointment__branch',
                 'medical_record__pet',
+                'medical_record__vet',
+                'medical_record__branch',
             ).filter(
                 Q(appointment__user=request.user)
                 | Q(appointment__pet__owner=request.user)
@@ -176,6 +180,43 @@ def portal_book(request):
             and followup.medical_record.pet.owner_id == request.user.pk
         ):
             selected_pet = followup.medical_record.pet
+
+    followup_initial = {}
+    if followup and request.method != 'POST':
+        source_appointment = followup.appointment
+        source_branch = (
+            source_appointment.branch
+            if source_appointment else
+            followup.medical_record.branch
+            if followup.medical_record_id else None
+        )
+        if source_branch and source_branch.is_active:
+            followup_initial['branch'] = source_branch.pk
+        if followup.follow_up_date >= timezone.localdate():
+            followup_initial['appointment_date'] = followup.follow_up_date
+        if source_appointment and source_appointment.reason_for_visit_id:
+            followup_initial['reason'] = source_appointment.reason_for_visit_id
+        followup_initial['pet_symptoms'] = followup.reason
+
+        source_vet = None
+        if followup.medical_record_id:
+            latest_entry = followup.medical_record.entries.select_related(
+                'vet',
+            ).order_by('-date_recorded', '-created_at').first()
+            source_vet = (
+                latest_entry.vet if latest_entry and latest_entry.vet_id
+                else followup.medical_record.vet
+            )
+        if source_vet is None and source_appointment:
+            latest_entry = source_appointment.record_entries.select_related(
+                'vet',
+            ).order_by('-date_recorded', '-created_at').first()
+            source_vet = (
+                latest_entry.vet if latest_entry and latest_entry.vet_id
+                else source_appointment.preferred_vet
+            )
+        if source_vet:
+            followup_initial['preferred_vet'] = source_vet.pk
 
     if request.method == 'POST':
         with transaction.atomic():
@@ -272,23 +313,10 @@ def portal_book(request):
             except (ValueError, Pet.DoesNotExist):
                 selected_pet = None
         form = PortalAppointmentForm(
-            user=request.user, selected_pet=selected_pet
+            user=request.user,
+            selected_pet=selected_pet,
+            initial=followup_initial,
         )
-        if followup:
-            source_appointment = followup.appointment
-            source_branch = (
-                source_appointment.branch
-                if source_appointment else
-                followup.medical_record.branch
-                if followup.medical_record_id else None
-            )
-            if source_branch and source_branch.is_active:
-                form.initial['branch'] = source_branch.pk
-            if followup.follow_up_date >= timezone.localdate():
-                form.initial['appointment_date'] = followup.follow_up_date
-            if source_appointment and source_appointment.reason_for_visit_id:
-                form.initial['reason'] = source_appointment.reason_for_visit_id
-            form.initial['pet_symptoms'] = followup.reason
 
     branches = Branch.objects.filter(is_active=True)
     user_pets = request.user.pets.filter(is_active=True) if hasattr(request.user, 'pets') else []

@@ -683,16 +683,18 @@ class FollowUpAppointmentBookingTests(TestCase):
             assigned_role=vet_role,
             branch=self.branch,
         )
-        vet = StaffMember.objects.create(
+        self.vet = StaffMember.objects.create(
             user=vet_user,
             first_name='Follow-up',
             last_name='Veterinarian',
             position=StaffMember.Position.VETERINARIAN,
             branch=self.branch,
         )
+        self.source_appointment.preferred_vet = self.vet
+        self.source_appointment.save(update_fields=['preferred_vet'])
         self.booking_date = today + timedelta(days=7)
         VetSchedule.objects.create(
-            staff=vet,
+            staff=self.vet,
             branch=self.branch,
             date=self.booking_date,
             start_time=time(9),
@@ -778,16 +780,48 @@ class FollowUpAppointmentBookingTests(TestCase):
         self.assertContains(response, self.followup.reason)
         self.assertContains(response, 'Book return visit')
 
+    def test_appointment_follow_up_prefills_branch_date_and_scheduled_vet(self):
+        response = self.client.get(
+            reverse('appointments:portal_book'),
+            {'follow_up': self.followup.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        booking_form = response.context['form']
+        self.assertEqual(booking_form['branch'].value(), self.branch.pk)
+        self.assertEqual(
+            booking_form['appointment_date'].value(),
+            self.booking_date,
+        )
+        self.assertEqual(
+            booking_form['preferred_vet'].value(),
+            self.vet.pk,
+        )
+        self.assertIn(
+            self.vet,
+            booking_form.fields['preferred_vet'].queryset,
+        )
+        self.assertFalse(booking_form['appointment_time'].value())
+
     def test_medical_record_only_follow_up_is_visible_and_prefills_pet(self):
         record = MedicalRecord.objects.create(
             pet=self.pet,
             branch=self.branch,
+            vet=self.vet,
             date_recorded=timezone.localdate(),
+        )
+        followup_date = timezone.localdate() + timedelta(days=9)
+        VetSchedule.objects.create(
+            staff=self.vet,
+            branch=self.branch,
+            date=followup_date,
+            start_time=time(9),
+            end_time=time(12),
         )
         followup = FollowUp.objects.create(
             medical_record=record,
             pet_name=self.pet.name,
-            follow_up_date=timezone.localdate() + timedelta(days=9),
+            follow_up_date=followup_date,
             reason='Follow-up from a medical record',
         )
 
@@ -802,6 +836,21 @@ class FollowUpAppointmentBookingTests(TestCase):
             self.pet.pk,
         )
         self.assertContains(response, 'Booking a return visit')
+        self.assertEqual(
+            response.context['form']['branch'].value(),
+            self.branch.pk,
+        )
+        self.assertEqual(
+            response.context['form']['appointment_date'].value(),
+            followup_date,
+        )
+        self.assertEqual(
+            response.context['form']['preferred_vet'].value(),
+            self.vet.pk,
+        )
+        self.assertFalse(
+            response.context['form']['appointment_time'].value(),
+        )
 
     def test_staff_follow_up_link_opens_prefilled_booking_modal(self):
         staff = User.objects.create_superuser(

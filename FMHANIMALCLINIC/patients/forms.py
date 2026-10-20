@@ -35,7 +35,10 @@ class PetForm(forms.ModelForm):
 
     class Meta:
         model = Pet
-        fields = ['photo', 'name', 'species', 'breed', 'date_of_birth', 'sex', 'color', 'is_active']
+        fields = [
+            'photo', 'name', 'species', 'breed', 'date_of_birth', 'sex',
+            'color', 'is_active', 'inactive_reason',
+        ]
         widgets = {
             'photo': forms.ClearableFileInput(attrs={
                 'class': 'pf-input', 'accept': 'image/*'
@@ -61,7 +64,18 @@ class PetForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'pf-checkbox',
             }),
+            'inactive_reason': forms.Textarea(attrs={
+                'class': 'pf-input',
+                'rows': 3,
+                'placeholder': 'Why is this pet profile inactive?',
+            }),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get('is_active') and not cleaned_data.get('inactive_reason', '').strip():
+            self.add_error('inactive_reason', 'Please provide a reason for marking this pet inactive.')
+        return cleaned_data
 
 
 class AdminPetForm(forms.ModelForm):
@@ -113,6 +127,7 @@ class AdminPetForm(forms.ModelForm):
             # Pet details
             'photo', 'name', 'species', 'breed',
             'date_of_birth', 'sex', 'clinical_status', 'color', 'is_active',
+            'inactive_reason',
         ]
         widgets = {
             'source': forms.Select(attrs={'class': 'pf-input', 'id': 'id_source'}),
@@ -139,6 +154,11 @@ class AdminPetForm(forms.ModelForm):
             'clinical_status': forms.Select(attrs={'class': 'pf-input'}),
             'color': forms.TextInput(attrs={'class': 'pf-input', 'placeholder': 'e.g. Brown, Black/White'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'pf-checkbox'}),
+            'inactive_reason': forms.Textarea(attrs={
+                'class': 'pf-input',
+                'rows': 3,
+                'placeholder': 'Why is this pet profile inactive?',
+            }),
         }
 
     def __init__(self, *args, **kwargs):
@@ -246,6 +266,9 @@ class AdminPetForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+
+        if not cleaned.get('is_active') and not cleaned.get('inactive_reason', '').strip():
+            self.add_error('inactive_reason', 'Please provide a reason for marking this pet inactive.')
 
         # When editing, source field is disabled so use instance value
         if self.instance and self.instance.pk:

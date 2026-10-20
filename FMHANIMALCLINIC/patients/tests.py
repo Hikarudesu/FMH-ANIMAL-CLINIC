@@ -5,7 +5,7 @@ from django.urls import reverse
 from accounts.rbac_models import Module, ModulePermission, Role
 from branches.models import Branch
 from patients.models import Pet
-from .forms import AdminPetForm
+from .forms import AdminPetForm, PetForm
 
 
 class AdminPetWalkInContactTests(TestCase):
@@ -18,6 +18,7 @@ class AdminPetWalkInContactTests(TestCase):
             'name': 'Buddy',
             'species': 'Dog',
             'sex': 'MALE',
+            'is_active': 'on',
         }
 
     def test_walkin_patient_requires_phone_number(self):
@@ -42,6 +43,53 @@ class AdminPetWalkInContactTests(TestCase):
         form = AdminPetForm(data=self.form_data)
 
         self.assertTrue(form.is_valid(), form.errors)
+
+    def test_inactive_pet_requires_reason(self):
+        form_data = self.form_data.copy()
+        form_data['is_active'] = ''
+
+        form = AdminPetForm(data=form_data)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('inactive_reason', form.errors)
+
+    def test_inactive_pet_accepts_reason(self):
+        form_data = self.form_data.copy()
+        form_data.update({'is_active': '', 'inactive_reason': 'Owner requested profile to be inactive.'})
+
+        form = AdminPetForm(data=form_data)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        pet = form.save()
+        self.assertFalse(pet.is_active)
+        self.assertEqual(pet.inactive_reason, form_data['inactive_reason'])
+
+
+class PetInactiveReasonFormTests(TestCase):
+    def test_portal_form_requires_reason_when_pet_is_inactive(self):
+        form = PetForm(data={
+            'name': 'Buddy',
+            'species': 'Dog',
+            'sex': Pet.Sex.MALE,
+            'is_active': '',
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('inactive_reason', form.errors)
+
+    def test_portal_form_accepts_inactive_pet_with_reason(self):
+        form = PetForm(data={
+            'name': 'Buddy',
+            'species': 'Dog',
+            'sex': Pet.Sex.MALE,
+            'is_active': '',
+            'inactive_reason': 'Owner requested profile to be inactive.',
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+        pet = form.save()
+        self.assertFalse(pet.is_active)
+        self.assertEqual(pet.inactive_reason, form.cleaned_data['inactive_reason'])
 
 
 class PortalOwnerSearchTests(TestCase):

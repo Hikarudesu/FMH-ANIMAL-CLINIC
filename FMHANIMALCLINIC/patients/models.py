@@ -113,6 +113,11 @@ class Pet(SoftDeleteModel):
         help_text='Inactive pets will not show in appointment dropdowns but keep their medical history.',
         verbose_name='Active Status'
     )
+    inactive_reason = models.TextField(
+        blank=True,
+        verbose_name='Reason for Inactive Status',
+        help_text='Explain why this pet profile is inactive.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -136,6 +136,15 @@
           <small class="pf-help-text">Inactive pets will be hidden from appointment booking but keep their medical history.</small>
           {% if form.is_active.errors %}<span class="pf-field-error">{{ form.is_active.errors.0 }}</span>{% endif %}
         </div>
+        <div class="pf-field {% if form.inactive_reason.errors %}has-error{% endif %}"
+             id="inactiveReasonField"
+             {% if form.is_active.value %}hidden{% endif %}>
+          <div class="pf-field-icon"><i class='bx bx-note'></i></div>
+          {{ form.inactive_reason }}
+          <label for="{{ form.inactive_reason.id_for_label }}">Reason for Inactive Status <span class="pf-required">*</span></label>
+          <small class="pf-help-text">Required when this pet is inactive.</small>
+          {% if form.inactive_reason.errors %}<span class="pf-field-error">{{ form.inactive_reason.errors.0 }}</span>{% endif %}
+        </div>
       </div>
 
       <!-- Actions -->
@@ -154,6 +163,16 @@
 
 <script>
   window.addEventListener('DOMContentLoaded', () => {
+    const activeCheckbox = document.getElementById('{{ form.is_active.id_for_label }}');
+    const inactiveReasonField = document.getElementById('inactiveReasonField');
+    if (activeCheckbox && inactiveReasonField) {
+      const updateInactiveReasonVisibility = () => {
+        inactiveReasonField.hidden = activeCheckbox.checked;
+      };
+      activeCheckbox.addEventListener('change', updateInactiveReasonVisibility);
+      updateInactiveReasonVisibility();
+    }
+
     const fileInput = document.getElementById('{{ form.photo.id_for_label }}');
     if(fileInput) {
       fileInput.addEventListener('change', previewSelectedPhoto);
@@ -219,5 +238,9 @@
     }
   }
 </script>
+
+<style>
+  .pf-field[hidden] { display: none; }
+</style>
 
 {% endblock %}
