@@ -16,6 +16,19 @@ from billing.models import CustomerStatement
     }
 )
 class CustomerStatementPortalTests(TestCase):
+    def test_pet_owner_cannot_open_service_management_url(self):
+        owner = get_user_model().objects.create_user(
+            username='service-list-unauthorized-owner',
+            email='service-list-unauthorized-owner@example.com',
+            password='A-secure-test-password-935!',
+        )
+        self.client.force_login(owner)
+
+        response = self.client.get(reverse('billing:billable_items'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('accounts:user_dashboard'))
+
     def test_statement_cards_keep_view_and_print_actions_with_updated_layout(self):
         owner = get_user_model().objects.create_user(
             username='soa-card-owner',

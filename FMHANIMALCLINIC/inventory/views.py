@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 
 from accounts.models import User, ActivityLog
 from accounts.decorators import module_permission_required
@@ -68,6 +69,18 @@ def _is_superadmin_user(user):
         user.is_superuser
         or getattr(getattr(user, 'assigned_role', None), 'code', None) == 'superadmin'
     )
+
+
+def _reservations_for_user(user):
+    """Return reservations visible in the user's allowed branch scope."""
+    reservations = Reservation.objects.select_related('product', 'product__branch')
+    if not user.is_module_branch_restricted('reservations'):
+        return reservations
+
+    branch = _get_user_branch(user)
+    if not branch:
+        return reservations.none()
+    return reservations.filter(product__branch=branch)
 
 
 def _can_manage_stock_transfers(user):
@@ -693,14 +706,15 @@ def my_reservations_view(request):
 
 
 @login_required
+@require_POST
 def confirm_reservation_view(request, pk):
     """Confirm a reservation (release) — allowed by reservations EDIT module permission."""
-    reservation = get_object_or_404(Reservation, pk=pk)
-
     # Permission check: must have reservations module access with EDIT permission
     if _is_superadmin_user(request.user) or not request.user.has_module_permission('reservations', 'EDIT'):
         messages.warning(request, 'You do not have permission to confirm reservations.')
         return redirect('inventory:management')
+
+    reservation = get_object_or_404(_reservations_for_user(request.user), pk=pk)
 
     if reservation.status != Reservation.Status.PENDING:
         messages.warning(request, "This reservation is no longer pending.")
@@ -728,14 +742,15 @@ def confirm_reservation_view(request, pk):
 
 
 @login_required
+@require_POST
 def cancel_reservation_view(request, pk):
     """Cancel a reservation — allowed by reservations DELETE module permission."""
-    reservation = get_object_or_404(Reservation, pk=pk)
-
     # Permission check: must have reservations module access with DELETE permission
     if _is_superadmin_user(request.user) or not request.user.has_module_permission('reservations', 'DELETE'):
         messages.warning(request, 'You do not have permission to cancel reservations.')
         return redirect('inventory:management')
+
+    reservation = get_object_or_404(_reservations_for_user(request.user), pk=pk)
 
     if reservation.status != Reservation.Status.PENDING:
         messages.warning(request, "This reservation cannot be cancelled.")

@@ -2876,3 +2876,81 @@ class SharedAuthenticationRateLimitTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertFalse(self.user.check_password('A-new-secure-password-927!'))
+
+
+class RoleDashboardAuthorizationTests(TestCase):
+    def test_generic_staff_without_dashboard_grants_cannot_open_staff_dashboards(self):
+        dashboard_module, _ = Module.objects.get_or_create(
+            code='dashboard', defaults={'name': 'Dashboard'},
+        )
+        role = Role.objects.create(
+            name='Restricted URL Test Staff',
+            code='restricted-url-test-staff',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=role,
+            module=dashboard_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        user = get_user_model().objects.create_user(
+            username='restricted-url-dashboard-user',
+            password='A-secure-test-password-928!',
+            assigned_role=role,
+        )
+        self.client.force_login(user)
+
+        for route_name in (
+            'accounts:admin_dashboard',
+            'accounts:vet_dashboard',
+            'accounts:receptionist_dashboard',
+        ):
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name))
+                self.assertEqual(response.status_code, 403)
+
+    def test_staff_without_module_grants_cannot_open_module_urls_directly(self):
+        role = Role.objects.create(
+            name='No Module URL Test Staff',
+            code='no-module-url-test-staff',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        user = get_user_model().objects.create_user(
+            username='no-module-url-user',
+            password='A-secure-test-password-931!',
+            assigned_role=role,
+        )
+        self.client.force_login(user)
+
+        for route_name in ('inventory:management', 'diagnostics:dashboard'):
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name), follow=True)
+                self.assertEqual(response.status_code, 403)
+
+    def test_veterinarian_cannot_open_receptionist_dashboard_url(self):
+        role = Role.objects.get(code='veterinarian')
+        vet = get_user_model().objects.create_user(
+            username='vet-cannot-open-front-desk',
+            password='A-secure-test-password-929!',
+            assigned_role=role,
+        )
+        self.client.force_login(vet)
+
+        response = self.client.get(reverse('accounts:receptionist_dashboard'))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_receptionist_cannot_open_veterinary_dashboard_url(self):
+        role = Role.objects.get(code='receptionist')
+        receptionist = get_user_model().objects.create_user(
+            username='front-desk-cannot-open-vet-dashboard',
+            password='A-secure-test-password-930!',
+            assigned_role=role,
+        )
+        self.client.force_login(receptionist)
+
+        response = self.client.get(reverse('accounts:vet_dashboard'))
+
+        self.assertEqual(response.status_code, 403)

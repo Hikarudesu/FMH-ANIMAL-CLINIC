@@ -111,6 +111,33 @@ class InventoryWorkflowTests(TestCase):
             assigned_role=role,
         )
 
+    def create_reservation_manager(self, branch):
+        module, _ = Module.objects.get_or_create(
+            code='reservations', defaults={'name': 'Reservations'},
+        )
+        role = Role.objects.create(
+            name=f'Reservation Manager {branch.pk}',
+            code=f'reservation-manager-{branch.pk}',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        for permission_type in (
+            ModulePermission.PermissionType.EDIT,
+            ModulePermission.PermissionType.DELETE,
+        ):
+            ModulePermission.objects.create(
+                role=role,
+                module=module,
+                permission_type=permission_type,
+                restrict_to_branch=True,
+            )
+        return get_user_model().objects.create_user(
+            username=f'reservation-manager-{branch.pk}',
+            password='A-secure-test-password-932!',
+            branch=branch,
+            assigned_role=role,
+        )
+
     def test_new_item_initial_stock_is_recorded_once(self):
         self.client.force_login(self.admin)
 
@@ -539,6 +566,74 @@ class InventoryWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Cannot delete: this item has pending reservations')
         self.assertContains(response, 'disabled aria-disabled="true"')
+
+    def test_reservation_actions_cannot_target_another_branch_by_id(self):
+        other_branch = Branch.objects.create(
+            name='Foreign Reservation Branch',
+            phone_number='09123456780',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1001',
+        )
+        product = Product.objects.create(
+            branch=other_branch,
+            item_type='Product',
+            name='Foreign Reserved Item',
+            price=20,
+            stock_quantity=5,
+        )
+        reservation = Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            quantity=2,
+            status=Reservation.Status.PENDING,
+        )
+        staff = self.create_reservation_manager(self.branch)
+        self.client.force_login(staff)
+
+        confirm_response = self.client.post(
+            reverse('inventory:confirm_reservation', args=[reservation.pk]),
+        )
+        cancel_response = self.client.post(
+            reverse('inventory:cancel_reservation', args=[reservation.pk]),
+        )
+
+        self.assertEqual(confirm_response.status_code, 404)
+        self.assertEqual(cancel_response.status_code, 404)
+        reservation.refresh_from_db()
+        self.assertEqual(reservation.status, Reservation.Status.PENDING)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 5)
+
+    def test_reservation_confirmation_and_cancellation_require_post(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='GET Guard Reservation Item',
+            price=20,
+            stock_quantity=5,
+        )
+        reservation = Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            quantity=2,
+            status=Reservation.Status.PENDING,
+        )
+        staff = self.create_reservation_manager(self.branch)
+        self.client.force_login(staff)
+
+        confirm_response = self.client.get(
+            reverse('inventory:confirm_reservation', args=[reservation.pk]),
+        )
+        cancel_response = self.client.get(
+            reverse('inventory:cancel_reservation', args=[reservation.pk]),
+        )
+
+        self.assertEqual(confirm_response.status_code, 405)
+        self.assertEqual(cancel_response.status_code, 405)
+        reservation.refresh_from_db()
+        self.assertEqual(reservation.status, Reservation.Status.PENDING)
 
     def test_stock_adjustment_reaching_zero_marks_item_unavailable(self):
         product = Product.objects.create(
