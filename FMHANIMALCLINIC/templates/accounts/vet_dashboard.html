@@ -77,12 +77,16 @@
       <div class="chart-header">
         <div class="chart-title">
           <i class='bx bx-bar-chart-alt-2'></i>
-          <span>Your Completed Consultations</span>
+          <span>Completed Consultations</span>
         </div>
         <div class="chart-badge purple">{{ monthly_consultations_period }}</div>
       </div>
       <div class="chart-body chart-body-monthly">
         <canvas id="monthlyCompletedConsultationsChart"></canvas>
+        <div id="monthlyConsultationsEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>No completed consultations in this period</span>
+        </div>
       </div>
     </div>
     <div class="chart-card-modern chart-card-supporting">
@@ -95,6 +99,10 @@
       </div>
       <div class="chart-body chart-body-appointment-types">
         <canvas id="appointmentTypesChart"></canvas>
+        <div id="appointmentTypesEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-pie-chart-alt-2'></i>
+          <span>No appointment reason data available yet</span>
+        </div>
       </div>
     </div>
   </div>
@@ -1538,7 +1546,7 @@
   }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   
@@ -1629,11 +1637,15 @@ document.addEventListener('DOMContentLoaded', function() {
     Chart.defaults.plugins.legend.labels.color = isGlobalDark ? '#ffffff' : '#64748b';
   }
 
-  function showPatientHealthEmptyState() {
-    const canvas = document.getElementById('patientHealthChart');
-    const empty = document.getElementById('patientHealthEmpty');
+  function showChartEmptyState(canvasId, emptyId, message) {
+    const canvas = document.getElementById(canvasId);
+    const empty = document.getElementById(emptyId);
     if (canvas) canvas.style.display = 'none';
-    if (empty) empty.style.display = 'flex';
+    if (empty) {
+      const label = empty.querySelector('span');
+      if (label && message) label.textContent = message;
+      empty.style.display = 'flex';
+    }
   }
   
   const commonTooltip = {
@@ -1652,9 +1664,9 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   const monthlyConsultationsCtx = document.getElementById('monthlyCompletedConsultationsChart');
-  if (monthlyConsultationsCtx && chartAvailable) {
-    const consultationMonths = {{ monthly_consultation_labels|safe }};
-    const consultationCounts = {{ monthly_consultation_counts|safe }};
+  const consultationMonths = {{ monthly_consultation_labels|safe }};
+  const consultationCounts = {{ monthly_consultation_counts|safe }};
+  if (monthlyConsultationsCtx && chartAvailable && consultationCounts.some(count => count > 0)) {
 
     new Chart(monthlyConsultationsCtx, {
       type: 'bar',
@@ -1706,6 +1718,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
     });
+  } else if (monthlyConsultationsCtx) {
+    showChartEmptyState(
+      'monthlyCompletedConsultationsChart',
+      'monthlyConsultationsEmpty',
+      chartAvailable
+        ? 'No completed consultations in this period'
+        : 'Charts could not load. Check your connection and refresh the page.'
+    );
   }
 
   const appointmentTypesCtx = document.getElementById('appointmentTypesChart');
@@ -1742,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     };
 
-    new Chart(appointmentTypesCtx, {
+    if (totalAppointments > 0) new Chart(appointmentTypesCtx, {
       type: 'doughnut',
       data: {
         labels: appointmentData.map(item => item.label),
@@ -1775,6 +1795,17 @@ document.addEventListener('DOMContentLoaded', function() {
       },
       plugins: [centerTextPlugin]
     });
+    else showChartEmptyState(
+      'appointmentTypesChart',
+      'appointmentTypesEmpty',
+      'No appointment reason data available yet'
+    );
+  } else if (appointmentTypesCtx) {
+    showChartEmptyState(
+      'appointmentTypesChart',
+      'appointmentTypesEmpty',
+      'Charts could not load. Check your connection and refresh the page.'
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1857,10 +1888,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     } else {
-      showPatientHealthEmptyState();
+      showChartEmptyState(
+        'patientHealthChart',
+        'patientHealthEmpty',
+        'No patient status data available yet'
+      );
     }
   } else if (patientHealthCtx) {
-    showPatientHealthEmptyState();
+    showChartEmptyState(
+      'patientHealthChart',
+      'patientHealthEmpty',
+      'Charts could not load. Check your connection and refresh the page.'
+    );
   }
 
   // Start all animations after charts are ready

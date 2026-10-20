@@ -1642,33 +1642,21 @@ def vet_dashboard_view(request):
     )
     month_counts = {month: 0 for month in monthly_consultation_months}
 
-    if staff_profile and not appt_restricted_no_branch:
-        matching_vet_record = (
-            Q(vet=staff_profile) |
-            Q(vet__isnull=True, record__vet=staff_profile)
-        )
-        consultation_entries = (
-            RecordEntry.objects.filter(
-                appointment__status=Appointment.Status.COMPLETED,
-                appointment__preferred_vet=staff_profile,
-                appointment__pet__isnull=False,
-                appointment__appointment_date__gte=date(consultation_year, 6, 1),
-                appointment__appointment_date__lte=consultation_period_end,
-                **{
-                    f"appointment__{key}": value
-                    for key, value in appt_filter.items()
-                },
-                **{
-                    f"record__{key}": value
-                    for key, value in records_filter.items()
-                },
+    if not appt_restricted_no_branch:
+        monthly_consultations = (
+            Appointment.objects.filter(
+                status=Appointment.Status.COMPLETED,
+                pet__isnull=False,
+                appointment_date__gte=date(consultation_year, 6, 1),
+                appointment_date__lte=consultation_period_end,
+                **appt_filter,
             )
-            .filter(matching_vet_record)
-            .annotate(month=TruncMonth('appointment__appointment_date'))
+            .annotate(month=TruncMonth('appointment_date'))
             .values('month')
-            .annotate(count=Count('appointment_id', distinct=True))
+            .annotate(count=Count('id'))
+            .order_by('month')
         )
-        for row in consultation_entries:
+        for row in monthly_consultations:
             month_counts[row['month'].month] = row['count']
 
     monthly_consultation_counts = [

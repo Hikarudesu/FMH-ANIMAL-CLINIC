@@ -598,7 +598,7 @@ class VetDashboardContentTests(TestCase):
 
         for role_code, role_name in (
             ('veterinarian', 'Veterinarian'),
-            ('assistant_veterinarian', 'Vet Assistant'),
+            ('assistant_veterinarian', 'Assistant Veterinarian Dashboard Test'),
         ):
             with self.subTest(role=role_code):
                 role, _ = Role.objects.get_or_create(
@@ -690,7 +690,7 @@ class VetDashboardContentTests(TestCase):
                 self.assertContains(response, 'Recent Medical Records')
                 self.assertContains(response, 'No medical records have been recorded yet.')
                 dashboard_html = response.content.decode()
-                self.assertContains(response, 'Your Completed Consultations')
+                self.assertContains(response, 'Completed Consultations')
                 self.assertContains(response, 'Appointment Types')
                 self.assertContains(response, 'monthlyCompletedConsultationsChart')
                 self.assertContains(response, 'appointmentTypesChart')
@@ -979,18 +979,43 @@ class VetDashboardContentTests(TestCase):
             vet=staff,
             date_recorded=date(today.year, 6, 15),
         )
+        create_completed_appointment()
 
         self.client.force_login(user)
         response = self.client.get(reverse('vet_dashboard'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Your Completed Consultations')
+        self.assertContains(response, 'Completed Consultations')
         self.assertContains(response, 'Appointment Types')
         self.assertContains(response, 'monthlyCompletedConsultationsChart')
         self.assertContains(response, 'appointmentTypesChart')
         self.assertEqual(response.context['consultation_reasons'][0]['reason'], 'Unspecified')
-        self.assertEqual(response.context['consultation_reasons'][0]['count'], 4)
-        self.assertEqual(response.context['monthly_consultation_counts'][0], 2)
+        self.assertEqual(response.context['consultation_reasons'][0]['count'], 5)
+        self.assertEqual(response.context['monthly_consultation_counts'][0], 5)
+
+        assistant_role, _ = Role.objects.get_or_create(
+            code='assistant_veterinarian',
+            defaults={
+                'name': 'Assistant Vet Chart Test',
+                'hierarchy_level': 1,
+                'is_staff_role': True,
+            },
+        )
+        assistant = get_user_model().objects.create_user(
+            username='assistant-monthly-consultations',
+            email='assistant-monthly-consultations@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=assistant_role,
+            branch=branch,
+        )
+        self.client.force_login(assistant)
+        assistant_response = self.client.get(reverse('vet_dashboard'))
+
+        self.assertEqual(assistant_response.status_code, 200)
+        self.assertEqual(
+            assistant_response.context['monthly_consultation_counts'][0],
+            5,
+        )
 
 
 @override_settings(
