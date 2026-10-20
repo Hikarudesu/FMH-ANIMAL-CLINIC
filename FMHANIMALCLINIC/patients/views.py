@@ -463,7 +463,15 @@ def admin_add_pet_view(request):
     if request.method == 'POST':
         form = AdminPetForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
-            pet = form.save()
+            pet = form.save(commit=False)
+            if pet.source == Pet.Source.WALKIN and not pet.branch_id:
+                assigned_branch = request.user.branch
+                if not assigned_branch:
+                    staff_profile = getattr(request.user, 'staff_profile', None)
+                    assigned_branch = getattr(staff_profile, 'branch', None)
+                if assigned_branch:
+                    pet.branch = assigned_branch
+            pet.save()
             owner_name = pet.owner.get_full_name() or pet.owner.username if pet.owner else pet.guest_owner_name or 'Walk-in'
             messages.success(request, f'{pet.name} has been registered under {owner_name}!')
             return redirect('patients:admin_detail', pk=pet.pk)

@@ -225,6 +225,141 @@ class BranchRestrictedPatientListTests(TestCase):
             [pet.pk for pet in response.context['pets']],
             [self.pet.pk],
         )
+        self.assertNotContains(response, 'title="Clear Filters"')
+
+
+class BranchRestrictedWalkInRegistrationTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(
+            name='Reception Walk-in Branch',
+            phone_number='09123456789',
+            address='1 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        module, _ = Module.objects.get_or_create(
+            code='patients', defaults={'name': 'Patients'},
+        )
+        role = Role.objects.create(
+            name='Receptionist Patient Registration Role',
+            code='receptionist-patient-registration',
+            hierarchy_level=4,
+            is_staff_role=True,
+        )
+        for permission_type in (
+            ModulePermission.PermissionType.VIEW,
+            ModulePermission.PermissionType.CREATE,
+        ):
+            ModulePermission.objects.create(
+                role=role,
+                module=module,
+                permission_type=permission_type,
+                restrict_to_branch=True,
+            )
+        self.receptionist = get_user_model().objects.create_user(
+            username='walkin-receptionist',
+            email='walkin-receptionist@example.com',
+            password='A-secure-test-password-927!',
+            assigned_role=role,
+            branch=self.branch,
+        )
+
+    def test_walkin_registration_uses_receptionist_branch_and_branch_filter_finds_pet(self):
+        self.client.force_login(self.receptionist)
+
+        response = self.client.post(reverse('patients:admin_add_pet'), {
+            'source': Pet.Source.WALKIN,
+            'guest_owner_name': 'Walk-in Pet Owner',
+            'guest_owner_phone': '09123456789',
+            'guest_owner_email': 'walkin-owner@example.com',
+            'name': 'Reception Walk-in Patient',
+            'species': 'Dog',
+            'sex': Pet.Sex.FEMALE,
+            'color': 'Brown',
+            'is_active': 'on',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        pet = Pet.objects.get(name='Reception Walk-in Patient')
+        self.assertEqual(pet.source, Pet.Source.WALKIN)
+        self.assertEqual(pet.branch_id, self.branch.pk)
+
+        admin = get_user_model().objects.create_superuser(
+            username='walkin-branch-filter-admin',
+            email='walkin-filter-admin@example.com',
+            password='A-secure-test-password-928!',
+        )
+        self.client.force_login(admin)
+        response = self.client.get(
+            reverse('patients:admin_list'),
+            {'branch': self.branch.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, pet.name)
+
+    def test_unrestricted_receptionist_walkin_defaults_to_assigned_branch(self):
+        module, _ = Module.objects.get_or_create(
+            code='patients', defaults={'name': 'Patients'},
+        )
+        role = Role.objects.create(
+            name='Unrestricted Receptionist Registration Role',
+            code='unrestricted-receptionist-registration',
+            hierarchy_level=4,
+            is_staff_role=True,
+        )
+        for permission_type in (
+            ModulePermission.PermissionType.VIEW,
+            ModulePermission.PermissionType.CREATE,
+        ):
+            ModulePermission.objects.create(
+                role=role,
+                module=module,
+                permission_type=permission_type,
+                restrict_to_branch=False,
+            )
+        receptionist = get_user_model().objects.create_user(
+            username='unrestricted-walkin-receptionist',
+            email='unrestricted-walkin@example.com',
+            password='A-secure-test-password-929!',
+            assigned_role=role,
+            branch=self.branch,
+        )
+        self.client.force_login(receptionist)
+
+        response = self.client.post(reverse('patients:admin_add_pet'), {
+            'source': Pet.Source.WALKIN,
+            'guest_owner_name': 'Unrestricted Walk-in Owner',
+            'guest_owner_phone': '09123456789',
+            'guest_owner_email': 'unrestricted-owner@example.com',
+            'name': 'Unrestricted Walk-in Patient',
+            'species': 'Dog',
+            'sex': Pet.Sex.MALE,
+            'color': 'Black',
+            'is_active': 'on',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        pet = Pet.objects.get(name='Unrestricted Walk-in Patient')
+        self.assertEqual(pet.branch_id, self.branch.pk)
+
+        response = self.client.get(
+            reverse('patients:admin_list'),
+            {'q': pet.name},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['is_branch_restricted'])
+        self.assertContains(response, pet.name)
+
+    def test_unfiltered_patient_list_does_not_show_clear_filter_button(self):
+        self.client.force_login(self.receptionist)
+
+        response = self.client.get(reverse('patients:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'title="Clear Filters"')
 
 
 @override_settings(

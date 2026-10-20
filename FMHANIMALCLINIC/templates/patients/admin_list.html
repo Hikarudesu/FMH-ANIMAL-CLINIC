@@ -258,7 +258,9 @@
         </select>
       </div>
 
-      {% if search_query or selected_status or selected_branch or selected_species or selected_source %}
+      {% if search_query or selected_status or selected_species or selected_source %}
+      <a href="{% url 'patients:admin_list' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
+      {% elif selected_branch and not is_branch_restricted %}
       <a href="{% url 'patients:admin_list' %}" class="c-filter-bar__clear" title="Clear Filters"><i class='bx bx-x'></i></a>
       {% endif %}
     </div>
