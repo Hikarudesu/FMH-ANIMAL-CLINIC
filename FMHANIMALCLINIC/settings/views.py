@@ -528,15 +528,17 @@ def _handle_quick_access_card_form(request):
 
     if form.is_valid():
         card = form.save(commit=False)
-        if not card.fallback_image:
-            card.fallback_image = 'image/quick.png'
+        if card_id and request.POST.get('image-clear') == 'on':
+            card.image = None
         card.save()
-        _log_settings_change(request.user, 'Quick Access', f'{action} homepage card')
+        _log_settings_change(
+            request.user,
+            'Quick Access Cards',
+            f'{action} {card.title}',
+        )
         messages.success(request, f'Quick access card {action.lower()} successfully.')
     else:
-        for field, errors in form.errors.items():
-            for error in errors:
-                messages.error(request, f'{field}: {error}')
+        messages.error(request, 'Please correct the errors.')
     return redirect('settings:content_settings')
 
 

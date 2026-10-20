@@ -118,7 +118,7 @@ class QuickAccessContentManagementTests(TestCase):
         )
         self.client.force_login(self.admin)
 
-    def test_section_and_cards_are_editable_and_subject_image_is_autocropped(self):
+    def test_section_and_cards_are_editable_and_image_is_autocropped(self):
         intro_response = self.client.post(reverse('settings:content_settings'), {
             'form_type': 'content',
             'sub_form': 'quick_access_intro',
@@ -128,10 +128,9 @@ class QuickAccessContentManagementTests(TestCase):
         }, follow=True)
         self.assertContains(intro_response, 'Quick access section updated successfully.')
 
-        source = Image.new('RGBA', (100, 90), (0, 0, 0, 0))
-        source.alpha_composite(Image.new('RGBA', (30, 40), (0, 255, 0, 255)), (20, 15))
+        source = Image.new('RGB', (100, 90), (0, 255, 0))
         image_buffer = BytesIO()
-        source.save(image_buffer, format='PNG')
+        source.save(image_buffer, format='JPEG')
 
         response = self.client.post(
             reverse('settings:content_settings'),
@@ -143,10 +142,10 @@ class QuickAccessContentManagementTests(TestCase):
                 'link': '/services/',
                 'order': '7',
                 'is_active': 'on',
-                'subject_image': SimpleUploadedFile(
-                    'transparent-subject.png',
+                'image': SimpleUploadedFile(
+                    'quick-access-image.jpg',
                     image_buffer.getvalue(),
-                    content_type='application/octet-stream',
+                    content_type='image/jpeg',
                 ),
             },
             follow=True,
@@ -154,20 +153,57 @@ class QuickAccessContentManagementTests(TestCase):
 
         self.assertContains(response, 'Quick access card added successfully.')
         card = QuickAccessCard.objects.get(title='New Dynamic Card')
-        with Image.open(card.subject_image.path) as cropped_image:
-            self.assertEqual(cropped_image.size, (30, 40))
-            self.assertEqual(cropped_image.mode, 'RGBA')
-            self.assertEqual(cropped_image.getpixel((0, 0)), (0, 255, 0, 255))
+        with Image.open(card.image.path) as cropped_image:
+            self.assertEqual(cropped_image.size, (1200, 800))
+            self.assertEqual(cropped_image.mode, 'RGB')
+            red, green, blue = cropped_image.getpixel((0, 0))
+            self.assertLessEqual(red, 5)
+            self.assertGreaterEqual(green, 250)
+            self.assertLessEqual(blue, 5)
 
         homepage = self.client.get(reverse('landing_page'))
         self.assertContains(homepage, 'Explore Our')
         self.assertContains(homepage, 'Updated Clinic')
         self.assertContains(homepage, 'New Dynamic Card')
         self.assertContains(homepage, 'A dynamically managed homepage card.')
-        self.assertContains(homepage, card.subject_image.url)
-        self.assertContains(homepage, 'quick-subject-img')
-        self.assertContains(response, 'Card background artwork stays fixed')
-        self.assertNotContains(response, 'name="fallback_image"')
+        self.assertContains(homepage, card.image.url)
+        self.assertContains(response, 'quick_access_card-image')
+        self.assertContains(response, 'center-cropped')
+
+    def test_existing_card_image_can_be_cleared(self):
+        card = QuickAccessCard.objects.get(title='Our Services')
+        image_buffer = BytesIO()
+        Image.new('RGB', (16, 12), (0, 128, 255)).save(image_buffer, format='JPEG')
+        card.image.save(
+            'existing-quick-access.jpg',
+            SimpleUploadedFile(
+                'existing-quick-access.jpg',
+                image_buffer.getvalue(),
+                content_type='image/jpeg',
+            ),
+            save=True,
+        )
+
+        response = self.client.post(
+            reverse('settings:content_settings'),
+            {
+                'form_type': 'content',
+                'sub_form': 'quick_access_card',
+                'item_id': str(card.pk),
+                'title': card.title,
+                'description': card.description,
+                'link': card.link,
+                'order': str(card.order),
+                'is_active': 'on',
+                'image-clear': 'on',
+            },
+            follow=True,
+        )
+
+        self.assertContains(response, 'Quick access card updated successfully.')
+        card.refresh_from_db()
+        self.assertFalse(card.image)
+        self.assertEqual(card.fallback_image, 'image/quick.png')
 
     def test_quick_access_card_rejects_unsafe_link_and_can_be_deleted(self):
         self.client.post(reverse('settings:content_settings'), {

@@ -1,10 +1,13 @@
 """Models for the settings."""
 
 import json
+from io import BytesIO
 from decimal import Decimal
 
+from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
 from django.db import models
+from PIL import Image, ImageOps
 
 from utils.validators import validate_image_file, IMAGE_UPLOAD_HELP_TEXT
 
@@ -253,7 +256,7 @@ class SectionContent(models.Model):
 
 
 class QuickAccessCard(models.Model):
-    """Editable homepage shortcut; its background artwork remains fixed."""
+    """Editable card displayed in the homepage quick-access grid."""
 
     title = models.CharField(max_length=150)
     description = models.TextField()
@@ -292,6 +295,22 @@ class QuickAccessCard(models.Model):
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        """Crop new uploads to the homepage card's consistent 3:2 shape."""
+        if self.image and not self.image._committed:
+            with Image.open(self.image) as uploaded_image:
+                image = ImageOps.exif_transpose(uploaded_image).convert('RGB')
+                cropped = ImageOps.fit(
+                    image,
+                    (1200, 800),
+                    method=Image.Resampling.LANCZOS,
+                )
+                output = BytesIO()
+                cropped.save(output, format='JPEG', quality=88, optimize=True)
+            filename = f'{self.image.name.rsplit(".", 1)[0]}.jpg'
+            self.image.save(filename, ContentFile(output.getvalue()), save=False)
+        super().save(*args, **kwargs)
 
 
 class HeroStat(models.Model):

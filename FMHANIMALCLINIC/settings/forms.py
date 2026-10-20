@@ -1,14 +1,11 @@
 """Forms for settings."""
 # pylint: disable=no-member, line-too-long, trailing-whitespace, missing-docstring, import-outside-toplevel
 
-from io import BytesIO
-from urllib.parse import urlsplit
-
 from django import forms
 from django.core.exceptions import ValidationError
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.validators import URLValidator
 from django.db import models
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from FMHANIMALCLINIC.form_mixins import AdminInputMixin, validate_philippines_phone
 from .models import (
@@ -700,27 +697,28 @@ class QuickAccessIntroForm(AdminInputMixin, forms.Form):
 
 
 class QuickAccessCardForm(AdminInputMixin, forms.ModelForm):
-    """Manage shortcut copy and transparent foreground art, not its background."""
+    """Create or edit one homepage quick-access card."""
 
     class Meta:
         model = QuickAccessCard
-        fields = ['title', 'description', 'link', 'subject_image', 'order', 'is_active']
+        fields = ['title', 'description', 'link', 'image', 'order', 'is_active']
         widgets = {
             'title': forms.TextInput(attrs={
                 'id': 'quick_access_card-title',
-                'placeholder': 'Card title',
+                'placeholder': 'Card heading',
             }),
             'description': forms.Textarea(attrs={
                 'id': 'quick_access_card-description',
                 'rows': 3,
+                'placeholder': 'Short description shown on the card',
             }),
             'link': forms.TextInput(attrs={
                 'id': 'quick_access_card-link',
-                'placeholder': '/services/',
+                'placeholder': '/services/ or https://example.com',
             }),
-            'subject_image': forms.ClearableFileInput(attrs={
-                'id': 'quick_access_card-subject_image',
-                'accept': 'image/png',
+            'image': forms.FileInput(attrs={
+                'id': 'quick_access_card-image',
+                'accept': 'image/png,image/jpeg',
             }),
             'order': forms.NumberInput(attrs={'id': 'quick_access_card-order'}),
             'is_active': forms.CheckboxInput(attrs={
@@ -728,44 +726,25 @@ class QuickAccessCardForm(AdminInputMixin, forms.ModelForm):
             }),
         }
 
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        uploaded_image_file = self.files.get(self.add_prefix('image'))
+        if uploaded_image_file:
+            try:
+                uploaded_image_file.seek(0)
+                with Image.open(uploaded_image_file) as uploaded_image:
+                    uploaded_image.verify()
+                uploaded_image_file.seek(0)
+            except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
+                raise ValidationError('Upload a valid PNG or JPEG image.') from exc
+        return image
+
     def clean_link(self):
-        link = self.cleaned_data['link'].strip()
-        parsed = urlsplit(link)
-        if link.startswith('/') and not link.startswith('//') and not parsed.netloc:
+        link = (self.cleaned_data.get('link') or '').strip()
+        if link.startswith('/') and not link.startswith('//') and '\\' not in link:
             return link
-        if parsed.scheme in {'http', 'https'} and parsed.netloc:
-            return link
-        raise ValidationError('Enter a site path or a valid http(s) URL.')
-
-    def clean_subject_image(self):
-        upload = self.cleaned_data.get('subject_image')
-        if not upload:
-            return upload
-
-        try:
-            upload.seek(0)
-            with Image.open(upload) as source:
-                if source.format != 'PNG':
-                    raise ValidationError('Upload a transparent PNG subject image.')
-                image = source.convert('RGBA')
-        except OSError as exc:
-            raise ValidationError('The uploaded image could not be processed.') from exc
-
-        alpha = image.getchannel('A')
-        if alpha.getextrema()[0] == 255:
-            raise ValidationError('The PNG must have a transparent background.')
-        bounds = alpha.getbbox()
-        if not bounds:
-            raise ValidationError('The uploaded image has no visible subject.')
-
-        cropped = image.crop(bounds)
-        buffer = BytesIO()
-        cropped.save(buffer, format='PNG')
-        return SimpleUploadedFile(
-            upload.name.rsplit('.', 1)[0] + '.png',
-            buffer.getvalue(),
-            content_type='image/png',
-        )
+        URLValidator(schemes=['http', 'https'])(link)
+        return link
 
 
 class HeroStatForm(AdminInputMixin, forms.ModelForm):

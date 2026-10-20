@@ -1,4 +1,5 @@
 <!-- Content Management Tab -->
+{% load static %}
 {% load file_urls %}
 <style>
   /* Content Sub-tabs */
@@ -180,14 +181,6 @@
     width: 100%;
     height: 140px;
     object-fit: cover;
-    border-radius: 8px;
-    margin-bottom: 16px;
-  }
-  .quick-subject-thumb {
-    width: 100%;
-    height: 140px;
-    object-fit: contain;
-    background: var(--bg);
     border-radius: 8px;
     margin-bottom: 16px;
   }
@@ -676,7 +669,7 @@
     <div style="display: flex; align-items: center; justify-content: space-between; margin: 20px 0; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
       <div>
         <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0 0 6px;">Homepage Cards</h4>
-        <p class="form-hint" style="margin: 0;">Edit card text, links, and the transparent person or animal image. Card background artwork stays fixed; transparent image margins are trimmed automatically.</p>
+        <p class="form-hint" style="margin: 0;">Edit card text, links, and upload a PNG or JPEG image. Images are automatically center-cropped to a consistent 3:2 shape.</p>
       </div>
       <button type="button" class="btn-add-item" onclick="openModal('quick_access_card')">
         <i class='bx bx-plus'></i> Add Card
@@ -686,10 +679,12 @@
     <div class="items-grid">
       {% for card in forms.content.quick_access_cards %}
       <div class="service-item-card">
-        {% if card.subject_image %}
-        <img src="{{ card.subject_image|stored_or_static_url }}" alt="{{ card.title }}" class="quick-subject-thumb">
+        {% if card.image %}
+        <img src="{{ card.image|stored_or_static_url }}" alt="{{ card.title }}" class="service-thumb">
+        {% elif card.fallback_image %}
+        <img src="{% static card.fallback_image %}" alt="{{ card.title }}" class="service-thumb">
         {% else %}
-        <div class="service-thumb-placeholder"><i class='bx bx-image'></i><span style="font-size: 12px; margin-left: 8px;">No subject image</span></div>
+        <div class="service-thumb-placeholder"><i class='bx bx-image'></i></div>
         {% endif %}
         <div class="service-item-content">
           <h4>{{ card.title }}</h4>
@@ -859,11 +854,11 @@
         </div>
         <div class="admin-field">
           <label>Person or Animal Image</label>
-          {{ forms.content.quick_access_card_form.subject_image }}
-          <p class="form-hint">Upload a transparent PNG. Transparent margins are trimmed automatically; the card background is not changed.</p>
+          {{ forms.content.quick_access_card_form.image }}
+          <p class="form-hint">Upload a PNG or JPEG, maximum 10 MB. The image is automatically center-cropped to 1200 × 800.</p>
           <label class="form-checkbox-label" style="margin-top: 8px;">
-            <input type="checkbox" name="subject_image-clear" id="quick_access_card-subject-image-clear" value="on">
-            <span>Remove current image</span>
+            <input type="checkbox" name="image-clear" id="quick_access_card-image-clear" value="on">
+            <span>Remove current uploaded image</span>
           </label>
         </div>
         <div class="admin-field">
@@ -1156,7 +1151,7 @@
     document.getElementById('quick_access_card-link').value = link;
     document.getElementById('quick_access_card-order').value = order;
     document.getElementById('quick_access_card-active').checked = active;
-    document.getElementById('quick_access_card-subject-image-clear').checked = false;
+    document.getElementById('quick_access_card-image-clear').checked = false;
   }
 
   // Close modal on overlay click
