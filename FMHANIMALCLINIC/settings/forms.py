@@ -3,11 +3,14 @@
 
 from django import forms
 from django.db import models
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
+from PIL import Image, UnidentifiedImageError
 
 from FMHANIMALCLINIC.form_mixins import AdminInputMixin, validate_philippines_phone
 from .models import (
     ClinicProfile, SectionContent, HeroStat,
-    Service, Veterinarian,
+    Service, Veterinarian, QuickAccessCard,
     ShiftTypeOption,
 )
 from .utils import (
@@ -648,6 +651,35 @@ class VetsIntroForm(AdminInputMixin, forms.Form):
             pass
 
 
+class QuickAccessIntroForm(AdminInputMixin, forms.Form):
+    """Edit the homepage quick-access section heading and subtitle."""
+
+    title = forms.CharField(
+        max_length=255,
+        widget=forms.TextInput(attrs={'id': 'quick_access_intro-title'}),
+    )
+    subtitle = forms.CharField(
+        max_length=500,
+        required=False,
+        widget=forms.TextInput(attrs={'id': 'quick_access_intro-subtitle'}),
+    )
+    description = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'id': 'quick_access_intro-description',
+            'rows': 2,
+        }),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        content = SectionContent.objects.filter(section_type='QUICK_ACCESS').first()
+        if content:
+            self.fields['title'].initial = content.title
+            self.fields['subtitle'].initial = content.subtitle
+            self.fields['description'].initial = content.description
+
+
 class HeroStatForm(AdminInputMixin, forms.ModelForm):
     """Form for individual hero statistic."""
 
@@ -660,6 +692,59 @@ class HeroStatForm(AdminInputMixin, forms.ModelForm):
             'order': forms.NumberInput(attrs={'style': 'width: 80px;'}),
             'is_active': forms.CheckboxInput(),
         }
+
+
+class QuickAccessCardForm(AdminInputMixin, forms.ModelForm):
+    """Create or edit one homepage quick-access card."""
+
+    class Meta:
+        model = QuickAccessCard
+        fields = ['title', 'description', 'link', 'image', 'order', 'is_active']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'id': 'quick_access_card-title',
+                'placeholder': 'Card heading',
+            }),
+            'description': forms.Textarea(attrs={
+                'id': 'quick_access_card-description',
+                'rows': 3,
+                'placeholder': 'Short description shown on the card',
+            }),
+            'link': forms.TextInput(attrs={
+                'id': 'quick_access_card-link',
+                'placeholder': '/services/ or https://example.com',
+            }),
+            'image': forms.FileInput(attrs={
+                'id': 'quick_access_card-image',
+                'accept': 'image/png,image/jpeg',
+            }),
+            'order': forms.NumberInput(attrs={
+                'id': 'quick_access_card-order',
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'id': 'quick_access_card-active',
+            }),
+        }
+
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        uploaded_image_file = self.files.get(self.add_prefix('image'))
+        if uploaded_image_file:
+            try:
+                uploaded_image_file.seek(0)
+                with Image.open(uploaded_image_file) as uploaded_image:
+                    uploaded_image.verify()
+                uploaded_image_file.seek(0)
+            except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
+                raise ValidationError('Upload a valid PNG or JPEG image.') from exc
+        return image
+
+    def clean_link(self):
+        link = (self.cleaned_data.get('link') or '').strip()
+        if link.startswith('/') and not link.startswith('//') and '\\' not in link:
+            return link
+        URLValidator(schemes=['http', 'https'])(link)
+        return link
 
 
 class ServiceForm(AdminInputMixin, forms.ModelForm):
@@ -856,5 +941,3 @@ class ShiftTypeForm(AdminInputMixin, forms.ModelForm):
         if commit:
             instance.save()
         return instance
-
-

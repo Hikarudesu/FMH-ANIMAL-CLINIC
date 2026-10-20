@@ -11,6 +11,7 @@ from .models import (
     SectionContent,
     Service,
     Veterinarian,
+    QuickAccessCard,
 )
 from .utils import invalidate_setting_cache, invalidate_clinic_profile_cache
 
@@ -139,3 +140,21 @@ def cleanup_old_veterinarian_photo(sender, instance, **kwargs):
 def cleanup_deleted_veterinarian_photo(sender, instance, **kwargs):
     """Delete veterinarian photo from storage when deleting record."""
     safely_delete_field_file(instance.photo)
+
+
+@receiver(pre_save, sender=QuickAccessCard)
+def stash_old_quick_access_image(sender, instance, **kwargs):
+    """Capture the old card image before an update."""
+    _stash_old_file(instance, QuickAccessCard, 'image', '_old_image')
+
+
+@receiver(post_save, sender=QuickAccessCard)
+def cleanup_old_quick_access_image(sender, instance, **kwargs):
+    """Delete the previous image after a replacement is saved."""
+    _cleanup_stashed_file(instance, '_old_image')
+
+
+@receiver(post_delete, sender=QuickAccessCard)
+def cleanup_deleted_quick_access_image(sender, instance, **kwargs):
+    """Delete an uploaded card image when its card is removed."""
+    safely_delete_field_file(instance.image)

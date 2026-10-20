@@ -64,7 +64,13 @@ def landing_content(request):
         return {}
 
     # Import here to avoid circular imports
-    from .models import SectionContent, HeroStat, Service, Veterinarian
+    from .models import (
+        SectionContent,
+        HeroStat,
+        Service,
+        Veterinarian,
+        QuickAccessCard,
+    )
     from branches.models import Branch
 
     # Get section content
@@ -87,11 +93,13 @@ def landing_content(request):
     services_intro = get_section('SERVICES_INTRO')
     vets_intro = get_section('VETS_INTRO')
     core_values_intro = get_section('CORE_VALUES_INTRO')
+    quick_access_intro = get_section('QUICK_ACCESS')
 
     # Get list content
     hero_stats = HeroStat.objects.filter(is_active=True)
     services = Service.objects.filter(is_active=True)
     veterinarians = Veterinarian.objects.filter(is_active=True)
+    quick_access_cards = QuickAccessCard.objects.filter(is_active=True)
 
     # Build branches JSON for contact page map
     branches = Branch.objects.filter(is_active=True).order_by('display_order', 'name')
@@ -123,8 +131,10 @@ def landing_content(request):
         'services_intro': services_intro,
         'vets_intro': vets_intro,
         'core_values_intro': core_values_intro,
+        'quick_access_intro': quick_access_intro,
         'services': services,
         'veterinarians': veterinarians,
+        'quick_access_cards': quick_access_cards,
         'branches': branches,
         'branches_json': json.dumps(branches_data),
     }
@@ -146,4 +156,3 @@ def legal_documents(request):
         'tos_document': LegalDocument.get_tos(),
         'privacy_document': LegalDocument.get_privacy_policy(),
     }
-

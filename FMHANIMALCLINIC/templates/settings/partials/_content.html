@@ -1,4 +1,5 @@
 <!-- Content Management Tab -->
+{% load static %}
 {% load file_urls %}
 <style>
   /* Content Sub-tabs */
@@ -495,6 +496,9 @@
     <button class="content-subtab" onclick="showContentPanel('services', this)">
       <i class='bx bx-briefcase'></i> Services
     </button>
+    <button class="content-subtab" onclick="showContentPanel('quick-access', this)">
+      <i class='bx bx-grid-alt'></i> Quick Access
+    </button>
     <button class="content-subtab" onclick="showContentPanel('vets', this)">
       <i class='bx bx-user-circle'></i> Veterinarians
     </button>
@@ -676,6 +680,78 @@
     </div>
   </div>
 
+  <!-- QUICK ACCESS SECTION -->
+  <div id="quick-access-panel" class="content-panel">
+    <form method="POST" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="content">
+      <input type="hidden" name="sub_form" value="quick_access_intro">
+
+      <div class="admin-field admin-field-full">
+        <label>Heading</label>
+        {{ forms.content.quick_access_intro.title }}
+      </div>
+      <div class="admin-field admin-field-full">
+        <label>Heading Accent</label>
+        {{ forms.content.quick_access_intro.subtitle }}
+      </div>
+      <div class="admin-field admin-field-full">
+        <label>Section Description</label>
+        {{ forms.content.quick_access_intro.description }}
+      </div>
+      <div class="admin-actions" style="margin: 0 0 28px; border-top: none; padding-top: 0;">
+        <button type="submit" class="btn-submit">
+          <i class='bx bx-save'></i> Save Section Text
+        </button>
+      </div>
+    </form>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; margin: 20px 0; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+      <div>
+        <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0 0 6px;">
+          Homepage Cards
+        </h4>
+        <p style="color: var(--text-2); font-size: 13px; margin: 0;">
+          Uploaded PNG/JPEG images are automatically center-cropped to a consistent 3:2 shape.
+        </p>
+      </div>
+      <button type="button" class="btn-add-item" onclick="openModal('quick_access_card')">
+        <i class='bx bx-plus'></i> Add Card
+      </button>
+    </div>
+
+    <div class="items-grid">
+      {% for card in forms.content.quick_access_cards %}
+      <div class="service-item-card">
+        {% if card.image %}
+        <img src="{{ card.image|stored_or_static_url }}" alt="{{ card.title }}" class="service-thumb">
+        {% elif card.fallback_image %}
+        <img src="{% static card.fallback_image %}" alt="{{ card.title }}" class="service-thumb">
+        {% else %}
+        <div class="service-thumb-placeholder"><i class='bx bx-image'></i></div>
+        {% endif %}
+        <div class="service-item-content">
+          <h4>{{ card.title }}</h4>
+          <p>{{ card.description|truncatewords:12 }}</p>
+          <span class="order-badge">Order: {{ card.order }}</span>
+          {% if not card.is_active %}<span class="inactive-badge">Inactive</span>{% endif %}
+          <p><small>{{ card.link }}</small></p>
+        </div>
+        <div class="item-actions" style="margin-top: 12px;">
+          <button type="button" class="btn-edit" onclick="editQuickAccessCard({{ card.pk }}, '{{ card.title|escapejs }}', '{{ card.description|escapejs }}', '{{ card.link|escapejs }}', {{ card.order }}, {{ card.is_active|yesno:'true,false' }})">
+            <i class='bx bx-edit'></i> Edit
+          </button>
+          <button type="button" class="btn-delete open-delete-btn" data-delete-type="delete_quick_access_card" data-delete-id="{{ card.pk }}" data-delete-name="{{ card.title|escapejs }}">
+            <i class='bx bx-trash'></i> Delete
+          </button>
+        </div>
+      </div>
+      {% empty %}
+      <p class="empty-message">No quick-access cards added yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
   <!-- VETERINARIANS SECTION -->
   <div id="vets-panel" class="content-panel">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
@@ -718,6 +794,64 @@
     </div>
   </div>
 
+</div>
+
+<!-- Quick Access Card Modal -->
+<div id="quick_access_card-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="quick_access_card-modal-title">Add Quick Access Card</h3>
+      <button type="button" class="modal-close" onclick="closeModal('quick_access_card')">&times;</button>
+    </div>
+    <form method="POST" enctype="multipart/form-data" autocomplete="off">
+      {% csrf_token %}
+      <div class="modal-body">
+        <input type="hidden" name="form_type" value="content">
+        <input type="hidden" name="sub_form" value="quick_access_card">
+        <input type="hidden" name="item_id" id="quick_access_card-id" value="">
+
+        <div class="admin-field">
+          <label>Title</label>
+          {{ forms.content.quick_access_card_form.title }}
+        </div>
+        <div class="admin-field">
+          <label>Description</label>
+          {{ forms.content.quick_access_card_form.description }}
+        </div>
+        <div class="admin-field">
+          <label>Link (site path or http(s) URL)</label>
+          {{ forms.content.quick_access_card_form.link }}
+        </div>
+        <div class="admin-field">
+          <label>Image</label>
+          {{ forms.content.quick_access_card_form.image }}
+          <p class="form-hint">PNG or JPEG, maximum 10 MB. The image will be automatically center-cropped to 1200 × 800.</p>
+          <label class="form-checkbox-label" style="margin-top: 8px;">
+            <input type="checkbox" name="image-clear" id="quick_access_card-image-clear" value="on">
+            <span>Remove current uploaded image</span>
+          </label>
+        </div>
+        <div class="admin-field">
+          <label>Order</label>
+          {{ forms.content.quick_access_card_form.order }}
+        </div>
+        <div class="admin-field">
+          <label class="form-checkbox-label">
+            {{ forms.content.quick_access_card_form.is_active }}
+            <span>Active</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modal btn-modal-outline" onclick="closeModal('quick_access_card')">
+          <i class='bx bx-x'></i> Cancel
+        </button>
+        <button type="submit" class="btn-modal btn-modal-primary">
+          <i class='bx bx-check'></i> Save Card
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- MODALS -->
@@ -979,6 +1113,17 @@
     document.getElementById('veterinarian-active').checked = active;
   }
 
+  function editQuickAccessCard(id, title, description, link, order, active) {
+    openModal('quick_access_card');
+    document.getElementById('quick_access_card-modal-title').textContent = 'Edit Quick Access Card';
+    document.getElementById('quick_access_card-id').value = id;
+    document.getElementById('quick_access_card-title').value = title;
+    document.getElementById('quick_access_card-description').value = description;
+    document.getElementById('quick_access_card-link').value = link;
+    document.getElementById('quick_access_card-order').value = order;
+    document.getElementById('quick_access_card-active').checked = active;
+  }
+
   // Close modal on overlay click
   document.querySelectorAll('.modal-overlay').forEach(modal => {
     modal.addEventListener('click', (e) => {
@@ -1078,6 +1223,11 @@ function getDeleteModalMeta(formType) {
       title: 'Delete Veterinarian',
       confirm: 'Yes, Delete Veterinarian',
       message: 'Are you completely sure you want to delete this veterinarian? This action cannot be undone.',
+    },
+    delete_quick_access_card: {
+      title: 'Delete Quick Access Card',
+      confirm: 'Yes, Delete Card',
+      message: 'Are you sure you want to remove this card from the homepage?',
     },
   };
   return metaMap[formType] || {

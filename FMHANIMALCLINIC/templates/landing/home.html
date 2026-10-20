@@ -1,5 +1,6 @@
 {% extends 'base/main.html' %}
 {% load static %}
+{% load file_urls %}
 
 {% block content %}
 
@@ -86,49 +87,24 @@
      ============================================ -->
 <section class="quick-access" id="quick-access">
   <div class="container">
-    <h2 class="section-title fade-in">Explore <span class="teal-text">FMH Clinic</span></h2>
-    <p class="section-subtitle fade-in">Quick access to everything you need for your pet's care journey.</p>
+    <h2 class="section-title fade-in">{% if quick_access_intro and quick_access_intro.title %}{{ quick_access_intro.title }}{% else %}Explore{% endif %} <span class="teal-text">{% if quick_access_intro and quick_access_intro.subtitle %}{{ quick_access_intro.subtitle }}{% else %}FMH Clinic{% endif %}</span></h2>
+    <p class="section-subtitle fade-in">{% if quick_access_intro and quick_access_intro.description %}{{ quick_access_intro.description }}{% else %}Quick access to everything you need for your pet's care journey.{% endif %}</p>
     
     <div class="quick-grid">
-      <!-- Box 1: Services -->
-      <a href="{% url 'services_page' %}" class="quick-box quick-services fade-in">
-        <img src="{% static 'image/quick.png' %}" alt="Services" class="quick-bg-img" loading="lazy">
+      {% for card in quick_access_cards %}
+      <a href="{{ card.link }}" class="quick-box{% if forloop.counter|divisibleby:2 %} quick-about{% endif %} fade-in">
+        {% if card.image %}
+        <img src="{{ card.image|stored_or_static_url }}" alt="{{ card.title }}" class="quick-bg-img" loading="lazy">
+        {% elif card.fallback_image %}
+        <img src="{% static card.fallback_image %}" alt="{{ card.title }}" class="quick-bg-img" loading="lazy">
+        {% endif %}
         <div class="quick-content">
-          <h3>Our Services</h3>
-          <p>Explore our comprehensive veterinary services from consultations to surgeries.</p>
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.description }}</p>
         </div>
         <div class="quick-arrow"><i class='bx bx-right-arrow-alt'></i></div>
       </a>
-
-      <!-- Box 2: About Us -->
-      <a href="{% url 'aboutus_page' %}" class="quick-box quick-about fade-in">
-        <img src="{% static 'image/quick4.png' %}" alt="About Us" class="quick-bg-img" loading="lazy">
-        <div class="quick-content">
-          <h3>About Us</h3>
-          <p>Learn why pet owners trust FMH Clinic for veterinary care.</p>
-        </div>
-        <div class="quick-arrow"><i class='bx bx-right-arrow-alt'></i></div>
-      </a>
-
-      <!-- Box 3: Contact -->
-      <a href="{% url 'contact_page' %}" class="quick-box quick-contact fade-in">
-        <img src="{% static 'image/quick2.png' %}" alt="Contact" class="quick-bg-img" loading="lazy">
-        <div class="quick-content">
-          <h3>Contact Us</h3>
-          <p>Get in touch with us for appointments, inquiries, or clinic visits.</p>
-        </div>
-        <div class="quick-arrow"><i class='bx bx-right-arrow-alt'></i></div>
-      </a>
-
-      <!-- Box 4: Login/Register -->
-      <a href="{% url 'register_page' %}" class="quick-box quick-auth fade-in">
-        <img src="{% static 'image/quick3.png' %}" alt="Sign Up" class="quick-bg-img" loading="lazy">
-        <div class="quick-content">
-          <h3>Sign up now!</h3>
-          <p>Access your pet's records, appointments, and digital product catalog</p>
-        </div>
-        <div class="quick-arrow"><i class='bx bx-right-arrow-alt'></i></div>
-      </a>
+      {% endfor %}
     </div>
   </div>
 </section>

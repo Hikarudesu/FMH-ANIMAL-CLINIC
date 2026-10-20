@@ -525,6 +525,113 @@ class ReceptionistDashboardRoutingTests(TestCase):
     }
 )
 class VetDashboardContentTests(TestCase):
+    def test_branch_dashboard_metrics_render_without_staff_profile(self):
+        from records.models import MedicalRecord, RecordEntry
+
+        branch = Branch.objects.create(
+            name='Unlinked Vet Dashboard Branch',
+            phone_number='09123456789',
+            address='1 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        other_branch = Branch.objects.create(
+            name='Other Unlinked Vet Dashboard Branch',
+            phone_number='09123456780',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        pet = Pet.objects.create(
+            branch=branch,
+            name='Branch Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=branch,
+            date_recorded=timezone.localdate(),
+        )
+        entry = RecordEntry.objects.create(
+            record=record,
+            date_recorded=timezone.localdate(),
+            history_clinical_signs='Visible branch record entry.',
+        )
+        Appointment.objects.create(
+            owner_name='Branch Patient Owner',
+            pet_name=pet.name,
+            pet=pet,
+            branch=branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(9, 0),
+            status=Appointment.Status.COMPLETED,
+        )
+
+        other_pet = Pet.objects.create(
+            branch=other_branch,
+            name='Other Branch Patient',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        other_record = MedicalRecord.objects.create(
+            pet=other_pet,
+            branch=other_branch,
+            date_recorded=timezone.localdate(),
+        )
+        RecordEntry.objects.create(
+            record=other_record,
+            date_recorded=timezone.localdate(),
+            history_clinical_signs='Hidden branch record entry.',
+        )
+        Appointment.objects.create(
+            owner_name='Other Branch Patient Owner',
+            pet_name=other_pet.name,
+            pet=other_pet,
+            branch=other_branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(10, 0),
+            status=Appointment.Status.COMPLETED,
+        )
+
+        for role_code, role_name in (
+            ('veterinarian', 'Veterinarian'),
+            ('assistant_veterinarian', 'Vet Assistant'),
+        ):
+            with self.subTest(role=role_code):
+                role, _ = Role.objects.get_or_create(
+                    code=role_code,
+                    defaults={
+                        'name': role_name,
+                        'hierarchy_level': 3 if role_code == 'veterinarian' else 1,
+                        'is_staff_role': True,
+                    },
+                )
+                user = get_user_model().objects.create_user(
+                    username=f'{role_code}-dashboard-without-profile',
+                    email=f'{role_code}-dashboard-without-profile@example.com',
+                    password='A-secure-test-password-923!',
+                    assigned_role=role,
+                    branch=branch,
+                )
+
+                self.client.force_login(user)
+                response = self.client.get(reverse('vet_dashboard'))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context['today_count'], 1)
+                self.assertEqual(response.context['assigned_patients'], 1)
+                self.assertEqual(response.context['completed_consultations'], 1)
+                self.assertEqual(response.context['avg_daily_consultations'], 1.0)
+                self.assertEqual(response.context['medical_records_count'], 1)
+                self.assertEqual(response.context['medical_records_this_month'], 1)
+                self.assertEqual(list(response.context['recent_medical_records']), [entry])
+                self.assertEqual(response.context['consultation_reasons'][0]['count'], 1)
+                self.assertEqual(response.context['ai_diagnoses_count'], 0)
+                self.assertNotContains(response, 'Hidden branch record entry.')
+
     def test_veterinarian_and_assistant_dashboards_omit_clinical_insights(self):
         branch = Branch.objects.create(
             name='Vet Dashboard Branch',

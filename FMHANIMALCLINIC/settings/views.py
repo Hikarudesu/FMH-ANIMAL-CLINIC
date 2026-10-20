@@ -13,7 +13,7 @@ from branches.models import Branch
 
 from .models import (
     ClinicProfile, SystemSetting, SectionContent,
-    HeroStat, Service, Veterinarian,
+    HeroStat, Service, Veterinarian, QuickAccessCard,
     ReasonForVisit, ClinicalStatus,
     ShiftTypeOption,
 )
@@ -31,6 +31,8 @@ from .forms import (
     HeroStatForm,
     ServiceForm,
     VeterinarianForm,
+    QuickAccessIntroForm,
+    QuickAccessCardForm,
     ReasonForVisitForm,
     ClinicalStatusForm,
     ShiftTypeForm,
@@ -126,6 +128,8 @@ def settings_main(request, default_tab=None):
             return _handle_delete_service(request)
         elif form_type == 'delete_veterinarian':
             return _handle_delete_veterinarian(request)
+        elif form_type == 'delete_quick_access_card':
+            return _handle_delete_quick_access_card(request)
 
     # Initialize all forms for GET request
     forms_dict = {
@@ -331,13 +335,16 @@ def _get_content_forms():
         'mission_vision': MissionVisionForm(),
         'services_intro': ServicesIntroForm(),
         'vets_intro': VetsIntroForm(),
+        'quick_access_intro': QuickAccessIntroForm(),
         'hero_stats': HeroStat.objects.all(),
         'services': Service.objects.all(),
         'veterinarians': Veterinarian.objects.all(),
+        'quick_access_cards': QuickAccessCard.objects.all(),
         # Empty forms for adding new items
         'hero_stat_form': HeroStatForm(),
         'service_form': ServiceForm(),
         'veterinarian_form': VeterinarianForm(),
+        'quick_access_card_form': QuickAccessCardForm(),
     }
 
 
@@ -353,18 +360,24 @@ def _handle_content_form(request):
         return _handle_services_intro_form(request)
     elif sub_form == 'vets_intro':
         return _handle_vets_intro_form(request)
+    elif sub_form == 'quick_access_intro':
+        return _handle_quick_access_intro_form(request)
     elif sub_form == 'hero_stat':
         return _handle_hero_stat_form(request)
     elif sub_form == 'service':
         return _handle_service_form(request)
     elif sub_form == 'veterinarian':
         return _handle_veterinarian_form(request)
+    elif sub_form == 'quick_access_card':
+        return _handle_quick_access_card_form(request)
     elif sub_form == 'delete_hero_stat':
         return _handle_delete_hero_stat(request)
     elif sub_form == 'delete_service':
         return _handle_delete_service(request)
     elif sub_form == 'delete_veterinarian':
         return _handle_delete_veterinarian(request)
+    elif sub_form == 'delete_quick_access_card':
+        return _handle_delete_quick_access_card(request)
 
     messages.error(request, 'Invalid form submission.')
     return redirect('settings:content_settings')
@@ -463,6 +476,29 @@ def _handle_vets_intro_form(request):
     return redirect('settings:content_settings')
 
 
+def _handle_quick_access_intro_form(request):
+    """Save homepage quick-access section text."""
+    form = QuickAccessIntroForm(request.POST)
+    if form.is_valid():
+        SectionContent.objects.update_or_create(
+            section_type='QUICK_ACCESS',
+            defaults={
+                'title': form.cleaned_data['title'],
+                'subtitle': form.cleaned_data['subtitle'],
+                'description': form.cleaned_data['description'],
+            },
+        )
+        _log_settings_change(
+            request.user,
+            'Quick Access Section',
+            'Updated quick-access heading and description',
+        )
+        messages.success(request, 'Quick access section updated successfully.')
+    else:
+        messages.error(request, 'Please correct the errors.')
+    return redirect('settings:content_settings')
+
+
 def _handle_hero_stat_form(request):
     """Add or update a hero statistic."""
     stat_id = request.POST.get('item_id')
@@ -523,6 +559,29 @@ def _handle_veterinarian_form(request):
     return redirect('settings:content_settings')
 
 
+def _handle_quick_access_card_form(request):
+    """Add or update a homepage quick-access card."""
+    card_id = request.POST.get('item_id')
+    if card_id:
+        instance = get_object_or_404(QuickAccessCard, pk=card_id)
+        form = QuickAccessCardForm(request.POST, request.FILES, instance=instance)
+        action = 'Updated'
+    else:
+        form = QuickAccessCardForm(request.POST, request.FILES)
+        action = 'Added'
+
+    if form.is_valid():
+        card = form.save(commit=False)
+        if card_id and request.POST.get('image-clear') == 'on':
+            card.image = None
+        card.save()
+        _log_settings_change(request.user, 'Quick Access Cards', f'{action} {card.title}')
+        messages.success(request, f'Quick access card {action.lower()} successfully.')
+    else:
+        messages.error(request, 'Please correct the errors.')
+    return redirect('settings:content_settings')
+
+
 def _handle_delete_hero_stat(request):
     """Delete a hero statistic."""
     stat_id = request.POST.get('item_id')
@@ -550,6 +609,16 @@ def _handle_delete_veterinarian(request):
         Veterinarian.objects.filter(pk=vet_id).delete()
         _log_settings_change(request.user, 'Veterinarians', 'Deleted veterinarian')
         messages.success(request, 'Veterinarian deleted.')
+    return redirect('settings:content_settings')
+
+
+def _handle_delete_quick_access_card(request):
+    """Delete a homepage quick-access card."""
+    card_id = request.POST.get('item_id')
+    if card_id:
+        QuickAccessCard.objects.filter(pk=card_id).delete()
+        _log_settings_change(request.user, 'Quick Access Cards', 'Deleted quick-access card')
+        messages.success(request, 'Quick access card deleted.')
     return redirect('settings:content_settings')
 
 
@@ -830,6 +899,4 @@ def reorder_shift_types(request):
         return JsonResponse({'success': True, 'details': details})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
-
-
 

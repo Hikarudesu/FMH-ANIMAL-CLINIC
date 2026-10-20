@@ -1510,7 +1510,7 @@ def vet_dashboard_view(request):
     # VET'S PATIENT UNIVERSE (Branch-wide)
     # ═══════════════════════════════════════════════════════════════════════
     # A pet belongs to this vet if it belongs to their branch:
-    if staff_profile and not patients_restricted_no_branch:
+    if not patients_restricted_no_branch:
         vet_pet_qs = Pet.objects.filter(
             Q(owner__branch=user_branch) |
             Q(branch=user_branch) |
@@ -1525,7 +1525,7 @@ def vet_dashboard_view(request):
     # ═══════════════════════════════════════════════════════════════════════
 
     # 1) Today's appointments ──────────────────────────────────────────────
-    if staff_profile and not appt_restricted_no_branch:
+    if not appt_restricted_no_branch:
         today_count = Appointment.objects.filter(
             appointment_date=today,
             pet__isnull=False,
@@ -1549,7 +1549,7 @@ def vet_dashboard_view(request):
         ai_diagnoses_this_month = 0
 
     # 3) Completed consultations (all-time) ───────────────────────────────
-    if staff_profile and not appt_restricted_no_branch:
+    if not appt_restricted_no_branch:
         completed_consultations = Appointment.objects.filter(
             status='COMPLETED',
             pet__isnull=False,
@@ -1559,14 +1559,14 @@ def vet_dashboard_view(request):
         completed_consultations = 0
 
     # 4) Medical records (all-time) ───────────────────────────────────────
-    if staff_profile and not records_restricted_no_branch:
+    if not records_restricted_no_branch:
         medical_records_count = MedicalRecord.objects.filter(
             **records_filter
         ).count()
     else:
         medical_records_count = 0
 
-    if staff_profile and not records_restricted_no_branch:
+    if not records_restricted_no_branch:
         recent_medical_records = (
             RecordEntry.objects.filter(
                 **{f"record__{key}": value for key, value in records_filter.items()}
@@ -1588,7 +1588,7 @@ def vet_dashboard_view(request):
     # Groups pets from the vet's universe by their current clinical_status.
 
     patient_status_distribution = []
-    if staff_profile and not patients_restricted_no_branch:
+    if not patients_restricted_no_branch:
         status_counts = {}
         for pet in vet_pet_qs.select_related('clinical_status').iterator():
             cs = pet.clinical_status
@@ -1608,7 +1608,7 @@ def vet_dashboard_view(request):
         )
 
     consultation_reasons = []
-    if staff_profile and not appt_restricted_no_branch:
+    if not appt_restricted_no_branch:
         consultation_reasons = list(
             Appointment.objects.filter(
                 pet__isnull=False,
@@ -1677,7 +1677,7 @@ def vet_dashboard_view(request):
 
     # ── Average daily consultations (last 30 days) ───────────────────────
     # Divide by actual working days (days that had at least 1 appt), not always 30.
-    if staff_profile and not appt_restricted_no_branch:
+    if not appt_restricted_no_branch:
         last_30_appts = Appointment.objects.filter(
             appointment_date__range=[today - timedelta(days=30), today],
             status='COMPLETED',
@@ -1691,14 +1691,14 @@ def vet_dashboard_view(request):
         avg_daily_consultations = 0
 
     # ── New patients this month ─────────────────────────────────────────
-    if staff_profile and not patients_restricted_no_branch:
+    if not patients_restricted_no_branch:
         new_patients_this_month = vet_pet_qs.filter(
             created_at__range=[month_start, today + timedelta(days=1)]
         ).count()
     else:
         new_patients_this_month = 0
 
-    if staff_profile and not records_restricted_no_branch:
+    if not records_restricted_no_branch:
         medical_records_this_month = MedicalRecord.objects.filter(
             **records_filter,
             date_recorded__range=[month_start, month_end],
