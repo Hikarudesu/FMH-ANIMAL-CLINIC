@@ -2,6 +2,11 @@ from django import forms
 from .models import StaffMember, VetSchedule, RecurringSchedule
 from FMHANIMALCLINIC.form_mixins import FormControlMixin, validate_philippines_phone
 from accounts.rbac_constants import HierarchyLevels
+from appointments.clinic_hours import (
+    CLINIC_CLOSE_TIME,
+    CLINIC_OPEN_TIME,
+    is_valid_clinic_schedule,
+)
 
 
 class StaffMemberForm(FormControlMixin, forms.ModelForm):
@@ -56,8 +61,16 @@ class VetScheduleForm(FormControlMixin, forms.ModelForm):
                   'branch', 'shift_type', 'is_available', 'notes']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
-            'start_time': forms.TimeInput(attrs={'type': 'time'}),
-            'end_time': forms.TimeInput(attrs={'type': 'time'}),
+            'start_time': forms.TimeInput(attrs={
+                'type': 'time',
+                'min': CLINIC_OPEN_TIME.strftime('%H:%M'),
+                'max': '18:30',
+            }),
+            'end_time': forms.TimeInput(attrs={
+                'type': 'time',
+                'min': '08:30',
+                'max': CLINIC_CLOSE_TIME.strftime('%H:%M'),
+            }),
             'notes': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Optional notes...'}),
         }
 
@@ -70,6 +83,18 @@ class VetScheduleForm(FormControlMixin, forms.ModelForm):
         if not is_admin:
             self.fields['staff'].required = False
             self.fields['branch'].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
+        if start_time and end_time and not is_valid_clinic_schedule(
+            start_time, end_time,
+        ):
+            raise forms.ValidationError(
+                'Staff schedules must be within clinic hours (8:00 AM–7:00 PM).'
+            )
+        return cleaned_data
 
 
 class RecurringScheduleForm(FormControlMixin, forms.ModelForm):
@@ -90,8 +115,16 @@ class RecurringScheduleForm(FormControlMixin, forms.ModelForm):
             'effective_from', 'effective_until',
         ]
         widgets = {
-            'start_time': forms.TimeInput(attrs={'type': 'time'}),
-            'end_time': forms.TimeInput(attrs={'type': 'time'}),
+            'start_time': forms.TimeInput(attrs={
+                'type': 'time',
+                'min': CLINIC_OPEN_TIME.strftime('%H:%M'),
+                'max': '18:30',
+            }),
+            'end_time': forms.TimeInput(attrs={
+                'type': 'time',
+                'min': '08:30',
+                'max': CLINIC_CLOSE_TIME.strftime('%H:%M'),
+            }),
             'effective_from': forms.DateInput(attrs={'type': 'date'}),
             'effective_until': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -110,6 +143,15 @@ class RecurringScheduleForm(FormControlMixin, forms.ModelForm):
         cleaned_data = super().clean()
         effective_from = cleaned_data.get('effective_from')
         effective_until = cleaned_data.get('effective_until')
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
+
+        if start_time and end_time and not is_valid_clinic_schedule(
+            start_time, end_time,
+        ):
+            raise forms.ValidationError(
+                'Staff schedules must be within clinic hours (8:00 AM–7:00 PM).'
+            )
         
         if effective_from and effective_until and effective_until < effective_from:
             raise forms.ValidationError(

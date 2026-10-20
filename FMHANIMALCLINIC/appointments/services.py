@@ -14,6 +14,11 @@ from django.utils import timezone
 
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule
+from .clinic_hours import (
+    APPOINTMENT_SLOT_MINUTES,
+    CLINIC_CLOSE_TIME,
+    CLINIC_OPEN_TIME,
+)
 from .models import Appointment
 
 logger = logging.getLogger('fmh')
@@ -25,7 +30,7 @@ class AppointmentService:
     # System-wide lunch break
     LUNCH_START = time(12, 0)
     LUNCH_END = time(13, 0)
-    SLOT_DURATION_MINUTES = 30
+    SLOT_DURATION_MINUTES = APPOINTMENT_SLOT_MINUTES
 
     @staticmethod
     def lock_booking_schedule(branch_id, appointment_date) -> None:
@@ -119,9 +124,15 @@ class AppointmentService:
         local_now = timezone.localtime()
 
         for sched in schedules:
-            # Generate 30-minute slots within the schedule window
-            current = datetime.combine(target_date, sched.start_time)
-            end = datetime.combine(target_date, sched.end_time)
+            # Clamp existing staff schedules to the clinic's opening hours.
+            current = datetime.combine(
+                target_date,
+                max(sched.start_time, CLINIC_OPEN_TIME),
+            )
+            end = datetime.combine(
+                target_date,
+                min(sched.end_time, CLINIC_CLOSE_TIME),
+            )
 
             while current + slot_duration <= end:
                 slot_time = current.time()
@@ -206,6 +217,8 @@ class AppointmentService:
         filters = {
             'branch_id': branch_id,
             'is_available': True,
+            'start_time__lt': CLINIC_CLOSE_TIME,
+            'end_time__gt': CLINIC_OPEN_TIME,
             'staff__is_active': True,
             'staff__user__is_active': True,
             'date__gte': today,
@@ -239,6 +252,8 @@ class AppointmentService:
                 branch_id=branch_id,
                 date=appointment_date,
                 is_available=True,
+                start_time__lt=CLINIC_CLOSE_TIME,
+                end_time__gt=CLINIC_OPEN_TIME,
             ).values_list('staff_id', flat=True).distinct()
 
             return StaffMember.objects.filter(
@@ -335,6 +350,16 @@ class AppointmentService:
         Returns:
             True if the slot is available, False otherwise.
         """
+        slot_end = (
+            datetime.combine(target_date, appointment_time)
+            + timedelta(minutes=AppointmentService.SLOT_DURATION_MINUTES)
+        ).time()
+        if (
+            appointment_time < CLINIC_OPEN_TIME
+            or slot_end > CLINIC_CLOSE_TIME
+        ):
+            return False
+
         # Check if time is in lunch break
         if AppointmentService.LUNCH_START <= appointment_time < AppointmentService.LUNCH_END:
             return False
@@ -344,6 +369,8 @@ class AppointmentService:
             'branch_id': branch_id,
             'date': appointment_date,
             'is_available': True,
+            'start_time__lte': appointment_time,
+            'end_time__gte': slot_end,
             'staff__user__assigned_role__code__in': ['veterinarian', 'assistant_veterinarian'],
         }
         if vet_id:

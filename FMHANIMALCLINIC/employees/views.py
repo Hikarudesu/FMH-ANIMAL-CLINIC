@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 import calendar
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -16,6 +16,7 @@ from accounts.rbac_constants import HierarchyLevels
 from branches.models import Branch
 from employees.models import StaffMember, VetSchedule, RecurringSchedule, SCHEDULE_LOOKAHEAD_DAYS
 from employees.forms import StaffMemberForm, VetScheduleForm, RecurringScheduleForm
+from appointments.clinic_hours import is_valid_clinic_schedule
 from settings.models import get_shift_type_choices
 
 
@@ -711,17 +712,29 @@ def schedule_edit(request, pk):
         return redirect('employees:schedule')
 
     if request.method == 'POST':
+        try:
+            start_time = time.fromisoformat(
+                request.POST.get('start_time', entry.start_time.isoformat()),
+            )
+            end_time = time.fromisoformat(
+                request.POST.get('end_time', entry.end_time.isoformat()),
+            )
+        except ValueError:
+            messages.error(request, 'Enter valid schedule start and end times.')
+            return redirect('employees:schedule')
+
+        if not is_valid_clinic_schedule(start_time, end_time):
+            messages.error(
+                request,
+                'Staff schedules must be within clinic hours (8:00 AM–7:00 PM).',
+            )
+            return redirect('employees:schedule')
+
         entry.is_available = request.POST.get('is_available') == 'on'
         entry.shift_type = request.POST.get('shift_type', entry.shift_type)
         entry.notes = request.POST.get('notes', entry.notes)
-
-        start_time = request.POST.get('start_time')
-        end_time = request.POST.get('end_time')
-        if start_time:
-            entry.start_time = start_time
-        if end_time:
-            entry.end_time = end_time
-
+        entry.start_time = start_time
+        entry.end_time = end_time
         entry.save()
         messages.success(request, 'Schedule entry updated.')
     return redirect('employees:schedule')

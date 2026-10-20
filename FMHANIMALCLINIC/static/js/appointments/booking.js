@@ -346,7 +346,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (pmSlots.length > 0) {
             const opt = document.createElement("option");
             opt.value = "AFTERNOON"; // The server resolves this to an open afternoon slot.
-            opt.textContent = `Afternoon (01:00 PM - 05:00 PM)`;
+            opt.textContent = `Afternoon (01:00 PM - 07:00 PM)`;
             timeSelect.appendChild(opt);
           }
 

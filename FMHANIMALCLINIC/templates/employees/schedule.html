@@ -116,6 +116,9 @@
 
         <!-- Schedule Section -->
         <div class="qc-section-title">Schedule Details</div>
+        <p class="qc-full" style="margin: -8px 0 12px; color: var(--text-3); font-size: 0.82rem;">
+          Clinic hours are 8:00 AM–7:00 PM. Appointment availability follows each staff member’s schedule; no appointments are offered during the 12:00–1:00 PM lunch break.
+        </p>
         <div class="qc-grid">
           <div class="qc-group" id="singleDateGroup">
             <label for="{{ form.date.id_for_label }}">Date</label>
@@ -260,11 +263,11 @@
           <div class="form-group" style="opacity: 0; pointer-events: none;"></div>
           <div class="form-group">
             <label>Start Time</label>
-            <input type="time" name="start_time" id="editStartTime" class="form-control">
+            <input type="time" name="start_time" id="editStartTime" class="form-control" min="08:00" max="18:30" required>
           </div>
           <div class="form-group">
             <label>End Time</label>
-            <input type="time" name="end_time" id="editEndTime" class="form-control">
+            <input type="time" name="end_time" id="editEndTime" class="form-control" min="08:30" max="19:00" required>
           </div>
           <div class="form-group" style="grid-column: 1 / -1;">
             <div class="toggle-switch-wrapper">

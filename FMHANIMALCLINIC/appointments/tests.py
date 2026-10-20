@@ -483,6 +483,39 @@ class SameDayBookingCutoffTests(TestCase):
             end_time=time(12),
         )
 
+    def test_availability_clamps_legacy_schedules_to_clinic_hours(self):
+        target_date = timezone.localdate() + timedelta(days=1)
+        VetSchedule.objects.create(
+            staff=self.vet,
+            branch=self.branch,
+            date=target_date,
+            start_time=time(7),
+            end_time=time(20),
+        )
+
+        slots = AppointmentService.get_available_slots(
+            target_date=target_date,
+            branch_id=self.branch.pk,
+        )
+        slot_times = {slot['time'] for slot in slots}
+
+        self.assertIn('08:00', slot_times)
+        self.assertIn('18:30', slot_times)
+        self.assertNotIn('07:30', slot_times)
+        self.assertNotIn('19:00', slot_times)
+
+    def test_submission_rejects_slots_that_end_after_clinic_closing(self):
+        with self.assertRaisesMessage(
+            ValidationError,
+            'Appointments must be scheduled between 8:00 AM and 7:00 PM.',
+        ):
+            _check_double_booking({
+                'branch': self.branch,
+                'preferred_vet': self.vet,
+                'appointment_date': timezone.localdate() + timedelta(days=1),
+                'appointment_time': time(18, 45),
+            })
+
     @patch('appointments.services.timezone.localtime')
     def test_availability_marks_elapsed_slots_unavailable(self, mocked_localtime):
         mocked_localtime.return_value = self.now

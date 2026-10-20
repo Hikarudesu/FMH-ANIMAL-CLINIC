@@ -4,7 +4,7 @@ Forms for the appointments app.
 # pylint: disable=no-member
 
 
-from datetime import time, date, timedelta
+from datetime import time, date, datetime, timedelta
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -15,6 +15,7 @@ from employees.models import StaffMember, VetSchedule
 from settings.utils import get_setting
 
 from .models import Appointment
+from .clinic_hours import CLINIC_CLOSE_TIME, CLINIC_OPEN_TIME
 from .services import AppointmentService
 
 
@@ -100,6 +101,15 @@ def _check_double_booking(cleaned_data, allow_past=False, instance_id=None):
 
     if not appt_date or not appt_time or not branch:
         return  # other validators will catch missing required fields
+
+    slot_end = (
+        datetime.combine(appt_date, appt_time)
+        + timedelta(minutes=AppointmentService.SLOT_DURATION_MINUTES)
+    ).time()
+    if appt_time < CLINIC_OPEN_TIME or slot_end > CLINIC_CLOSE_TIME:
+        raise ValidationError(
+            'Appointments must be scheduled between 8:00 AM and 7:00 PM.'
+        )
 
     # Validate appointment date is not in the past (skip for admin editing)
     _validate_appointment_date(appt_date, allow_past=allow_past)

@@ -25,6 +25,7 @@ from .forms import (
     PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm,
     AppointmentEditForm, AppointmentCancellationForm,
 )
+from .clinic_hours import CLINIC_CLOSE_TIME, CLINIC_OPEN_TIME
 from .services import AppointmentService
 from notifications.email_utils import send_appointment_confirmation
 from notifications.utils import (
@@ -662,6 +663,8 @@ def api_available_vets(request):
             branch_id=branch_id,
             date=appt_date,
             is_available=True,
+            start_time__lt=CLINIC_CLOSE_TIME,
+            end_time__gt=CLINIC_OPEN_TIME,
             staff__user__assigned_role__code__in=schedulable_roles,
         ).values_list('staff_id', flat=True).distinct()
 
@@ -720,6 +723,8 @@ def api_vet_times(request):
     filters = {
         'date': target_date,
         'is_available': True,
+        'start_time__lt': CLINIC_CLOSE_TIME,
+        'end_time__gt': CLINIC_OPEN_TIME,
         'staff__is_active': True,
         'staff__user__is_active': True,
         'staff__user__assigned_role__code__in': schedulable_roles,
@@ -776,6 +781,8 @@ def api_available_dates(request):
         'date__gte': date(year, month, 1),
         'date__lte': date(year, month, last_day),
         'is_available': True,
+        'start_time__lt': CLINIC_CLOSE_TIME,
+        'end_time__gt': CLINIC_OPEN_TIME,
         'staff__is_active': True,
         'staff__user__is_active': True,
         'staff__user__assigned_role__code__in': ['veterinarian', 'assistant_veterinarian'],
