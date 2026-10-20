@@ -47,8 +47,8 @@
 <section class="branches-map-section" id="branches">
     <div class="container height-100-vh">
         <div class="section-branch-header fade-in">
-            <h2 class="branch-section-title">Visit Our <span class="teal-text">Expert Clinics</span></h2>
-            <p class="branch-section-tagline">Find the nearest branch and experience professional pet care today.</p>
+            <h2 class="branch-section-title">{% if branches_map_intro and branches_map_intro.title %}{{ branches_map_intro.title }}{% else %}Visit Our{% endif %} <span class="teal-text">{% if branches_map_intro and branches_map_intro.subtitle %}{{ branches_map_intro.subtitle }}{% else %}Expert Clinics{% endif %}</span></h2>
+            <p class="branch-section-tagline">{% if branches_map_intro and branches_map_intro.description %}{{ branches_map_intro.description }}{% else %}Find the nearest branch and experience professional pet care today.{% endif %}</p>
         </div>
 
         <div class="branch-premium-card fade-in">

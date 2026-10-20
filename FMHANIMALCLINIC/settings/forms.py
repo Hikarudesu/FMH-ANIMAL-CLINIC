@@ -1,11 +1,14 @@
 """Forms for settings."""
 # pylint: disable=no-member, line-too-long, trailing-whitespace, missing-docstring, import-outside-toplevel
 
+from io import BytesIO
+from urllib.parse import urlsplit
+
 from django import forms
-from django.db import models
 from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
-from PIL import Image, UnidentifiedImageError
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import models
+from PIL import Image
 
 from FMHANIMALCLINIC.form_mixins import AdminInputMixin, validate_philippines_phone
 from .models import (
@@ -651,25 +654,41 @@ class VetsIntroForm(AdminInputMixin, forms.Form):
             pass
 
 
-class QuickAccessIntroForm(AdminInputMixin, forms.Form):
-    """Edit the homepage quick-access section heading and subtitle."""
+class BranchesMapIntroForm(AdminInputMixin, forms.Form):
+    """Edit the public branches-and-map section heading and tagline."""
 
     title = forms.CharField(
         max_length=255,
-        widget=forms.TextInput(attrs={'id': 'quick_access_intro-title'}),
+        widget=forms.TextInput(attrs={'id': 'branches_map_intro-title'}),
     )
     subtitle = forms.CharField(
         max_length=500,
         required=False,
-        widget=forms.TextInput(attrs={'id': 'quick_access_intro-subtitle'}),
+        widget=forms.TextInput(attrs={'id': 'branches_map_intro-subtitle'}),
     )
     description = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={
-            'id': 'quick_access_intro-description',
+            'id': 'branches_map_intro-description',
             'rows': 2,
         }),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        content = SectionContent.objects.filter(section_type='BRANCHES_MAP').first()
+        if content:
+            self.fields['title'].initial = content.title
+            self.fields['subtitle'].initial = content.subtitle
+            self.fields['description'].initial = content.description
+
+
+class QuickAccessIntroForm(AdminInputMixin, forms.Form):
+    """Edit the homepage Quick Access heading and supporting text."""
+
+    title = forms.CharField(max_length=255)
+    subtitle = forms.CharField(max_length=500, required=False)
+    description = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 2}))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -678,6 +697,78 @@ class QuickAccessIntroForm(AdminInputMixin, forms.Form):
             self.fields['title'].initial = content.title
             self.fields['subtitle'].initial = content.subtitle
             self.fields['description'].initial = content.description
+
+
+class QuickAccessCardForm(AdminInputMixin, forms.ModelForm):
+    """Manage shortcut copy and transparent foreground art, not its background."""
+
+    class Meta:
+        model = QuickAccessCard
+        fields = ['title', 'description', 'link', 'subject_image', 'order', 'is_active']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'id': 'quick_access_card-title',
+                'placeholder': 'Card title',
+            }),
+            'description': forms.Textarea(attrs={
+                'id': 'quick_access_card-description',
+                'rows': 3,
+            }),
+            'link': forms.TextInput(attrs={
+                'id': 'quick_access_card-link',
+                'placeholder': '/services/',
+            }),
+            'subject_image': forms.ClearableFileInput(attrs={
+                'id': 'quick_access_card-subject_image',
+                'accept': 'image/png',
+            }),
+            'order': forms.NumberInput(attrs={'id': 'quick_access_card-order'}),
+            'is_active': forms.CheckboxInput(attrs={
+                'id': 'quick_access_card-active',
+            }),
+        }
+
+    def clean_link(self):
+        link = self.cleaned_data['link'].strip()
+        parsed = urlsplit(link)
+        if link.startswith('/') and not link.startswith('//') and not parsed.netloc:
+            return link
+        if parsed.scheme in {'http', 'https'} and parsed.netloc:
+            return link
+        raise ValidationError('Enter a site path or a valid http(s) URL.')
+
+    def clean_subject_image(self):
+        upload = self.cleaned_data.get('subject_image')
+        if not upload:
+            return upload
+
+        if getattr(upload, 'content_type', '') != 'image/png':
+            raise ValidationError('Upload a transparent PNG subject image.')
+
+        try:
+            upload.seek(0)
+            with Image.open(upload) as source:
+                if source.format != 'PNG':
+                    raise ValidationError('Upload a transparent PNG subject image.')
+                image = source.convert('RGBA')
+        except OSError as exc:
+            raise ValidationError('The uploaded image could not be processed.') from exc
+
+        alpha = image.getchannel('A')
+        if alpha.getextrema()[0] == 255:
+            raise ValidationError('The PNG must have a transparent background.')
+        bounds = alpha.getbbox()
+        if not bounds:
+            raise ValidationError('The uploaded image has no visible subject.')
+
+        cropped = image.crop(bounds)
+        buffer = BytesIO()
+        cropped.save(buffer, format='PNG')
+        return SimpleUploadedFile(
+            upload.name.rsplit('.', 1)[0] + '.png',
+            buffer.getvalue(),
+            content_type='image/png',
+        )
 
 
 class HeroStatForm(AdminInputMixin, forms.ModelForm):
@@ -692,59 +783,6 @@ class HeroStatForm(AdminInputMixin, forms.ModelForm):
             'order': forms.NumberInput(attrs={'style': 'width: 80px;'}),
             'is_active': forms.CheckboxInput(),
         }
-
-
-class QuickAccessCardForm(AdminInputMixin, forms.ModelForm):
-    """Create or edit one homepage quick-access card."""
-
-    class Meta:
-        model = QuickAccessCard
-        fields = ['title', 'description', 'link', 'image', 'order', 'is_active']
-        widgets = {
-            'title': forms.TextInput(attrs={
-                'id': 'quick_access_card-title',
-                'placeholder': 'Card heading',
-            }),
-            'description': forms.Textarea(attrs={
-                'id': 'quick_access_card-description',
-                'rows': 3,
-                'placeholder': 'Short description shown on the card',
-            }),
-            'link': forms.TextInput(attrs={
-                'id': 'quick_access_card-link',
-                'placeholder': '/services/ or https://example.com',
-            }),
-            'image': forms.FileInput(attrs={
-                'id': 'quick_access_card-image',
-                'accept': 'image/png,image/jpeg',
-            }),
-            'order': forms.NumberInput(attrs={
-                'id': 'quick_access_card-order',
-            }),
-            'is_active': forms.CheckboxInput(attrs={
-                'id': 'quick_access_card-active',
-            }),
-        }
-
-    def clean_image(self):
-        image = self.cleaned_data.get('image')
-        uploaded_image_file = self.files.get(self.add_prefix('image'))
-        if uploaded_image_file:
-            try:
-                uploaded_image_file.seek(0)
-                with Image.open(uploaded_image_file) as uploaded_image:
-                    uploaded_image.verify()
-                uploaded_image_file.seek(0)
-            except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
-                raise ValidationError('Upload a valid PNG or JPEG image.') from exc
-        return image
-
-    def clean_link(self):
-        link = (self.cleaned_data.get('link') or '').strip()
-        if link.startswith('/') and not link.startswith('//') and '\\' not in link:
-            return link
-        URLValidator(schemes=['http', 'https'])(link)
-        return link
 
 
 class ServiceForm(AdminInputMixin, forms.ModelForm):

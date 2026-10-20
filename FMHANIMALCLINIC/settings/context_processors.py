@@ -93,6 +93,7 @@ def landing_content(request):
     services_intro = get_section('SERVICES_INTRO')
     vets_intro = get_section('VETS_INTRO')
     core_values_intro = get_section('CORE_VALUES_INTRO')
+    branches_map_intro = get_section('BRANCHES_MAP')
     quick_access_intro = get_section('QUICK_ACCESS')
 
     # Get list content
@@ -131,6 +132,7 @@ def landing_content(request):
         'services_intro': services_intro,
         'vets_intro': vets_intro,
         'core_values_intro': core_values_intro,
+        'branches_map_intro': branches_map_intro,
         'quick_access_intro': quick_access_intro,
         'services': services,
         'veterinarians': veterinarians,

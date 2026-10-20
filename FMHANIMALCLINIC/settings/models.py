@@ -1,12 +1,10 @@
 """Models for the settings."""
 
 import json
-from io import BytesIO
 from decimal import Decimal
 
-from django.core.files.base import ContentFile
+from django.core.exceptions import ValidationError
 from django.db import models
-from PIL import Image, ImageOps
 
 from utils.validators import validate_image_file, IMAGE_UPLOAD_HELP_TEXT
 
@@ -223,6 +221,7 @@ class SectionContent(models.Model):
         VETS_INTRO = 'VETS_INTRO', 'Veterinarians Introduction'
         CORE_VALUES_INTRO = 'CORE_VALUES_INTRO', 'Core Values Introduction'
         QUICK_ACCESS = 'QUICK_ACCESS', 'Quick Access Introduction'
+        BRANCHES_MAP = 'BRANCHES_MAP', 'Branches Map Introduction'
 
     section_type = models.CharField(
         max_length=20,
@@ -251,6 +250,48 @@ class SectionContent(models.Model):
 
     def __str__(self):
         return str(self.get_section_type_display())
+
+
+class QuickAccessCard(models.Model):
+    """Editable homepage shortcut; its background artwork remains fixed."""
+
+    title = models.CharField(max_length=150)
+    description = models.TextField()
+    link = models.CharField(
+        max_length=500,
+        help_text='Use a site path such as /services/ or an http(s) URL.',
+    )
+    image = models.ImageField(
+        upload_to='quick_access/',
+        blank=True,
+        null=True,
+        validators=[validate_image_file],
+        help_text='PNG or JPEG, up to 10 MB. Images are center-cropped to 3:2.',
+    )
+    fallback_image = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Static image used until an uploaded image is provided.',
+    )
+    subject_image = models.ImageField(
+        upload_to='quick_access/subjects/',
+        blank=True,
+        null=True,
+        validators=[validate_image_file],
+        help_text='Transparent PNG subject image; empty transparent margins are trimmed automatically.',
+    )
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'pk']
+        verbose_name = 'Quick Access Card'
+        verbose_name_plural = 'Quick Access Cards'
+
+    def __str__(self):
+        return self.title
 
 
 class HeroStat(models.Model):
@@ -344,57 +385,6 @@ class Veterinarian(models.Model):
 
     def __str__(self):
         return f"Dr. {self.name}"
-
-
-class QuickAccessCard(models.Model):
-    """Editable card displayed in the homepage quick-access grid."""
-
-    title = models.CharField(max_length=150)
-    description = models.TextField()
-    link = models.CharField(
-        max_length=500,
-        help_text='Use a site path such as /services/ or an http(s) URL.',
-    )
-    image = models.ImageField(
-        upload_to='quick_access/',
-        blank=True,
-        null=True,
-        validators=[validate_image_file],
-        help_text='PNG or JPEG, up to 10 MB. Images are center-cropped to 3:2.',
-    )
-    fallback_image = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text='Static image used until an uploaded image is provided.',
-    )
-    order = models.PositiveIntegerField(default=0)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['order', 'pk']
-        verbose_name = 'Quick Access Card'
-        verbose_name_plural = 'Quick Access Cards'
-
-    def __str__(self):
-        return str(self.title)
-
-    def save(self, *args, **kwargs):
-        """Autocrop newly uploaded artwork to the homepage card's 3:2 ratio."""
-        if self.image and not self.image._committed:
-            with Image.open(self.image) as uploaded_image:
-                image = ImageOps.exif_transpose(uploaded_image).convert('RGB')
-                cropped = ImageOps.fit(
-                    image,
-                    (1200, 800),
-                    method=Image.Resampling.LANCZOS,
-                )
-                output = BytesIO()
-                cropped.save(output, format='JPEG', quality=88, optimize=True)
-            filename = f'{self.image.name.rsplit(".", 1)[0]}.jpg'
-            self.image.save(filename, ContentFile(output.getvalue()), save=False)
-        super().save(*args, **kwargs)
 
 
 # =============================================================================

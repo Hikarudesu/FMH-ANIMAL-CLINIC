@@ -270,6 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function switchBranch(direction) {
+    if (!branchData.length) return;
     if (direction === "next") {
       currentBranchIdx = (currentBranchIdx + 1) % branchData.length;
     } else {

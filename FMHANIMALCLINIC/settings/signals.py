@@ -143,18 +143,18 @@ def cleanup_deleted_veterinarian_photo(sender, instance, **kwargs):
 
 
 @receiver(pre_save, sender=QuickAccessCard)
-def stash_old_quick_access_image(sender, instance, **kwargs):
-    """Capture the old card image before an update."""
-    _stash_old_file(instance, QuickAccessCard, 'image', '_old_image')
+def stash_old_quick_access_subject_image(sender, instance, **kwargs):
+    """Capture the previous foreground image before update."""
+    _stash_old_file(instance, QuickAccessCard, 'subject_image', '_old_subject_image')
 
 
 @receiver(post_save, sender=QuickAccessCard)
-def cleanup_old_quick_access_image(sender, instance, **kwargs):
-    """Delete the previous image after a replacement is saved."""
-    _cleanup_stashed_file(instance, '_old_image')
+def cleanup_old_quick_access_subject_image(sender, instance, **kwargs):
+    """Delete a replaced foreground image after a successful save."""
+    _cleanup_stashed_file(instance, '_old_subject_image')
 
 
 @receiver(post_delete, sender=QuickAccessCard)
-def cleanup_deleted_quick_access_image(sender, instance, **kwargs):
-    """Delete an uploaded card image when its card is removed."""
-    safely_delete_field_file(instance.image)
+def cleanup_deleted_quick_access_subject_image(sender, instance, **kwargs):
+    """Delete the foreground image when its card is removed."""
+    safely_delete_field_file(instance.subject_image)

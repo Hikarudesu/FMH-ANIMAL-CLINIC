@@ -92,11 +92,10 @@
     
     <div class="quick-grid">
       {% for card in quick_access_cards %}
-      <a href="{{ card.link }}" class="quick-box{% if forloop.counter|divisibleby:2 %} quick-about{% endif %} fade-in">
-        {% if card.image %}
-        <img src="{{ card.image|stored_or_static_url }}" alt="{{ card.title }}" class="quick-bg-img" loading="lazy">
-        {% elif card.fallback_image %}
-        <img src="{% static card.fallback_image %}" alt="{{ card.title }}" class="quick-bg-img" loading="lazy">
+      <a href="{{ card.link }}" class="quick-box fade-in">
+        <img src="{% if card.fallback_image %}{% static card.fallback_image %}{% else %}{% static 'image/quick.png' %}{% endif %}" alt="" class="quick-bg-img" loading="lazy">
+        {% if card.subject_image %}
+        <img src="{{ card.subject_image|stored_or_static_url }}" alt="" class="quick-subject-img" loading="lazy">
         {% endif %}
         <div class="quick-content">
           <h3>{{ card.title }}</h3>

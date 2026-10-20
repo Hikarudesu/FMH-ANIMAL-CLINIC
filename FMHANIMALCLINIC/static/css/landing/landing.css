@@ -837,6 +837,18 @@ p {
   border-radius: var(--card-radius);
 }
 
+.quick-subject-img {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 58%;
+  height: 100%;
+  object-fit: contain;
+  object-position: right bottom;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .quick-box::after {
   content: "";
   position: absolute;
