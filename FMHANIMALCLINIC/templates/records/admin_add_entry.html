@@ -46,7 +46,7 @@
         }
     </style>
 
-    <form method="post">
+    <form method="post" id="addVisitEntryForm">
         {% csrf_token %}
         {% if request.GET.appointment %}
         <input type="hidden" name="appointment" value="{{ request.GET.appointment }}">
@@ -152,7 +152,7 @@
         </script>
 
         <div style="padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end;">
-            <button type="submit" class="btn btn-primary"
+            <button type="submit" id="addVisitEntrySubmit" class="btn btn-primary"
                     style="background: var(--primary); color: white; padding: 12px 32px;
                            border-radius: var(--radius-sm); font-weight: 600; border: none;
                            font-size: 15px; cursor: pointer;">
@@ -160,5 +160,22 @@
             </button>
         </div>
     </form>
+    <script>
+        (function() {
+            const form = document.getElementById('addVisitEntryForm');
+            const submitButton = document.getElementById('addVisitEntrySubmit');
+            let submitting = false;
+
+            form.addEventListener('submit', function(event) {
+                if (submitting) {
+                    event.preventDefault();
+                    return;
+                }
+                submitting = true;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Saving Entry...';
+            });
+        })();
+    </script>
 </div>
 {% endblock %}

@@ -1355,7 +1355,7 @@
         <div class="lbl">Sex</div>
         <div class="val">{{ record.pet.get_sex_display|default:"—" }}</div>
         <div class="lbl">Age / DOB</div>
-        <div class="val">{{ record.pet.date_of_birth|date:"M j, Y"|default:"\u2014" }}</div>
+        <div class="val">{{ record.pet.date_of_birth|date:"M j, Y"|default:"Unknown" }}</div>
         <div class="lbl">Color</div>
         <div class="val">{{ record.pet.color|default:"—" }}</div>
     </div>

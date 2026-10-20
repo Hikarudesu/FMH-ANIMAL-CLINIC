@@ -195,7 +195,7 @@
             <td class="label">Sex</td>
             <td class="value">{{ record.pet.get_sex_display|default:"—" }}</td>
             <td class="label">Age/DOB</td>
-            <td class="value">{{ record.pet.date_of_birth|date:"M j, Y"|default:"\u2014" }}</td>
+            <td class="value">{{ record.pet.date_of_birth|date:"M j, Y"|default:"Unknown" }}</td>
             <td class="label">Color</td>
             <td class="value">{{ record.pet.color|default:"—" }}</td>
         </tr>

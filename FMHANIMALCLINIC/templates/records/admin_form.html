@@ -27,7 +27,7 @@
         </h2>
     </div>
 
-    <form method="post" action="{% url 'records:admin_create' %}" style="display: flex; flex-direction: column; gap: 24px;">
+    <form method="post" action="{% url 'records:admin_create' %}" id="createVisitEntryForm" style="display: flex; flex-direction: column; gap: 24px;">
         {% csrf_token %}
         {% if request.GET.appointment %}
         <input type="hidden" name="appointment" value="{{ request.GET.appointment }}">
@@ -393,11 +393,28 @@
         </div>
 
         <div style="margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end;">
-            <button type="submit" class="btn btn-primary" style="background: var(--primary); color: white; padding: 12px 32px; border-radius: var(--radius-sm); font-weight: 600; border: none; font-size: 15px; cursor: pointer; transition: background-color 0.2s;">
+            <button type="submit" id="createVisitEntrySubmit" class="btn btn-primary" style="background: var(--primary); color: white; padding: 12px 32px; border-radius: var(--radius-sm); font-weight: 600; border: none; font-size: 15px; cursor: pointer; transition: background-color 0.2s;">
                 <i class='bx bx-save'></i> Save Visit Entry
             </button>
         </div>
     </form>
+    <script>
+        (function() {
+            const form = document.getElementById('createVisitEntryForm');
+            const submitButton = document.getElementById('createVisitEntrySubmit');
+            let submitting = false;
+
+            form.addEventListener('submit', function(event) {
+                if (submitting) {
+                    event.preventDefault();
+                    return;
+                }
+                submitting = true;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Saving Entry...';
+            });
+        })();
+    </script>
 </div>
 
 <!-- Scripts for Dynamic Pet Data Loading -->
