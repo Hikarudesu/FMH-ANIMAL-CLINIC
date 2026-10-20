@@ -2878,6 +2878,14 @@ class SharedAuthenticationRateLimitTests(TestCase):
         self.assertFalse(self.user.check_password('A-new-secure-password-927!'))
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class RoleDashboardAuthorizationTests(TestCase):
     def test_generic_staff_without_dashboard_grants_cannot_open_staff_dashboards(self):
         dashboard_module, _ = Module.objects.get_or_create(
@@ -2908,7 +2916,7 @@ class RoleDashboardAuthorizationTests(TestCase):
         ):
             with self.subTest(route=route_name):
                 response = self.client.get(reverse(route_name))
-                self.assertEqual(response.status_code, 403)
+                self.assertRedirects(response, reverse('accounts:profile'))
 
     def test_staff_without_module_grants_cannot_open_module_urls_directly(self):
         role = Role.objects.create(
@@ -2927,7 +2935,20 @@ class RoleDashboardAuthorizationTests(TestCase):
         for route_name in ('inventory:management', 'diagnostics:dashboard'):
             with self.subTest(route=route_name):
                 response = self.client.get(reverse(route_name), follow=True)
-                self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.redirect_chain)
+                self.assertEqual(
+                    response.redirect_chain[-1][0],
+                    reverse('accounts:profile'),
+                )
+                self.assertNotIn(
+                    'inventory/management.html',
+                    [template.name for template in response.templates],
+                )
+                self.assertNotIn(
+                    'diagnostics/dashboard.html',
+                    [template.name for template in response.templates],
+                )
 
     def test_veterinarian_cannot_open_receptionist_dashboard_url(self):
         role = Role.objects.get(code='veterinarian')
@@ -2940,7 +2961,7 @@ class RoleDashboardAuthorizationTests(TestCase):
 
         response = self.client.get(reverse('accounts:receptionist_dashboard'))
 
-        self.assertEqual(response.status_code, 403)
+        self.assertRedirects(response, reverse('accounts:vet_dashboard'))
 
     def test_receptionist_cannot_open_veterinary_dashboard_url(self):
         role = Role.objects.get(code='receptionist')
@@ -2953,4 +2974,29 @@ class RoleDashboardAuthorizationTests(TestCase):
 
         response = self.client.get(reverse('accounts:vet_dashboard'))
 
-        self.assertEqual(response.status_code, 403)
+        self.assertRedirects(response, reverse('accounts:receptionist_dashboard'))
+
+    def test_staff_url_to_owner_dashboard_redirects_to_staff_dashboard(self):
+        role = Role.objects.get(code='veterinarian')
+        vet = get_user_model().objects.create_user(
+            username='vet-cannot-open-owner-dashboard',
+            password='A-secure-test-password-936!',
+            assigned_role=role,
+        )
+        self.client.force_login(vet)
+
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertRedirects(response, reverse('accounts:vet_dashboard'))
+
+    def test_admin_url_to_vet_dashboard_redirects_to_admin_dashboard(self):
+        admin = get_user_model().objects.create_superuser(
+            username='admin-cannot-open-vet-dashboard',
+            email='admin-dashboard-route@example.com',
+            password='A-secure-test-password-937!',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('accounts:vet_dashboard'))
+
+        self.assertRedirects(response, reverse('accounts:admin_dashboard'))
