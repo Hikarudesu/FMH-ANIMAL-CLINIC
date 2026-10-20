@@ -406,7 +406,7 @@
   <div class="geo-banner">
     <i class='bx bx-info-circle'></i>
     <div>
-      <strong>Data basis:</strong> Predictions use all eligible medical-record visit history in the selected period, including clinical signs, treatment, and prescriptions, with pet species, breed, and sex shown as cohort context. The date range is limited to the past six months. These are estimates and require veterinary review.
+      <strong>Data basis:</strong> Predictions summarize eligible medical-record visits in the selected period using clinical signs, treatment, and prescriptions. The date range is limited to the past six months. These estimates require veterinary review.
     </div>
   </div>
 
@@ -487,7 +487,6 @@
                         </div>
                         <strong>{{ disease.name }}</strong>
                         <small>{{ disease.detail }}</small>
-                        <small>Pet profiles: {{ disease.pet_profile_summary }}</small>
                         <div class="geo-prediction-meta">
                           <span>{{ disease.value }} visit{{ disease.value|pluralize }}</span>
                         </div>

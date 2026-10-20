@@ -51,7 +51,7 @@ class DiseaseVisitAggregationTests(TestCase):
             zip_code='1000',
         )
 
-    def test_aggregates_every_matching_visit_and_pet_profile(self):
+    def test_aggregates_every_matching_visit_and_distinct_pet(self):
         visit_date = date(2026, 10, 20)
         pets = [
             Pet.objects.create(
@@ -90,8 +90,7 @@ class DiseaseVisitAggregationTests(TestCase):
         prediction = result['disease_counts'][0]
         self.assertEqual(prediction['value'], 501)
         self.assertEqual(prediction['distinct_pets'], 2)
-        self.assertIn('Dog / Labrador / Male', prediction['pet_profile_summary'])
-        self.assertIn('Cat / Siamese / Female', prediction['pet_profile_summary'])
+        self.assertNotIn('pet_profile_summary', prediction)
 
     def test_unmatched_visit_does_not_create_a_fake_disease_prediction(self):
         pet = Pet.objects.create(
