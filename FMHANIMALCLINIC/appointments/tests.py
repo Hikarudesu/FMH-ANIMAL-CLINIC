@@ -745,6 +745,11 @@ class FollowUpAppointmentBookingTests(TestCase):
             booked_appointment.appointment_date,
             self.booking_date,
         )
+        self.assertIn(
+            'Follow-up visit for the recommendation dated',
+            booked_appointment.notes,
+        )
+        self.assertIn(self.followup.reason, booked_appointment.notes)
         self.assertFalse(self.followup.is_completed)
         send_confirmation.assert_called_once_with(booked_appointment)
 
@@ -762,6 +767,16 @@ class FollowUpAppointmentBookingTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_recommended_follow_up_appears_in_owner_portal_for_booking(self):
+        response = self.client.get(
+            reverse('appointments:my_appointments'),
+            {'tab': 'followups'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.followup.reason)
+        self.assertContains(response, 'Book return visit')
 
     def test_medical_record_only_follow_up_is_visible_and_prefills_pet(self):
         record = MedicalRecord.objects.create(
@@ -806,7 +821,7 @@ class FollowUpAppointmentBookingTests(TestCase):
         self.assertContains(response, 'Book Return Visit')
         self.assertContains(response, 'followupBookingData')
 
-    def test_quick_create_exposes_optional_follow_up_recommendation(self):
+    def test_quick_create_does_not_offer_follow_up_recommendation(self):
         staff = User.objects.create_superuser(
             username='quick-create-follow-up-admin',
             email='quick-create-follow-up-admin@example.com',
@@ -817,10 +832,8 @@ class FollowUpAppointmentBookingTests(TestCase):
         response = self.client.get(reverse('appointments:admin_list'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'quickFollowUpEnabled')
-        self.assertContains(response, 'quickFollowUpFields')
-        self.assertContains(response, 'does not require a medical record')
-        self.assertContains(response, 'followUpToggle.addEventListener')
+        self.assertNotContains(response, 'quickFollowUpEnabled')
+        self.assertNotContains(response, 'quickFollowUpFields')
 
     @patch('appointments.views.notify_staff_appointment_status_change')
     @patch('appointments.views.notify_appointment_status_change')
@@ -1978,7 +1991,15 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertTrue(steps[2]['optional'])
         self.assertEqual(steps[3]['state'], 'upcoming')
 
-    def test_veterinarian_must_explain_no_record_decision(self):
+    @patch('appointments.views.notify_staff_appointment_status_change')
+    @patch('appointments.views.notify_appointment_status_change')
+    @patch(
+        'notifications.followup_email_service.send_notification_email',
+        return_value=True,
+    )
+    def test_veterinarian_can_recommend_follow_up_without_medical_record(
+        self, send_email, _notify_owner, _notify_staff,
+    ):
         vet_role, _ = Role.objects.get_or_create(
             code='veterinarian',
             defaults={
@@ -2009,6 +2030,7 @@ class AppointmentWorkflowActionTests(TestCase):
         )
         self.appointment.status = Appointment.Status.CONFIRMED
         self.appointment.preferred_vet = vet
+        self.appointment.owner_email = 'guest-followup@example.com'
         self.appointment.appointment_date = timezone.localdate() + timedelta(days=1)
         self.appointment.checked_in_at = None
         self.appointment.save()
@@ -2041,17 +2063,48 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertIsNone(self.appointment.checked_in_at)
         self.assertEqual(self.appointment.preferred_vet_id, vet.pk)
 
+        visit_progress = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk]),
+        )
+        self.assertContains(visit_progress, 'noRecordFollowUpEnabled')
+        self.assertContains(visit_progress, 'noRecordFollowUpDate')
+        self.assertContains(visit_progress, 'Guest owners receive the recommendation by email.')
+
         self.client.post(no_record_url, {'medical_record_decision_reason': '  '})
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
 
-        self.client.post(
-            no_record_url,
-            {'medical_record_decision_reason': 'Routine check, no treatment required.'},
-        )
+        follow_up_date = timezone.localdate() + timedelta(days=7)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                no_record_url,
+                {
+                    'medical_record_decision_reason': (
+                        'Routine check, no treatment required.'
+                    ),
+                    'follow_up_enabled': 'on',
+                    'follow_up_date': follow_up_date.isoformat(),
+                    'follow_up_reason': 'Medication recheck',
+                },
+            )
+        self.assertEqual(response.status_code, 302)
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.AWAITING_PAYMENT)
         self.assertEqual(
             self.appointment.medical_record_decision,
             Appointment.MedicalRecordDecision.NOT_REQUIRED,
+        )
+        followup = FollowUp.objects.get(appointment=self.appointment)
+        self.assertIsNone(followup.medical_record_id)
+        self.assertEqual(followup.follow_up_date, follow_up_date)
+        self.assertEqual(followup.reason, 'Medication recheck')
+        self.assertIsNone(followup.booked_appointment_id)
+        send_email.assert_called_once()
+        self.assertEqual(
+            send_email.call_args.kwargs['recipient_list'],
+            ['guest-followup@example.com'],
+        )
+        self.assertIn(
+            'not a confirmed appointment',
+            send_email.call_args.kwargs['message'],
         )

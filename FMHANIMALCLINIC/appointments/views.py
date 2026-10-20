@@ -116,6 +116,22 @@ def book_success(request):
     return render(request, 'appointments/book_success.html')
 
 
+def _add_follow_up_booking_note(appointment, followup):
+    """Label the new appointment and preserve any booking notes."""
+    note = (
+        f'Follow-up visit for the recommendation dated '
+        f'{followup.follow_up_date:%B %d, %Y}.'
+    )
+    if followup.reason:
+        note = f'{note} Reason: {followup.reason}'
+    existing_notes = (appointment.notes or '').strip()
+    if note not in existing_notes:
+        appointment.notes = '\n\n'.join(
+            part for part in (note, existing_notes) if part
+        )
+        appointment.save(update_fields=['notes', 'updated_at'])
+
+
 # ──────────────────────── PORTAL BOOKING (logged-in) ────────────────────────
 
 @login_required
@@ -227,6 +243,7 @@ def portal_book(request):
                 else:
                     appointment = form.save()
                     if followup:
+                        _add_follow_up_booking_note(appointment, followup)
                         followup.booked_appointment = appointment
                         followup.save(update_fields=['booked_appointment'])
         if appointment:
@@ -1125,6 +1142,43 @@ def veterinarian_workflow_action(request, pk, action):
         if len(reason) < 5:
             messages.error(request, 'Explain why no medical record is required (at least five characters).')
             return redirect('appointments:admin_detail', pk=pk)
+
+        follow_up_enabled = request.POST.get('follow_up_enabled') == 'on'
+        followup = None
+        follow_up_date = None
+        follow_up_end_date = None
+        follow_up_reason = request.POST.get('follow_up_reason', '').strip()
+        if follow_up_enabled:
+            try:
+                follow_up_date = date.fromisoformat(
+                    request.POST.get('follow_up_date', ''),
+                )
+                follow_up_end_date_value = request.POST.get(
+                    'follow_up_end_date', '',
+                ).strip()
+                follow_up_end_date = (
+                    date.fromisoformat(follow_up_end_date_value)
+                    if follow_up_end_date_value else None
+                )
+            except ValueError:
+                messages.error(
+                    request,
+                    'Enter a valid follow-up date and optional end date.',
+                )
+                return redirect('appointments:admin_detail', pk=pk)
+            if follow_up_date < timezone.localdate():
+                messages.error(
+                    request,
+                    'The recommended follow-up date cannot be in the past.',
+                )
+                return redirect('appointments:admin_detail', pk=pk)
+            if follow_up_end_date and follow_up_end_date < follow_up_date:
+                messages.error(
+                    request,
+                    'The follow-up end date cannot be before its start date.',
+                )
+                return redirect('appointments:admin_detail', pk=pk)
+
         appointment.medical_record_decision = Appointment.MedicalRecordDecision.NOT_REQUIRED
         appointment.medical_record_decision_reason = reason
         appointment.status = Appointment.Status.AWAITING_PAYMENT
@@ -1142,6 +1196,34 @@ def veterinarian_workflow_action(request, pk, action):
         raise PermissionDenied
 
     appointment.save()
+    if action == 'no-record' and follow_up_enabled:
+        followup = FollowUp.objects.filter(
+            appointment=appointment,
+            booked_appointment__isnull=True,
+            is_completed=False,
+        ).order_by('-created_at').first()
+        event = 'updated' if followup else 'scheduled'
+        if not followup:
+            followup = FollowUp(
+                appointment=appointment,
+                pet_name=appointment.pet_name,
+                created_by=request.user,
+            )
+        followup.follow_up_date = follow_up_date
+        followup.follow_up_end_date = follow_up_end_date
+        followup.reason = follow_up_reason
+        followup.email_sent_at = None
+        followup.reminder_email_sent_at = None
+        followup.email_attempts = 0
+        followup.email_last_error = ''
+        followup.save()
+        notify_follow_up_scheduled(
+            appointment=appointment,
+            followup=followup,
+            follow_up_reason=follow_up_reason,
+            event=event,
+        )
+
     if action == 'start':
         notify_veterinarian_consultation_started(appointment)
     else:
@@ -1588,44 +1670,6 @@ def admin_quick_create(request):
     """Admin: quickly create an appointment (walk-in / phone call)."""
     if request.method == 'POST':
         followup = None
-        follow_up_enabled = (
-            request.POST.get('follow_up_enabled') == 'on'
-            and not request.POST.get('follow_up_id')
-        )
-        follow_up_date = None
-        follow_up_end_date = None
-        follow_up_reason = request.POST.get('follow_up_reason', '').strip()
-        if follow_up_enabled:
-            try:
-                follow_up_date = date.fromisoformat(
-                    request.POST.get('follow_up_date', ''),
-                )
-                follow_up_end_date_value = request.POST.get(
-                    'follow_up_end_date', '',
-                ).strip()
-                follow_up_end_date = (
-                    date.fromisoformat(follow_up_end_date_value)
-                    if follow_up_end_date_value else None
-                )
-            except ValueError:
-                messages.error(
-                    request,
-                    'Enter a valid recommended follow-up date and date range.',
-                )
-                return redirect('appointments:admin_list')
-            if follow_up_date < timezone.localdate():
-                messages.error(
-                    request,
-                    'The recommended follow-up date cannot be in the past.',
-                )
-                return redirect('appointments:admin_list')
-            if follow_up_end_date and follow_up_end_date < follow_up_date:
-                messages.error(
-                    request,
-                    'The follow-up end date cannot be before its start date.',
-                )
-                return redirect('appointments:admin_list')
-
         with transaction.atomic():
             follow_up_id = request.POST.get('follow_up_id')
             if follow_up_id:
@@ -1714,6 +1758,7 @@ def admin_quick_create(request):
                     appointment.pet_name = followup_pet.name
                     appointment.pet_species = followup_pet.species
                     appointment.pet_breed = followup_pet.breed
+                _add_follow_up_booking_note(appointment, followup)
                 appointment.save(update_fields=[
                     'owner_name',
                     'owner_email',
@@ -1741,23 +1786,6 @@ def admin_quick_create(request):
             notify_staff_appointment_status_change(appointment, appointment.status, actor=request.user)
             if appointment.status == Appointment.Status.COMPLETED:
                 notify_veterinarian_medical_record_required(appointment, actor=request.user)
-
-            # A follow-up booking is distinct from a new follow-up recommendation.
-            if follow_up_enabled and not followup:
-                followup = FollowUp.objects.create(
-                    appointment=appointment,
-                    pet_name=appointment.pet_name,
-                    follow_up_date=follow_up_date,
-                    follow_up_end_date=follow_up_end_date,
-                    reason=follow_up_reason,
-                    created_by=request.user,
-                )
-
-                notify_follow_up_scheduled(
-                    appointment=appointment,
-                    followup=followup,
-                    follow_up_reason=follow_up_reason,
-                )
 
             messages.success(
                 request,

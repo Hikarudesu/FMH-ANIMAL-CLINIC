@@ -915,34 +915,6 @@
           </div>
         </div>
 
-        {% if not followup_booking %}
-        <div class="qc-section-title mt-3">Follow-up Recommendation (Optional)</div>
-        <p class="qc-full" style="margin: 0 0 10px; color: var(--text-3); font-size: 0.82rem;">
-          Add this when the clinician recommends a return visit. It does not book a slot and does not require a medical record.
-        </p>
-        <div class="qc-grid">
-          <div class="qc-group qc-full">
-            <label class="qc-checkbox">
-              <input type="checkbox" name="follow_up_enabled" id="quickFollowUpEnabled">
-              <span>Recommend that this pet return</span>
-            </label>
-          </div>
-          <div id="quickFollowUpFields" class="qc-grid qc-full" style="display: none;">
-            <div class="qc-group">
-              <label for="quickFollowUpDate">Recommended Return Date *</label>
-              <input type="date" name="follow_up_date" class="qc-input" id="quickFollowUpDate">
-            </div>
-            <div class="qc-group">
-              <label for="quickFollowUpEndDate">Follow-up End Date (Optional)</label>
-              <input type="date" name="follow_up_end_date" class="qc-input" id="quickFollowUpEndDate">
-            </div>
-            <div class="qc-group qc-full">
-              <label for="quickFollowUpReason">Reason for Follow-up</label>
-              <textarea name="follow_up_reason" id="quickFollowUpReason" class="qc-input" rows="2" placeholder="e.g., Post-surgery checkup"></textarea>
-            </div>
-          </div>
-        </div>
-        {% endif %}
       </div>
       
       <div class="qc-footer">
@@ -1303,24 +1275,6 @@ const API_TIMES = "{% url 'appointments:api_times' %}";
 <!-- Quick Create Dynamic Time Loading Script -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  const followUpToggle = document.getElementById('quickFollowUpEnabled');
-  const followUpFields = document.getElementById('quickFollowUpFields');
-  const followUpDate = document.getElementById('quickFollowUpDate');
-  const followUpEndDate = document.getElementById('quickFollowUpEndDate');
-
-  function updateFollowUpFields() {
-    if (!followUpToggle || !followUpFields || !followUpDate) return;
-    followUpFields.style.display = followUpToggle.checked ? 'grid' : 'none';
-    followUpDate.required = followUpToggle.checked;
-    followUpDate.disabled = !followUpToggle.checked;
-    if (followUpEndDate) followUpEndDate.disabled = !followUpToggle.checked;
-  }
-
-  if (followUpToggle) {
-    followUpToggle.addEventListener('change', updateFollowUpFields);
-    updateFollowUpFields();
-  }
-
   const branchSelect = document.getElementById('id_branch');
   const dateInput = document.getElementById('id_appointment_date');
   const vetSelect = document.getElementById('id_preferred_vet');

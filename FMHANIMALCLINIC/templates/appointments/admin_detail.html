@@ -46,7 +46,12 @@
   .appointment-manage__button--danger { background: #dc2626; }
   .appointment-manage__form { display: grid; gap: 9px; }
   .appointment-manage__form label { color: var(--text-1); font-size: .82rem; font-weight: 700; }
-  .appointment-manage__form textarea { width: 100%; min-height: 84px; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-1); font: inherit; resize: vertical; }
+  .appointment-manage__form textarea,
+  .appointment-manage__form input[type="date"] { width: 100%; min-height: 42px; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-1); font: inherit; }
+  .appointment-manage__form textarea { min-height: 84px; resize: vertical; }
+  .appointment-manage__followup-toggle { display: flex; align-items: center; gap: 8px; }
+  .appointment-manage__followup-toggle input { width: 16px; height: 16px; accent-color: var(--primary, #087f75); }
+  .appointment-manage__followup-help { margin: -3px 0 2px; color: var(--text-2); font-size: .78rem; line-height: 1.45; }
   .appointment-manage__list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
   .appointment-manage__list li { padding: 11px 12px; border-radius: 9px; background: var(--bg, #f8fafc); color: var(--text-2); font-size: .84rem; line-height: 1.45; }
   .appointment-manage__list strong { color: var(--text-1); }
@@ -250,6 +255,21 @@
               {% csrf_token %}
               <label for="noRecordReason">Reason no record is needed</label>
               <textarea id="noRecordReason" name="medical_record_decision_reason" minlength="5" required></textarea>
+              <label class="appointment-manage__followup-toggle" for="noRecordFollowUpEnabled">
+                <input type="checkbox" name="follow_up_enabled" id="noRecordFollowUpEnabled">
+                <span>Recommend a follow-up visit</span>
+              </label>
+              <p class="appointment-manage__followup-help">
+                The owner can choose an available appointment time from their portal. Guest owners receive the recommendation by email.
+              </p>
+              <div id="noRecordFollowUpFields" hidden>
+                <label for="noRecordFollowUpDate">Recommended return date</label>
+                <input type="date" name="follow_up_date" id="noRecordFollowUpDate">
+                <label for="noRecordFollowUpEndDate">Return date through (optional)</label>
+                <input type="date" name="follow_up_end_date" id="noRecordFollowUpEndDate">
+                <label for="noRecordFollowUpReason">Follow-up details</label>
+                <textarea id="noRecordFollowUpReason" name="follow_up_reason" rows="3" placeholder="Why should the pet return?"></textarea>
+              </div>
               <button class="appointment-manage__button appointment-manage__button--secondary" type="submit">No record needed</button>
             </form>
           </div>
@@ -383,4 +403,26 @@
   }());
 </script>
 {% endif %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const followUpToggle = document.getElementById('noRecordFollowUpEnabled');
+  const followUpFields = document.getElementById('noRecordFollowUpFields');
+  const followUpDate = document.getElementById('noRecordFollowUpDate');
+  const followUpEndDate = document.getElementById('noRecordFollowUpEndDate');
+  const followUpReason = document.getElementById('noRecordFollowUpReason');
+
+  if (!followUpToggle || !followUpFields || !followUpDate) return;
+
+  function updateFollowUpFields() {
+    followUpFields.hidden = !followUpToggle.checked;
+    followUpDate.required = followUpToggle.checked;
+    followUpDate.disabled = !followUpToggle.checked;
+    followUpEndDate.disabled = !followUpToggle.checked;
+    followUpReason.disabled = !followUpToggle.checked;
+  }
+
+  followUpToggle.addEventListener('change', updateFollowUpFields);
+  updateFollowUpFields();
+});
+</script>
 {% endblock %}
