@@ -11,7 +11,7 @@ from branches.models import Branch
 from patients.models import Pet
 
 from .models import AIDiagnosis, AIDiagnosisRateLimit
-from .services import AI_HISTORY_MAX_CHARS, _build_history_text
+from .services import AI_HISTORY_MAX_CHARS, _SYSTEM_PROMPT, _build_history_text
 from .views import AI_DIAGNOSIS_REQUESTS_PER_HOUR
 
 
@@ -171,6 +171,38 @@ class AIDiagnosticsSecurityTests(TestCase):
         ai_call.assert_not_called()
         self.assertFalse(AIDiagnosisRateLimit.objects.filter(user=admin).exists())
 
+    def test_groq_failure_is_shown_without_saving_a_diagnosis(self):
+        pet = Pet.objects.create(
+            name='AI Service Failure Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+            branch=self.branch,
+        )
+        self.client.force_login(self.staff)
+
+        with patch(
+            'diagnostics.views.get_ai_diagnosis',
+            return_value={
+                'primary_diagnosis': {'condition': 'Unable to determine'},
+                '_error': True,
+            },
+        ):
+            response = self.client.post(
+                reverse('diagnostics:run_diagnosis', args=[pet.pk]),
+                {'current_symptoms': 'Nagsusuka at ayaw kumain'},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'AI diagnosis service is currently unavailable')
+        self.assertContains(response, 'Nagsusuka at ayaw kumain')
+        self.assertFalse(AIDiagnosis.objects.filter(pet=pet).exists())
+
+    def test_prompt_handles_tagalog_typos_and_english_output(self):
+        self.assertIn('Filipino/Tagalog', _SYSTEM_PROMPT)
+        self.assertIn('Taglish', _SYSTEM_PROMPT)
+        self.assertIn('spelling and spacing errors', _SYSTEM_PROMPT)
+        self.assertIn('in clear English', _SYSTEM_PROMPT)
+
     def test_clinical_history_prompt_has_a_fixed_character_limit(self):
         entry = SimpleNamespace(
             action_required=None,
@@ -186,3 +218,19 @@ class AIDiagnosticsSecurityTests(TestCase):
 
         self.assertEqual(len(history_text), AI_HISTORY_MAX_CHARS)
         self.assertTrue(history_text.endswith('[Older clinical history truncated.]'))
+
+    def test_clinical_history_preserves_tagalog_and_taglish_text(self):
+        entry = SimpleNamespace(
+            action_required=None,
+            date_recorded=date.today(),
+            weight=None,
+            temperature=None,
+            history_clinical_signs='Nagsusuka at ayaw kumain, parang matamlay',
+            treatment='Bigyan ng fluids; monitor kung nagsusuka pa',
+            rx='',
+        )
+
+        history_text = _build_history_text([entry])
+
+        self.assertIn('Nagsusuka at ayaw kumain', history_text)
+        self.assertIn('monitor kung nagsusuka pa', history_text)

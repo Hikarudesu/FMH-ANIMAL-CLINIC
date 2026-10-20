@@ -152,10 +152,12 @@ def run_diagnosis(request, pet_id):
         'latest_appointment': latest_appointment,
         'previous_diagnoses': previous_diagnoses,
         'has_history': bool(entries),
+        'current_symptoms': latest_appointment.pet_symptoms if latest_appointment else '',
     }
 
     if request.method == 'POST':
         current_symptoms = request.POST.get('current_symptoms', '').strip()
+        form_context['current_symptoms'] = current_symptoms
         if len(current_symptoms) > AI_SYMPTOMS_MAX_LENGTH:
             messages.error(
                 request,
@@ -186,6 +188,14 @@ def run_diagnosis(request, pet_id):
             appointment=latest_appointment,
             additional_symptoms=current_symptoms if current_symptoms else None
         )
+
+        if result.get('_error'):
+            messages.error(
+                request,
+                'The AI diagnosis service is currently unavailable or returned an invalid response. '
+                'Your symptoms have not been saved as a diagnosis. Please try again later or contact your administrator.',
+            )
+            return render(request, 'diagnostics/run_diagnosis.html', form_context)
 
         # Get staff profile
         staff_member = getattr(request.user, 'staff_profile', None)

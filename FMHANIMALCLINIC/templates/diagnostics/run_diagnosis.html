@@ -325,17 +325,17 @@
           <textarea 
             name="current_symptoms" 
             class="diag-form-textarea"
-            placeholder="Enter the current symptoms or clinical signs you want to analyze...
+            placeholder="Enter symptoms in English, Tagalog, or Taglish...
 
 Example:
 - Lethargy and decreased appetite for 2 days
 - Vomiting (yellow bile) twice today
 - Temperature: 39.5C
 - Mild dehydration"
-          >{% if latest_appointment and latest_appointment.pet_symptoms %}{{ latest_appointment.pet_symptoms }}{% endif %}</textarea>
+          >{{ current_symptoms }}</textarea>
           <p class="diag-form-hint">
             <i class="bx bx-info-circle"></i>
-            The AI will analyze these symptoms along with the pet's medical history (last 10 visits) to suggest potential diagnoses.
+            The AI can interpret English, Tagalog, Taglish, and common typos. It analyzes these symptoms with the pet's last 10 visits and returns its suggestions in English.
           </p>
         </div>
 

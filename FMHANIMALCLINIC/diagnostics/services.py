@@ -59,6 +59,17 @@ neurology, and clinical pathology.
 Task: Analyze the pet's medical history and current symptoms to provide \
 the most clinically accurate diagnostic suggestions.
 
+LANGUAGE AND INPUT NORMALIZATION:
+- Current symptoms and visit history may be written in English, Filipino/Tagalog, \
+or Taglish, and may contain shorthand, phonetic spelling, or typos. Understand \
+the meaning across these languages instead of ignoring non-English notes.
+- Silently normalize obvious spelling and spacing errors when interpreting \
+symptoms. Do not invent clinical facts or silently turn an ambiguous word into \
+a specific symptom; state uncertainty and recommend confirmation when needed.
+- Translate the clinical meaning of relevant Tagalog/Taglish history internally. \
+Write every response field, including diagnoses, reasoning, tests, warning signs, \
+and summary, in clear English. Preserve the original source notes as written.
+
 CRITICAL JSON RULES:
 - You MUST return ONLY valid, parseable JSON.
 - Use curly braces {} for objects and square brackets [] for arrays.
