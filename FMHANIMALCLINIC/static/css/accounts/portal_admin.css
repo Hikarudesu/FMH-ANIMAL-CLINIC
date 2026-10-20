@@ -1654,6 +1654,24 @@
   transform: scale(1) translateY(0);
 }
 
+#editScheduleModal .schedule-modal {
+  overflow: hidden;
+}
+
+#editScheduleForm {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#editScheduleForm .schedule-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
 .schedule-modal-header {
   display: flex;
   align-items: center;
@@ -1938,6 +1956,28 @@ textarea.form-control {
 .schedule-modal-footer .btn-action {
   min-width: 120px;
   white-space: nowrap;
+}
+
+#editScheduleModal .schedule-modal-footer {
+  flex-wrap: wrap;
+  box-sizing: border-box;
+}
+
+#editScheduleModal .schedule-modal-footer .btn-action {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  #editScheduleModal .schedule-modal-footer {
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  #editScheduleModal .schedule-modal-footer .btn-action {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
 }
 
 /* Schedule Modal — Using QC (Quick Create) styling */
