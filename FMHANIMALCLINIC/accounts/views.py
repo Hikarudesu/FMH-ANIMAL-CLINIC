@@ -22,7 +22,6 @@ from django.db import transaction
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
-from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
@@ -38,6 +37,25 @@ EMAIL_VERIFICATION_MAX_AGE = 60 * 60 * 24
 LOGIN_LOCKOUTS_SESSION_KEY = 'login_lockouts'
 LOGIN_MAX_FAILED_ATTEMPTS = 5
 LOGIN_LOCKOUT_DURATIONS = (60, 5 * 60, 15 * 60)
+
+
+def _dashboard_for_user(user):
+    """Return the correct landing page for the authenticated user's role."""
+    if not user.is_clinic_staff():
+        return 'accounts:user_dashboard'
+
+    role_code = getattr(user.assigned_role, 'code', '')
+    if user.is_receptionist():
+        return 'accounts:receptionist_dashboard'
+    if role_code in {'veterinarian', 'assistant_veterinarian', 'vet_assistant'}:
+        return 'accounts:vet_dashboard'
+    if (
+        user.is_admin_role()
+        or user.has_module_permission('dashboard', 'MANAGE')
+        or user.has_special_permission('can_access_admin_dashboard')
+    ):
+        return 'accounts:admin_dashboard'
+    return 'accounts:profile'
 
 
 def _send_email_verification(request, user):
@@ -90,17 +108,7 @@ def login_view(request):
     if request.user.is_authenticated:
         if next_url:
             return redirect(next_url)
-        if request.user.is_clinic_staff():
-            # Redirect based on specific role
-            if request.user.assigned_role and request.user.assigned_role.code == 'veterinarian':
-                return redirect('vet_dashboard')
-            elif request.user.assigned_role and request.user.assigned_role.code == 'assistant_veterinarian':
-                return redirect('vet_dashboard')  # Vet assistants share the vet dashboard
-            elif request.user.is_receptionist():
-                return redirect('receptionist_dashboard')
-            else:
-                return redirect('admin_dashboard')
-        return redirect('user_dashboard')
+        return redirect(_dashboard_for_user(request.user))
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
@@ -204,17 +212,7 @@ def login_view(request):
 
             if next_url:
                 return redirect(next_url)
-            if user.is_clinic_staff():
-                # Redirect based on specific role
-                if user.assigned_role and user.assigned_role.code == 'veterinarian':
-                    return redirect('vet_dashboard')
-                elif user.assigned_role and user.assigned_role.code == 'assistant_veterinarian':
-                    return redirect('vet_dashboard')  # Vet assistants share the vet dashboard
-                elif user.is_receptionist():
-                    return redirect('receptionist_dashboard')
-                else:
-                    return redirect('admin_dashboard')
-            return redirect('user_dashboard')
+            return redirect(_dashboard_for_user(user))
         else:
             failed_attempts = login_state.get('failed_attempts', 0) + 1
             login_state['failed_attempts'] = failed_attempts
@@ -388,6 +386,9 @@ def clear_all_activities_view(request):
 @login_required
 def user_dashboard_view(request):
     """User portal dashboard with follow-ups, appointments, notifications, and charts."""
+    if request.user.is_clinic_staff():
+        return redirect(_dashboard_for_user(request.user))
+
     from notifications.models import FollowUp, Notification
     from appointments.models import Appointment
     from patients.models import Pet
@@ -801,13 +802,8 @@ def admin_dashboard_view(request):
     if request.user.is_receptionist():
         return redirect('receptionist_dashboard')
 
-    can_access_admin_dashboard = (
-        request.user.is_admin_role()
-        or request.user.has_module_permission('dashboard', 'MANAGE')
-        or request.user.has_special_permission('can_access_admin_dashboard')
-    )
-    if not can_access_admin_dashboard:
-        return HttpResponseForbidden('You do not have access to the admin dashboard.')
+    if _dashboard_for_user(request.user) != 'accounts:admin_dashboard':
+        return redirect(_dashboard_for_user(request.user))
 
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
@@ -1466,14 +1462,8 @@ def vet_dashboard_view(request):
     from diagnostics.models import AIDiagnosis
     from django.db.models.functions import TruncMonth
 
-    role_code = getattr(request.user.assigned_role, 'code', '')
-    can_access_vet_dashboard = (
-        request.user.is_superuser
-        or request.user.is_admin_role()
-        or role_code in {'veterinarian', 'assistant_veterinarian', 'vet_assistant'}
-    )
-    if not can_access_vet_dashboard:
-        return HttpResponseForbidden('You do not have access to the veterinary dashboard.')
+    if _dashboard_for_user(request.user) != 'accounts:vet_dashboard':
+        return redirect(_dashboard_for_user(request.user))
 
     today = date.today()
     month_start = date(today.year, today.month, 1)
@@ -1767,13 +1757,8 @@ def receptionist_dashboard_view(request):
     from inventory.models import Product, StockAdjustment
     from django.db.models.functions import TruncMonth
 
-    can_access_receptionist_dashboard = (
-        request.user.is_superuser
-        or request.user.is_admin_role()
-        or request.user.is_receptionist()
-    )
-    if not can_access_receptionist_dashboard:
-        return HttpResponseForbidden('You do not have access to the front desk dashboard.')
+    if _dashboard_for_user(request.user) != 'accounts:receptionist_dashboard':
+        return redirect(_dashboard_for_user(request.user))
 
     today = date.today()
     yesterday = today - timedelta(days=1)
