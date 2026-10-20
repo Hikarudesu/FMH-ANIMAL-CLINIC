@@ -503,6 +503,18 @@ class SameDayBookingCutoffTests(TestCase):
         self.assertIn('18:30', slot_times)
         self.assertNotIn('07:30', slot_times)
         self.assertNotIn('19:00', slot_times)
+        self.assertTrue(AppointmentService.check_slot_availability(
+            branch_id=self.branch.pk,
+            appointment_date=target_date,
+            appointment_time=time(18, 30),
+            vet_id=self.vet.pk,
+        ))
+        self.assertFalse(AppointmentService.check_slot_availability(
+            branch_id=self.branch.pk,
+            appointment_date=target_date,
+            appointment_time=time(18, 45),
+            vet_id=self.vet.pk,
+        ))
 
     def test_submission_rejects_slots_that_end_after_clinic_closing(self):
         with self.assertRaisesMessage(

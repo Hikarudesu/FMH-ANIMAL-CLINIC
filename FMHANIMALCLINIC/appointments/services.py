@@ -351,7 +351,7 @@ class AppointmentService:
             True if the slot is available, False otherwise.
         """
         slot_end = (
-            datetime.combine(target_date, appointment_time)
+            datetime.combine(appointment_date, appointment_time)
             + timedelta(minutes=AppointmentService.SLOT_DURATION_MINUTES)
         ).time()
         if (
