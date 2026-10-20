@@ -798,6 +798,7 @@ p {
 .quick-grid {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 2rem;
   margin-top: 3rem;
 }
@@ -817,7 +818,7 @@ p {
   overflow: hidden;
   z-index: 1;
   min-height: 200px;
-  flex: 0 1 calc(50% - 1rem);
+  flex: 0 1 calc(48% - 1rem);
 }
 
 .quick-about .quick-content,
