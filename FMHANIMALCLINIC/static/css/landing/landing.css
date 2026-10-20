@@ -818,7 +818,7 @@ p {
   overflow: hidden;
   z-index: 1;
   min-height: 200px;
-  flex: 0 1 calc(48% - 1rem);
+  flex: 0 1 calc(46% - 1rem);
 }
 
 .quick-about .quick-content,
