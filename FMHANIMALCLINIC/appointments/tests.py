@@ -803,6 +803,41 @@ class FollowUpAppointmentBookingTests(TestCase):
         )
         self.assertFalse(booking_form['appointment_time'].value())
 
+    def test_follow_up_creator_remains_prefilled_when_not_scheduled(self):
+        self.source_appointment.preferred_vet = None
+        self.source_appointment.save(update_fields=['preferred_vet'])
+        self.followup.created_by = self.vet.user
+        self.followup.save(update_fields=['created_by'])
+        VetSchedule.objects.filter(
+            staff=self.vet,
+            date=self.booking_date,
+        ).delete()
+
+        response = self.client.get(
+            reverse('appointments:portal_book'),
+            {'follow_up': self.followup.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        booking_form = response.context['form']
+        self.assertEqual(booking_form['preferred_vet'].value(), self.vet.pk)
+        self.assertIn(
+            self.vet,
+            booking_form.fields['preferred_vet'].queryset,
+        )
+        self.assertEqual(
+            booking_form.fields['preferred_vet'].widget.attrs[
+                'data-followup-prefill-vet'
+            ],
+            str(self.vet.pk),
+        )
+        self.assertEqual(
+            booking_form.fields['preferred_vet'].widget.attrs[
+                'data-followup-prefill-branch'
+            ],
+            str(self.branch.pk),
+        )
+
     def test_medical_record_only_follow_up_is_visible_and_prefills_pet(self):
         record = MedicalRecord.objects.create(
             pet=self.pet,

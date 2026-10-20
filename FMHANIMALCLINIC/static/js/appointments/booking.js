@@ -202,6 +202,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const branch = branchSelect.value;
     const dt = dateInput ? dateInput.value : "";
     const selectedVet = vetSelect.value;
+    const selectedVetOption = vetSelect.selectedOptions[0];
+    const selectedVetName = selectedVetOption ? selectedVetOption.textContent : "";
+    const isFollowupPrefill =
+      selectedVet &&
+      selectedVet === vetSelect.dataset.followupPrefillVet &&
+      branch === vetSelect.dataset.followupPrefillBranch;
 
     vetSelect.innerHTML = '<option value="">Loading...</option>';
 
@@ -248,6 +254,16 @@ document.addEventListener("DOMContentLoaded", function () {
           )
         ) {
           vetSelect.value = selectedVet;
+        } else if (isFollowupPrefill) {
+          const option = document.createElement("option");
+          option.value = selectedVet;
+          option.textContent = `${selectedVetName} (not scheduled on this date)`;
+          vetSelect.appendChild(option);
+          vetSelect.value = selectedVet;
+          showTimeHint(
+            `${selectedVetName} is not scheduled on this date. Select an available veterinarian or choose another date.`,
+            "#e65100"
+          );
         }
       })
       .catch(() => {

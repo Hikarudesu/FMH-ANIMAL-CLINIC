@@ -153,6 +153,7 @@ def portal_book(request):
                 'medical_record__pet',
                 'medical_record__vet',
                 'medical_record__branch',
+                'created_by',
             ).filter(
                 Q(appointment__user=request.user)
                 | Q(appointment__pet__owner=request.user)
@@ -182,7 +183,7 @@ def portal_book(request):
             selected_pet = followup.medical_record.pet
 
     followup_initial = {}
-    if followup and request.method != 'POST':
+    if followup:
         source_appointment = followup.appointment
         source_branch = (
             source_appointment.branch
@@ -215,8 +216,14 @@ def portal_book(request):
                 latest_entry.vet if latest_entry and latest_entry.vet_id
                 else source_appointment.preferred_vet
             )
+        if source_vet is None and followup.created_by_id:
+            try:
+                source_vet = followup.created_by.staff_profile
+            except StaffMember.DoesNotExist:
+                pass
         if source_vet:
             followup_initial['preferred_vet'] = source_vet.pk
+            followup_initial['followup_source_vet_id'] = source_vet.pk
 
     if request.method == 'POST':
         with transaction.atomic():
@@ -270,6 +277,7 @@ def portal_book(request):
                 request.POST,
                 user=request.user,
                 selected_pet=selected_pet,
+                initial=followup_initial,
             )
             appointment = None
             if form.is_valid():

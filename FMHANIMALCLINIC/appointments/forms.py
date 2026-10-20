@@ -7,6 +7,7 @@ Forms for the appointments app.
 from datetime import time, date, datetime, timedelta
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils import timezone
 from FMHANIMALCLINIC.form_mixins import FormControlMixin, validate_philippines_phone
 
@@ -506,6 +507,7 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         if branch_value:
             try:
                 branch_id = int(getattr(branch_value, 'pk', branch_value))
+                source_vet_id = self.initial.get('followup_source_vet_id')
                 appt_date = (
                     self.data.get('appointment_date')
                     or self.initial.get('appointment_date')
@@ -520,8 +522,14 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
                         is_available=True,
                     ).values_list('staff_id', flat=True).distinct()
 
+                    vet_filter = Q(id__in=scheduled_staff_ids)
+                    if source_vet_id:
+                        vet_filter |= Q(
+                            pk=source_vet_id,
+                            branch_id=branch_id,
+                        )
                     self.fields['preferred_vet'].queryset = StaffMember.objects.filter(
-                        id__in=scheduled_staff_ids,
+                        vet_filter,
                         user__assigned_role__code__in=schedulable_roles,
                         user__is_active=True,
                         is_active=True,
@@ -534,6 +542,13 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
                         is_active=True,
                         branch_id=branch_id,
                     ).select_related('user', 'user__assigned_role')
+                if source_vet_id:
+                    self.fields['preferred_vet'].widget.attrs[
+                        'data-followup-prefill-vet'
+                    ] = str(source_vet_id)
+                    self.fields['preferred_vet'].widget.attrs[
+                        'data-followup-prefill-branch'
+                    ] = str(branch_id)
             except (ValueError, TypeError):
                 pass
 
