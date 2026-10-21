@@ -600,7 +600,7 @@
     bottom: 0;
     background: rgba(15, 23, 42, 0.6);
     backdrop-filter: blur(4px);
-    z-index: 1000;
+    z-index: 2000;
     align-items: center;
     justify-content: center;
     padding: 16px;
@@ -625,6 +625,16 @@
     text-align: center;
     box-shadow: var(--shadow-lg);
     animation: slideUp 0.3s ease-out forwards;
+  }
+
+  #posReceiptPrintFrame {
+    position: fixed;
+    left: -10000px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    border: 0;
+    visibility: hidden;
   }
 
   .modal-overlay {
@@ -897,6 +907,7 @@
 {% include "components/page_hero.html" with title="Point of Sale" icon="bx-cart" subtitle="Process sales and manage transactions" action_url=sales_history_url action_icon="bx-history" action_label="Sales History" %}
 
 <form id="posCsrfForm" style="display: none;">{% csrf_token %}</form>
+<iframe id="posReceiptPrintFrame" title="Receipt printer" aria-hidden="true" tabindex="-1"></iframe>
 
 <div class="pos-container">
   <!-- Left Panel - Items Browser -->
@@ -1209,7 +1220,6 @@ let currentTotal = {{ sale.total|default:0 }};
 let paymentMethod = 'CASH';
 let customerType = 'WALKIN';
 let lastCompletedSaleId = null;
-let pendingReceiptWindow = null;
 let paymentInProgress = false;
 let customerSearchTimer = null;
 let customerSearchController = null;
@@ -1221,6 +1231,12 @@ window.addEventListener('pagehide', function() {
   const formData = new FormData();
   formData.append('csrfmiddlewaretoken', getCsrfToken());
   navigator.sendBeacon('{% url "pos:abandon_sale" sale.pk %}', formData);
+});
+
+window.addEventListener('message', function (event) {
+  if (event.origin !== window.location.origin || event.data?.type !== 'pos-receipt-printed') return;
+  const receiptStatus = document.getElementById('receiptPrintStatus');
+  if (receiptStatus) receiptStatus.textContent = 'Receipt sent to the printer.';
 });
 
 window.addEventListener('pageshow', function(event) {
@@ -1907,16 +1923,6 @@ async function processPayment() {
     if (registeredPetId) params.set('pet_id', registeredPetId);
   }
 
-  // Open the tab during the cashier's click so the browser does not block it
-  // after the asynchronous payment request completes.
-  pendingReceiptWindow = window.open('about:blank', '_blank');
-  if (pendingReceiptWindow) {
-    pendingReceiptWindow.document.write(
-      '<!doctype html><title>Preparing receipt</title><p>Payment is being confirmed...</p>'
-    );
-    pendingReceiptWindow.document.close();
-  }
-
   const button = document.getElementById('checkoutBtn');
   const originalContent = button.innerHTML;
   paymentInProgress = true;
@@ -1948,17 +1954,9 @@ async function processPayment() {
       document.getElementById('modalAmountPaid').textContent = '₱' + Number(data.sale.amount_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       document.getElementById('modalChange').textContent = '₱' + Number(data.sale.change_due).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const receiptStatus = document.getElementById('receiptPrintStatus');
-      if (pendingReceiptWindow && !pendingReceiptWindow.closed) {
-        try {
-          pendingReceiptWindow.location.replace(`/pos/sales/${saleId}/receipt/?autoprint=1`);
-          receiptStatus.textContent = 'Receipt opened for automatic printing.';
-        } catch (_error) {
-          receiptStatus.textContent = 'Sale complete, but automatic printing could not start. Check the browser print settings.';
-        }
-      } else {
-        receiptStatus.textContent = 'Sale complete, but the browser blocked automatic printing. Allow pop-ups for this site.';
-      }
-      pendingReceiptWindow = null;
+      receiptStatus.textContent = 'Printing receipt...';
+      document.getElementById('posReceiptPrintFrame').src =
+        `/pos/sales/${saleId}/receipt/?autoprint=1&embedded=1`;
       document.getElementById('successModal').classList.add('active');
       return;
     }
@@ -1969,10 +1967,6 @@ async function processPayment() {
   } finally {
     paymentInProgress = false;
     if (!document.getElementById('successModal').classList.contains('active')) {
-      if (pendingReceiptWindow && !pendingReceiptWindow.closed) {
-        pendingReceiptWindow.close();
-      }
-      pendingReceiptWindow = null;
       button.disabled = false;
       button.innerHTML = originalContent;
     }

@@ -358,7 +358,11 @@
     }
     if (shouldAutoPrint) {
       window.addEventListener('afterprint', function () {
-        window.close();
+        if (new URLSearchParams(window.location.search).get('embedded') === '1') {
+          window.parent.postMessage({ type: 'pos-receipt-printed' }, window.location.origin);
+        } else {
+          window.close();
+        }
       }, { once: true });
       window.addEventListener('load', function () {
         window.setTimeout(function () {
