@@ -1988,10 +1988,11 @@ def admin_edit(request, pk):
 @transaction.atomic
 def admin_delete(request, pk):
     """Allow staff to delete cancelled appointments after notifying the owner."""
-    appointment = get_object_or_404(
-        Appointment.objects.select_for_update(),
-        pk=pk,
-    )
+    appointment = Appointment.objects.select_for_update().filter(pk=pk).first()
+    if appointment is None:
+        messages.info(request, 'This appointment has already been deleted.')
+        return redirect('appointments:admin_list')
+
     if appointment.status != Appointment.Status.CANCELLED:
         messages.error(
             request,

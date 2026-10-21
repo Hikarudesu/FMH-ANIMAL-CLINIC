@@ -1940,15 +1940,17 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(detail_response, 'Delete permanently')
         self.assertNotContains(detail_response, 'onsubmit="return confirm(')
 
+        delete_url = reverse(
+            'appointments:admin_delete',
+            args=[self.appointment.pk],
+        )
         with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.post(
-                reverse('appointments:admin_delete', args=[self.appointment.pk]),
-            )
+            response = self.client.post(delete_url, follow=True)
 
-        self.assertRedirects(
-            response,
-            reverse('appointments:admin_list'),
-            fetch_redirect_response=False,
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.redirect_chain,
+            [(reverse('appointments:admin_list'), 302)],
         )
         send_deletion_email.assert_called_once()
         self.assertFalse(Appointment.objects.filter(pk=self.appointment.pk).exists())
@@ -1957,6 +1959,18 @@ class AppointmentWorkflowActionTests(TestCase):
             notification_type=Notification.NotificationType.APPOINTMENT_CANCELLED,
             title__icontains='record removed',
         ).exists())
+
+        repeated_response = self.client.post(delete_url, follow=True)
+        self.assertEqual(repeated_response.status_code, 200)
+        self.assertEqual(
+            repeated_response.redirect_chain,
+            [(reverse('appointments:admin_list'), 302)],
+        )
+        self.assertContains(
+            repeated_response,
+            'This appointment has already been deleted.',
+        )
+        send_deletion_email.assert_called_once()
 
     @patch('notifications.email_utils.send_appointment_deletion_email')
     def test_staff_cannot_delete_non_cancelled_appointment(self, send_deletion_email):
@@ -2264,7 +2278,27 @@ class AppointmentWorkflowActionTests(TestCase):
         )
         self.assertContains(visit_progress, 'noRecordFollowUpEnabled')
         self.assertContains(visit_progress, 'noRecordFollowUpDate')
-        self.assertContains(visit_progress, 'Guest owners receive the recommendation by email.')
+        self.assertContains(visit_progress, 'not a booked appointment')
+        page_html = visit_progress.content.decode()
+        followup_option_position = page_html.index(
+            'Optional follow-up recommendation',
+        )
+        decision_buttons_start = page_html.index(
+            'class="appointment-manage__toolbar appointment-manage__decision-buttons"',
+        )
+        decision_buttons = page_html[decision_buttons_start:]
+        no_record_button_position = decision_buttons.index(
+            '>No record needed</button>',
+        )
+        record_required_button_position = decision_buttons.index(
+            '>Record required</button>',
+        )
+        self.assertLess(followup_option_position, decision_buttons_start)
+        self.assertNotEqual(no_record_button_position, record_required_button_position)
+        self.assertIn(
+            'form="noRecordDecisionForm"',
+            decision_buttons,
+        )
 
         self.client.post(no_record_url, {'medical_record_decision_reason': '  '})
         self.appointment.refresh_from_db()

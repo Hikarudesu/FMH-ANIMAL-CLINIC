@@ -158,11 +158,7 @@ def admin_detail_view(request, pk):
     # All medical records with entries
     medical_records = MedicalRecord.objects.filter(
         pet=pet
-    ).select_related('vet', 'branch').prefetch_related('entries').order_by(
-        '-date_recorded',
-        '-pk',
-    )
-    latest_record = medical_records.first()
+    ).select_related('vet', 'branch').prefetch_related('entries').order_by('-date_recorded')
 
     # All appointments linked to this pet
     from appointments.models import Appointment
@@ -382,7 +378,11 @@ def user_pet_detail_view(request, pk):
     # Medical records with entries
     medical_records = MedicalRecord.objects.filter(
         pet=pet
-    ).select_related('vet', 'branch').prefetch_related('entries').order_by('-date_recorded')
+    ).select_related('vet', 'branch').prefetch_related('entries').order_by(
+        '-date_recorded',
+        '-pk',
+    )
+    latest_record = medical_records.first()
 
     # Pre-compute warnings
     record_warnings = {}
