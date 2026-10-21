@@ -29,6 +29,7 @@
     <style>
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
         .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-grid .form-group--full { grid-column: 1 / -1; }
         .form-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; }
         .form-control-custom { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background-color: var(--bg); color: var(--text-primary); font-size: 14px; font-family: inherit; transition: all 0.2s; box-sizing: border-box; }
         .form-control-custom:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(44,122,123,0.1); outline: none; }
@@ -61,17 +62,21 @@
                 <label class="form-label">Recommended Follow-Up Date</label>
                 {{ form.ff_up }}
             </div>
-            <div class="form-group">
+            <div class="form-group form-group--full">
                 <label class="form-label">Follow-Up Reason</label>
                 {{ form.follow_up_reason }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Temperature (°C)</label>
+                {{ form.temperature }}
             </div>
             <div class="form-group">
                 <label class="form-label">Weight (kg)</label>
                 {{ form.weight }}
             </div>
             <div class="form-group">
-                <label class="form-label">Temperature (°C)</label>
-                {{ form.temperature }}
+                <label class="form-label">Attending Veterinarian *</label>
+                {{ form.vet }}
             </div>
             <div class="form-group">
                 <label class="form-label">Branch / Location *</label>
@@ -81,10 +86,6 @@
                     <option value="{{ branch.id }}" {% if selected_branch_id == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
                     {% endfor %}
                 </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Attending Veterinarian *</label>
-                {{ form.vet }}
             </div>
         </div>
 

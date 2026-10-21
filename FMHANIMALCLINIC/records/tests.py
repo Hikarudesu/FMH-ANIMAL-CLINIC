@@ -259,6 +259,20 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(response.context['form']['vet'].value(), self.vet.pk)
         self.assertEqual(response.context['service_branch_id'], self.branch.pk)
         self.assertEqual(response.context['selected_branch_id'], str(self.branch.pk))
+        page_html = response.content.decode()
+        self.assertLess(
+            page_html.index('Temperature (°C)'),
+            page_html.index('Weight (kg)'),
+        )
+        self.assertLess(
+            page_html.index('Attending Veterinarian *'),
+            page_html.index('Branch / Location *'),
+        )
+        reason_label = page_html.index('Follow-Up Reason')
+        self.assertIn(
+            'form-group form-group--full',
+            page_html[reason_label - 100:reason_label],
+        )
 
     def test_linked_appointment_branch_and_vet_override_current_veterinarian(self):
         appointment_branch = Branch.objects.create(name='Appointment Clinic Branch')
