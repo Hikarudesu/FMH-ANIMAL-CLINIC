@@ -189,9 +189,8 @@ class AppointmentCheckoutTests(TestCase):
         self.assertContains(response, 'sessionStorage.getItem(printGuardKey)')
         self.assertContains(response, 'window.print();')
         self.assertContains(response, "window.addEventListener('afterprint'")
-        self.assertContains(response, "get('embedded') === '1'")
-        self.assertContains(response, "window.parent.postMessage({ type: 'pos-receipt-printed' }")
-        self.assertContains(response, 'window.close();')
+        self.assertContains(response, "get('embedded') !== '1'")
+        self.assertContains(response, "window.opener.postMessage({ type: 'pos-receipt-printed' }")
         self.assertNotContains(response, 'Print Receipt')
         self.assertNotContains(response, 'onclick="window.print()"')
         self.assertContains(response, 'width: 44mm;')
@@ -203,11 +202,13 @@ class AppointmentCheckoutTests(TestCase):
         self.assertContains(response, 'padding: 0 2mm;')
         self.assertContains(response, 'grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);')
 
-    def test_checkout_uses_hidden_frame_for_automatic_print_without_new_tab(self):
+    def test_checkout_prints_receipt_in_current_page_without_popup(self):
         response = self.client.get(reverse('pos:checkout'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'id="posReceiptPrintFrame"')
-        self.assertContains(response, 'autoprint=1&embedded=1')
-        self.assertNotContains(response, 'window.open(\'about:blank\'')
+        self.assertContains(response, 'async function printCompletedSaleReceipt(completedSaleId)')
+        self.assertContains(response, "receiptDocument.querySelector('.receipt')")
+        self.assertContains(response, 'window.print();')
+        self.assertContains(response, 'body.pos-printing .receipt')
+        self.assertNotContains(response, 'window.open(')
         self.assertNotContains(response, 'Print Receipt')

@@ -356,13 +356,12 @@
     } catch (_error) {
       shouldAutoPrint = true;
     }
-    if (shouldAutoPrint) {
+    if (shouldAutoPrint && new URLSearchParams(window.location.search).get('embedded') !== '1') {
       window.addEventListener('afterprint', function () {
-        if (new URLSearchParams(window.location.search).get('embedded') === '1') {
-          window.parent.postMessage({ type: 'pos-receipt-printed' }, window.location.origin);
-        } else {
-          window.close();
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({ type: 'pos-receipt-printed' }, window.location.origin);
         }
+        window.close();
       }, { once: true });
       window.addEventListener('load', function () {
         window.setTimeout(function () {

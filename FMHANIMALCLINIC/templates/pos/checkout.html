@@ -627,14 +627,181 @@
     animation: slideUp 0.3s ease-out forwards;
   }
 
-  #posReceiptPrintFrame {
-    position: fixed;
-    left: -10000px;
-    top: 0;
-    width: 1px;
-    height: 1px;
-    border: 0;
-    visibility: hidden;
+  #posReceiptPrintRoot {
+    display: none;
+  }
+
+  @media print {
+    @page {
+      size: 56mm auto;
+      margin: 0;
+    }
+
+    body.pos-printing {
+      width: 56mm;
+      margin: 0;
+      padding: 0;
+      background: #fff !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body.pos-printing > :not(#posReceiptPrintRoot) {
+      display: none !important;
+    }
+
+    body.pos-printing #posReceiptPrintRoot {
+      display: block !important;
+      width: 56mm;
+      margin: 0;
+      padding: 0;
+    }
+
+    body.pos-printing .receipt {
+      width: 44mm;
+      max-width: 44mm;
+      margin: 0 auto;
+      padding: 0 2mm;
+      color: #000 !important;
+      font-family: Arial, sans-serif;
+      font-size: 10pt;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    body.pos-printing .receipt,
+    body.pos-printing .receipt * {
+      box-sizing: border-box;
+      color: #000 !important;
+    }
+
+    body.pos-printing .receipt-header {
+      margin-bottom: 4mm;
+      padding-bottom: 3mm;
+      border-bottom: 1px dashed #000;
+      text-align: center;
+    }
+
+    body.pos-printing .receipt-logo {
+      font-size: 15pt;
+      font-weight: 700;
+      margin-bottom: 1mm;
+    }
+
+    body.pos-printing .receipt-clinic {
+      font-size: 9pt;
+    }
+
+    body.pos-printing .receipt-info {
+      margin-bottom: 4mm;
+      padding-bottom: 3mm;
+      border-bottom: 1px dashed #000;
+    }
+
+    body.pos-printing .receipt-items,
+    body.pos-printing .receipt-totals,
+    body.pos-printing .receipt-payment {
+      margin-bottom: 4mm;
+    }
+
+    body.pos-printing .receipt-item {
+      margin-bottom: 2mm;
+    }
+
+    body.pos-printing .receipt-item-name,
+    body.pos-printing .receipt-payment-title {
+      font-weight: 700;
+    }
+
+    body.pos-printing .receipt-divider {
+      margin: 3mm 0;
+      border-top: 1px dashed #000;
+    }
+
+    body.pos-printing .receipt-total-row {
+      margin-bottom: 1mm;
+    }
+
+    body.pos-printing .receipt-total-row.grand {
+      margin-top: 2mm;
+      padding-top: 2mm;
+      border-top: 2px solid #000;
+      font-size: 12pt;
+      font-weight: 700;
+    }
+
+    body.pos-printing .receipt-payment {
+      padding: 2mm;
+    }
+
+    body.pos-printing .receipt-footer {
+      padding-top: 3mm;
+      border-top: 1px dashed #000;
+      text-align: center;
+      font-size: 9pt;
+      font-weight: 600;
+    }
+
+    body.pos-printing .receipt-footer p {
+      margin-bottom: 1mm;
+    }
+
+    body.pos-printing .receipt-header,
+    body.pos-printing .receipt-info,
+    body.pos-printing .receipt-footer {
+      border-color: #000;
+    }
+
+    body.pos-printing .receipt-logo {
+      font-size: 15pt;
+      font-weight: 700;
+    }
+
+    body.pos-printing .receipt-clinic,
+    body.pos-printing .receipt-footer,
+    body.pos-printing .receipt-item-detail {
+      font-size: 9pt;
+      font-weight: 600;
+    }
+
+    body.pos-printing .receipt-total-row.grand {
+      font-size: 12pt;
+      font-weight: 700;
+    }
+
+    body.pos-printing .receipt-row,
+    body.pos-printing .receipt-total-row,
+    body.pos-printing .receipt-item-detail {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    body.pos-printing .receipt-row span,
+    body.pos-printing .receipt-total-row span,
+    body.pos-printing .receipt-item-detail span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    body.pos-printing .receipt-row span:last-child,
+    body.pos-printing .receipt-total-row span:last-child,
+    body.pos-printing .receipt-item-detail span:last-child {
+      text-align: right;
+    }
+
+    body.pos-printing .receipt-barcode {
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      overflow-wrap: anywhere;
+    }
+
+    body.pos-printing .receipt-payment,
+    body.pos-printing .receipt-barcode {
+      background: #fff !important;
+      border-radius: 0;
+    }
   }
 
   .modal-overlay {
@@ -907,7 +1074,6 @@
 {% include "components/page_hero.html" with title="Point of Sale" icon="bx-cart" subtitle="Process sales and manage transactions" action_url=sales_history_url action_icon="bx-history" action_label="Sales History" %}
 
 <form id="posCsrfForm" style="display: none;">{% csrf_token %}</form>
-<iframe id="posReceiptPrintFrame" title="Receipt printer" aria-hidden="true" tabindex="-1"></iframe>
 
 <div class="pos-container">
   <!-- Left Panel - Items Browser -->
@@ -1233,11 +1399,40 @@ window.addEventListener('pagehide', function() {
   navigator.sendBeacon('{% url "pos:abandon_sale" sale.pk %}', formData);
 });
 
-window.addEventListener('message', function (event) {
-  if (event.origin !== window.location.origin || event.data?.type !== 'pos-receipt-printed') return;
+function cleanupReceiptPrint() {
+  document.body.classList.remove('pos-printing');
+  document.getElementById('posReceiptPrintRoot')?.remove();
   const receiptStatus = document.getElementById('receiptPrintStatus');
   if (receiptStatus) receiptStatus.textContent = 'Receipt sent to the printer.';
-});
+}
+
+async function printCompletedSaleReceipt(completedSaleId) {
+  const receiptStatus = document.getElementById('receiptPrintStatus');
+  receiptStatus.textContent = 'Preparing receipt...';
+
+  try {
+    const response = await fetch(`/pos/sales/${completedSaleId}/receipt/`);
+    if (!response.ok) throw new Error(`Receipt request failed (${response.status}).`);
+
+    const receiptDocument = new DOMParser().parseFromString(await response.text(), 'text/html');
+    const receipt = receiptDocument.querySelector('.receipt');
+    if (!receipt) throw new Error('Receipt content was missing.');
+
+    const printRoot = document.createElement('div');
+    printRoot.id = 'posReceiptPrintRoot';
+    printRoot.appendChild(receipt.cloneNode(true));
+    document.body.appendChild(printRoot);
+    document.body.classList.add('pos-printing');
+    receiptStatus.textContent = 'Sending receipt to the printer...';
+    window.addEventListener('afterprint', cleanupReceiptPrint, { once: true });
+    window.print();
+  } catch (error) {
+    console.error('POS receipt print failed:', error);
+    document.body.classList.remove('pos-printing');
+    document.getElementById('posReceiptPrintRoot')?.remove();
+    receiptStatus.textContent = `Receipt printing failed: ${error.message}`;
+  }
+}
 
 window.addEventListener('pageshow', function(event) {
   if (event.persisted) window.location.reload();
@@ -1953,11 +2148,8 @@ async function processPayment() {
       document.getElementById('modalTxnId').textContent = data.sale.transaction_id;
       document.getElementById('modalAmountPaid').textContent = '₱' + Number(data.sale.amount_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       document.getElementById('modalChange').textContent = '₱' + Number(data.sale.change_due).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const receiptStatus = document.getElementById('receiptPrintStatus');
-      receiptStatus.textContent = 'Printing receipt...';
-      document.getElementById('posReceiptPrintFrame').src =
-        `/pos/sales/${saleId}/receipt/?autoprint=1&embedded=1`;
       document.getElementById('successModal').classList.add('active');
+      printCompletedSaleReceipt(saleId);
       return;
     }
 
@@ -2216,6 +2408,14 @@ function formatMoneyInput(input) {
 // Add formatting to payment amount input
 const paymentInput = document.getElementById('paymentAmount');
 if (paymentInput) {
+  paymentInput.addEventListener('focus', function() {
+    this.select();
+  });
+  paymentInput.addEventListener('mouseup', function(event) {
+    if (this.selectionStart === 0 && this.selectionEnd === this.value.length) {
+      event.preventDefault();
+    }
+  });
   paymentInput.addEventListener('input', function(e) {
     formatMoneyInput(this);
   });
