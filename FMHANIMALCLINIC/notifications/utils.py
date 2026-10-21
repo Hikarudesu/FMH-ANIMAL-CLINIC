@@ -743,9 +743,15 @@ def notify_medical_record_follow_up(record, actor=None):
         '-date_recorded', '-created_at',
     ).first()
     appointment = latest_entry.appointment if latest_entry else None
-    record_followup = FollowUp.objects.filter(medical_record=record).first()
+    record_followup = FollowUp.objects.filter(
+        medical_record=record,
+        is_expired=False,
+    ).first()
     appointment_followup = (
-        FollowUp.objects.filter(appointment=appointment).order_by(
+        FollowUp.objects.filter(
+            appointment=appointment,
+            is_expired=False,
+        ).order_by(
             '-created_at',
         ).first()
         if appointment else None
@@ -868,6 +874,7 @@ def sync_medical_record_entry_follow_up(entry, actor=None):
 
     followup = FollowUp.objects.filter(
         appointment=appointment,
+        is_expired=False,
     ).order_by('-created_at').first()
     if followup and followup.medical_record_id == record.pk:
         return followup
@@ -939,9 +946,10 @@ def sync_appointment_follow_up_to_medical_record(appointment, followup):
     if followup.medical_record_id not in (None, record.pk):
         return record
 
-    FollowUp.objects.filter(medical_record=record).exclude(
-        pk=followup.pk,
-    ).delete()
+    FollowUp.objects.filter(
+        medical_record=record,
+        is_expired=False,
+    ).exclude(pk=followup.pk).delete()
     if followup.medical_record_id != record.pk:
         followup.medical_record = record
         followup.save(update_fields=['medical_record'])
@@ -949,12 +957,9 @@ def sync_appointment_follow_up_to_medical_record(appointment, followup):
 
 
 @transaction.atomic
-def dismiss_follow_up_recommendation(followup):
-    """Remove a recommendation while preserving any separately booked visit."""
-    from notifications.models import FollowUp
+def _clear_follow_up_schedule_fields(followup):
     from records.models import RecordEntry
 
-    followup = FollowUp.objects.select_for_update().get(pk=followup.pk)
     follow_up_date = followup.follow_up_date
     record_ids = set()
     if followup.medical_record_id:
@@ -993,7 +998,53 @@ def dismiss_follow_up_recommendation(followup):
             record.ff_up = None
             record.save(update_fields=['ff_up', 'updated_at'])
 
+
+@transaction.atomic
+def dismiss_follow_up_recommendation(followup):
+    """Remove a recommendation while preserving any separately booked visit."""
+    from notifications.models import FollowUp
+
+    followup = FollowUp.objects.select_for_update().get(pk=followup.pk)
+    _clear_follow_up_schedule_fields(followup)
     followup.delete()
+
+
+@transaction.atomic
+def expire_follow_up_recommendation(followup, reason):
+    """Archive a missed recommendation and clear its active medical-record date."""
+    from notifications.models import FollowUp
+
+    followup = FollowUp.objects.select_for_update().get(pk=followup.pk)
+    if followup.is_completed or followup.is_expired:
+        return False
+
+    _clear_follow_up_schedule_fields(followup)
+    followup.is_expired = True
+    followup.expiration_reason = reason
+    followup.save(update_fields=['is_expired', 'expiration_reason'])
+    return True
+
+
+@transaction.atomic
+def expire_appointment_follow_ups(appointment):
+    """Archive recommendations linked to an automatically cancelled visit."""
+    from notifications.models import FollowUp
+
+    reason = (
+        'Expired because the linked appointment was automatically cancelled '
+        'after its scheduled time passed without a completed visit.'
+    )
+    followups = FollowUp.objects.filter(
+        Q(appointment_id=appointment.pk)
+        | Q(booked_appointment_id=appointment.pk),
+        is_completed=False,
+        is_expired=False,
+    )
+    expired_count = 0
+    for followup in followups:
+        if expire_follow_up_recommendation(followup, reason):
+            expired_count += 1
+    return expired_count
 
 
 @transaction.atomic
@@ -1005,9 +1056,73 @@ def dismiss_appointment_follow_ups(appointment):
         Q(appointment_id=appointment.pk)
         | Q(booked_appointment_id=appointment.pk),
         is_completed=False,
+        is_expired=False,
     ))
     for followup in followups:
         dismiss_follow_up_recommendation(followup)
+
+
+def expire_follow_up_recommendations(today=None):
+    """Expire missed recommendations and cancel linked visits that were missed."""
+    from appointments.models import Appointment
+    from notifications.models import FollowUp
+
+    today = today or timezone.localdate()
+    followups = FollowUp.objects.filter(
+        is_completed=False,
+        is_expired=False,
+    ).select_related('booked_appointment')
+    expired_count = 0
+    for followup in followups.iterator():
+        booked = followup.booked_appointment
+        if booked and booked.status == Appointment.Status.COMPLETED:
+            FollowUp.objects.filter(
+                pk=followup.pk,
+                is_completed=False,
+                is_expired=False,
+            ).update(is_completed=True)
+            continue
+
+        if booked and booked.status in (
+            Appointment.Status.PENDING,
+            Appointment.Status.CONFIRMED,
+        ):
+            if booked.appointment_date >= today:
+                continue
+            booked.status = Appointment.Status.CANCELLED
+            booked.cancellation_reason = (
+                'Automatically cancelled because the pet did not attend the '
+                'scheduled follow-up appointment.'
+            )
+            booked.save(update_fields=[
+                'status',
+                'cancellation_reason',
+                'updated_at',
+            ])
+            notify_appointment_status_change(
+                booked,
+                Appointment.Status.CANCELLED,
+                actor_label='the clinic system automatically',
+            )
+            reason = (
+                'Expired because the pet did not attend the booked follow-up '
+                'visit. The appointment was automatically cancelled.'
+            )
+        else:
+            last_recommended_day = (
+                followup.follow_up_end_date or followup.follow_up_date
+            )
+            if last_recommended_day >= today:
+                continue
+            reason = (
+                'Expired because the recommended return window ended without '
+                'a completed visit.'
+            )
+
+        if expire_follow_up_recommendation(followup, reason):
+            expired_count += 1
+
+    return expired_count
 
 
 def notify_reservation_approved(reservation, actor=None):

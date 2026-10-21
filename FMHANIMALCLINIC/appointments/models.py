@@ -435,8 +435,8 @@ class Appointment(models.Model):
                     'cancellation_reason',
                     'updated_at',
                 ])
-                from notifications.utils import dismiss_appointment_follow_ups
-                dismiss_appointment_follow_ups(appointment)
+                from notifications.utils import expire_appointment_follow_ups
+                expire_appointment_follow_ups(appointment)
             from notifications.utils import notify_appointment_status_change
             notify_appointment_status_change(
                 appointment,

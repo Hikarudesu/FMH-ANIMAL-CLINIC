@@ -431,6 +431,7 @@ def user_dashboard_view(request):
         appointment__user=request.user,
         **({'appointment__branch': user_branch} if user_branch else {}),
         is_completed=False,
+        is_expired=False,
         follow_up_date__gte=today,
     ).order_by('follow_up_date')
     follow_up_count = follow_ups.count()
@@ -440,6 +441,7 @@ def user_dashboard_view(request):
         appointment__user=request.user,
         **({'appointment__branch': user_branch} if user_branch else {}),
         is_completed=False,
+        is_expired=False,
         follow_up_date__lt=today,
     ).count()
 
@@ -1480,7 +1482,7 @@ def _render_veterinary_dashboard(request, is_vet_assistant):
     from appointments.models import Appointment
     from patients.models import Pet
     from employees.models import StaffMember
-    from notifications.models import Notification
+    from notifications.models import FollowUp, Notification
     from records.models import MedicalRecord, RecordEntry
     from diagnostics.models import AIDiagnosis
     from django.db.models.functions import TruncMonth
@@ -1574,6 +1576,23 @@ def _render_veterinary_dashboard(request, is_vet_assistant):
     else:
         ai_diagnoses_count = 0
         ai_diagnoses_this_month = 0
+
+    assistant_open_followups = None
+    if is_vet_assistant:
+        if user_branch:
+            assistant_open_followups = FollowUp.objects.filter(
+                is_completed=False,
+                is_expired=False,
+            ).filter(
+                Q(appointment__branch=user_branch)
+                | Q(medical_record__branch=user_branch)
+                | Q(
+                    medical_record__branch__isnull=True,
+                    medical_record__pet__branch=user_branch,
+                )
+            ).distinct().count()
+        else:
+            assistant_open_followups = 0
 
     # 3) Completed consultations (all-time) ───────────────────────────────
     if not appt_restricted_no_branch:
@@ -1735,6 +1754,7 @@ def _render_veterinary_dashboard(request, is_vet_assistant):
         'assigned_patients': assigned_patients,
         'ai_diagnoses_count': ai_diagnoses_count,
         'ai_diagnoses_this_month': ai_diagnoses_this_month,
+        'assistant_open_followups': assistant_open_followups,
         'completed_consultations': completed_consultations,
         'medical_records_count': medical_records_count,
         'recent_medical_records': recent_medical_records,

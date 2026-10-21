@@ -20,7 +20,7 @@ class FollowUp(models.Model):
         related_name='originating_follow_ups',
         help_text='Separate appointment booked in response to this follow-up.',
     )
-    medical_record = models.OneToOneField(
+    medical_record = models.ForeignKey(
         'records.MedicalRecord',
         on_delete=models.CASCADE,
         related_name='follow_up_schedule',
@@ -43,6 +43,8 @@ class FollowUp(models.Model):
         related_name='created_follow_ups',
     )
     is_completed = models.BooleanField(default=False)
+    is_expired = models.BooleanField(default=False)
+    expiration_reason = models.TextField(blank=True)
     email_sent_at = models.DateTimeField(null=True, blank=True)
     reminder_email_sent_at = models.DateTimeField(null=True, blank=True)
     email_attempts = models.PositiveIntegerField(default=0)

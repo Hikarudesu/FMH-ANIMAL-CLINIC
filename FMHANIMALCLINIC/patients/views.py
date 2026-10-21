@@ -158,7 +158,11 @@ def admin_detail_view(request, pk):
     # All medical records with entries
     medical_records = MedicalRecord.objects.filter(
         pet=pet
-    ).select_related('vet', 'branch').prefetch_related('entries').order_by('-date_recorded')
+    ).select_related('vet', 'branch').prefetch_related('entries').order_by(
+        '-date_recorded',
+        '-pk',
+    )
+    latest_record = medical_records.first()
 
     # All appointments linked to this pet
     from appointments.models import Appointment
@@ -333,6 +337,7 @@ def my_pets_view(request):
     pending_followups = FollowUp.objects.filter(
         appointment__pet__owner=request.user,
         is_completed=False,
+        is_expired=False,
         follow_up_date__gte=today,
     ).select_related('appointment__pet').order_by('follow_up_date')[:5]
 
@@ -401,6 +406,7 @@ def user_pet_detail_view(request, pk):
     return render(request, 'patients/pet_detail.html', {
         'pet': pet,
         'medical_records': medical_records,
+        'latest_record': latest_record,
         'record_warnings': record_warnings,
         'appointments': appointments,
         'latest_entry': latest_entry,

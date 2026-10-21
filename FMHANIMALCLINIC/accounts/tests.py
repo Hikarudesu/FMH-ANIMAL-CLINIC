@@ -637,6 +637,8 @@ class VetDashboardContentTests(TestCase):
                 self.assertNotContains(response, 'Hidden branch record entry.')
 
     def test_veterinarian_and_assistant_dashboards_omit_clinical_insights(self):
+        from notifications.models import FollowUp
+
         branch = Branch.objects.create(
             name='Vet Dashboard Branch',
             phone_number='09123456789',
@@ -645,6 +647,28 @@ class VetDashboardContentTests(TestCase):
             state='NCR',
             zip_code='1000',
         )
+        other_branch = Branch.objects.create(
+            name='Other Vet Dashboard Branch',
+            phone_number='09123456780',
+            address='2 Clinic Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        for index, followup_branch in enumerate((branch, other_branch)):
+            source_appointment = Appointment.objects.create(
+                owner_name=f'Follow-up Owner {index}',
+                pet_name=f'Follow-up Pet {index}',
+                branch=followup_branch,
+                appointment_date=timezone.localdate(),
+                appointment_time=time(9 + index, 0),
+                status=Appointment.Status.COMPLETED,
+            )
+            FollowUp.objects.create(
+                appointment=source_appointment,
+                pet_name=source_appointment.pet_name,
+                follow_up_date=timezone.localdate() + timedelta(days=7),
+            )
 
         for role_code, dashboard_title in (
             ('veterinarian', 'Veterinarian Dashboard'),
@@ -687,6 +711,14 @@ class VetDashboardContentTests(TestCase):
                 )
                 self.assertTemplateUsed(response, expected_template)
                 self.assertContains(response, reverse(dashboard_route))
+                if role_code == 'assistant_veterinarian':
+                    self.assertEqual(response.context['assistant_open_followups'], 1)
+                    self.assertContains(response, 'Open Follow-ups')
+                    self.assertNotContains(response, 'AI Diagnoses Run')
+                else:
+                    self.assertIsNone(response.context['assistant_open_followups'])
+                    self.assertContains(response, 'AI Diagnoses Run')
+                    self.assertNotContains(response, 'Open Follow-ups')
                 self.assertNotContains(response, 'page-hero-actions')
                 self.assertNotContains(response, 'Clinical Insights')
                 self.assertNotContains(response, 'Patient Flow')

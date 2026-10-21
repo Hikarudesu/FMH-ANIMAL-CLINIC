@@ -281,9 +281,9 @@
       <a href="{% url 'patients:edit_pet' pet.pk %}" class="upd-hero-btn ghost">
         <i class='bx bx-edit-alt'></i> Edit
       </a>
-      {% if medical_records %}
-      <a href="#medical-records-section" class="upd-hero-btn ghost">
-        <i class='bx bx-file-blank'></i> Medical Record
+      {% if latest_record %}
+      <a href="{% url 'records:user_detail' latest_record.pk %}" class="upd-hero-btn ghost">
+        <i class='bx bx-file-blank'></i> View Medical Record
       </a>
       {% endif %}
     </div>

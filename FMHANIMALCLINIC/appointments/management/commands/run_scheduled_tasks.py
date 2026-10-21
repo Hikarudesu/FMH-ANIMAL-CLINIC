@@ -23,6 +23,7 @@ class Command(BaseCommand):
                 f'Cancelled {cancelled} expired pending appointment(s).'
             )
             for command_name in (
+                'expire_followups',
                 'send_reminders',
                 'send_followup_emails',
                 'cancel_expired_reservations',

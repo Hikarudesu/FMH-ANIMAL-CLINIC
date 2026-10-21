@@ -87,7 +87,9 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertEqual(at_deadline.status, Appointment.Status.CANCELLED)
         self.assertEqual(recent.status, Appointment.Status.PENDING)
         self.assertEqual(confirmed.status, Appointment.Status.CONFIRMED)
-        self.assertFalse(FollowUp.objects.filter(pk=followup.pk).exists())
+        followup.refresh_from_db()
+        self.assertTrue(followup.is_expired)
+        self.assertIn('automatically cancelled', followup.expiration_reason)
         expiry_event = AppointmentHistory.objects.get(
             appointment=overdue,
             event_type=AppointmentHistory.EventType.STATUS_CHANGED,
@@ -142,6 +144,11 @@ class ScheduledAppointmentCleanupTests(TestCase):
         call_command('run_scheduled_tasks', stdout=output)
 
         cleanup.assert_called_once_with()
+        command_names = [call.args[0] for call in _call_command.call_args_list]
+        self.assertLess(
+            command_names.index('expire_followups'),
+            command_names.index('send_followup_emails'),
+        )
         self.assertIn('Cancelled 2 expired pending appointment(s).', output.getvalue())
 
 

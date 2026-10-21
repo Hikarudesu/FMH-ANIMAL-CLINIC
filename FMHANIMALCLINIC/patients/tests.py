@@ -5,6 +5,7 @@ from django.urls import reverse
 from accounts.rbac_models import Module, ModulePermission, Role
 from branches.models import Branch
 from patients.models import Pet
+from records.models import MedicalRecord
 from .forms import AdminPetForm, PetForm
 
 
@@ -402,6 +403,38 @@ class PetDeleteConfirmationModalTests(TestCase):
             self.assertNotContains(response, 'pet-delete-trigger')
             self.assertNotContains(response, 'data-delete-url')
         self.assertNotContains(list_response, 'Upcoming Appointments')
+
+    def test_pet_hero_medical_record_button_opens_latest_record(self):
+        MedicalRecord.objects.create(
+            pet=self.pet,
+            date_recorded='2026-10-10',
+        )
+        latest_record = MedicalRecord.objects.create(
+            pet=self.pet,
+            date_recorded='2026-10-20',
+        )
+
+        response = self.client.get(
+            reverse('patients:user_pet_detail', args=[self.pet.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        hero_actions = response.content.decode().split(
+            'class="upd-hero-actions"',
+            1,
+        )[1].split('</div>', 1)[0]
+        self.assertIn(
+            f'href="{reverse("records:user_detail", args=[latest_record.pk])}"',
+            hero_actions,
+        )
+        self.assertIn('View Medical Record', hero_actions)
+        self.assertNotIn('href="#medical-records-section"', hero_actions)
+
+        record_response = self.client.get(
+            reverse('records:user_detail', args=[latest_record.pk]),
+        )
+        self.assertEqual(record_response.status_code, 200)
+        self.assertContains(record_response, f"{self.pet.name}'s Records")
 
     def test_admin_pet_list_does_not_render_delete_controls(self):
         admin = get_user_model().objects.create_superuser(

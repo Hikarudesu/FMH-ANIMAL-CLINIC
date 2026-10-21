@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, time, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -30,6 +30,8 @@ from notifications.middleware import NotificationModuleReadMiddleware
 from notifications.utils import (
     create_notification,
     dismiss_follow_up_recommendation,
+    expire_follow_up_recommendation,
+    expire_follow_up_recommendations,
     mark_module_notifications_read,
     notify_medical_record_follow_up,
     notify_follow_up_scheduled,
@@ -39,6 +41,109 @@ from notifications.utils import (
 )
 from notifications.views import get_allowed_notification_types_for_user
 from notifications.signals import create_low_inventory_notification
+
+
+class FollowUpExpirationTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Follow-up Expiration Branch')
+        self.today = date(2026, 10, 27)
+
+    def create_followup(self, start, end=None, booked_appointment=None):
+        return FollowUp.objects.create(
+            booked_appointment=booked_appointment,
+            pet_name='Milo',
+            follow_up_date=start,
+            follow_up_end_date=end,
+        )
+
+    def create_booked_appointment(self, appointment_date, status):
+        return Appointment.objects.create(
+            owner_name='Follow-up Owner',
+            pet_name='Milo',
+            branch=self.branch,
+            appointment_date=appointment_date,
+            appointment_time=time(10),
+            status=status,
+        )
+
+    def test_single_date_expires_the_day_after_recommended_date(self):
+        followup = self.create_followup(date(2026, 10, 24))
+
+        self.assertEqual(
+            expire_follow_up_recommendations(today=date(2026, 10, 24)),
+            0,
+        )
+        self.assertEqual(
+            expire_follow_up_recommendations(today=date(2026, 10, 25)),
+            1,
+        )
+        followup.refresh_from_db()
+        self.assertTrue(followup.is_expired)
+        self.assertIn('recommended return window ended', followup.expiration_reason)
+
+    def test_date_range_remains_active_through_its_final_day(self):
+        followup = self.create_followup(
+            date(2026, 10, 25),
+            end=date(2026, 10, 26),
+        )
+
+        self.assertEqual(
+            expire_follow_up_recommendations(today=date(2026, 10, 26)),
+            0,
+        )
+        self.assertFalse(followup.is_expired)
+        self.assertEqual(
+            expire_follow_up_recommendations(
+                today=date(2026, 10, 27),
+            ),
+            1,
+        )
+        followup.refresh_from_db()
+        self.assertTrue(followup.is_expired)
+
+    def test_future_booked_visit_does_not_expire_recommendation(self):
+        booked = self.create_booked_appointment(
+            self.today + timedelta(days=1),
+            Appointment.Status.CONFIRMED,
+        )
+        followup = self.create_followup(
+            date(2026, 10, 25),
+            end=date(2026, 10, 26),
+            booked_appointment=booked,
+        )
+
+        self.assertEqual(
+            expire_follow_up_recommendations(today=self.today),
+            0,
+        )
+        followup.refresh_from_db()
+        self.assertFalse(followup.is_expired)
+        self.assertEqual(booked.status, Appointment.Status.CONFIRMED)
+
+    def test_missed_booked_visit_is_cancelled_and_archived_once(self):
+        booked = self.create_booked_appointment(
+            self.today - timedelta(days=1),
+            Appointment.Status.CONFIRMED,
+        )
+        followup = self.create_followup(
+            self.today - timedelta(days=1),
+            booked_appointment=booked,
+        )
+
+        self.assertEqual(
+            expire_follow_up_recommendations(today=self.today),
+            1,
+        )
+        booked.refresh_from_db()
+        followup.refresh_from_db()
+        self.assertEqual(booked.status, Appointment.Status.CANCELLED)
+        self.assertIn('did not attend', booked.cancellation_reason)
+        self.assertTrue(followup.is_expired)
+        self.assertIn('did not attend', followup.expiration_reason)
+        self.assertEqual(
+            expire_follow_up_recommendations(today=self.today),
+            0,
+        )
 
 
 class EmailDeliveryTests(TestCase):
@@ -861,6 +966,34 @@ class NotificationRoutingTests(TestCase):
         self.assertIsNone(entry.ff_up)
         self.assertEqual(entry.follow_up_reason, '')
         self.assertTrue(Appointment.objects.filter(pk=booked_appointment.pk).exists())
+
+    def test_expired_record_recommendation_is_preserved_when_recommended_again(self):
+        old_date = timezone.localdate() - timedelta(days=1)
+        appointment, record, _entry = self.create_linked_record_and_appointment(
+            old_date,
+        )
+        expired = FollowUp.objects.create(
+            appointment=appointment,
+            medical_record=record,
+            pet_name=record.pet.name,
+            follow_up_date=old_date,
+        )
+
+        self.assertTrue(expire_follow_up_recommendation(
+            expired,
+            'Expired because the recommended return window ended without a visit.',
+        ))
+        record.refresh_from_db()
+        self.assertIsNone(record.ff_up)
+
+        record.ff_up = timezone.localdate() + timedelta(days=7)
+        record.save(update_fields=['ff_up', 'updated_at'])
+        replacement = notify_medical_record_follow_up(record, self.pet_owner)
+
+        expired.refresh_from_db()
+        self.assertTrue(expired.is_expired)
+        self.assertNotEqual(replacement.pk, expired.pk)
+        self.assertEqual(replacement.medical_record_id, record.pk)
 
     def test_appointment_follow_up_updates_its_linked_medical_record(self):
         original_date = timezone.localdate() + timezone.timedelta(days=7)

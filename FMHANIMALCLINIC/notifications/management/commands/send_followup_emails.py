@@ -21,6 +21,7 @@ class Command(BaseCommand):
         reminder_date = today + timedelta(days=3)
         pending_followups = FollowUp.objects.filter(
             is_completed=False,
+            is_expired=False,
             email_sent_at__isnull=True,
             follow_up_date__gte=today,
         ).filter(
@@ -29,6 +30,7 @@ class Command(BaseCommand):
         ).select_related('appointment', 'medical_record__pet__owner')
         followups = FollowUp.objects.filter(
             is_completed=False,
+            is_expired=False,
             reminder_email_sent_at__isnull=True,
             follow_up_date=reminder_date,
         ).filter(

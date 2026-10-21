@@ -968,6 +968,7 @@ def admin_workflow_action(request, pk, action):
         FollowUp.objects.filter(
             booked_appointment=appointment,
             is_completed=False,
+            is_expired=False,
         ).update(is_completed=True)
     if appointment.user:
         notify_appointment_status_change(
@@ -1242,6 +1243,7 @@ def veterinarian_workflow_action(request, pk, action):
             appointment=appointment,
             booked_appointment__isnull=True,
             is_completed=False,
+            is_expired=False,
         ).order_by('-created_at').first()
         event = 'updated' if followup else 'scheduled'
         if not followup:
@@ -1391,7 +1393,7 @@ def admin_list(request):
                 'medical_record__pet',
                 'medical_record__pet__owner',
                 'medical_record__branch',
-            ).filter(is_completed=False).filter(
+            ).filter(is_completed=False, is_expired=False).filter(
                 Q(booked_appointment__isnull=True)
                 | Q(booked_appointment__status=Appointment.Status.CANCELLED)
             ),
@@ -1905,6 +1907,7 @@ def admin_edit(request, pk):
                 if follow_up_date:
                     followup = FollowUp.objects.filter(
                         appointment=updated_appointment,
+                        is_expired=False,
                     ).order_by('-created_at').first()
                     event = 'updated' if followup else 'scheduled'
                     if followup:
@@ -1946,6 +1949,7 @@ def admin_edit(request, pk):
                 for followup in FollowUp.objects.filter(
                     appointment=updated_appointment,
                     is_completed=False,
+                    is_expired=False,
                 ):
                     dismiss_follow_up_recommendation(followup)
 
@@ -1958,7 +1962,10 @@ def admin_edit(request, pk):
     # Get existing follow-ups for this appointment
     follow_ups = FollowUp.objects.filter(
         appointment=appointment).order_by('-created_at')
-    active_follow_up = follow_ups.filter(is_completed=False).first()
+    active_follow_up = follow_ups.filter(
+        is_completed=False,
+        is_expired=False,
+    ).first()
 
     # Get user's pets if appointment has a linked user
     user_pets = []

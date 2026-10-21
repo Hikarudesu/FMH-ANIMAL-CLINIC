@@ -166,9 +166,10 @@
           {% for follow_up in follow_ups %}
           <li>
             <strong>{{ follow_up.follow_up_date|date:"M j, Y" }}</strong>{% if follow_up.follow_up_end_date %} – {{ follow_up.follow_up_end_date|date:"M j, Y" }}{% endif %}{% if follow_up.reason %}<br>{{ follow_up.reason }}{% endif %}
+            {% if follow_up.is_expired %}<br><strong>Expired:</strong> {{ follow_up.expiration_reason }}{% endif %}
             {% if follow_up.booked_appointment and follow_up.booked_appointment.status != 'CANCELLED' %}
             <br>Booked visit: <a href="{% url 'appointments:admin_detail' follow_up.booked_appointment_id %}">{{ follow_up.booked_appointment.appointment_date|date:"M j, Y" }} · {{ follow_up.booked_appointment.get_status_display }}</a>
-            {% elif can_book_followup %}
+            {% elif can_book_followup and not follow_up.is_expired %}
             <br><a href="{% url 'appointments:admin_list' %}?follow_up={{ follow_up.pk }}">Book a return appointment</a>
             {% endif %}
           </li>

@@ -521,6 +521,7 @@ def admin_record_create(request):
             })
             appointment_followup = FollowUp.objects.filter(
                 appointment=linked_appointment,
+                is_expired=False,
             ).order_by('-created_at').first()
             if appointment_followup:
                 initial_data['ff_up'] = appointment_followup.follow_up_date
@@ -875,7 +876,13 @@ def admin_record_detail(request, pk):
     active_tab = 'patients' if from_patients else 'medical_records'
     follow_up = FollowUp.objects.filter(
         medical_record=record,
+        is_expired=False,
     ).select_related('booked_appointment').first()
+    if follow_up is None:
+        follow_up = FollowUp.objects.filter(
+            medical_record=record,
+            is_expired=True,
+        ).order_by('-created_at').first()
     follow_up_branch_id = record.branch_id or record.pet.branch_id
     can_book_follow_up = (
         request.user.has_module_permission('appointments', 'CREATE')
@@ -1121,6 +1128,7 @@ def admin_add_entry(request, pk):
                 initial_data['vet'] = linked_appointment.preferred_vet_id
             appointment_followup = FollowUp.objects.filter(
                 appointment=linked_appointment,
+                is_expired=False,
             ).order_by('-created_at').first()
             if appointment_followup:
                 initial_data['ff_up'] = appointment_followup.follow_up_date

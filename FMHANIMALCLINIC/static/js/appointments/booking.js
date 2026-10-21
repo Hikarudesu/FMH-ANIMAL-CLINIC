@@ -540,6 +540,9 @@ document.addEventListener("DOMContentLoaded", function () {
       if (datePicker) {
         fetchScheduleDays(datePicker.currentYear, datePicker.currentMonth + 1);
       }
+      if (dateInput && dateInput.value) {
+        fetchTimeSlots();
+      }
     });
   }
 });

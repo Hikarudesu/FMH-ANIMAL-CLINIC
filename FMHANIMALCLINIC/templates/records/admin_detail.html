@@ -1370,9 +1370,10 @@
     {% if follow_up %}
     <div class="rv-vet-banner">
         <span><i class='bx bx-revision'></i> <strong>Recommended return:</strong>&nbsp;{{ follow_up.follow_up_date|date:"M j, Y" }}{% if follow_up.reason %} — {{ follow_up.reason }}{% endif %}</span>
+        {% if follow_up.is_expired %}<span><strong>Expired:</strong>&nbsp;{{ follow_up.expiration_reason }}</span>{% endif %}
         {% if follow_up.booked_appointment and follow_up.booked_appointment.status != 'CANCELLED' %}
         <span>Appointment: <a href="{% url 'appointments:admin_detail' follow_up.booked_appointment_id %}">{{ follow_up.booked_appointment.get_status_display }} · {{ follow_up.booked_appointment.appointment_date|date:"M j, Y" }}</a></span>
-        {% elif can_book_follow_up %}
+        {% elif can_book_follow_up and not follow_up.is_expired %}
         <a href="{% url 'appointments:admin_list' %}?follow_up={{ follow_up.pk }}">Book return appointment</a>
         {% endif %}
     </div>
