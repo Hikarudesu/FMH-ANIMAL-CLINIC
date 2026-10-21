@@ -29,6 +29,7 @@ from notifications.delivery import send_notification_email
 from notifications.middleware import NotificationModuleReadMiddleware
 from notifications.utils import (
     create_notification,
+    dismiss_follow_up_recommendation,
     mark_module_notifications_read,
     notify_medical_record_follow_up,
     notify_follow_up_scheduled,
@@ -790,6 +791,76 @@ class NotificationRoutingTests(TestCase):
         self.assertIn('Recheck response to medication', notification_message)
         self.assertIn('not a confirmed appointment', notification_message)
         send_email.assert_called_once_with(followup, event='scheduled')
+
+    def test_clearing_record_follow_up_removes_recommendation_with_cancelled_booking(
+        self,
+    ):
+        follow_up_date = timezone.localdate() + timedelta(days=8)
+        appointment, record, entry = self.create_linked_record_and_appointment(
+            follow_up_date,
+        )
+        booked_appointment = Appointment.objects.create(
+            owner_name='Pet Owner',
+            owner_email=self.pet_owner.email,
+            pet_name='Milo',
+            pet=record.pet,
+            user=self.pet_owner,
+            branch=self.branch,
+            appointment_date=follow_up_date,
+            appointment_time=timezone.localtime().time().replace(microsecond=0),
+            status=Appointment.Status.CANCELLED,
+        )
+        followup = FollowUp.objects.create(
+            appointment=appointment,
+            medical_record=record,
+            booked_appointment=booked_appointment,
+            pet_name=record.pet.name,
+            follow_up_date=follow_up_date,
+        )
+        record.ff_up = None
+        record.save(update_fields=['ff_up', 'updated_at'])
+        entry.ff_up = None
+        entry.follow_up_reason = ''
+        entry.save(update_fields=['ff_up', 'follow_up_reason', 'updated_at'])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_medical_record_follow_up(record, self.pet_owner)
+
+        self.assertFalse(FollowUp.objects.filter(pk=followup.pk).exists())
+        self.assertTrue(Appointment.objects.filter(pk=booked_appointment.pk).exists())
+
+    def test_dismissing_follow_up_clears_record_recommendation_not_booking(self):
+        follow_up_date = timezone.localdate() + timedelta(days=8)
+        appointment, record, entry = self.create_linked_record_and_appointment(
+            follow_up_date,
+        )
+        booked_appointment = Appointment.objects.create(
+            owner_name='Pet Owner',
+            owner_email=self.pet_owner.email,
+            pet_name='Milo',
+            pet=record.pet,
+            user=self.pet_owner,
+            branch=self.branch,
+            appointment_date=follow_up_date,
+            appointment_time=timezone.localtime().time().replace(microsecond=0),
+        )
+        followup = FollowUp.objects.create(
+            appointment=appointment,
+            medical_record=record,
+            booked_appointment=booked_appointment,
+            pet_name=record.pet.name,
+            follow_up_date=follow_up_date,
+        )
+
+        dismiss_follow_up_recommendation(followup)
+
+        self.assertFalse(FollowUp.objects.filter(pk=followup.pk).exists())
+        record.refresh_from_db()
+        entry.refresh_from_db()
+        self.assertIsNone(record.ff_up)
+        self.assertIsNone(entry.ff_up)
+        self.assertEqual(entry.follow_up_reason, '')
+        self.assertTrue(Appointment.objects.filter(pk=booked_appointment.pk).exists())
 
     def test_appointment_follow_up_updates_its_linked_medical_record(self):
         original_date = timezone.localdate() + timezone.timedelta(days=7)

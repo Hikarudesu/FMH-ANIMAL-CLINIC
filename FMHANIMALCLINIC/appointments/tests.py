@@ -69,6 +69,12 @@ class ExpiredAppointmentCleanupTests(TestCase):
         confirmed = self.create_appointment(
             self.now - timedelta(days=3), status=Appointment.Status.CONFIRMED,
         )
+        followup = FollowUp.objects.create(
+            appointment=confirmed,
+            booked_appointment=overdue,
+            pet_name=overdue.pet_name,
+            follow_up_date=overdue.appointment_date,
+        )
 
         cancelled_count = Appointment.cleanup_expired()
 
@@ -81,6 +87,7 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertEqual(at_deadline.status, Appointment.Status.CANCELLED)
         self.assertEqual(recent.status, Appointment.Status.PENDING)
         self.assertEqual(confirmed.status, Appointment.Status.CONFIRMED)
+        self.assertFalse(FollowUp.objects.filter(pk=followup.pk).exists())
         expiry_event = AppointmentHistory.objects.get(
             appointment=overdue,
             event_type=AppointmentHistory.EventType.STATUS_CHANGED,
@@ -629,6 +636,73 @@ class AppointmentEditVeterinarianOptionalTests(TestCase):
         },
     }
 )
+class AppointmentEditFollowUpTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Appointment Edit Follow-up Branch')
+        self.owner = User.objects.create_user(
+            username='appointment-edit-followup-owner',
+            email='appointment-edit-followup@example.com',
+        )
+        self.pet = Pet.objects.create(
+            owner=self.owner,
+            source=Pet.Source.PORTAL,
+            name='Appointment Edit Follow-up Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        self.appointment = Appointment.objects.create(
+            owner_name='Appointment Edit Follow-up Owner',
+            owner_email=self.owner.email,
+            pet_name=self.pet.name,
+            pet=self.pet,
+            user=self.owner,
+            branch=self.branch,
+            appointment_date=timezone.localdate() + timedelta(days=3),
+            appointment_time=time(10),
+        )
+        self.followup = FollowUp.objects.create(
+            appointment=self.appointment,
+            pet_name=self.pet.name,
+            follow_up_date=timezone.localdate() + timedelta(days=10),
+            reason='Medication recheck',
+        )
+        self.admin = User.objects.create_superuser(
+            username='appointment-edit-followup-admin',
+            email='appointment-edit-followup-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(self.admin)
+
+    def test_unchecking_recommendation_removes_it_when_appointment_is_saved(self):
+        edit_url = reverse(
+            'appointments:admin_edit',
+            args=[self.appointment.pk],
+        )
+
+        get_response = self.client.get(edit_url)
+
+        self.assertEqual(get_response.status_code, 200)
+        self.assertContains(get_response, 'follow_up_enabled')
+        self.assertContains(get_response, 'Medication recheck')
+
+        with patch('appointments.views.AppointmentEditForm') as form_class:
+            form = form_class.return_value
+            form.is_valid.return_value = True
+            form.save.return_value = self.appointment
+            response = self.client.post(edit_url, {})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(FollowUp.objects.filter(pk=self.followup.pk).exists())
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class FollowUpAppointmentBookingTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(name='Follow-up Booking Branch')
@@ -1058,6 +1132,37 @@ class OwnerAppointmentCancellationTests(TestCase):
         )
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.CANCELLED)
+
+    @patch('appointments.views.notify_staff_appointment_status_change')
+    @patch('appointments.views.notify_appointment_status_change')
+    def test_cancelling_booked_follow_up_removes_recommendation(
+        self, _notify_owner, _notify_staff,
+    ):
+        source_appointment = Appointment.objects.create(
+            owner_name='Appointment Owner',
+            owner_email=self.owner.email,
+            pet_name='Cancellation Pet',
+            branch=self.branch,
+            user=self.owner,
+            appointment_date=timezone.localdate() - timedelta(days=2),
+            appointment_time=time(10),
+            status=Appointment.Status.COMPLETED,
+        )
+        followup = FollowUp.objects.create(
+            appointment=source_appointment,
+            booked_appointment=self.appointment,
+            pet_name=self.appointment.pet_name,
+            follow_up_date=self.appointment.appointment_date,
+        )
+
+        response = self.client.post(
+            self.cancel_url,
+            {'cancellation_reason': 'Schedule changed.'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(FollowUp.objects.filter(pk=followup.pk).exists())
+        self.assertTrue(Appointment.objects.filter(pk=self.appointment.pk).exists())
 
     def test_owner_can_cancel_after_appointment_time_if_not_checked_in(self):
         self.appointment.appointment_date = timezone.localdate() - timedelta(days=1)

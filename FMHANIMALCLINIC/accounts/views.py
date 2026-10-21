@@ -47,7 +47,9 @@ def _dashboard_for_user(user):
     role_code = getattr(user.assigned_role, 'code', '')
     if user.is_receptionist():
         return 'accounts:receptionist_dashboard'
-    if role_code in {'veterinarian', 'assistant_veterinarian', 'vet_assistant'}:
+    if role_code in {'assistant_veterinarian', 'vet_assistant'}:
+        return 'accounts:assistant_vet_dashboard'
+    if role_code == 'veterinarian':
         return 'accounts:vet_dashboard'
     if (
         user.is_admin_role()
@@ -794,9 +796,9 @@ def admin_dashboard_view(request):
     if request.user.assigned_role and request.user.assigned_role.code == 'veterinarian':
         return redirect('vet_dashboard')
 
-    # Check if user is a vet assistant and redirect to vet dashboard
+    # Check if user is a vet assistant and redirect to assistant dashboard
     if request.user.assigned_role and request.user.assigned_role.code == 'assistant_veterinarian':
-        return redirect('vet_dashboard')
+        return redirect('assistant_vet_dashboard')
 
     # Check if user is a receptionist and redirect to receptionist dashboard
     if request.user.is_receptionist():
@@ -1443,9 +1445,30 @@ def admin_dashboard_view(request):
 @login_required
 @staff_only
 def vet_dashboard_view(request):
-    """
-    Veterinarian / Vet-Assistant dashboard.
+    """Veterinarian dashboard."""
+    role_code = getattr(request.user.assigned_role, 'code', '')
+    if role_code in {'assistant_veterinarian', 'vet_assistant'}:
+        return redirect('accounts:assistant_vet_dashboard')
+    if _dashboard_for_user(request.user) != 'accounts:vet_dashboard':
+        return redirect(_dashboard_for_user(request.user))
 
+    return _render_veterinary_dashboard(request, is_vet_assistant=False)
+
+
+@login_required
+@staff_only
+def assistant_vet_dashboard_view(request):
+    """Assistant-veterinarian dashboard."""
+    if _dashboard_for_user(request.user) != 'accounts:assistant_vet_dashboard':
+        return redirect(_dashboard_for_user(request.user))
+
+    return _render_veterinary_dashboard(request, is_vet_assistant=True)
+
+
+def _render_veterinary_dashboard(request, is_vet_assistant):
+    """
+    Shared data for veterinarian dashboards. Their templates are separate so
+    each role's dashboard can evolve independently without duplicating metrics.
     Design principles
     ─────────────────
     • A vet's patient universe = pets reached via Appointment.preferred_vet
@@ -1462,9 +1485,6 @@ def vet_dashboard_view(request):
     from diagnostics.models import AIDiagnosis
     from django.db.models.functions import TruncMonth
 
-    if _dashboard_for_user(request.user) != 'accounts:vet_dashboard':
-        return redirect(_dashboard_for_user(request.user))
-
     today = date.today()
     month_start = date(today.year, today.month, 1)
     if today.month == 12:
@@ -1477,10 +1497,6 @@ def vet_dashboard_view(request):
     except StaffMember.DoesNotExist:
         staff_profile = None
 
-    is_vet_assistant = (
-        request.user.assigned_role
-        and request.user.assigned_role.code == 'assistant_veterinarian'
-    )
     dashboard_title = (
         "Vet Assistant Dashboard" if is_vet_assistant
         else "Veterinarian Dashboard"
@@ -1709,7 +1725,11 @@ def vet_dashboard_view(request):
     # RENDER
     # ═══════════════════════════════════════════════════════════════════════
 
-    return render(request, 'accounts/vet_dashboard.html', {
+    template_name = (
+        'accounts/assistant_vet_dashboard.html'
+        if is_vet_assistant else 'accounts/vet_dashboard.html'
+    )
+    return render(request, template_name, {
         # Hero stats
         'today_count': today_count,
         'assigned_patients': assigned_patients,

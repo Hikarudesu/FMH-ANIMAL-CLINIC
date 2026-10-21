@@ -30,6 +30,8 @@ from .services import AppointmentService
 from notifications.email_utils import send_appointment_confirmation
 from notifications.utils import (
     create_notification,
+    dismiss_appointment_follow_ups,
+    dismiss_follow_up_recommendation,
     notify_appointment_status_change,
     notify_follow_up_scheduled,
     notify_staff_appointment_status_change,
@@ -685,6 +687,7 @@ def portal_cancel(request, pk):
         appointment.save(update_fields=[
             'status', 'cancellation_reason', 'updated_at',
         ])
+        dismiss_appointment_follow_ups(appointment)
 
     notify_appointment_status_change(
         appointment, appointment.status, actor=request.user,
@@ -959,6 +962,8 @@ def admin_workflow_action(request, pk, action):
         raise PermissionDenied
 
     appointment.save()
+    if action == 'cancel':
+        dismiss_appointment_follow_ups(appointment)
     if action == 'complete':
         FollowUp.objects.filter(
             booked_appointment=appointment,
@@ -1887,8 +1892,13 @@ def admin_edit(request, pk):
                     )
 
             # Handle follow-up creation
-            follow_up_enabled = request.POST.get('follow_up_enabled')
-            if follow_up_enabled == 'on':
+            if updated_appointment.status == Appointment.Status.CANCELLED:
+                dismiss_appointment_follow_ups(updated_appointment)
+            follow_up_enabled = (
+                request.POST.get('follow_up_enabled') == 'on'
+                and updated_appointment.status != Appointment.Status.CANCELLED
+            )
+            if follow_up_enabled:
                 follow_up_date = request.POST.get('follow_up_date')
                 follow_up_end_date = request.POST.get('follow_up_end_date')
                 follow_up_reason = request.POST.get('follow_up_reason', '')
@@ -1932,6 +1942,12 @@ def admin_edit(request, pk):
                         date_str = f"{follow_up_date} to {follow_up_end_date}"
                     messages.info(
                             request, f'Follow-up recommended for {date_str}.')
+            else:
+                for followup in FollowUp.objects.filter(
+                    appointment=updated_appointment,
+                    is_completed=False,
+                ):
+                    dismiss_follow_up_recommendation(followup)
 
             messages.success(
                 request, f'Appointment for {updated_appointment.pet_name} updated.')
@@ -1942,6 +1958,7 @@ def admin_edit(request, pk):
     # Get existing follow-ups for this appointment
     follow_ups = FollowUp.objects.filter(
         appointment=appointment).order_by('-created_at')
+    active_follow_up = follow_ups.filter(is_completed=False).first()
 
     # Get user's pets if appointment has a linked user
     user_pets = []
@@ -1953,6 +1970,7 @@ def admin_edit(request, pk):
         'form': form,
         'statuses': Appointment.Status.choices,
         'follow_ups': follow_ups,
+        'active_follow_up': active_follow_up,
         'user_pets': user_pets,
     })
 
@@ -2009,6 +2027,7 @@ def admin_delete(request, pk):
         )
 
     name = appointment.pet_name
+    dismiss_appointment_follow_ups(appointment)
     appointment.delete()
     messages.success(
         request,

@@ -3,6 +3,7 @@
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
@@ -751,14 +752,14 @@ def notify_medical_record_follow_up(record, actor=None):
     )
 
     if not record.ff_up:
-        if record_followup and not record_followup.booked_appointment_id:
-            record_followup.delete()
+        if record_followup:
+            dismiss_follow_up_recommendation(record_followup)
         if appointment_followup and appointment_followup.medical_record_id in (
             None, record.pk,
         ) and (
             not record_followup or appointment_followup.pk != record_followup.pk
-        ) and not appointment_followup.booked_appointment_id:
-            appointment_followup.delete()
+        ):
+            dismiss_follow_up_recommendation(appointment_followup)
         return None
 
     if appointment_followup and appointment_followup.medical_record_id not in (
@@ -871,8 +872,8 @@ def sync_medical_record_entry_follow_up(entry, actor=None):
     if followup and followup.medical_record_id == record.pk:
         return followup
     if not entry.ff_up:
-        if followup and not followup.booked_appointment_id:
-            followup.delete()
+        if followup:
+            dismiss_follow_up_recommendation(followup)
         return None
 
     event = 'updated' if followup else 'scheduled'
@@ -945,6 +946,68 @@ def sync_appointment_follow_up_to_medical_record(appointment, followup):
         followup.medical_record = record
         followup.save(update_fields=['medical_record'])
     return record
+
+
+@transaction.atomic
+def dismiss_follow_up_recommendation(followup):
+    """Remove a recommendation while preserving any separately booked visit."""
+    from notifications.models import FollowUp
+    from records.models import RecordEntry
+
+    followup = FollowUp.objects.select_for_update().get(pk=followup.pk)
+    follow_up_date = followup.follow_up_date
+    record_ids = set()
+    if followup.medical_record_id:
+        record_ids.add(followup.medical_record_id)
+    if followup.appointment_id:
+        record_ids.update(
+            RecordEntry.objects.filter(
+                appointment_id=followup.appointment_id,
+                ff_up=follow_up_date,
+            ).values_list('record_id', flat=True)
+        )
+
+    for record_id in record_ids:
+        record = followup.medical_record
+        if not record or record.pk != record_id:
+            from records.models import MedicalRecord
+            record = MedicalRecord.objects.get(pk=record_id)
+
+        latest_entry_id = record.entries.order_by(
+            '-date_recorded', '-created_at',
+        ).values_list('pk', flat=True).first()
+        matching_entries = RecordEntry.objects.filter(
+            record_id=record_id,
+            ff_up=follow_up_date,
+        )
+        if followup.appointment_id:
+            matching_entries = matching_entries.filter(
+                Q(appointment_id=followup.appointment_id)
+                | Q(pk=latest_entry_id),
+            )
+        else:
+            matching_entries = matching_entries.filter(pk=latest_entry_id)
+        matching_entries.update(ff_up=None, follow_up_reason='')
+
+        if record.ff_up == follow_up_date:
+            record.ff_up = None
+            record.save(update_fields=['ff_up', 'updated_at'])
+
+    followup.delete()
+
+
+@transaction.atomic
+def dismiss_appointment_follow_ups(appointment):
+    """Dismiss active recommendations linked to an appointment being cancelled."""
+    from notifications.models import FollowUp
+
+    followups = list(FollowUp.objects.filter(
+        Q(appointment_id=appointment.pk)
+        | Q(booked_appointment_id=appointment.pk),
+        is_completed=False,
+    ))
+    for followup in followups:
+        dismiss_follow_up_recommendation(followup)
 
 
 def notify_reservation_approved(reservation, actor=None):

@@ -22,6 +22,11 @@ urlpatterns = [
     path('activity/clear-all/', views.clear_all_activities_view, name='clear_all_activities'),
     path('admin-dashboard/', views.admin_dashboard_view, name='admin_dashboard'),
     path('vet-dashboard/', views.vet_dashboard_view, name='vet_dashboard'),
+    path(
+        'assistant-vet-dashboard/',
+        views.assistant_vet_dashboard_view,
+        name='assistant_vet_dashboard',
+    ),
     path('receptionist-dashboard/', views.receptionist_dashboard_view, name='receptionist_dashboard'),
     path('profile/', views.profile_view, name='profile'),
     path('profile/deactivate/', views.request_owner_deactivation, name='request_owner_deactivation'),
@@ -71,6 +76,11 @@ legacy_urlpatterns = [
     path('accounts/dashboard/', views.user_dashboard_view, name='user_dashboard'),
     path('accounts/admin-dashboard/', views.admin_dashboard_view, name='admin_dashboard'),
     path('accounts/vet-dashboard/', views.vet_dashboard_view, name='vet_dashboard'),
+    path(
+        'accounts/assistant-vet-dashboard/',
+        views.assistant_vet_dashboard_view,
+        name='assistant_vet_dashboard',
+    ),
     path('accounts/receptionist-dashboard/', views.receptionist_dashboard_view, name='receptionist_dashboard'),
     path('accounts/profile/', views.profile_view, name='profile'),
 ]

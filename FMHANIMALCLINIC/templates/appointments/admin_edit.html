@@ -169,7 +169,7 @@
       <h2 class="ae-section-title"><i class='bx bx-revision'></i> Recommend a Follow-up Visit (Optional)</h2>
       <div class="ae-followup-toggle">
         <label class="ae-checkbox">
-          <input type="checkbox" name="follow_up_enabled" id="followUpEnabled">
+          <input type="checkbox" name="follow_up_enabled" id="followUpEnabled" {% if active_follow_up %}checked{% endif %}>
           <span>Recommend that this pet return</span>
         </label>
       </div>
@@ -177,18 +177,21 @@
         <div class="ae-grid">
           <div class="ae-group">
             <label>Recommended Return Date *</label>
-            <input type="date" name="follow_up_date" class="form-control" id="followUpDate">
+            <input type="date" name="follow_up_date" class="form-control" id="followUpDate" value="{{ active_follow_up.follow_up_date|date:'Y-m-d' }}">
           </div>
           <div class="ae-group">
             <label>Follow-up End Date (Optional)</label>
-            <input type="date" name="follow_up_end_date" class="form-control" id="followUpEndDate">
+            <input type="date" name="follow_up_end_date" class="form-control" id="followUpEndDate" value="{{ active_follow_up.follow_up_end_date|date:'Y-m-d' }}">
             <small style="color: #666; display: block; margin-top: 0.25rem;">Leave blank for single-day follow-up</small>
           </div>
           <div class="ae-group ae-full">
             <label>Reason for Follow-up</label>
-            <textarea name="follow_up_reason" class="form-control" rows="2" placeholder="e.g., Post-surgery checkup, medication review"></textarea>
+            <textarea name="follow_up_reason" class="form-control" rows="2" placeholder="e.g., Post-surgery checkup, medication review">{{ active_follow_up.reason }}</textarea>
           </div>
         </div>
+        {% if active_follow_up %}
+        <small style="color: #666; display: block; margin-top: 10px;">Uncheck this option and save to remove the recommendation.</small>
+        {% endif %}
       </div>
     </div>
 
@@ -258,7 +261,7 @@
             <div class="ae-followup-reason">{{ followup.reason }}</div>
             {% endif %}
             <div class="ae-followup-meta">
-              Created by {{ followup.created_by.get_full_name|default:followup.created_by.username }} 
+              Created by {% if followup.created_by %}{{ followup.created_by.get_full_name|default:followup.created_by.username }}{% else %}Clinic staff{% endif %}
               on {{ followup.created_at|date:"M d, Y" }}
             </div>
           </div>

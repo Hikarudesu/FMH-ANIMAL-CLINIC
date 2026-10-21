@@ -1,0 +1,1984 @@
+{% extends 'base/portal_admin.html' %}
+{% load static %}
+{% load currency_filters %}
+{% load permission_tags %}
+
+{% block title %}{{ dashboard_title|default:"Vet Assistant Dashboard" }}{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components/appointment_workflow.css' %}">
+
+<!-- Page Header -->
+{% include "components/page_hero.html" with title=dashboard_title|default:"Vet Assistant Dashboard" icon="bx-plus-medical" subtitle="Manage your patients, appointments, and schedule" %}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODERN VET DASHBOARD - REDESIGNED TO MATCH ADMIN/USER PORTAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<!-- HERO STATS ROW -->
+<div class="hero-stats">
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon teal">
+      <i class='bx bx-calendar-check'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ today_count }}</span>
+      <span class="hero-stat-label">Today's Appointments</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item"><i class='bx bx-time'></i> scheduled today</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon blue">
+      <i class='bx bx-bot'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ ai_diagnoses_count }}</span>
+      <span class="hero-stat-label">AI Diagnoses Run</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">{{ ai_diagnoses_this_month }} this month</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon emerald">
+      <i class='bx bx-check-circle'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ completed_consultations }}</span>
+      <span class="hero-stat-label">Completed Consultations</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item success"><i class='bx bx-trending-up'></i> {{ avg_daily_consultations|floatformat:1 }} avg/day</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="hero-stat-card">
+    <div class="hero-stat-icon purple">
+      <i class='bx bx-file'></i>
+    </div>
+    <div class="hero-stat-content">
+      <span class="hero-stat-value">{{ medical_records_count }}</span>
+      <span class="hero-stat-label">Medical Records</span>
+      <div class="hero-stat-meta">
+        <span class="meta-item">{{ medical_records_this_month }} this month</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CHARTS GRID -->
+<div class="charts-section">
+  <div class="charts-row charts-row-monthly">
+    <div class="chart-card-modern large chart-card-monthly">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>Completed Consultations</span>
+        </div>
+        <div class="chart-badge purple">{{ monthly_consultations_period }}</div>
+      </div>
+      <div class="chart-body chart-body-monthly">
+        <canvas id="monthlyCompletedConsultationsChart"></canvas>
+        <div id="monthlyConsultationsEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-bar-chart-alt-2'></i>
+          <span>No completed consultations in this period</span>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card-modern chart-card-supporting">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-pie-chart-alt-2'></i>
+          <span>Appointment Types</span>
+        </div>
+        <div class="chart-badge teal">All Time</div>
+      </div>
+      <div class="chart-body chart-body-appointment-types">
+        <canvas id="appointmentTypesChart"></canvas>
+        <div id="appointmentTypesEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-pie-chart-alt-2'></i>
+          <span>No appointment reason data available yet</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-row charts-row-supporting">
+    <div class="chart-card-modern chart-card-supporting">
+      <div class="chart-header">
+        <div class="chart-title">
+          <i class='bx bx-heart-circle'></i>
+          <span>Patient Status</span>
+        </div>
+        <div class="chart-badge emerald">Current</div>
+      </div>
+      <div class="chart-body chart-body-patient-status">
+        <canvas id="patientHealthChart"></canvas>
+        <div id="patientHealthEmpty" class="chart-empty-state" style="display: none;">
+          <i class='bx bx-heart-circle'></i>
+          <span>No patient status data available yet</span>
+        </div>
+      </div>
+    </div>
+
+    <section class="recent-records-section">
+      <div class="recent-records-card chart-card-modern">
+        <div class="chart-header recent-records-header">
+          <div class="chart-title">
+            <i class='bx bx-notepad'></i>
+            <span>Recent Medical Records</span>
+          </div>
+          <div class="recent-records-actions">
+            {% if user|has_module_permission:'medical_records:CREATE' %}
+            <a href="{% url 'records:admin_create' %}" class="section-link recent-records-create">
+              <i class='bx bx-plus'></i> New Record
+            </a>
+            {% endif %}
+            <a href="{% url 'records:admin_list' %}" class="section-link">
+              View All <i class='bx bx-right-arrow-alt'></i>
+            </a>
+          </div>
+        </div>
+        <div class="recent-records-body">
+          {% if recent_medical_records %}
+          <div class="recent-records-list">
+            {% for entry in recent_medical_records %}
+            <a class="recent-record-row" href="{% url 'records:admin_detail' entry.record.pk %}" aria-label="View {{ entry.record.pet.name }}'s medical record">
+              <span class="recent-record-icon"><i class='bx bx-notepad'></i></span>
+              <span class="recent-record-info">
+                <span class="recent-record-pet">{{ entry.record.pet.name }}</span>
+                <span class="recent-record-meta">
+                  {{ entry.record.pet.species }} · {{ entry.date_recorded|date:"M j, Y" }}{% if entry.vet %} · Dr. {{ entry.vet.first_name }} {{ entry.vet.last_name }}{% elif entry.record.vet %} · Dr. {{ entry.record.vet.first_name }} {{ entry.record.vet.last_name }}{% endif %}
+                </span>
+                {% if entry.history_clinical_signs %}
+                <span class="recent-record-summary">{{ entry.history_clinical_signs|truncatechars:110 }}</span>
+                {% elif entry.treatment %}
+                <span class="recent-record-summary">{{ entry.treatment|truncatechars:110 }}</span>
+                {% endif %}
+              </span>
+              <span class="recent-record-side">
+                <span class="recent-record-status"><i class='bx bx-check'></i> Recorded</span>
+                <i class='bx bx-chevron-right recent-record-arrow'></i>
+              </span>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="recent-records-empty">
+            <i class='bx bx-folder-open'></i>
+            <p>No medical records have been recorded yet.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODERN VET DASHBOARD STYLES -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<style>
+  /* ═══════════════════════════════════════════════ */
+  /* ROOT VARIABLES & ANIMATIONS */
+  /* ═══════════════════════════════════════════════ */
+  
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  
+  /* ═══════════════════════════════════════════════ */
+  /* SCROLL-TRIGGERED ANIMATIONS */
+  /* ═══════════════════════════════════════════════ */
+  
+  .portal-content {
+    overflow-x: hidden;
+  }
+
+  .page-hero {
+    padding: 22px 24px;
+    margin-bottom: 18px;
+  }
+  
+  .dash-fade {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dash-fade.from-left {
+    transform: translateX(-30px);
+  }
+  .dash-fade.from-right {
+    transform: translateX(30px);
+  }
+
+  .dash-fade.visible {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  .dash-fade.stagger-1 { transition-delay: 0.1s; }
+  .dash-fade.stagger-2 { transition-delay: 0.2s; }
+  .dash-fade.stagger-3 { transition-delay: 0.3s; }
+  .dash-fade.stagger-4 { transition-delay: 0.4s; }
+  .dash-fade.stagger-5 { transition-delay: 0.5s; }
+  .dash-fade.stagger-6 { transition-delay: 0.6s; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* HERO STATS ROW */
+  /* ═══════════════════════════════════════════════ */
+  
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  
+  @media (max-width: 1200px) {
+    .hero-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  
+  @media (max-width: 640px) {
+    .hero-stats { grid-template-columns: 1fr; }
+  }
+  
+  .hero-stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  
+  .hero-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    opacity: 0;
+    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  
+  .hero-stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary);
+  }
+  
+  .hero-stat-card:hover::before {
+    opacity: 1;
+  }
+  
+  .hero-stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  
+  .hero-stat-icon i {
+    font-size: 21px;
+    color: white;
+  }
+  
+  .hero-stat-icon.teal { background: linear-gradient(135deg, #009688 0%, #00796b 100%); }
+  .hero-stat-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+  .hero-stat-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+  .hero-stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  .hero-stat-icon.emerald { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+  .hero-stat-icon.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+  
+  .hero-stat-card:hover .hero-stat-icon {
+    transform: scale(1.15) rotate(-8deg);
+  }
+  
+  .hero-stat-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .hero-stat-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-1);
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+  
+  .hero-stat-label {
+    font-size: 12px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+  
+  .hero-stat-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 5px;
+  }
+  
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  
+  .meta-item.success { color: #10b981; }
+  .meta-item.warning { color: #f59e0b; }
+  .meta-item.danger { color: #ef4444; }
+  
+  .meta-item i { font-size: 12px; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* ALERT BANNER MODERN */
+  /* ═══════════════════════════════════════════════ */
+  
+  .alert-banner-modern {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #fcd34d;
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .alert-icon {
+    width: 40px;
+    height: 40px;
+    background: #f59e0b;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .alert-icon i {
+    font-size: 20px;
+    color: white;
+  }
+  
+  .alert-content { flex: 1; }
+  
+  .alert-content h4 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #78350f;
+  }
+  
+  .alert-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  
+  .alert-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+  }
+  
+  .pending-records-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .pending-records-pagination button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: 1px solid #fcd34d;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.65);
+    color: #78350f;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .pending-records-pagination button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .pending-records-pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .pending-records-page-label {
+    color: #78350f;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .alert-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 20px;
+    color: #92400e;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .alert-close:hover { opacity: 1; }
+
+  /* ═══════════════════════════════════════════════ */
+  /* CHARTS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .charts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .charts-row-monthly {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
+
+  .charts-row-supporting {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .chart-card-monthly {
+    width: 100%;
+  }
+
+  .charts-row > .chart-card-modern {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .charts-row > .chart-card-modern > .chart-body {
+    flex: 0 0 auto;
+  }
+
+  .chart-body-monthly {
+    height: 220px;
+  }
+
+  .chart-body-appointment-types {
+    height: 190px;
+  }
+
+  .chart-body-patient-status {
+    height: 190px;
+  }
+
+  .chart-empty-state {
+    display: flex;
+    position: absolute;
+    inset: auto 12px 8px;
+    z-index: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-3);
+    text-align: center;
+    font-size: 11px;
+    pointer-events: none;
+  }
+
+  .chart-empty-state i {
+    font-size: 14px;
+    opacity: 0.4;
+  }
+
+  .chart-empty-state span {
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .chart-card-supporting {
+    min-width: 0;
+  }
+  
+  @media (max-width: 992px) {
+    .charts-row-monthly,
+    .charts-row-supporting {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .chart-card-modern {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: var(--shadow-card);
+    --text-color: var(--text-1);
+  }
+  
+  [data-theme='dark'] .chart-card-modern {
+    --text-color: #ffffff;
+  }
+  
+  .chart-card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(0, 150, 136, 0.1);
+    border-color: var(--primary);
+  }
+  
+  .chart-card-modern.full {
+    grid-column: 1 / -1;
+  }
+  
+  .chart-card-modern.large {
+    flex: 1.5;
+  }
+  
+  .chart-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .chart-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  
+  .chart-title i {
+    font-size: 18px;
+    color: var(--primary);
+  }
+  
+  .chart-title span {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+
+  [data-theme="dark"] .chart-title span {
+    color: #ffffff !important;
+  }
+  
+  .chart-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .chart-badge.purple {
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+  }
+  
+  .chart-badge.teal {
+    background: rgba(0, 150, 136, 0.1);
+    color: #009688;
+  }
+  
+  .chart-badge.orange {
+    background: rgba(249, 115, 22, 0.1);
+    color: #f97316;
+  }
+  
+  .chart-badge.emerald {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .chart-card-modern:hover .chart-badge {
+    transform: scale(1.05);
+  }
+  
+  .chart-description {
+    padding: 0 18px;
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--text-3);
+    font-style: italic;
+  }
+  
+  .chart-body {
+    padding: 16px;
+    height: 220px;
+    position: relative;
+  }
+  
+  .chart-body.tall { height: 240px; }
+  .chart-body.wide { height: 220px; }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    background: transparent !important;
+  }
+  
+  .section-title i {
+    font-size: 22px;
+    color: var(--primary);
+  }
+  
+  .section-title span {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .section-link {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    transition: gap 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .section-link:hover { gap: 8px; }
+  
+  .no-data {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-3);
+    font-size: 13px;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* SCHEDULE SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .schedule-table-wrapper {
+    padding: 0;
+    overflow-x: auto;
+  }
+  
+  .schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .schedule-table th,
+  .schedule-table td {
+    padding: 16px 12px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 13px;
+  }
+  
+  .schedule-table thead {
+    background: transparent;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .schedule-table th {
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  
+  .schedule-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  
+  .schedule-table tbody tr:hover {
+    background: rgba(0, 150, 136, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.08);
+  }
+  
+  .schedule-table tbody tr:last-child {
+    border-bottom: none;
+  }
+  
+  .time-badge {
+    display: inline-flex;
+    padding: 6px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-weight: 600;
+    color: var(--text-1);
+    font-size: 12px;
+  }
+  
+  .patient-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .patient-info i {
+    font-size: 18px;
+    color: var(--primary);
+  }
+  
+  .branch-tag {
+    display: inline-flex;
+    padding: 4px 10px;
+    background: rgba(0, 150, 136, 0.1);
+    color: #009688;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .branch-tag.small {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+  
+  .reason-tag {
+    display: inline-flex;
+    padding: 4px 10px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .reason-tag.small {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+  
+  .status-pill {
+    display: inline-flex;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+  .status-pill.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .status-pill.confirmed { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .status-pill.completed { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+  .status-pill.cancelled { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+  .status-pill.no_show { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+  
+  /* Schedule-specific styles */
+  .day-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  
+  .day-name.today {
+    color: var(--primary);
+    font-weight: 700;
+  }
+  
+  .today-indicator {
+    display: inline-flex;
+    padding: 2px 8px;
+    background: linear-gradient(135deg, #009688 0%, #00796b 100%);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 10px;
+  }
+  
+  .date-badge {
+    display: inline-flex;
+    padding: 6px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  
+  .shift-pill {
+    display: inline-flex;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+  .shift-pill.regular { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+  .shift-pill.morning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .shift-pill.afternoon { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .shift-pill.night { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+  .shift-pill.emergency { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+  
+  .empty-schedule,
+  .empty-upcoming {
+    padding: 60px 24px;
+    text-align: center;
+  }
+  
+  .empty-schedule i,
+  .empty-upcoming i {
+    font-size: 48px;
+    color: var(--text-3);
+    margin-bottom: 16px;
+    display: block;
+  }
+  
+  .empty-schedule h4,
+  .empty-upcoming h4 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .empty-schedule p,
+  .empty-upcoming p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  .upcoming-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  
+  .upcoming-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    gap: 16px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .upcoming-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary);
+  }
+  
+  .upcoming-date {
+    width: 56px;
+    height: 64px;
+    background: linear-gradient(135deg, #009688 0%, #00796b 100%);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .upcoming-date .day {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    line-height: 1;
+  }
+  
+  .upcoming-date .month {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+  }
+  
+  .upcoming-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .upcoming-patient {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .upcoming-patient i {
+    font-size: 18px;
+    color: var(--primary);
+  }
+  
+  .upcoming-patient span {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .upcoming-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  
+  .upcoming-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  
+  .upcoming-meta i {
+    font-size: 14px;
+  }
+  
+  .upcoming-footer {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* FOLLOW-UPS SECTION */
+  /* ═══════════════════════════════════════════════ */
+  
+  .recent-records-section {
+    min-width: 0;
+    margin-bottom: 0;
+    container-type: inline-size;
+    align-self: start;
+  }
+
+  .recent-records-card {
+    width: 100%;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recent-records-header {
+    justify-content: space-between;
+  }
+
+  .recent-records-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .recent-records-actions .section-link {
+    margin-left: 0;
+    white-space: nowrap;
+  }
+
+  .recent-records-create {
+    gap: 5px;
+  }
+
+  .recent-records-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recent-records-body {
+    padding: 0 14px 4px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .recent-record-row {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 7px 0;
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: padding 0.2s ease, color 0.2s ease;
+  }
+
+  .recent-record-row:last-child {
+    border-bottom: 0;
+  }
+
+  .recent-record-row:hover {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .recent-record-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 32px;
+    border-radius: 12px;
+    color: var(--primary);
+    background: rgba(0, 150, 136, 0.1);
+  }
+
+  .recent-record-icon i {
+    font-size: 16px;
+  }
+
+  .recent-record-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  .recent-record-pet {
+    overflow: hidden;
+    color: var(--text-1);
+    font-size: 12px;
+    line-height: 1.2;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .recent-record-meta,
+  .recent-record-summary {
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: 10px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .recent-record-side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .recent-record-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border-radius: 20px;
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.25px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .recent-record-status i {
+    font-size: 13px;
+  }
+
+  .recent-record-arrow {
+    flex: 0 0 auto;
+    color: var(--text-3);
+    font-size: 20px;
+  }
+
+  .recent-records-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 30px 16px;
+    color: var(--text-3);
+    text-align: center;
+  }
+
+  .recent-records-empty i {
+    color: var(--primary);
+    font-size: 28px;
+  }
+
+  .recent-records-empty p {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  @container (max-width: 640px) {
+    .recent-records-body {
+      padding-right: 20px;
+      padding-left: 20px;
+    }
+
+    .recent-record-row {
+      grid-template-columns: 38px minmax(0, 1fr) auto;
+      gap: 12px;
+    }
+
+    .recent-record-icon {
+      width: 38px;
+      height: 38px;
+      flex-basis: 38px;
+    }
+
+    .recent-record-summary {
+      display: none;
+    }
+
+    .recent-record-status {
+      padding: 5px 8px;
+      font-size: 10px;
+    }
+  }
+
+  @container (max-width: 460px) {
+    .recent-records-header {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .recent-records-actions {
+      width: 100%;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .recent-records-body {
+      padding-right: 14px;
+      padding-left: 14px;
+    }
+
+    .recent-record-row {
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      gap: 9px;
+    }
+
+    .recent-record-icon {
+      width: 34px;
+      height: 34px;
+      flex-basis: 34px;
+    }
+
+    .recent-record-status {
+      padding: 5px 7px;
+      font-size: 9px;
+    }
+
+    .recent-record-arrow {
+      display: none;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* MODERN UPCOMING TABLE */
+  /* ═══════════════════════════════════════════════ */
+  
+  .upcoming-modern {
+    margin-bottom: 32px;
+  }
+  
+  .modern-table-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    transition: all 0.3s ease;
+  }
+
+  .modern-table-container:hover {
+    box-shadow: 0 10px 25px var(--border);
+  }
+
+  .modern-dashboard-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: center;
+  }
+
+  .modern-dashboard-table th {
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 14px 20px;
+    border-bottom: 2px solid var(--border);
+    text-align: center;
+  }
+
+  .modern-dashboard-table td {
+    padding: 16px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-1);
+    font-size: 14px;
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  .modern-dashboard-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .modern-dashboard-table tr:hover td {
+    background: rgba(0, 150, 136, 0.02);
+  }
+
+  /* Date Time Column */
+  .table-date-time {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .table-date-time strong {
+    color: var(--text-1);
+    font-weight: 600;
+  }
+  
+  .table-subtext {
+    font-size: 12px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  
+  .table-subtext i {
+    color: var(--primary);
+  }
+
+  /* Patient Cell */
+  .table-patient-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-weight: 600;
+  }
+  
+  .table-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(0,150,136,0.1), rgba(0,150,136,0.05));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    font-size: 18px;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* EMPTY STATE MODERN */
+  /* ═══════════════════════════════════════════════ */
+  
+  .empty-modern-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 60px 40px;
+    text-align: center;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.1) 0%, rgba(100, 116, 139, 0.05) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .empty-icon i {
+    font-size: 36px;
+    color: #64748b;
+  }
+  
+  .empty-icon.success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+  }
+  
+  .empty-icon.success i {
+    color: #10b981;
+  }
+  
+  .empty-modern-card h4 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  
+  .empty-modern-card p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-3);
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* RESPONSIVE STYLES */
+  /* ═══════════════════════════════════════════════ */
+  
+  @media (max-width: 768px) {
+    .upcoming-timeline-item {
+      flex-wrap: wrap;
+    }
+    
+    .timeline-date-block {
+      width: 60px;
+      padding: 12px 6px;
+    }
+    
+    .timeline-day {
+      font-size: 22px;
+    }
+    
+    .timeline-connector {
+      width: 30px;
+    }
+    
+    .timeline-card {
+      padding: 14px 16px;
+    }
+    
+    .timeline-header {
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .timeline-time {
+      width: 100%;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    
+    .schedule-table-wrapper {
+      overflow-x: auto;
+    }
+    
+    .schedule-table {
+      min-width: 600px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .timeline-date-block {
+      width: 50px;
+    }
+    
+    .timeline-day {
+      font-size: 20px;
+    }
+    
+    .timeline-month {
+      font-size: 10px;
+    }
+    
+    .timeline-weekday {
+      display: none;
+    }
+    
+    .timeline-connector {
+      width: 24px;
+    }
+    
+    .timeline-dot {
+      width: 10px;
+      height: 10px;
+    }
+    
+    .patient-avatar {
+      width: 36px;
+      height: 36px;
+    }
+    
+    .patient-avatar i {
+      font-size: 18px;
+    }
+    
+    .patient-name {
+      font-size: 14px;
+    }
+    
+    .empty-modern-card {
+      padding: 40px 24px;
+    }
+    
+    .empty-icon {
+      width: 60px;
+      height: 60px;
+    }
+    
+    .empty-icon i {
+      font-size: 28px;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* DARK MODE ADJUSTMENTS */
+  /* ═══════════════════════════════════════════════ */
+  
+  [data-theme="dark"] .alert-banner-modern {
+    background: linear-gradient(135deg, #422006 0%, #713f12 100%);
+    border-color: #a16207;
+  }
+  
+  [data-theme="dark"] .alert-content h4 { color: #fef3c7; }
+  [data-theme="dark"] .alert-item { color: #fde68a; background: rgba(255,255,255,0.1); }
+  [data-theme="dark"] .alert-close { color: #fde68a; }
+  
+  [data-theme="dark"] .timeline-card {
+    background: var(--surface);
+  }
+  
+  [data-theme="dark"] .empty-modern-card {
+    background: var(--surface);
+  }
+
+  /* Chart legend text color in dark mode */
+  [data-theme="dark"] .chartjs-render-monitor {
+    color: #ffffff !important;
+  }
+
+  [data-theme="dark"] canvas + * {
+    color: #ffffff !important;
+  }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // SCROLL-TRIGGERED ANIMATIONS
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  function initDashboardAnimations() {
+    // Hero stat cards — staggered fade up
+    document.querySelectorAll('.hero-stat-card').forEach((card, i) => {
+      card.classList.add('dash-fade', `stagger-${i + 1}`);
+    });
+    
+    // Chart cards — alternate left/right per row
+    document.querySelectorAll('.charts-row').forEach(row => {
+      const cards = row.querySelectorAll('.chart-card-modern');
+      cards.forEach((card, i) => {
+        card.classList.add('dash-fade', i === 0 ? 'from-left' : 'from-right');
+        if (i > 0) card.classList.add('stagger-2');
+      });
+    });
+    
+    // Table wrappers — fade in the whole table together (no per-row stagger)
+    document.querySelectorAll('.schedule-table-wrapper').forEach(wrapper => {
+      wrapper.classList.add('dash-fade');
+    });
+    
+    // Empty state cards
+    document.querySelectorAll('.empty-modern-card, .empty-schedule').forEach(el => {
+      el.classList.add('dash-fade');
+    });
+  }
+
+  // Initialize animations
+  initDashboardAnimations();
+  
+  function startDashAnimations() {
+    const allFades = Array.from(document.querySelectorAll('.dash-fade'));
+    
+    function isInView(el) {
+      const r = el.getBoundingClientRect();
+      return r.top < window.innerHeight && r.bottom > 0;
+    }
+    
+    function getStaggerMs(el) {
+      return Math.round((parseFloat(getComputedStyle(el).transitionDelay) || 0) * 1000);
+    }
+    
+    function revealEl(el, extraDelay) {
+      const stagger = getStaggerMs(el);
+      const total = extraDelay + stagger;
+      setTimeout(() => el.classList.add('visible'), total);
+      el.querySelectorAll('canvas').forEach(canvas => {
+        const chart = typeof Chart !== 'undefined' ? Chart.getChart(canvas) : null;
+        if (chart) setTimeout(() => { chart.reset(); chart.update(); }, total + 350);
+      });
+    }
+    
+    const inView = allFades.filter(isInView);
+    const offScreen = allFades.filter(el => !isInView(el));
+    
+    inView.forEach(el => revealEl(el, 80));
+    
+    if (offScreen.length) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            revealEl(entry.target, 0);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { root: null, threshold: 0.05, rootMargin: '0px' });
+      offScreen.forEach(el => observer.observe(el));
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART.JS CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const chartAvailable = typeof Chart !== 'undefined';
+  if (chartAvailable) {
+    Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  }
+  const isGlobalDark = document.body.getAttribute('data-theme') === 'dark';
+  if (chartAvailable) {
+    Chart.defaults.color = isGlobalDark ? '#ffffff' : '#64748b';
+    Chart.defaults.plugins.legend.labels.color = isGlobalDark ? '#ffffff' : '#64748b';
+  }
+
+  function showChartEmptyState(canvasId, emptyId, message) {
+    const canvas = document.getElementById(canvasId);
+    const empty = document.getElementById(emptyId);
+    if (canvas) canvas.style.display = 'none';
+    if (empty) {
+      const label = empty.querySelector('span');
+      if (label && message) label.textContent = message;
+      empty.style.display = 'flex';
+    }
+  }
+  
+  const commonTooltip = {
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    titleColor: '#ffffff',
+    bodyColor: '#cbd5e1',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    padding: 12,
+    boxPadding: 6,
+    usePointStyle: true,
+    cornerRadius: 12,
+    titleFont: { size: 14, weight: '600' },
+    bodyFont: { size: 13 },
+    displayColors: true
+  };
+
+  const monthlyConsultationsCtx = document.getElementById('monthlyCompletedConsultationsChart');
+  const consultationMonths = {{ monthly_consultation_labels|safe }};
+  const consultationCounts = {{ monthly_consultation_counts|safe }};
+  if (monthlyConsultationsCtx && chartAvailable) {
+    new Chart(monthlyConsultationsCtx, {
+      type: 'bar',
+      data: {
+        labels: consultationMonths,
+        datasets: [{
+          label: 'Completed consultations',
+          data: consultationCounts,
+          backgroundColor: function(context) {
+            return context.dataIndex === consultationMonths.length - 1
+              ? '#009688'
+              : 'rgba(0, 150, 136, 0.5)';
+          },
+          borderRadius: 8,
+          borderSkipped: 'bottom',
+          maxBarThickness: 64
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...commonTooltip,
+            callbacks: {
+              label: function(context) {
+                const count = context.parsed.y;
+                return `${count} completed consultation${count === 1 ? '' : 's'}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { font: { size: 12, weight: '600' } }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: isGlobalDark ? '#334155' : '#e2e8f0',
+              drawBorder: false,
+              borderDash: [5, 5]
+            },
+            ticks: { font: { size: 11 }, precision: 0 }
+          }
+        }
+      }
+    });
+    if (!consultationCounts.some(count => count > 0)) {
+      showChartEmptyState(
+        'monthlyCompletedConsultationsChart',
+        'monthlyConsultationsEmpty',
+        'No completed consultations in this period'
+      );
+    }
+  } else if (monthlyConsultationsCtx) {
+    showChartEmptyState(
+      'monthlyCompletedConsultationsChart',
+      'monthlyConsultationsEmpty',
+      'Charts could not load. Check your connection and refresh the page.'
+    );
+    const empty = document.getElementById('monthlyConsultationsEmpty');
+    if (empty) empty.classList.add('chart-load-error');
+  }
+
+  const appointmentTypesCtx = document.getElementById('appointmentTypesChart');
+  if (appointmentTypesCtx && chartAvailable) {
+    const palette = ['#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#f43f5e'];
+    const appointmentData = [
+      {% for item in consultation_reasons %}
+      {
+        label: '{{ item.reason|escapejs }}',
+        value: {{ item.count }},
+        color: palette[{{ forloop.counter0 }} % palette.length]
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ];
+    const totalAppointments = appointmentData.reduce((sum, item) => sum + item.value, 0);
+    const hasAppointmentData = totalAppointments > 0;
+    const chartAppointmentData = hasAppointmentData
+      ? appointmentData
+      : [{ label: 'No data', value: 1, color: isGlobalDark ? '#334155' : '#e2e8f0' }];
+    const centerTextPlugin = {
+      id: 'appointmentCenterText',
+      afterDraw: function(chart) {
+        const ctx = chart.ctx;
+        const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+        const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+
+        ctx.save();
+        ctx.font = 'bold 28px Inter, sans-serif';
+        ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(totalAppointments.toString(), centerX, centerY - 8);
+        ctx.font = '500 12px Inter, sans-serif';
+        ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+        ctx.fillText('All Time', centerX, centerY + 16);
+        ctx.restore();
+      }
+    };
+
+    new Chart(appointmentTypesCtx, {
+      type: 'doughnut',
+      data: {
+        labels: chartAppointmentData.map(item => item.label),
+        datasets: [{
+          data: chartAppointmentData.map(item => item.value),
+          backgroundColor: chartAppointmentData.map(item => item.color),
+          borderWidth: 0,
+          hoverOffset: hasAppointmentData ? 8 : 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            display: hasAppointmentData,
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle',
+              padding: 8,
+              boxWidth: 8,
+              boxHeight: 8,
+              font: { size: 10, weight: '600', family: 'Inter, sans-serif' }
+            }
+          },
+          tooltip: { ...commonTooltip, enabled: hasAppointmentData }
+        }
+      },
+      plugins: [centerTextPlugin]
+    });
+    if (!hasAppointmentData) {
+      showChartEmptyState(
+        'appointmentTypesChart',
+        'appointmentTypesEmpty',
+        'No appointment reason data available yet'
+      );
+    }
+  } else if (appointmentTypesCtx) {
+    showChartEmptyState(
+      'appointmentTypesChart',
+      'appointmentTypesEmpty',
+      'Charts could not load. Check your connection and refresh the page.'
+    );
+    const empty = document.getElementById('appointmentTypesEmpty');
+    if (empty) empty.classList.add('chart-load-error');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHART 1: PATIENT HEALTH STATUS (Pie Chart)
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const patientHealthCtx = document.getElementById('patientHealthChart');
+  if (patientHealthCtx && chartAvailable) {
+    const healthData = [
+      {% for status in patient_status_distribution %}
+      { label: '{{ status.status }}', value: {{ status.count }}, color: '{{ status.color }}' },
+      {% endfor %}
+    ];
+    
+    const hasPatientData = healthData.length > 0;
+    const chartHealthData = hasPatientData
+      ? healthData
+      : [{
+          label: 'No data',
+          value: 1,
+          color: isGlobalDark ? '#334155' : '#e2e8f0'
+        }];
+    const totalPatients = hasPatientData
+      ? healthData.reduce((sum, item) => sum + item.value, 0)
+      : 0;
+      
+    new Chart(patientHealthCtx, {
+      type: 'pie',
+      data: {
+        labels: chartHealthData.map(item => item.label),
+        datasets: [{
+          data: chartHealthData.map(item => item.value),
+          backgroundColor: chartHealthData.map(item => item.color),
+          borderColor: isGlobalDark ? '#1e293b' : '#ffffff',
+          borderWidth: 3,
+          hoverOffset: hasPatientData ? 12 : 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 2000,
+          easing: 'easeInOutQuart'
+        },
+        plugins: {
+          legend: {
+            display: hasPatientData,
+            position: 'bottom',
+            labels: {
+              padding: 10,
+              usePointStyle: true,
+              pointStyle: 'circle',
+              font: { size: 10, weight: '600' },
+              color: isGlobalDark ? '#ffffff' : '#64748b',
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => {
+                  const value = data.datasets[0].data[i];
+                  const pct = totalPatients > 0 ? ((value / totalPatients) * 100).toFixed(0) : 0;
+                  return {
+                    text: `${label}: ${value} (${pct}%)`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    strokeStyle: data.datasets[0].backgroundColor[i],
+                    lineWidth: 0,
+                    fontColor: isGlobalDark ? '#ffffff' : '#64748b',
+                    color: isGlobalDark ? '#ffffff' : '#64748b',
+                    pointStyle: 'circle',
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            }
+          },
+          tooltip: {
+            ...commonTooltip,
+            enabled: hasPatientData,
+            callbacks: {
+              label: function(context) {
+                const pct = totalPatients > 0 ? ((context.raw / totalPatients) * 100).toFixed(1) : 0;
+                return `${context.label}: ${context.raw} patients (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+    if (!hasPatientData) {
+      showChartEmptyState(
+        'patientHealthChart',
+        'patientHealthEmpty',
+        'No patient status data available yet'
+      );
+    }
+  } else if (patientHealthCtx) {
+    showChartEmptyState(
+      'patientHealthChart',
+      'patientHealthEmpty',
+      'Charts could not load. Check your connection and refresh the page.'
+    );
+    const empty = document.getElementById('patientHealthEmpty');
+    if (empty) empty.classList.add('chart-load-error');
+  }
+
+  // Start all animations after charts are ready
+  setTimeout(startDashAnimations, 100);
+
+  const pendingRecordsBody = document.getElementById('pendingMedicalRecordsBody');
+  const pendingRecordsPagination = document.getElementById('pendingMedicalRecordsPagination');
+  const pendingRecordsPrevious = document.getElementById('pendingRecordsPrevious');
+  const pendingRecordsNext = document.getElementById('pendingRecordsNext');
+  const pendingRecordsPageLabel = document.getElementById('pendingRecordsPageLabel');
+  const pendingRecordRows = pendingRecordsBody
+    ? Array.from(pendingRecordsBody.querySelectorAll('.pending-medical-record-row'))
+    : [];
+  const pendingRecordsPageSize = 5;
+  let pendingRecordsPage = 1;
+
+  function renderPendingRecordsPage() {
+    const totalPages = Math.ceil(pendingRecordRows.length / pendingRecordsPageSize);
+    const start = (pendingRecordsPage - 1) * pendingRecordsPageSize;
+    pendingRecordRows.forEach((row, index) => {
+      row.style.display = index >= start && index < start + pendingRecordsPageSize ? '' : 'none';
+    });
+    if (pendingRecordsPagination && totalPages > 1) {
+      pendingRecordsPagination.hidden = false;
+      pendingRecordsPageLabel.textContent = `Page ${pendingRecordsPage} of ${totalPages}`;
+      pendingRecordsPrevious.disabled = pendingRecordsPage === 1;
+      pendingRecordsNext.disabled = pendingRecordsPage === totalPages;
+    }
+  }
+
+  if (pendingRecordRows.length > pendingRecordsPageSize) {
+    renderPendingRecordsPage();
+    pendingRecordsPrevious.addEventListener('click', function() {
+      if (pendingRecordsPage > 1) {
+        pendingRecordsPage -= 1;
+        renderPendingRecordsPage();
+      }
+    });
+    pendingRecordsNext.addEventListener('click', function() {
+      if (pendingRecordsPage < Math.ceil(pendingRecordRows.length / pendingRecordsPageSize)) {
+        pendingRecordsPage += 1;
+        renderPendingRecordsPage();
+      }
+    });
+  }
+});
+</script>
+
+{% endblock %}

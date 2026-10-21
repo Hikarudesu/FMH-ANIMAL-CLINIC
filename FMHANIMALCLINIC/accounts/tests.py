@@ -618,7 +618,11 @@ class VetDashboardContentTests(TestCase):
                 )
 
                 self.client.force_login(user)
-                response = self.client.get(reverse('vet_dashboard'))
+                dashboard_route = (
+                    'assistant_vet_dashboard'
+                    if role_code == 'assistant_veterinarian' else 'vet_dashboard'
+                )
+                response = self.client.get(reverse(dashboard_route))
 
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.context['today_count'], 1)
@@ -668,10 +672,21 @@ class VetDashboardContentTests(TestCase):
                 )
                 self.client.force_login(user)
 
-                response = self.client.get(reverse('vet_dashboard'))
+                dashboard_route = (
+                    'assistant_vet_dashboard'
+                    if role_code == 'assistant_veterinarian' else 'vet_dashboard'
+                )
+                response = self.client.get(reverse(dashboard_route))
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, dashboard_title)
+                expected_template = (
+                    'accounts/assistant_vet_dashboard.html'
+                    if role_code == 'assistant_veterinarian'
+                    else 'accounts/vet_dashboard.html'
+                )
+                self.assertTemplateUsed(response, expected_template)
+                self.assertContains(response, reverse(dashboard_route))
                 self.assertNotContains(response, 'page-hero-actions')
                 self.assertNotContains(response, 'Clinical Insights')
                 self.assertNotContains(response, 'Patient Flow')
@@ -1013,7 +1028,7 @@ class VetDashboardContentTests(TestCase):
             branch=branch,
         )
         self.client.force_login(assistant)
-        assistant_response = self.client.get(reverse('vet_dashboard'))
+        assistant_response = self.client.get(reverse('assistant_vet_dashboard'))
 
         self.assertEqual(assistant_response.status_code, 200)
         self.assertEqual(
@@ -2912,6 +2927,7 @@ class RoleDashboardAuthorizationTests(TestCase):
         for route_name in (
             'accounts:admin_dashboard',
             'accounts:vet_dashboard',
+            'accounts:assistant_vet_dashboard',
             'accounts:receptionist_dashboard',
         ):
             with self.subTest(route=route_name):
@@ -2962,6 +2978,38 @@ class RoleDashboardAuthorizationTests(TestCase):
         response = self.client.get(reverse('accounts:receptionist_dashboard'))
 
         self.assertRedirects(response, reverse('accounts:vet_dashboard'))
+
+    def test_veterinarian_dashboards_redirect_to_the_matching_role(self):
+        vet_role = Role.objects.get(code='veterinarian')
+        vet = get_user_model().objects.create_user(
+            username='vet-dashboard-role-boundary',
+            password='A-secure-test-password-939!',
+            assigned_role=vet_role,
+        )
+        assistant_role, _ = Role.objects.get_or_create(
+            code='assistant_veterinarian',
+            defaults={
+                'name': 'Assistant Veterinarian',
+                'hierarchy_level': 1,
+                'is_staff_role': True,
+            },
+        )
+        assistant = get_user_model().objects.create_user(
+            username='assistant-dashboard-role-boundary',
+            password='A-secure-test-password-940!',
+            assigned_role=assistant_role,
+        )
+
+        self.client.force_login(vet)
+        response = self.client.get(reverse('accounts:assistant_vet_dashboard'))
+        self.assertRedirects(response, reverse('accounts:vet_dashboard'))
+
+        self.client.force_login(assistant)
+        response = self.client.get(reverse('accounts:vet_dashboard'))
+        self.assertRedirects(response, reverse('accounts:assistant_vet_dashboard'))
+
+        response = self.client.get(reverse('accounts:user_dashboard'))
+        self.assertRedirects(response, reverse('accounts:assistant_vet_dashboard'))
 
     def test_receptionist_cannot_open_veterinary_dashboard_url(self):
         role = Role.objects.get(code='receptionist')
