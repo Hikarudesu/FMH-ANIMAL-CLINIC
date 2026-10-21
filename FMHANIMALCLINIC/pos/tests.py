@@ -173,7 +173,7 @@ class AppointmentCheckoutTests(TestCase):
         sale.refresh_from_db()
         self.assertEqual(sale.status, Sale.Status.PENDING)
 
-    def test_receipt_autoprint_page_has_print_action_and_narrow_layout(self):
+    def test_receipt_autoprints_only_after_checkout_and_has_no_manual_print_action(self):
         sale = Sale.objects.create(
             branch=self.branch,
             cashier=self.cashier,
@@ -188,6 +188,10 @@ class AppointmentCheckoutTests(TestCase):
         self.assertContains(response, "get('autoprint') === '1'")
         self.assertContains(response, 'sessionStorage.getItem(printGuardKey)')
         self.assertContains(response, 'window.print();')
+        self.assertContains(response, "window.addEventListener('afterprint'")
+        self.assertContains(response, 'window.close();')
+        self.assertNotContains(response, 'Print Receipt')
+        self.assertNotContains(response, 'onclick="window.print()"')
         self.assertContains(response, 'width: 44mm;')
         self.assertContains(response, 'color: #000 !important;')
         self.assertContains(response, 'font-family: Arial, sans-serif;')

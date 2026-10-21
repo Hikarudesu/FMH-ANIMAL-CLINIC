@@ -603,6 +603,8 @@
     z-index: 1000;
     align-items: center;
     justify-content: center;
+    padding: 16px;
+    overflow-y: auto;
   }
 
   .pos-modal.active {
@@ -613,9 +615,13 @@
   .pos-modal-content {
     background: var(--surface);
     border-radius: var(--radius-lg);
-    padding: 32px;
+    padding: 52px 24px 24px;
     max-width: 420px;
     width: 90%;
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     text-align: center;
     box-shadow: var(--shadow-lg);
     animation: slideUp 0.3s ease-out forwards;
@@ -822,15 +828,19 @@
 
   .pos-modal-close {
     position: absolute;
-    top: 16px;
-    right: 16px;
-    background: transparent;
+    top: 8px;
+    right: 8px;
+    width: 40px;
+    height: 40px;
+    background: var(--bg);
     border: none;
     font-size: 1.5rem;
     color: var(--text-3);
     cursor: pointer;
     padding: 4px;
     line-height: 1;
+    border-radius: 50%;
+    z-index: 2;
     transition: color 0.2s;
   }
 
@@ -1090,11 +1100,6 @@
     <p id="receiptPrintStatus" style="margin: 0 0 12px; text-align: center; font-size: 0.85rem; color: var(--text-2);">
       The receipt will open for printing after the sale is confirmed.
     </p>
-    <div class="pos-modal-actions" style="margin-top: 0; margin-bottom: 16px;">
-      <button class="pos-modal-btn secondary" type="button" onclick="printReceipt()">
-        <i class='bx bx-printer'></i> Print Receipt
-      </button>
-    </div>
     <div class="pos-modal-actions">
       <button class="pos-modal-btn secondary" onclick="viewStatement()">
         <i class='bx bx-file'></i> View Statement
@@ -1946,12 +1951,12 @@ async function processPayment() {
       if (pendingReceiptWindow && !pendingReceiptWindow.closed) {
         try {
           pendingReceiptWindow.location.replace(`/pos/sales/${saleId}/receipt/?autoprint=1`);
-          receiptStatus.textContent = 'Receipt opened. Complete printing in the browser dialog.';
+          receiptStatus.textContent = 'Receipt opened for automatic printing.';
         } catch (_error) {
-          receiptStatus.textContent = 'The sale is complete. Select Print Receipt to try printing again.';
+          receiptStatus.textContent = 'Sale complete, but automatic printing could not start. Check the browser print settings.';
         }
       } else {
-        receiptStatus.textContent = 'The browser blocked the receipt tab. Select Print Receipt and allow pop-ups for this site.';
+        receiptStatus.textContent = 'Sale complete, but the browser blocked automatic printing. Allow pop-ups for this site.';
       }
       pendingReceiptWindow = null;
       document.getElementById('successModal').classList.add('active');
@@ -2079,21 +2084,6 @@ function viewStatement() {
     // Indicate the SOA was opened from the checkout flow so the SOA page
     // can render a "Back" button that returns to the POS checkout.
     window.location.href = `/pos/sales/${lastCompletedSaleId}/soa/?from=checkout`;
-  }
-}
-
-function printReceipt() {
-  if (lastCompletedSaleId) {
-    const receiptWindow = window.open(
-      `/pos/sales/${lastCompletedSaleId}/receipt/?autoprint=1`,
-      '_blank'
-    );
-    if (!receiptWindow) {
-      showPosMessage(
-        'Receipt window blocked',
-        'Allow pop-ups for this site, then select Print Receipt again.'
-      );
-    }
   }
 }
 
