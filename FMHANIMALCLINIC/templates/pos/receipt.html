@@ -139,14 +139,97 @@
     }
 
     @media print {
+      @page {
+        size: 56mm auto;
+        margin: 0;
+      }
+
+      html,
       body {
-        background: white;
+        width: 56mm;
+        color: #000 !important;
+        background: #fff !important;
         padding: 0;
+        margin: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
       .receipt {
+        width: 44mm;
         box-shadow: none;
-        max-width: 100%;
+        max-width: 44mm;
+        margin: 0 auto;
+        padding: 0 2mm;
+        font-family: Arial, sans-serif;
+        font-size: 10pt;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .receipt,
+      .receipt * {
+        color: #000 !important;
+      }
+
+      .receipt-logo {
+        font-size: 15pt;
+        font-weight: 700;
+      }
+
+      .receipt-clinic,
+      .receipt-footer {
+        font-size: 9pt;
+        font-weight: 600;
+      }
+
+      .receipt-item-detail {
+        font-size: 9pt;
+      }
+
+      .receipt-barcode {
+        font-size: 9pt;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        overflow-wrap: anywhere;
+      }
+
+      .receipt-total-row.grand {
+        font-size: 12pt;
+        font-weight: 700;
+      }
+
+      .receipt-payment,
+      .receipt-barcode {
+        background: #fff !important;
+        border-radius: 0;
+      }
+
+      .receipt-header,
+      .receipt-info,
+      .receipt-footer {
+        border-color: #000;
+      }
+
+      .receipt-row,
+      .receipt-total-row,
+      .receipt-item-detail {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+      }
+
+      .receipt-row span,
+      .receipt-total-row span,
+      .receipt-item-detail span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .receipt-row span:last-child,
+      .receipt-total-row span:last-child,
+      .receipt-item-detail span:last-child {
+        text-align: right;
       }
 
       .no-print {
@@ -159,8 +242,11 @@
 
 <div class="no-print" style="text-align: center; margin-bottom: 20px;">
   <p style="color: #666; font-size: 11px; margin-bottom: 10px; font-style: italic;">
-    This view is not printable. Physical receipts are automatically printed by the POS terminal.
+    Print this receipt using the printer connected to this computer.
   </p>
+  <button onclick="window.print()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #176b5b; color: white; border: none; border-radius: 5px; margin-right: 8px;">
+    Print Receipt
+  </button>
   <button onclick="window.close()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #666; color: white; border: none; border-radius: 5px;">
     Close
   </button>
@@ -271,6 +357,26 @@
     </p>
   </div>
 </div>
+
+<script>
+  if (new URLSearchParams(window.location.search).get('autoprint') === '1') {
+    const printGuardKey = `receipt-printed-${window.location.pathname}`;
+    let shouldAutoPrint = false;
+    try {
+      shouldAutoPrint = !window.sessionStorage.getItem(printGuardKey);
+      if (shouldAutoPrint) window.sessionStorage.setItem(printGuardKey, '1');
+    } catch (_error) {
+      shouldAutoPrint = true;
+    }
+    if (shouldAutoPrint) {
+      window.addEventListener('load', function () {
+        window.setTimeout(function () {
+          window.print();
+        }, 300);
+      }, { once: true });
+    }
+  }
+</script>
 
 </body>
 </html>

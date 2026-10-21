@@ -172,3 +172,27 @@ class AppointmentCheckoutTests(TestCase):
         self.assertEqual(Payment.objects.filter(sale=sale).count(), 0)
         sale.refresh_from_db()
         self.assertEqual(sale.status, Sale.Status.PENDING)
+
+    def test_receipt_autoprint_page_has_print_action_and_narrow_layout(self):
+        sale = Sale.objects.create(
+            branch=self.branch,
+            cashier=self.cashier,
+        )
+
+        response = self.client.get(
+            reverse('pos:receipt', kwargs={'sale_id': sale.pk}),
+            {'autoprint': '1'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "get('autoprint') === '1'")
+        self.assertContains(response, 'sessionStorage.getItem(printGuardKey)')
+        self.assertContains(response, 'window.print();')
+        self.assertContains(response, 'width: 44mm;')
+        self.assertContains(response, 'color: #000 !important;')
+        self.assertContains(response, 'font-family: Arial, sans-serif;')
+        self.assertContains(response, 'letter-spacing: 0.5px;')
+        self.assertContains(response, 'width: 56mm;')
+        self.assertContains(response, 'margin: 0 auto;')
+        self.assertContains(response, 'padding: 0 2mm;')
+        self.assertContains(response, 'grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);')

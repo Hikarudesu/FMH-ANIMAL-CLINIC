@@ -1087,6 +1087,14 @@
         <span id="modalChange">-</span>
       </div>
     </div>
+    <p id="receiptPrintStatus" style="margin: 0 0 12px; text-align: center; font-size: 0.85rem; color: var(--text-2);">
+      The receipt will open for printing after the sale is confirmed.
+    </p>
+    <div class="pos-modal-actions" style="margin-top: 0; margin-bottom: 16px;">
+      <button class="pos-modal-btn secondary" type="button" onclick="printReceipt()">
+        <i class='bx bx-printer'></i> Print Receipt
+      </button>
+    </div>
     <div class="pos-modal-actions">
       <button class="pos-modal-btn secondary" onclick="viewStatement()">
         <i class='bx bx-file'></i> View Statement
@@ -1196,6 +1204,7 @@ let currentTotal = {{ sale.total|default:0 }};
 let paymentMethod = 'CASH';
 let customerType = 'WALKIN';
 let lastCompletedSaleId = null;
+let pendingReceiptWindow = null;
 let paymentInProgress = false;
 let customerSearchTimer = null;
 let customerSearchController = null;
@@ -1893,6 +1902,16 @@ async function processPayment() {
     if (registeredPetId) params.set('pet_id', registeredPetId);
   }
 
+  // Open the tab during the cashier's click so the browser does not block it
+  // after the asynchronous payment request completes.
+  pendingReceiptWindow = window.open('about:blank', '_blank');
+  if (pendingReceiptWindow) {
+    pendingReceiptWindow.document.write(
+      '<!doctype html><title>Preparing receipt</title><p>Payment is being confirmed...</p>'
+    );
+    pendingReceiptWindow.document.close();
+  }
+
   const button = document.getElementById('checkoutBtn');
   const originalContent = button.innerHTML;
   paymentInProgress = true;
@@ -1923,6 +1942,18 @@ async function processPayment() {
       document.getElementById('modalTxnId').textContent = data.sale.transaction_id;
       document.getElementById('modalAmountPaid').textContent = '₱' + Number(data.sale.amount_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       document.getElementById('modalChange').textContent = '₱' + Number(data.sale.change_due).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const receiptStatus = document.getElementById('receiptPrintStatus');
+      if (pendingReceiptWindow && !pendingReceiptWindow.closed) {
+        try {
+          pendingReceiptWindow.location.replace(`/pos/sales/${saleId}/receipt/?autoprint=1`);
+          receiptStatus.textContent = 'Receipt opened. Complete printing in the browser dialog.';
+        } catch (_error) {
+          receiptStatus.textContent = 'The sale is complete. Select Print Receipt to try printing again.';
+        }
+      } else {
+        receiptStatus.textContent = 'The browser blocked the receipt tab. Select Print Receipt and allow pop-ups for this site.';
+      }
+      pendingReceiptWindow = null;
       document.getElementById('successModal').classList.add('active');
       return;
     }
@@ -1933,6 +1964,10 @@ async function processPayment() {
   } finally {
     paymentInProgress = false;
     if (!document.getElementById('successModal').classList.contains('active')) {
+      if (pendingReceiptWindow && !pendingReceiptWindow.closed) {
+        pendingReceiptWindow.close();
+      }
+      pendingReceiptWindow = null;
       button.disabled = false;
       button.innerHTML = originalContent;
     }
@@ -2049,7 +2084,16 @@ function viewStatement() {
 
 function printReceipt() {
   if (lastCompletedSaleId) {
-    window.open(`/pos/sales/${lastCompletedSaleId}/receipt/`, '_blank');
+    const receiptWindow = window.open(
+      `/pos/sales/${lastCompletedSaleId}/receipt/?autoprint=1`,
+      '_blank'
+    );
+    if (!receiptWindow) {
+      showPosMessage(
+        'Receipt window blocked',
+        'Allow pop-ups for this site, then select Print Receipt again.'
+      );
+    }
   }
 }
 
