@@ -7,6 +7,7 @@ from unittest.mock import patch
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
@@ -18,6 +19,7 @@ from branches.models import Branch
 from diagnostics.models import AIDiagnosis
 from employees.models import StaffMember
 from patients.models import Pet
+from settings.models import ClinicalStatus
 from .models import MedicalFile, MedicalRecord, RecordEntry
 from .models import validate_laboratory_image, validate_medical_file
 from .views import _get_pdf_styles, _pdf_link_callback
@@ -318,6 +320,99 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['service_branch_id'], appointment_branch.pk)
         self.assertEqual(response.context['form']['vet'].value(), assigned_vet.pk)
+
+    def _appointment_record_setup(self):
+        owner = get_user_model().objects.create_user(
+            username='appointment-record-owner',
+            email='appointment-record-owner@example.com',
+            password='A-secure-test-password-923!',
+            phone_number='09123456789',
+        )
+        pet = Pet.objects.create(
+            name='Appointment Record Pet',
+            owner=owner,
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+            color='Black',
+        )
+        appointment = Appointment.objects.create(
+            owner_name='Appointment Record Owner',
+            owner_email=owner.email,
+            owner_phone=owner.phone_number,
+            pet_name=pet.name,
+            pet=pet,
+            user=owner,
+            branch=self.branch,
+            appointment_date=date(2026, 10, 17),
+            appointment_time=time(11),
+            status=Appointment.Status.COMPLETED,
+        )
+        entry_data = {
+            'appointment': appointment.pk,
+            'vet': self.vet.pk,
+            'date_recorded': '2026-10-17',
+            'history_clinical_signs': 'Routine examination',
+            'treatment': 'Examination completed',
+            'rx': 'None',
+            'action_required': ClinicalStatus.get_default().pk,
+        }
+        return owner, pet, appointment, entry_data
+
+    def test_creating_appointment_medical_record_returns_to_appointment(self):
+        owner, pet, appointment, entry_data = self._appointment_record_setup()
+        entry_data.update({
+            'client_source': 'PORTAL',
+            'selected_user_id': owner.pk,
+            'owner_name': 'Appointment Record Owner',
+            'owner_contact': owner.phone_number,
+            'owner_address': '',
+            'pet_name': pet.name,
+            'pet_species': pet.species,
+            'pet_sex': 'FEMALE',
+            'pet_color': pet.color,
+            'branch': self.branch.pk,
+        })
+
+        response = self.client.post(
+            reverse('records:admin_create'),
+            entry_data,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:admin_detail', args=[appointment.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(MedicalRecord.objects.filter(pet=pet).exists())
+        self.assertEqual(
+            [str(message) for message in get_messages(response.wsgi_request)],
+            ['Medical record saved. Continue with this appointment.'],
+        )
+
+    def test_adding_entry_from_appointment_returns_to_appointment(self):
+        _, pet, appointment, entry_data = self._appointment_record_setup()
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded=date(2026, 10, 17),
+        )
+        entry_data['branch_id'] = self.branch.pk
+
+        response = self.client.post(
+            reverse('records:admin_add_entry', args=[record.pk]),
+            entry_data,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('appointments:admin_detail', args=[appointment.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(
+            [str(message) for message in get_messages(response.wsgi_request)],
+            ['Medical record saved. Continue with this appointment.'],
+        )
 
 
 class MedicalFileValidationTests(SimpleTestCase):

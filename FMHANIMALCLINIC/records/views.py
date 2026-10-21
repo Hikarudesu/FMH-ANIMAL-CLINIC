@@ -496,8 +496,17 @@ def admin_record_create(request):
 
                         messages.success(
                             request,
-                            f'Visit entry added to {pet.name}\'s medical record.'
+                            (
+                                'Medical record saved. Continue with this appointment.'
+                                if linked_appointment
+                                else f'Visit entry added to {pet.name}\'s medical record.'
+                            )
                         )
+                        if linked_appointment:
+                            return redirect(
+                                'appointments:admin_detail',
+                                pk=linked_appointment.pk,
+                            )
                         if from_patients:
                             return redirect('patients:admin_detail', pk=pet.id)
                         return redirect('records:admin_detail', pk=record.pk)
@@ -1113,7 +1122,18 @@ def admin_add_entry(request, pk):
                 ).update(is_read=True)
 
             messages.success(
-                request, f'New visit entry added to {record.pet.name}\'s record.')
+                request,
+                (
+                    'Medical record saved. Continue with this appointment.'
+                    if linked_appointment
+                    else f'New visit entry added to {record.pet.name}\'s record.'
+                ),
+            )
+            if linked_appointment:
+                return redirect(
+                    'appointments:admin_detail',
+                    pk=linked_appointment.pk,
+                )
             if from_patients:
                 return redirect('patients:admin_detail', pk=record.pet.id)
             return redirect('records:admin_detail', pk=record.pk)
