@@ -256,11 +256,9 @@
           {% if can_decide_record %}
           <div class="appointment-manage__action">
             <h3>Medical-record decision</h3>
-            <p>Choose whether a medical record is needed. If not, explain why before saving.</p>
+            <p>Choose whether a medical record is needed. If no record is needed, provide a reason before saving.</p>
             <form id="medicalRecordDecisionForm" class="appointment-manage__form" method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'record-decision' %}">
               {% csrf_token %}
-              <label for="noRecordReason">Reason no record is needed</label>
-              <textarea id="noRecordReason" name="medical_record_decision_reason" minlength="5" disabled></textarea>
               <fieldset class="appointment-manage__decision-options">
                 <legend>Choose one medical-record decision:</legend>
                 <label class="appointment-manage__decision-option">
@@ -272,6 +270,10 @@
                   <span>No record needed</span>
                 </label>
               </fieldset>
+              <div id="noRecordReasonSection" hidden>
+                <label for="noRecordReason">Reason no record is needed</label>
+                <textarea id="noRecordReason" name="medical_record_decision_reason" minlength="5" disabled></textarea>
+              </div>
               <div class="appointment-manage__followup-section">
                 <p class="appointment-manage__followup-section-title">Optional follow-up recommendation</p>
                 <label class="appointment-manage__followup-toggle" for="noRecordFollowUpEnabled">
@@ -429,6 +431,9 @@ document.addEventListener('DOMContentLoaded', function () {
   const decisionInputs = document.querySelectorAll(
     'input[name="medical_record_decision"]',
   );
+  const noRecordReasonSection = document.getElementById(
+    'noRecordReasonSection',
+  );
   const noRecordReason = document.getElementById('noRecordReason');
   const followUpToggle = document.getElementById('noRecordFollowUpEnabled');
   const followUpFields = document.getElementById('noRecordFollowUpFields');
@@ -452,6 +457,7 @@ document.addEventListener('DOMContentLoaded', function () {
     );
     const noRecordSelected = selectedDecision
       && selectedDecision.value === 'not-required';
+    noRecordReasonSection.hidden = !noRecordSelected;
     noRecordReason.disabled = !noRecordSelected;
     noRecordReason.required = Boolean(noRecordSelected);
     if (followUpToggle) {
