@@ -259,6 +259,8 @@
             <p>Choose whether a medical record is needed. If not, explain why before saving.</p>
             <form id="medicalRecordDecisionForm" class="appointment-manage__form" method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'record-decision' %}">
               {% csrf_token %}
+              <label for="noRecordReason">Reason no record is needed</label>
+              <textarea id="noRecordReason" name="medical_record_decision_reason" minlength="5" disabled></textarea>
               <fieldset class="appointment-manage__decision-options">
                 <legend>Choose one medical-record decision:</legend>
                 <label class="appointment-manage__decision-option">
@@ -270,8 +272,6 @@
                   <span>No record needed</span>
                 </label>
               </fieldset>
-              <label for="noRecordReason">Reason no record is needed</label>
-              <textarea id="noRecordReason" name="medical_record_decision_reason" minlength="5" disabled></textarea>
               <div class="appointment-manage__followup-section">
                 <p class="appointment-manage__followup-section-title">Optional follow-up recommendation</p>
                 <label class="appointment-manage__followup-toggle" for="noRecordFollowUpEnabled">

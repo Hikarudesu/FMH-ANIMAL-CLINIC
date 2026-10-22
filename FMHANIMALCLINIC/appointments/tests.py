@@ -2276,17 +2276,17 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(visit_progress, 'noRecordFollowUpDate')
         self.assertContains(visit_progress, 'not a booked appointment')
         page_html = visit_progress.content.decode()
+        reason_position = page_html.index('id="noRecordReason"')
         decision_options_position = page_html.index(
             'name="medical_record_decision"',
         )
-        reason_position = page_html.index('id="noRecordReason"')
         followup_option_position = page_html.index(
             'Optional follow-up recommendation',
         )
         save_decision_position = page_html.index(
             '>Save decision</button>',
         )
-        self.assertLess(decision_options_position, reason_position)
+        self.assertLess(reason_position, decision_options_position)
         self.assertLess(reason_position, followup_option_position)
         self.assertLess(followup_option_position, save_decision_position)
 
