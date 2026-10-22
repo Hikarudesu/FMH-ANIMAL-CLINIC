@@ -2250,10 +2250,6 @@ class AppointmentWorkflowActionTests(TestCase):
             'appointments:vet_workflow_action',
             args=[self.appointment.pk, 'start'],
         )
-        no_record_url = reverse(
-            'appointments:vet_workflow_action',
-            args=[self.appointment.pk, 'no-record'],
-        )
         future_detail_response = self.client.get(
             reverse('appointments:admin_detail', args=[self.appointment.pk])
         )
@@ -2280,35 +2276,52 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(visit_progress, 'noRecordFollowUpDate')
         self.assertContains(visit_progress, 'not a booked appointment')
         page_html = visit_progress.content.decode()
+        decision_options_position = page_html.index(
+            'name="medical_record_decision"',
+        )
+        reason_position = page_html.index('id="noRecordReason"')
         followup_option_position = page_html.index(
             'Optional follow-up recommendation',
         )
-        decision_buttons_start = page_html.index(
-            'class="appointment-manage__toolbar appointment-manage__decision-buttons"',
+        save_decision_position = page_html.index(
+            '>Save decision</button>',
         )
-        decision_buttons = page_html[decision_buttons_start:]
-        no_record_button_position = decision_buttons.index(
-            '>No record needed</button>',
-        )
-        record_required_button_position = decision_buttons.index(
-            '>Record required</button>',
-        )
-        self.assertLess(followup_option_position, decision_buttons_start)
-        self.assertNotEqual(no_record_button_position, record_required_button_position)
-        self.assertIn(
-            'form="noRecordDecisionForm"',
-            decision_buttons,
-        )
+        self.assertLess(decision_options_position, reason_position)
+        self.assertLess(reason_position, followup_option_position)
+        self.assertLess(followup_option_position, save_decision_position)
 
-        self.client.post(no_record_url, {'medical_record_decision_reason': '  '})
+        record_decision_url = reverse(
+            'appointments:vet_workflow_action',
+            args=[self.appointment.pk, 'record-decision'],
+        )
+        self.client.post(
+            record_decision_url,
+            {
+                'medical_record_decision': 'not-required',
+                'medical_record_decision_reason': '  ',
+            },
+        )
         self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
+
+        response = self.client.post(
+            record_decision_url,
+            {'medical_record_decision': 'required'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.appointment.refresh_from_db()
+        self.assertEqual(
+            self.appointment.medical_record_decision,
+            Appointment.MedicalRecordDecision.REQUIRED,
+        )
         self.assertEqual(self.appointment.status, Appointment.Status.IN_PROGRESS)
 
         follow_up_date = timezone.localdate() + timedelta(days=7)
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
-                no_record_url,
+                record_decision_url,
                 {
+                    'medical_record_decision': 'not-required',
                     'medical_record_decision_reason': (
                         'Routine check, no treatment required.'
                     ),

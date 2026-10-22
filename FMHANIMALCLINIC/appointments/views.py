@@ -1153,6 +1153,16 @@ def admin_detail(request, pk):
 def veterinarian_workflow_action(request, pk, action):
     """Apply veterinarian-only visit and medical-record decision transitions."""
     appointment = _workflow_appointment_for_staff(request, pk, veterinarian=True)
+    if action == 'record-decision':
+        decision = request.POST.get('medical_record_decision')
+        if decision == 'required':
+            action = 'record-required'
+        elif decision == 'not-required':
+            action = 'no-record'
+        else:
+            messages.error(request, 'Choose a medical-record decision before saving.')
+            return redirect('appointments:admin_detail', pk=pk)
+
     if action == 'start':
         if appointment.status not in (
             Appointment.Status.CONFIRMED,
