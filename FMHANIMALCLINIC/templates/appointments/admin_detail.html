@@ -55,6 +55,7 @@
   .appointment-manage__followup-section { display: grid; gap: 9px; padding: 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
   .appointment-manage__followup-section-title { margin: 0; color: var(--text-1); font-size: .82rem; font-weight: 700; }
   .appointment-manage__decision-options { display: flex; flex-wrap: wrap; gap: 9px; margin: 0 0 4px; padding: 0; border: 0; }
+  .appointment-manage__toolbar.appointment-manage__decision-buttons { margin-top: 0; }
   .appointment-manage__decision-options legend { flex-basis: 100%; margin-bottom: 8px; color: var(--text-2); font-size: .84rem; }
   .appointment-manage__decision-option { position: relative; cursor: pointer; }
   .appointment-manage__decision-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -256,10 +257,9 @@
           {% if can_decide_record %}
           <div class="appointment-manage__action">
             <h3>Medical-record decision</h3>
-            <p>Choose whether a medical record is needed. If no record is needed, provide a reason before saving.</p>
             <form id="medicalRecordDecisionForm" class="appointment-manage__form" method="post" action="{% url 'appointments:vet_workflow_action' appointment.pk 'record-decision' %}">
               {% csrf_token %}
-              <fieldset class="appointment-manage__decision-options">
+              <fieldset class="appointment-manage__toolbar appointment-manage__decision-buttons appointment-manage__decision-options">
                 <legend>Choose one medical-record decision:</legend>
                 <label class="appointment-manage__decision-option">
                   <input type="radio" name="medical_record_decision" value="required" required>
@@ -270,6 +270,7 @@
                   <span>No record needed</span>
                 </label>
               </fieldset>
+              <p>Choose whether a medical record is needed. If no record is needed, provide a reason before saving.</p>
               <div id="noRecordReasonSection" hidden>
                 <label for="noRecordReason">Reason no record is needed</label>
                 <textarea id="noRecordReason" name="medical_record_decision_reason" minlength="5" disabled></textarea>
