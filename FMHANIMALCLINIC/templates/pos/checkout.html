@@ -176,6 +176,10 @@
   .pos-item-type.product { background: var(--grad-blue); color: #1565c0; }
   .pos-item-type.medication { background: var(--grad-purple); color: #7b1fa2; }
   .pos-item-type.accessory { background: linear-gradient(135deg, #ffd54f 0%, #ffa726 100%); color: #ef6c00; }
+  .pos-item-type.configured-type {
+    background: hsl(var(--item-type-hue) 78% 90%);
+    color: hsl(var(--item-type-hue) 62% 25%);
+  }
 
   /* Right Panel - Cart */
   .pos-cart-panel {
@@ -1204,8 +1208,9 @@
         </div>
         <input type="hidden" id="registeredCustomer" value="">
         <div id="registeredPetFields" style="display: none;">
+          <small class="pos-customer-search-message">Pet selection is optional. Leave this blank to continue without a pet.</small>
           <div class="pos-customer-search-row">
-            <input type="search" class="pos-customer-input" id="petSearch" placeholder="Search this client's pets" autocomplete="off" minlength="2">
+            <input type="search" class="pos-customer-input" id="petSearch" placeholder="Search this client's pets (optional)" autocomplete="off" minlength="2">
             <button type="button" class="pos-lookup-button" id="petSearchButton"><i class='bx bx-search'></i> Search</button>
           </div>
           <div id="petSearchResults" class="pos-customer-search-results" role="listbox" aria-live="polite"></div>
@@ -1517,6 +1522,15 @@ function populateItemsGrid(items) {
     // Add products and medications
     items.forEach(item => {
       const outOfStock = item.stock === 0 ? 'out-of-stock' : '';
+      const itemCategory = item.category || item.type.toLowerCase();
+      const itemTypeLabel = item.category_label || item.category || item.type;
+      const hasBuiltInTypeColor = ['product', 'medication'].includes(itemCategory);
+      let itemTypeHash = 0;
+      for (const character of itemTypeLabel.toLowerCase()) {
+        itemTypeHash = (itemTypeHash * 31 + character.charCodeAt(0)) >>> 0;
+      }
+      const itemTypeColorClass = hasBuiltInTypeColor ? '' : 'configured-type';
+      const itemTypeColorStyle = hasBuiltInTypeColor ? '' : `--item-type-hue: ${itemTypeHash % 360};`;
       const itemHtml = `
         <div class="pos-item-card ${outOfStock}"
              data-type="${item.type}"
@@ -1525,7 +1539,7 @@ function populateItemsGrid(items) {
              data-name="${item.name}"
              data-price="${item.price}"
              data-stock="${item.stock}">
-          <span class="pos-item-type ${item.category || item.type.toLowerCase()}">${item.category_label || item.category || item.type}</span>
+          <span class="pos-item-type ${itemCategory} ${itemTypeColorClass}" style="${itemTypeColorStyle}">${itemTypeLabel}</span>
           <div class="pos-item-name">${item.name}</div>
           <div style="font-size: 0.72rem; color: var(--text-3); margin-top: -4px;">
             ${item.unit_display || ''}${item.sale_type_label ? ' · ' + item.sale_type_label : ''}

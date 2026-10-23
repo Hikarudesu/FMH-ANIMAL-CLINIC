@@ -1,4 +1,5 @@
 from datetime import time
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -6,6 +7,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from appointments.models import Appointment
+from billing.models import Service
 from branches.models import Branch
 from inventory.models import Product
 from pos.models import Payment, Sale, SaleItem
@@ -133,6 +135,43 @@ class AppointmentCheckoutTests(TestCase):
         sale.refresh_from_db()
         self.assertEqual(self.appointment.status, Appointment.Status.AWAITING_PAYMENT)
         self.assertEqual(sale.status, Sale.Status.PENDING)
+
+    @patch('pos.views.create_or_release_soa_for_sale')
+    def test_registered_customer_payment_succeeds_without_selecting_pet(self, _release_soa):
+        customer = User.objects.create_user(
+            username='registered-pos-customer',
+            email='registered-pos-customer@example.com',
+            password='A-secure-test-password-923!',
+            is_superuser=False,
+        )
+        service = Service.objects.create(name='Consultation', price=100)
+        sale = Sale.objects.create(branch=self.branch, cashier=self.cashier)
+        SaleItem.objects.create(
+            sale=sale,
+            item_type=SaleItem.ItemType.SERVICE,
+            service=service,
+            name=service.name,
+            unit_price=service.price,
+            quantity=1,
+        )
+
+        response = self.client.post(
+            reverse('pos:process_payment'),
+            {
+                'sale_id': sale.pk,
+                'amount': '100.00',
+                'method': 'CASH',
+                'customer_type': Sale.CustomerType.REGISTERED,
+                'customer_id': customer.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['completed'])
+        sale.refresh_from_db()
+        self.assertEqual(sale.status, Sale.Status.COMPLETED)
+        self.assertEqual(sale.customer_id, customer.pk)
+        self.assertIsNone(sale.pet_id)
 
     def test_payment_is_rolled_back_when_stock_is_insufficient(self):
         product = Product.objects.create(
