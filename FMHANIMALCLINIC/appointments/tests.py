@@ -341,6 +341,50 @@ class ViewOnlyAppointmentScopeTests(TestCase):
         self.assertEqual(visible_calendar_ids, [self.own_appointment.pk])
 
 
+class AppointmentGroupedSearchTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Grouped Search Branch')
+        self.user = User.objects.create_superuser(
+            username='appointment-group-search-admin',
+            email='appointment-group-search-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.appointment_date = timezone.localdate() + timedelta(days=5)
+
+    def create_appointment(self, owner_name, pet_name):
+        return Appointment.objects.create(
+            owner_name=owner_name,
+            pet_name=pet_name,
+            branch=self.branch,
+            appointment_date=self.appointment_date,
+            appointment_time=time(9),
+        )
+
+    def test_grouped_search_selection_shows_all_appointments_for_owner_and_pet(self):
+        matching_appointments = [
+            self.create_appointment('Vin Roxas', 'Whitey')
+            for _ in range(3)
+        ]
+        self.create_appointment('Another Owner', 'Whitey')
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse('appointments:admin_list'),
+            {
+                'q': 'Whitey',
+                'search_owner': 'Vin Roxas',
+                'search_pet': 'Whitey',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            {appointment.pk for appointment in response.context['appointments']},
+            {appointment.pk for appointment in matching_appointments},
+        )
+        self.assertEqual(response.context['appointments'].paginator.count, 3)
+
+
 class AppointmentVeterinarianOptionsTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(name='Available Vet Options Branch')

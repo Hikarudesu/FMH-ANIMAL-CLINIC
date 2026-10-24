@@ -258,6 +258,71 @@ class BranchRestrictedPatientListTests(TestCase):
             ['Searchable Page Two Patient'],
         )
 
+    def test_patient_search_dropdown_finds_patients_beyond_the_first_page(self):
+        target = Pet.objects.create(
+            name='Remote Dropdown Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+            branch=self.branch,
+        )
+        for index in range(10):
+            Pet.objects.create(
+                name=f'Dropdown Newer Patient {index}',
+                species='Dog',
+                sex=Pet.Sex.MALE,
+                branch=self.branch,
+            )
+        self.user.branch = self.branch
+        self.user.save(update_fields=['branch'])
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse('patients:api_patient_search'),
+            {'q': 'Remote Dropdown Patient'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [patient['id'] for patient in response.json()['patients']],
+            [target.pk],
+        )
+
+    def test_patient_search_dropdown_respects_branch_restrictions(self):
+        other_branch = Branch.objects.create(
+            name='Other Patient Search Branch',
+            phone_number='09123456780',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1001',
+        )
+        restricted_patient = Pet.objects.create(
+            name='Restricted Search Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+            branch=self.branch,
+        )
+        Pet.objects.create(
+            name='Restricted Search Patient Elsewhere',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+            branch=other_branch,
+        )
+        self.user.branch = self.branch
+        self.user.save(update_fields=['branch'])
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse('patients:api_patient_search'),
+            {'q': 'Restricted Search Patient'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [patient['id'] for patient in response.json()['patients']],
+            [restricted_patient.pk],
+        )
+
 
 class BranchRestrictedWalkInRegistrationTests(TestCase):
     def setUp(self):

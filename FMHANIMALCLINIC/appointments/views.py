@@ -1353,6 +1353,14 @@ def admin_list(request):
             Q(owner_email__icontains=q)
         )
 
+    search_owner = request.GET.get('search_owner', '').strip()
+    search_pet = request.GET.get('search_pet', '').strip()
+    if search_owner and search_pet:
+        appointments = appointments.filter(
+            owner_name__iexact=search_owner,
+            pet_name__iexact=search_pet,
+        )
+
     # Status filter
     status = request.GET.get('status', '')
     if status:
@@ -1572,6 +1580,8 @@ def admin_list(request):
         'statuses': Appointment.Status.choices,
         'sources': Appointment.Source.choices,
         'q': q,
+        'search_owner': search_owner,
+        'search_pet': search_pet,
         'selected_status': status,
         'selected_branch': branch_id,
         'selected_source': source,

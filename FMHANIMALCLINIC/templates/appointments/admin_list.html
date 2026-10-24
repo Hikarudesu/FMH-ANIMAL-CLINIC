@@ -518,6 +518,8 @@
   <div class="c-filter-bar__glow"></div>
   <form method="GET" id="apptFilterForm" class="c-filter-bar__form" autocomplete="off">
     <input type="hidden" name="view" value="{{ current_view|default:'table' }}">
+    <input type="hidden" name="search_owner" id="apptSearchOwner" value="{{ search_owner }}">
+    <input type="hidden" name="search_pet" id="apptSearchPet" value="{{ search_pet }}">
 
     <!-- Search Input -->
     <div class="c-filter-bar__search">
@@ -2026,7 +2028,10 @@ if (followupBookingElement && quickCreateModal) {
 (function initApptSearch() {
   const searchInput = document.getElementById('apptSearch');
   const dropdown   = document.getElementById('apptSearchDropdown');
-  if (!searchInput || !dropdown) return;
+  const filterForm = document.getElementById('apptFilterForm');
+  const ownerFilter = document.getElementById('apptSearchOwner');
+  const petFilter = document.getElementById('apptSearchPet');
+  if (!searchInput || !dropdown || !filterForm || !ownerFilter || !petFilter) return;
 
   // Collect data from data-* attributes on each searchable row
   function buildData() {
@@ -2049,34 +2054,64 @@ if (followupBookingElement && quickCreateModal) {
 
   let appts = buildData();
 
-  function esc(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-  function highlight(text, q) {
-    if (!q) return text;
-    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
-      '<span class="search-dropdown-highlight">$1</span>');
+  function appendHighlightedText(container, text, query) {
+    const lowerText = text.toLocaleLowerCase();
+    const lowerQuery = query.toLocaleLowerCase();
+    let start = 0;
+    let matchAt = lowerText.indexOf(lowerQuery);
+    while (matchAt !== -1) {
+      container.append(document.createTextNode(text.slice(start, matchAt)));
+      const highlight = document.createElement('span');
+      highlight.className = 'search-dropdown-highlight';
+      highlight.textContent = text.slice(matchAt, matchAt + query.length);
+      container.append(highlight);
+      start = matchAt + query.length;
+      matchAt = lowerText.indexOf(lowerQuery, start);
+    }
+    container.append(document.createTextNode(text.slice(start)));
   }
 
   function renderDropdown(results, q) {
+    dropdown.replaceChildren();
     if (!results.length) {
-      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No appointments found</div>';
+      const empty = document.createElement('div');
+      empty.className = 'search-dropdown-empty';
+      empty.textContent = 'No appointments found';
+      dropdown.append(empty);
     } else {
-      dropdown.innerHTML = results.slice(0, 8).map((a, idx) => `
-        <div class="search-dropdown-item" data-index="${idx}">
-          <i class='bx bx-calendar-event'></i>
-          <div class="item-info">
-            <div class="item-name">${highlight(a.owner, q)}</div>
-            <div class="item-sub">${highlight(a.pet, q)} &bull; ${a.branch || '—'}</div>
-          </div>
-          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
-        </div>`).join('');
-      dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
-        item.addEventListener('mousedown', e => {
-          e.preventDefault();
-          searchInput.value = results[idx].owner;
-          filterRows(results[idx].owner.toLowerCase());
+      results.slice(0, 8).forEach((appointment) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'search-dropdown-item';
+
+        const icon = document.createElement('i');
+        icon.className = 'bx bx-calendar-event';
+        item.append(icon);
+
+        const info = document.createElement('span');
+        info.className = 'item-info';
+        const owner = document.createElement('span');
+        owner.className = 'item-name';
+        appendHighlightedText(owner, appointment.owner, q);
+        const summary = document.createElement('span');
+        summary.className = 'item-sub';
+        appendHighlightedText(summary, appointment.pet, q);
+        summary.append(document.createTextNode(` • ${appointment.branch || '—'}`));
+        info.append(owner, summary);
+        item.append(info);
+
+        const arrow = document.createElement('i');
+        arrow.className = 'bx bx-chevron-right';
+        item.append(arrow);
+        item.addEventListener('mousedown', event => event.preventDefault());
+        item.addEventListener('click', () => {
+          searchInput.value = appointment.pet;
+          ownerFilter.value = appointment.owner;
+          petFilter.value = appointment.pet;
           hideDropdown();
+          filterForm.requestSubmit();
         });
+        dropdown.append(item);
       });
     }
     dropdown.style.display = 'block';
@@ -2102,13 +2137,25 @@ if (followupBookingElement && quickCreateModal) {
     });
   }
 
+  function uniqueAppointments(matches) {
+    const groups = new Map();
+    matches.forEach(appointment => {
+      const key = `${appointment.owner.trim().toLocaleLowerCase()}\u0000${appointment.pet.trim().toLocaleLowerCase()}`;
+      const group = groups.get(key);
+      if (!group) groups.set(key, appointment);
+    });
+    return Array.from(groups.values());
+  }
+
   searchInput.addEventListener('input', function () {
+    ownerFilter.value = '';
+    petFilter.value = '';
     const q = this.value.toLowerCase().trim();
     filterRows(q);
     if (!q) { hideDropdown(); return; }
-    const results = appts.filter(a =>
+    const results = uniqueAppointments(appts.filter(a =>
       a.owner.toLowerCase().includes(q) || a.email.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q) ||
-      a.branch.toLowerCase().includes(q) || a.vet.toLowerCase().includes(q));
+      a.branch.toLowerCase().includes(q) || a.vet.toLowerCase().includes(q)));
     renderDropdown(results, q);
   });
 
@@ -2125,17 +2172,19 @@ if (followupBookingElement && quickCreateModal) {
     let idx = items.findIndex(i => i.classList.contains('active'));
     if (e.key === 'ArrowDown') {
       e.preventDefault();
+      if (!items.length) return;
       items[idx]?.classList.remove('active');
       idx = (idx + 1) % items.length;
       items[idx]?.classList.add('active');
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
+      if (!items.length) return;
       items[idx]?.classList.remove('active');
-      idx = (idx - 1 + items.length) % items.length;
+      idx = idx < 0 ? items.length - 1 : (idx - 1 + items.length) % items.length;
       items[idx]?.classList.add('active');
     } else if (e.key === 'Enter') {
-      e.preventDefault();
       if (idx >= 0) {
+        e.preventDefault();
         items[idx]?.click();
       }
       hideDropdown();
@@ -2145,6 +2194,21 @@ if (followupBookingElement && quickCreateModal) {
   });
 }());
 </script>
+
+<style>
+  #apptSearchDropdown .search-dropdown-item {
+    width: 100%;
+    border: 0;
+    background: var(--surface);
+    color: var(--text-1);
+    text-align: left;
+    font: inherit;
+  }
+  #apptSearchDropdown .search-dropdown-item:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+  }
+</style>
 
 <!-- Shared Delete Modal (matches other modules) -->
 <script>

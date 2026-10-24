@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.http import JsonResponse
+from django.urls import reverse
 from django.views.decorators.http import require_GET
 
 from accounts.decorators import module_permission_required
@@ -15,6 +16,87 @@ from records.models import MedicalRecord
 from records.views import get_record_missing_fields
 from .models import Pet
 from .forms import AdminPetForm, PetForm, can_transfer_walkin_patient
+
+
+def _admin_patient_queryset(request, query='', pet_id=''):
+    """Return patients visible to the current user with the active list filters."""
+    is_branch_restricted = request.user.is_module_branch_restricted('patients')
+    user_branch = getattr(request.user, 'branch', None)
+    if not user_branch:
+        staff_profile = getattr(request.user, 'staff_profile', None)
+        user_branch = getattr(staff_profile, 'branch', None) if staff_profile else None
+
+    pets_qs = Pet.objects.select_related(
+        'owner', 'owner__branch', 'clinical_status',
+    ).all()
+    if pet_id:
+        try:
+            pets_qs = pets_qs.filter(pk=int(pet_id))
+        except (TypeError, ValueError):
+            pets_qs = pets_qs.none()
+    elif query:
+        pets_qs = pets_qs.filter(
+            Q(name__icontains=query) |
+            Q(owner__first_name__icontains=query) |
+            Q(owner__last_name__icontains=query) |
+            Q(owner__username__icontains=query) |
+            Q(guest_owner_name__icontains=query) |
+            Q(guest_owner_phone__icontains=query) |
+            Q(species__icontains=query) |
+            Q(breed__icontains=query)
+        )
+
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        try:
+            pets_qs = pets_qs.filter(clinical_status_id=int(status_filter))
+        except ValueError:
+            pass
+
+    branch_filter = request.GET.get('branch', '')
+    if is_branch_restricted and user_branch:
+        from appointments.models import Appointment
+
+        pets_with_appt = Appointment.objects.filter(
+            branch=user_branch, pet__isnull=False,
+        ).values_list('pet_id', flat=True)
+        pets_with_record = MedicalRecord.objects.filter(
+            branch=user_branch,
+        ).values_list('pet_id', flat=True)
+        pets_qs = pets_qs.filter(
+            Q(branch=user_branch) |
+            Q(owner__branch=user_branch) |
+            Q(pk__in=pets_with_appt) |
+            Q(pk__in=pets_with_record)
+        )
+        branch_filter = str(user_branch.pk)
+    elif is_branch_restricted:
+        pets_qs = pets_qs.none()
+        branch_filter = ''
+    elif branch_filter:
+        from appointments.models import Appointment
+
+        pets_with_appt = Appointment.objects.filter(
+            branch_id=branch_filter, pet__isnull=False,
+        ).values_list('pet_id', flat=True)
+        pets_with_record = MedicalRecord.objects.filter(
+            branch_id=branch_filter,
+        ).values_list('pet_id', flat=True)
+        pets_qs = pets_qs.filter(
+            Q(branch_id=branch_filter) |
+            Q(owner__branch_id=branch_filter) |
+            Q(pk__in=pets_with_appt) |
+            Q(pk__in=pets_with_record)
+        )
+
+    species_filter = request.GET.get('species', '')
+    if species_filter:
+        pets_qs = pets_qs.filter(species__iexact=species_filter)
+    source_filter = request.GET.get('source', '')
+    if source_filter:
+        pets_qs = pets_qs.filter(source=source_filter)
+
+    return pets_qs.order_by('-id'), branch_filter
 
 
 @login_required
@@ -27,7 +109,7 @@ def admin_list_view(request):
     from settings.models import ClinicalStatus
     branches = Branch.objects.filter(is_active=True)
     clinical_statuses = ClinicalStatus.objects.filter(is_active=True).order_by('order', 'name')
-    
+
     # Get unique species that actually exist in the DB for the dropdown
     unique_species = Pet.objects.exclude(species__isnull=True).exclude(species='').values_list('species', flat=True).distinct().order_by('species')
 
@@ -43,72 +125,12 @@ def admin_list_view(request):
     species_filter = request.GET.get('species', '')
     source_filter = request.GET.get('source', '')
 
-    pets_qs = Pet.objects.select_related('owner', 'owner__branch', 'clinical_status').all().order_by('-id')
-
-    # Apply Search — covers both portal owners and walk-in guest names
-    if query:
-        pets_qs = pets_qs.filter(
-            Q(name__icontains=query) |
-            Q(owner__first_name__icontains=query) |
-            Q(owner__last_name__icontains=query) |
-            Q(owner__username__icontains=query) |
-            Q(guest_owner_name__icontains=query) |
-            Q(guest_owner_phone__icontains=query) |
-            Q(species__icontains=query) |
-            Q(breed__icontains=query)
-        )
-
-    # Apply Filters
-    if status_filter:
-        try:
-            status_id = int(status_filter)
-            pets_qs = pets_qs.filter(clinical_status_id=status_id)
-        except ValueError:
-            pass
-    if is_branch_restricted and user_branch:
-        from records.models import MedicalRecord
-        from appointments.models import Appointment
-
-        pets_with_appt = Appointment.objects.filter(
-            branch=user_branch, pet__isnull=False
-        ).values_list('pet_id', flat=True)
-
-        pets_with_record = MedicalRecord.objects.filter(
-            branch=user_branch
-        ).values_list('pet_id', flat=True)
-
-        pets_qs = pets_qs.filter(
-            Q(branch=user_branch) |
-            Q(owner__branch=user_branch) |
-            Q(pk__in=pets_with_appt) |
-            Q(pk__in=pets_with_record)
-        )
-        branch_filter = str(user_branch.pk)
-    elif is_branch_restricted:
-        pets_qs = pets_qs.none()
-        branch_filter = ''
-    elif branch_filter:
-        from records.models import MedicalRecord
-        from appointments.models import Appointment
-
-        pets_with_appt = Appointment.objects.filter(
-            branch_id=branch_filter, pet__isnull=False
-        ).values_list('pet_id', flat=True)
-
-        pets_with_record = MedicalRecord.objects.filter(
-            branch_id=branch_filter
-        ).values_list('pet_id', flat=True)
-
-        pets_qs = pets_qs.filter(
-            Q(branch_id=branch_filter) |
-            Q(owner__branch_id=branch_filter) |
-            Q(pk__in=pets_with_appt) |
-            Q(pk__in=pets_with_record)
-        )
-    if species_filter:
-        pets_qs = pets_qs.filter(species__iexact=species_filter)
-    if source_filter:
-        pets_qs = pets_qs.filter(source=source_filter)
+    selected_pet_id = request.GET.get('pet_id', '')
+    pets_qs, branch_filter = _admin_patient_queryset(
+        request,
+        query=query,
+        pet_id=selected_pet_id,
+    )
 
     # Pagination
     page_number = request.GET.get('page', 1)
@@ -132,6 +154,7 @@ def admin_list_view(request):
         'pets': page_obj,
         'page_obj': page_obj,
         'search_query': query,
+        'selected_pet_id': selected_pet_id,
         'statuses': clinical_statuses,
         'sources': Pet.Source.choices,
         'branches': [] if is_branch_restricted else branches,
@@ -146,6 +169,33 @@ def admin_list_view(request):
         'is_branch_restricted': is_branch_restricted,
         'branch_assignment_required': is_branch_restricted and not user_branch,
     })
+
+
+@login_required
+@module_permission_required('patients', 'VIEW')
+@require_GET
+def api_patient_search(request):
+    """Return matching visible patients for the admin-list search dropdown."""
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'patients': []})
+
+    pets = _admin_patient_queryset(request, query=query)[0][:8]
+    results = []
+    for pet in pets:
+        owner_name = (
+            pet.owner.get_full_name() or pet.owner.username
+            if pet.owner else pet.guest_owner_name or 'Walk-in'
+        )
+        results.append({
+            'id': pet.pk,
+            'name': pet.name,
+            'owner': owner_name,
+            'species': pet.species or '',
+            'breed': pet.breed or '',
+            'url': reverse('patients:admin_detail', args=[pet.pk]),
+        })
+    return JsonResponse({'patients': results})
 
 
 @login_required

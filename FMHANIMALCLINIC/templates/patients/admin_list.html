@@ -184,6 +184,8 @@
       <input type="text" name="q" value="{{ search_query }}"
              placeholder="Search by owner, pet..." id="patientSearch"
              class="c-filter-bar__search-input" autocomplete="off">
+      <input type="hidden" name="pet_id" id="patientSearchPetId" value="{{ selected_pet_id }}">
+      <div class="search-dropdown" id="patientSearchDropdown" role="listbox"></div>
       <div class="c-filter-bar__shortcut"><span>⌘</span><span>K</span></div>
     </div>
 
@@ -426,19 +428,190 @@
     }
   });
 
-  // ══════ SERVER-SIDE PATIENT SEARCH ══════
+  // ══════ PATIENT SEARCH AUTOCOMPLETE ══════
   (function initPatientSearch() {
     const searchInput = document.getElementById('patientSearch');
     const filterForm = document.getElementById('patientFilterForm');
-    if (!searchInput || !filterForm) return;
+    const selectedPetInput = document.getElementById('patientSearchPetId');
+    const dropdown = document.getElementById('patientSearchDropdown');
+    if (!searchInput || !filterForm || !selectedPetInput || !dropdown) return;
 
-    let searchTimeout;
-    searchInput.addEventListener('input', function () {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => filterForm.requestSubmit(), 300);
+    const searchUrl = "{% url 'patients:api_patient_search' %}";
+    let debounceTimer;
+    let requestId = 0;
+
+    function hideDropdown() {
+      dropdown.classList.remove('active');
+      dropdown.style.display = '';
+      dropdown.replaceChildren();
+    }
+
+    function appendHighlightedText(container, text, query) {
+      const lowerText = text.toLocaleLowerCase();
+      const lowerQuery = query.toLocaleLowerCase();
+      let start = 0;
+      let matchAt = lowerText.indexOf(lowerQuery);
+      while (matchAt !== -1) {
+        container.append(document.createTextNode(text.slice(start, matchAt)));
+        const highlight = document.createElement('span');
+        highlight.className = 'search-dropdown-highlight';
+        highlight.textContent = text.slice(matchAt, matchAt + query.length);
+        container.append(highlight);
+        start = matchAt + query.length;
+        matchAt = lowerText.indexOf(lowerQuery, start);
+      }
+      container.append(document.createTextNode(text.slice(start)));
+    }
+
+    function renderDropdown(patients, query) {
+      dropdown.replaceChildren();
+      if (!patients.length) {
+        const empty = document.createElement('div');
+        empty.className = 'search-dropdown-empty';
+        empty.textContent = 'No patients found';
+        dropdown.append(empty);
+      } else {
+        patients.forEach((patient) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'search-dropdown-item';
+          item.setAttribute('role', 'option');
+          item.dataset.patientId = patient.id;
+
+          const icon = document.createElement('i');
+          icon.className = 'bx bxs-dog';
+          item.append(icon);
+
+          const info = document.createElement('span');
+          info.className = 'item-info';
+          const name = document.createElement('span');
+          name.className = 'item-name';
+          appendHighlightedText(name, patient.name, query);
+          const details = document.createElement('span');
+          details.className = 'item-sub';
+          appendHighlightedText(details, patient.owner, query);
+          details.append(document.createTextNode(` • ${patient.species}`));
+          if (patient.breed) details.append(document.createTextNode(` • ${patient.breed}`));
+          info.append(name, details);
+          item.append(info);
+
+          const arrow = document.createElement('i');
+          arrow.className = 'bx bx-chevron-right';
+          item.append(arrow);
+
+          const selectPatient = () => {
+            selectedPetInput.value = patient.id;
+            searchInput.value = patient.name;
+            hideDropdown();
+            filterForm.requestSubmit();
+          };
+          item.addEventListener('mousedown', (event) => event.preventDefault());
+          item.addEventListener('click', selectPatient);
+          dropdown.append(item);
+        });
+      }
+      dropdown.style.display = 'block';
+      dropdown.classList.add('active');
+    }
+
+    function loadSuggestions() {
+      const query = searchInput.value.trim();
+      const currentRequestId = ++requestId;
+      if (query.length < 2) {
+        hideDropdown();
+        return;
+      }
+
+      const params = new URLSearchParams(new FormData(filterForm));
+      params.set('q', query);
+      params.delete('page');
+      fetch(`${searchUrl}?${params.toString()}`)
+        .then((response) => {
+          if (!response.ok) throw new Error('Could not load patient suggestions.');
+          return response.json();
+        })
+        .then((data) => {
+          if (currentRequestId !== requestId || query !== searchInput.value.trim()) return;
+          renderDropdown(data.patients, query);
+        })
+        .catch(() => {
+          if (currentRequestId !== requestId) return;
+          dropdown.replaceChildren();
+          const error = document.createElement('div');
+          error.className = 'search-dropdown-empty';
+          error.textContent = 'Unable to load patient suggestions. Press Enter to search.';
+          dropdown.append(error);
+          dropdown.style.display = 'block';
+          dropdown.classList.add('active');
+        });
+    }
+
+    searchInput.addEventListener('input', () => {
+      selectedPetInput.value = '';
+      window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(loadSuggestions, 200);
+    });
+    searchInput.addEventListener('keydown', (event) => {
+      const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
+      let activeIndex = items.findIndex((item) => item.classList.contains('active'));
+      if (event.key === 'ArrowDown' && items.length) {
+        event.preventDefault();
+        items[activeIndex]?.classList.remove('active');
+        activeIndex = (activeIndex + 1) % items.length;
+        items[activeIndex].classList.add('active');
+      } else if (event.key === 'ArrowUp' && items.length) {
+        event.preventDefault();
+        items[activeIndex]?.classList.remove('active');
+        activeIndex = activeIndex < 0
+          ? items.length - 1
+          : (activeIndex - 1 + items.length) % items.length;
+        items[activeIndex].classList.add('active');
+      } else if (event.key === 'Enter' && activeIndex >= 0) {
+        event.preventDefault();
+        items[activeIndex].click();
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        selectedPetInput.value = '';
+        hideDropdown();
+        filterForm.requestSubmit();
+      } else if (event.key === 'Escape') {
+        hideDropdown();
+      }
+    });
+    searchInput.addEventListener('blur', () => {
+      window.setTimeout(hideDropdown, 150);
+    });
+    searchInput.addEventListener('focus', () => {
+      if (searchInput.value.trim().length >= 2) loadSuggestions();
     });
   }());
 </script>
+
+<style>
+  #patientSearchDropdown .search-dropdown-item {
+    width: 100%;
+    border: 0;
+    background: var(--surface);
+    color: var(--text-1);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+  #patientSearchDropdown .search-dropdown-item:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+  }
+  #patientSearchDropdown .item-info {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+  }
+  #patientSearchDropdown .item-name,
+  #patientSearchDropdown .item-sub {
+    display: block;
+  }
+</style>
 
 <style>
   .modal-footer .btn-cancel {
