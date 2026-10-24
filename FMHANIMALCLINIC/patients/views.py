@@ -53,7 +53,9 @@ def admin_list_view(request):
             Q(owner__last_name__icontains=query) |
             Q(owner__username__icontains=query) |
             Q(guest_owner_name__icontains=query) |
-            Q(guest_owner_phone__icontains=query)
+            Q(guest_owner_phone__icontains=query) |
+            Q(species__icontains=query) |
+            Q(breed__icontains=query)
         )
 
     # Apply Filters

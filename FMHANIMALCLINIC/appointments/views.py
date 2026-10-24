@@ -713,24 +713,25 @@ def api_available_vets(request):
     # Schedulable roles: veterinarians and vet assistants
     schedulable_roles = ['veterinarian', 'assistant_veterinarian']
 
-    # If a date is provided, only return staff who have a schedule that day
+    scheduled_staff_ids = set()
     if appt_date:
-        scheduled_staff_ids = VetSchedule.objects.filter(
+        scheduled_staff_ids = set(VetSchedule.objects.filter(
             branch_id=branch_id,
             date=appt_date,
             is_available=True,
             start_time__lt=CLINIC_CLOSE_TIME,
             end_time__gt=CLINIC_OPEN_TIME,
             staff__user__assigned_role__code__in=schedulable_roles,
-        ).values_list('staff_id', flat=True).distinct()
+            staff__user__is_active=True,
+            staff__is_active=True,
+        ).values_list('staff_id', flat=True).distinct())
 
-        # Only return vets/vet assistants who are actually scheduled on this date
         vets = StaffMember.objects.filter(
-            id__in=scheduled_staff_ids,
+            Q(branch_id=branch_id) | Q(id__in=scheduled_staff_ids),
             user__assigned_role__code__in=schedulable_roles,
             user__is_active=True,
             is_active=True,
-        ).select_related('user', 'user__assigned_role')
+        ).select_related('user', 'user__assigned_role').distinct()
     else:
         # No date provided - return all vets/vet assistants assigned to this branch
         vets = StaffMember.objects.filter(
@@ -740,10 +741,16 @@ def api_available_vets(request):
             branch_id=branch_id,
         ).select_related('user', 'user__assigned_role')
 
-    data = [{'id': v.id, 'name': v.full_name} for v in vets]
+    data = [
+        {
+            'id': vet.id,
+            'name': vet.full_name,
+            'is_scheduled': bool(appt_date and vet.id in scheduled_staff_ids),
+        }
+        for vet in vets
+    ]
     
-    # Include availability flag for frontend UX
-    has_vets = len(data) > 0
+    has_vets = any(vet['is_scheduled'] for vet in data)
     return JsonResponse({
         'vets': data,
         'has_vets': has_vets,

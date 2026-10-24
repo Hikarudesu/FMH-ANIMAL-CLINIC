@@ -184,7 +184,6 @@
       <input type="text" name="q" value="{{ search_query }}"
              placeholder="Search by owner, pet..." id="patientSearch"
              class="c-filter-bar__search-input" autocomplete="off">
-      <div class="search-dropdown" id="patientSearchDropdown"></div>
       <div class="c-filter-bar__shortcut"><span>⌘</span><span>K</span></div>
     </div>
 
@@ -285,12 +284,7 @@
     </thead>
     <tbody>
       {% for pet in pets %}
-      <tr class="searchable-row"
-          data-name="{{ pet.name }}"
-          data-owner="{% if pet.owner %}{{ pet.owner.get_full_name|default:pet.owner.username }}{% else %}{{ pet.guest_owner_name }}{% endif %}"
-          data-species="{{ pet.species|default:'' }}"
-          data-breed="{{ pet.breed|default:'' }}"
-          data-status="{{ pet.status|lower }}">
+      <tr>
         <td style="text-align: center;">
           <a href="{% url 'patients:admin_detail' pet.id %}" class="cell-link">{{ pet.name }}{% if pet.has_missing_details %}<i class='bx bx-info-circle' style="font-size: 1rem; color: #ff9800; margin-left: 6px; vertical-align: middle;" title="Incomplete profile: {{ pet.missing_details_list|join:', ' }}"></i>{% endif %}</a>
         </td>
@@ -432,109 +426,16 @@
     }
   });
 
-  // ══════ SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+  // ══════ SERVER-SIDE PATIENT SEARCH ══════
   (function initPatientSearch() {
     const searchInput = document.getElementById('patientSearch');
-    const dropdown    = document.getElementById('patientSearchDropdown');
-    if (!searchInput || !dropdown) return;
+    const filterForm = document.getElementById('patientFilterForm');
+    if (!searchInput || !filterForm) return;
 
-    function buildData() {
-      return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
-        name   : row.dataset.name    || '',
-        owner  : row.dataset.owner   || '',
-        species: row.dataset.species || '',
-        breed  : row.dataset.breed   || '',
-        editUrl: row.dataset.editUrl || '#',
-        row    : row
-      }));
-    }
-
-    let patients = buildData();
-
-    function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-    function highlight(text, q) {
-      if (!q) return text;
-      return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
-        '<span class="search-dropdown-highlight">$1</span>');
-    }
-
-    function renderDropdown(results, q) {
-      if (!results.length) {
-        dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No patients found</div>';
-      } else {
-        dropdown.innerHTML = results.slice(0, 8).map(p => `
-          <div class="search-dropdown-item" data-name="${p.name}">
-            <i class='bx bxs-dog'></i>
-            <div class="item-info">
-              <div class="item-name">${highlight(p.name, q)}</div>
-              <div class="item-sub">${highlight(p.owner, q)} &bull; ${p.species}${p.breed && p.breed !== '-' ? ' &bull; ' + p.breed : ''}</div>
-            </div>
-            <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
-          </div>`).join('');
-        dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
-          item.addEventListener('mousedown', e => {
-            e.preventDefault();
-            searchInput.value = results[idx].name;
-            filterRows(results[idx].name.toLowerCase());
-            hideDropdown();
-          });
-        });
-      }
-      dropdown.style.display = 'block';
-      dropdown.classList.add('active');
-    }
-
-    function hideDropdown() {
-      dropdown.classList.remove('active');
-      dropdown.style.display = '';
-    }
-
-    function filterRows(q) {
-      patients.forEach(p => {
-        const nl = p.name.toLowerCase(); const ol = p.owner.toLowerCase();
-        const sl = p.species.toLowerCase(); const bl = p.breed.toLowerCase();
-        const matchesSearch = !q || nl.includes(q) || ol.includes(q) || sl.includes(q) || bl.includes(q);
-        p.row.style.display = matchesSearch ? '' : 'none';
-      });
-    }
-
+    let searchTimeout;
     searchInput.addEventListener('input', function () {
-      const q = this.value.toLowerCase().trim();
-      filterRows(q);
-      if (!q) { hideDropdown(); return; }
-      const results = patients.filter(p =>
-        p.name.toLowerCase().includes(q) || p.owner.toLowerCase().includes(q) ||
-        p.species.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q));
-      renderDropdown(results, q);
-    });
-
-    searchInput.addEventListener('focus', function () {
-      if (this.value.trim()) this.dispatchEvent(new Event('input'));
-    });
-
-    searchInput.addEventListener('blur', function () {
-      setTimeout(hideDropdown, 150);
-    });
-
-    searchInput.addEventListener('keydown', function (e) {
-      const items = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
-      let idx = items.findIndex(i => i.classList.contains('active'));
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        items[idx]?.classList.remove('active');
-        idx = (idx + 1) % items.length;
-        items[idx]?.classList.add('active');
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        items[idx]?.classList.remove('active');
-        idx = (idx - 1 + items.length) % items.length;
-        items[idx]?.classList.add('active');
-      } else if (e.key === 'Enter' && idx >= 0) {
-        e.preventDefault(); items[idx]?.click();
-      } else if (e.key === 'Escape') {
-        hideDropdown();
-      }
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => filterForm.requestSubmit(), 300);
     });
   }());
 </script>

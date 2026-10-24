@@ -426,7 +426,10 @@ document.addEventListener("DOMContentLoaded", function() {
         data.vets.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.id;
-          opt.textContent = v.name;
+          const isScheduled = !dateVal || v.is_scheduled;
+          opt.textContent = v.name +
+            (dateVal && !isScheduled ? ' — Not scheduled on this date' : '');
+          opt.disabled = !isScheduled && v.id != currentVetId;
           if (v.id == currentVetId) {
             opt.selected = true;
             currentVetFound = true;
@@ -441,7 +444,8 @@ document.addEventListener("DOMContentLoaded", function() {
             // Add it to the dropdown using earlier captured text
             const opt = document.createElement('option');
             opt.value = currentVetId;
-            opt.textContent = currentVetText + ' (Current)';
+            opt.textContent = currentVetText +
+              (dateVal ? ' — Not scheduled on this date' : ' (Current)');
             opt.selected = true;
             vetSelect.insertBefore(opt, vetSelect.options[1]);
           }

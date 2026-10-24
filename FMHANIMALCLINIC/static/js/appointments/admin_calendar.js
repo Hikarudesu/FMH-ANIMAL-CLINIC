@@ -796,12 +796,13 @@ function getLocalYMD(d) {
         // Show warning if no vets scheduled on the selected date
         if (dateVal && !data.has_vets) {
           showQCHint(
-            "⚠ No veterinarians are scheduled on this date. Choose another date; a veterinarian is not assigned during booking.",
+            "⚠ No veterinarians are scheduled on this date. Unscheduled veterinarians are listed but cannot be selected.",
             "#e65100"
           );
         } else if (dateVal && data.has_vets) {
+          const scheduledVetCount = data.vets.filter((vet) => vet.is_scheduled).length;
           showQCHint(
-            `${data.vets.length} vet(s) available on this date.`,
+            `${scheduledVetCount} veterinarian(s) scheduled on this date.`,
             "#388e3c"
           );
         }
@@ -809,7 +810,10 @@ function getLocalYMD(d) {
         data.vets.forEach((v) => {
           const opt = document.createElement("option");
           opt.value = v.id;
-          opt.textContent = v.name;
+          const isScheduled = !dateVal || v.is_scheduled;
+          opt.textContent = v.name +
+            (dateVal && !isScheduled ? " — Not scheduled on this date" : "");
+          opt.disabled = !isScheduled;
           qcVet.appendChild(opt);
         });
       })

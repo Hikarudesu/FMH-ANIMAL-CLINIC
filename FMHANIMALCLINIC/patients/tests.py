@@ -228,6 +228,36 @@ class BranchRestrictedPatientListTests(TestCase):
         )
         self.assertNotContains(response, 'title="Clear Filters"')
 
+    def test_patient_search_finds_patients_beyond_the_first_page(self):
+        Pet.objects.create(
+            name='Searchable Page Two Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+            branch=self.branch,
+        )
+        for index in range(10):
+            Pet.objects.create(
+                name=f'Newer Patient {index}',
+                species='Dog',
+                sex=Pet.Sex.MALE,
+                branch=self.branch,
+            )
+        self.user.branch = self.branch
+        self.user.save(update_fields=['branch'])
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse('patients:admin_list'),
+            {'q': 'Searchable Page Two Patient'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['pets'].paginator.count, 1)
+        self.assertEqual(
+            [pet.name for pet in response.context['pets']],
+            ['Searchable Page Two Patient'],
+        )
+
 
 class BranchRestrictedWalkInRegistrationTests(TestCase):
     def setUp(self):

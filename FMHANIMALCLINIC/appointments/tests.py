@@ -341,7 +341,77 @@ class ViewOnlyAppointmentScopeTests(TestCase):
         self.assertEqual(visible_calendar_ids, [self.own_appointment.pk])
 
 
-class InactiveStaffAppointmentOptionsTests(TestCase):
+class AppointmentVeterinarianOptionsTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Available Vet Options Branch')
+        self.appointment_date = timezone.localdate() + timedelta(days=3)
+        self.role, _ = Role.objects.get_or_create(
+            code='veterinarian',
+            defaults={
+                'name': 'Veterinarian',
+                'hierarchy_level': 3,
+                'is_staff_role': True,
+            },
+        )
+
+    def create_vet(self, username, first_name):
+        user = User.objects.create_user(
+            username=username,
+            email=f'{username}@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=self.role,
+        )
+        return StaffMember.objects.create(
+            user=user,
+            first_name=first_name,
+            last_name='Veterinarian',
+            position=StaffMember.Position.VETERINARIAN,
+            branch=self.branch,
+        )
+
+    def test_unscheduled_branch_veterinarians_are_returned_as_unavailable(self):
+        scheduled_vet = self.create_vet('scheduled-option-vet', 'Scheduled')
+        unscheduled_vet = self.create_vet('unscheduled-option-vet', 'Unscheduled')
+        VetSchedule.objects.create(
+            staff=scheduled_vet,
+            branch=self.branch,
+            date=self.appointment_date,
+            start_time=time(9),
+            end_time=time(12),
+        )
+
+        response = self.client.get(
+            reverse('appointments:api_vets'),
+            {'branch': self.branch.pk, 'date': self.appointment_date.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        vets_by_id = {
+            vet['id']: vet for vet in response.json()['vets']
+        }
+        self.assertTrue(response.json()['has_vets'])
+        self.assertTrue(vets_by_id[scheduled_vet.pk]['is_scheduled'])
+        self.assertFalse(vets_by_id[unscheduled_vet.pk]['is_scheduled'])
+
+    def test_branch_veterinarians_are_returned_even_when_none_are_scheduled(self):
+        unscheduled_vet = self.create_vet('no-schedule-option-vet', 'No Schedule')
+
+        response = self.client.get(
+            reverse('appointments:api_vets'),
+            {'branch': self.branch.pk, 'date': self.appointment_date.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['has_vets'])
+        self.assertEqual(
+            response.json()['vets'],
+            [{
+                'id': unscheduled_vet.pk,
+                'name': unscheduled_vet.full_name,
+                'is_scheduled': False,
+            }],
+        )
+
     def test_inactive_veterinarian_is_not_available_for_quick_appointment(self):
         branch = Branch.objects.create(name='Inactive Vet Test Branch')
         role, _ = Role.objects.get_or_create(

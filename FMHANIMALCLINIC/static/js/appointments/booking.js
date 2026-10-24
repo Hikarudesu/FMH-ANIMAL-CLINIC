@@ -241,27 +241,29 @@ document.addEventListener("DOMContentLoaded", function () {
         data.vets.forEach((v) => {
           const opt = document.createElement("option");
           opt.value = v.id;
-          opt.textContent = v.name;
+          const isScheduled = !dt || v.is_scheduled;
+          opt.textContent = v.name +
+            (dt && !isScheduled ? " — Not scheduled on this date" : "");
+          opt.disabled = !isScheduled;
           vetSelect.appendChild(opt);
         });
 
-        // Date/branch reloads must not silently discard a vet selected while
-        // the availability request was in flight.
-        if (
-          selectedVet &&
-          Array.from(vetSelect.options).some(
-            (option) => option.value === selectedVet
-          )
-        ) {
+        const selectedOption = Array.from(vetSelect.options).find(
+          (option) => option.value === selectedVet
+        );
+        if (selectedVet && selectedOption && !selectedOption.disabled) {
           vetSelect.value = selectedVet;
         } else if (isFollowupPrefill) {
-          const option = document.createElement("option");
-          option.value = selectedVet;
-          option.textContent = `${selectedVetName} (not scheduled on this date)`;
-          vetSelect.appendChild(option);
-          vetSelect.value = selectedVet;
+          if (!selectedOption) {
+            const option = document.createElement("option");
+            option.value = selectedVet;
+            option.textContent = `${selectedVetName} — Not scheduled on this date`;
+            option.disabled = true;
+            vetSelect.appendChild(option);
+          }
+          vetSelect.value = "";
           showTimeHint(
-            `${selectedVetName} is not scheduled on this date. Select an available veterinarian or choose another date.`,
+            `${selectedVetName} is not scheduled on this date and cannot be selected. Choose an available veterinarian or another date.`,
             "#e65100"
           );
         }
