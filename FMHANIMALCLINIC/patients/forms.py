@@ -33,6 +33,10 @@ def can_transfer_walkin_patient(user):
 class PetForm(forms.ModelForm):
     """Form for creating and editing a pet (user portal)."""
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
     class Meta:
         model = Pet
         fields = [
@@ -70,6 +74,17 @@ class PetForm(forms.ModelForm):
                 'placeholder': 'Why is this pet profile inactive?',
             }),
         }
+
+    def clean_name(self):
+        name = self.cleaned_data['name'].strip()
+        if self.user and Pet.objects.filter(
+            owner=self.user,
+            name__iexact=name,
+        ).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError(
+                'You already have a pet with this name. Please enter a different name.'
+            )
+        return name
 
     def clean(self):
         cleaned_data = super().clean()

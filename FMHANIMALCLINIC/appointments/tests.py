@@ -17,6 +17,7 @@ from appointments.models import Appointment, AppointmentHistory
 from appointments.forms import (
     AdminQuickCreateForm,
     AppointmentEditForm,
+    PortalAppointmentForm,
     PublicAppointmentForm,
     _check_double_booking,
     _validate_appointment_date,
@@ -571,6 +572,84 @@ class FlexibleAppointmentTimeTests(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['appointment_time'], time(8, 30))
+
+
+class AppointmentPetNameUniquenessTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='appointment-pet-name-owner',
+            email='appointment-pet-name-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.pet = Pet.objects.create(
+            owner=self.owner,
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        self.guest_pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Guest Pet Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_email='guest-owner@example.com',
+            name='Buddy',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+
+    def test_portal_booking_rejects_an_existing_pet_name(self):
+        form = PortalAppointmentForm(
+            data={'pet_name': '  mIlO  '},
+            user=self.owner,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            'This pet name is already registered to your account. '
+            'Select the existing pet above, or enter a different name.',
+            form.errors['pet_name'],
+        )
+
+    def test_portal_booking_allows_selecting_the_existing_pet(self):
+        form = PortalAppointmentForm(
+            data={
+                'pet_name': self.pet.name,
+                'selected_pet_id': str(self.pet.pk),
+            },
+            user=self.owner,
+        )
+
+        form.is_valid()
+
+        self.assertNotIn('pet_name', form.errors)
+
+    def test_guest_booking_rejects_an_existing_pet_for_matching_owner_details(self):
+        form = PublicAppointmentForm(data={
+            'owner_name': '  Guest Pet Owner ',
+            'owner_email': 'guest-owner@example.com',
+            'owner_phone': '09123456789',
+            'pet_name': ' buddy ',
+        })
+
+        form.is_valid()
+
+        self.assertIn(
+            'A pet with this name is already registered under these owner details. '
+            'Please check the pet name or contact the clinic if this is a different pet.',
+            form.errors['pet_name'],
+        )
+
+    def test_guest_booking_allows_same_pet_name_for_different_owner_contact(self):
+        form = PublicAppointmentForm(data={
+            'owner_name': 'Guest Pet Owner',
+            'owner_email': 'another-owner@example.com',
+            'owner_phone': '09987654321',
+            'pet_name': 'Buddy',
+        })
+
+        form.is_valid()
+
+        self.assertNotIn('pet_name', form.errors)
 
 
 class SameDayBookingCutoffTests(TestCase):

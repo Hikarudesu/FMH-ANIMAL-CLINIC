@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -91,6 +92,70 @@ class PetInactiveReasonFormTests(TestCase):
         pet = form.save()
         self.assertFalse(pet.is_active)
         self.assertEqual(pet.inactive_reason, form.cleaned_data['inactive_reason'])
+
+
+class PortalPetNameUniquenessTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(
+            username='pet-name-owner',
+            password='test-password',
+        )
+        self.other_owner = get_user_model().objects.create_user(
+            username='other-pet-name-owner',
+            password='test-password',
+        )
+        self.pet = Pet.objects.create(
+            owner=self.owner,
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        self.form_data = {
+            'name': 'Milo',
+            'species': 'Dog',
+            'sex': Pet.Sex.MALE,
+            'is_active': 'on',
+        }
+
+    def test_portal_form_rejects_duplicate_name_for_same_owner_case_insensitively(self):
+        form_data = self.form_data.copy()
+        form_data['name'] = '  mIlO  '
+
+        form = PetForm(data=form_data, user=self.owner)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            'You already have a pet with this name. Please enter a different name.',
+            form.errors['name'],
+        )
+
+    def test_portal_form_allows_same_name_for_another_owner(self):
+        form = PetForm(data=self.form_data, user=self.other_owner)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_portal_form_allows_keeping_name_when_editing_same_pet(self):
+        form = PetForm(data=self.form_data, instance=self.pet, user=self.owner)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    @override_settings(STORAGES={
+        **settings.STORAGES,
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    })
+    def test_add_pet_view_displays_duplicate_name_error(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(reverse('patients:add_pet'), self.form_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'You already have a pet with this name. Please enter a different name.',
+        )
+        self.assertEqual(Pet.objects.filter(owner=self.owner).count(), 1)
 
 
 class PortalOwnerSearchTests(TestCase):

@@ -26,6 +26,33 @@ PET_SEX_CHOICES = [
     ('FEMALE', 'Female'),
 ]
 
+PORTAL_DUPLICATE_PET_NAME_ERROR = (
+    'This pet name is already registered to your account. '
+    'Select the existing pet above, or enter a different name.'
+)
+GUEST_DUPLICATE_PET_NAME_ERROR = (
+    'A pet with this name is already registered under these owner details. '
+    'Please check the pet name or contact the clinic if this is a different pet.'
+)
+
+
+def _guest_pet_name_exists(name, owner_name, owner_email='', owner_phone=''):
+    """Check for a walk-in pet with the same name and matching guest identity."""
+    from patients.models import Pet
+
+    pets = Pet.objects.filter(
+        source=Pet.Source.WALKIN,
+        name__iexact=name,
+        guest_owner_name__iexact=owner_name,
+    )
+    contact_match = Q()
+    if owner_email:
+        contact_match |= Q(guest_owner_email__iexact=owner_email)
+    if owner_phone:
+        contact_match |= Q(guest_owner_phone=owner_phone)
+
+    return pets.filter(contact_match).exists() if contact_match else pets.exists()
+
 
 def _validate_appointment_date(appt_date, allow_past=False):
     """
@@ -319,6 +346,17 @@ class PublicAppointmentForm(FormControlMixin, forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+
+        pet_name = (cleaned_data.get('pet_name') or '').strip()
+        owner_name = (cleaned_data.get('owner_name') or '').strip()
+        if pet_name and owner_name and _guest_pet_name_exists(
+            pet_name,
+            owner_name,
+            (cleaned_data.get('owner_email') or '').strip(),
+            (cleaned_data.get('owner_phone') or '').strip(),
+        ):
+            self.add_error('pet_name', GUEST_DUPLICATE_PET_NAME_ERROR)
+
         _resolve_flexible_appointment_time(
             cleaned_data,
             self.data.get('appointment_time'),
@@ -593,6 +631,27 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
 
     def clean_owner_phone(self):
         return validate_philippines_phone(self.cleaned_data.get('owner_phone', ''))
+
+    def clean_pet_name(self):
+        name = self.cleaned_data['pet_name'].strip()
+        if not self.user:
+            return name
+
+        from patients.models import Pet
+
+        duplicate_pets = Pet.objects.filter(
+            owner=self.user,
+            name__iexact=name,
+        )
+        try:
+            selected_pet_id = int(self.data.get('selected_pet_id', ''))
+        except (TypeError, ValueError):
+            selected_pet_id = None
+        if selected_pet_id:
+            duplicate_pets = duplicate_pets.exclude(pk=selected_pet_id)
+        if duplicate_pets.exists():
+            raise ValidationError(PORTAL_DUPLICATE_PET_NAME_ERROR)
+        return name
 
     def save(self, commit=True):
         instance = super().save(commit=False)

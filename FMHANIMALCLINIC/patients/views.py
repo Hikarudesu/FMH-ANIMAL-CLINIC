@@ -469,7 +469,7 @@ def user_pet_detail_view(request, pk):
 def add_pet_view(request):
     """Add a new pet for the logged-in user."""
     if request.method == 'POST':
-        form = PetForm(request.POST, request.FILES)
+        form = PetForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             pet = form.save(commit=False)
             pet.owner = request.user
@@ -479,7 +479,7 @@ def add_pet_view(request):
             messages.success(request, f'{pet.name} has been registered!')
             return redirect('patients:my_pets')
     else:
-        form = PetForm()
+        form = PetForm(user=request.user)
     return render(request, 'patients/pet_form.html', {'form': form, 'action': 'Register'})
 
 
@@ -490,13 +490,13 @@ def edit_pet_view(request, pk):
     pet = get_object_or_404(Pet, pk=pk, owner=request.user)
 
     if request.method == 'POST':
-        form = PetForm(request.POST, request.FILES, instance=pet)
+        form = PetForm(request.POST, request.FILES, instance=pet, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, f'{pet.name} has been updated!')
             return redirect('patients:my_pets')
     else:
-        form = PetForm(instance=pet)
+        form = PetForm(instance=pet, user=request.user)
     return render(request, 'patients/pet_form.html', {'form': form, 'action': 'Update', 'pet': pet})
 
 
