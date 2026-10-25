@@ -502,6 +502,117 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
         )
 
 
+class AdminQuickCreatePetNameValidationTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='quick-create-pet-owner',
+            email='quick-create-pet-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.portal_pet = Pet.objects.create(
+            owner=self.owner,
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        self.guest_pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Returning Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='returning-guest@example.com',
+            name='Buddy',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+
+    def test_portal_owner_cannot_add_pet_name_already_in_their_account(self):
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.PORTAL,
+            'selected_user_id': str(self.owner.pk),
+            'pet_name': '  mIlO ',
+        })
+
+        form.is_valid()
+
+        self.assertIn('pet_name', form.errors)
+        self.assertIn(
+            'This pet name is already registered to your account.',
+            form.errors['pet_name'][0],
+        )
+
+    def test_portal_owner_can_book_with_the_selected_existing_pet(self):
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.PORTAL,
+            'selected_user_id': str(self.owner.pk),
+            'selected_pet_id': str(self.portal_pet.pk),
+            'pet_name': self.portal_pet.name,
+        })
+
+        form.is_valid()
+
+        self.assertNotIn('pet_name', form.errors)
+
+    def test_portal_owner_can_use_same_name_as_a_different_account(self):
+        other_owner = User.objects.create_user(
+            username='another-quick-create-owner',
+            email='another-quick-create-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.PORTAL,
+            'selected_user_id': str(other_owner.pk),
+            'pet_name': self.portal_pet.name,
+        })
+
+        form.is_valid()
+
+        self.assertNotIn('pet_name', form.errors)
+
+    def test_guest_cannot_add_existing_pet_again_for_same_owner(self):
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.WALKIN,
+            'owner_name': 'Returning Guest',
+            'owner_phone': '09123456789',
+            'owner_email': 'returning-guest@example.com',
+            'pet_name': ' buddy ',
+        })
+
+        form.is_valid()
+
+        self.assertIn('pet_name', form.errors)
+        self.assertIn(
+            'already registered under these owner details',
+            form.errors['pet_name'][0],
+        )
+
+    def test_guest_with_different_contact_can_use_same_pet_name(self):
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.WALKIN,
+            'owner_name': 'Returning Guest',
+            'owner_phone': '09987654321',
+            'owner_email': 'different-guest@example.com',
+            'pet_name': 'Buddy',
+        })
+
+        form.is_valid()
+
+        self.assertNotIn('pet_name', form.errors)
+
+    def test_guest_can_book_with_the_selected_existing_pet(self):
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.WALKIN,
+            'owner_name': 'Returning Guest',
+            'owner_phone': '09123456789',
+            'owner_email': 'returning-guest@example.com',
+            'selected_pet_id': str(self.guest_pet.pk),
+            'pet_name': self.guest_pet.name,
+        })
+
+        form.is_valid()
+
+        self.assertNotIn('pet_name', form.errors)
+
+
 class FlexibleAppointmentTimeTests(TestCase):
     def test_morning_booking_uses_first_available_time_not_fixed_eight_am(self):
         branch = Branch.objects.create(name='Flexible Booking Branch')

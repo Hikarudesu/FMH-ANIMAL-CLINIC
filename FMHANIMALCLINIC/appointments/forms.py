@@ -36,7 +36,13 @@ GUEST_DUPLICATE_PET_NAME_ERROR = (
 )
 
 
-def _guest_pet_name_exists(name, owner_name, owner_email='', owner_phone=''):
+def _guest_pet_name_exists(
+    name,
+    owner_name,
+    owner_email='',
+    owner_phone='',
+    exclude_pet_id=None,
+):
     """Check for a walk-in pet with the same name and matching guest identity."""
     from patients.models import Pet
 
@@ -45,6 +51,8 @@ def _guest_pet_name_exists(name, owner_name, owner_email='', owner_phone=''):
         name__iexact=name,
         guest_owner_name__iexact=owner_name,
     )
+    if exclude_pet_id:
+        pets = pets.exclude(pk=exclude_pet_id)
     contact_match = Q()
     if owner_email:
         contact_match |= Q(guest_owner_email__iexact=owner_email)
@@ -901,11 +909,40 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
 
-        if (
-            self.data.get('source') == Appointment.Source.WALKIN
-            and not (cleaned_data.get('owner_name') or '').strip()
-        ):
+        source = cleaned_data.get('source')
+        pet_name = (cleaned_data.get('pet_name') or '').strip()
+        selected_pet_id = cleaned_data.get('selected_pet_id')
+
+        if source == Appointment.Source.WALKIN and not (
+            cleaned_data.get('owner_name') or ''
+        ).strip():
             self.add_error('owner_name', 'Owner name is required for walk-in appointments.')
+
+        if pet_name and source == Appointment.Source.PORTAL:
+            from accounts.models import User
+            from patients.models import Pet
+
+            owner = User.objects.filter(
+                pk=cleaned_data.get('selected_user_id')
+            ).first()
+            if owner:
+                existing_pets = Pet.objects.filter(
+                    owner=owner,
+                    name__iexact=pet_name,
+                )
+                if selected_pet_id:
+                    existing_pets = existing_pets.exclude(pk=selected_pet_id)
+                if existing_pets.exists():
+                    self.add_error('pet_name', PORTAL_DUPLICATE_PET_NAME_ERROR)
+        elif pet_name and source == Appointment.Source.WALKIN:
+            if _guest_pet_name_exists(
+                pet_name,
+                (cleaned_data.get('owner_name') or '').strip(),
+                (cleaned_data.get('owner_email') or '').strip(),
+                (cleaned_data.get('owner_phone') or '').strip(),
+                exclude_pet_id=selected_pet_id,
+            ):
+                self.add_error('pet_name', GUEST_DUPLICATE_PET_NAME_ERROR)
         
         time_str = self.data.get('appointment_time')
         _resolve_flexible_appointment_time(cleaned_data, time_str)

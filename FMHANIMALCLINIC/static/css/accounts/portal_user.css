@@ -2188,13 +2188,26 @@
 
 /* Error text */
 .pf-field-error {
-  display: block;
-  position: absolute;
-  bottom: -18px;
-  left: 16px;
-  font-size: 0.7rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 2px 12px 10px 46px;
+  padding: 7px 9px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 7px 7px 0;
+  background: rgba(230, 57, 70, 0.07);
+  font-size: 0.75rem;
   color: var(--accent);
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.pf-field-error i {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  font-size: 0.95rem;
+}
+.pf-photo-upload-modern .pf-field-error {
+  margin: 0;
 }
 
 /* ── Actions ── */

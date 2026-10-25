@@ -76,7 +76,7 @@
             </div>
             
           </div>
-          {% if form.photo.errors %}<span class="pf-field-error">{{ form.photo.errors.0 }}</span>{% endif %}
+          {% if form.photo.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.photo.errors.0 }}</span>{% endif %}
         </div>
 
         <!-- Name -->
@@ -84,7 +84,7 @@
           <div class="pf-field-icon"><i class='bx bx-rename'></i></div>
           {{ form.name }}
           <label for="{{ form.name.id_for_label }}">Name <span class="pf-required">*</span></label>
-          {% if form.name.errors %}<span class="pf-field-error">{{ form.name.errors.0 }}</span>{% endif %}
+          {% if form.name.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.name.errors.0 }}</span>{% endif %}
         </div>
 
         <!-- Species -->
@@ -92,7 +92,7 @@
           <div class="pf-field-icon"><i class='bx bx-category'></i></div>
           {{ form.species }}
           <label for="{{ form.species.id_for_label }}">Species <span class="pf-required">*</span></label>
-          {% if form.species.errors %}<span class="pf-field-error">{{ form.species.errors.0 }}</span>{% endif %}
+          {% if form.species.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.species.errors.0 }}</span>{% endif %}
         </div>
 
         <!-- Breed -->
@@ -100,7 +100,7 @@
           <div class="pf-field-icon"><i class='bx bx-category'></i></div>
           {{ form.breed }}
           <label for="{{ form.breed.id_for_label }}">Breed</label>
-          {% if form.breed.errors %}<span class="pf-field-error">{{ form.breed.errors.0 }}</span>{% endif %}
+          {% if form.breed.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.breed.errors.0 }}</span>{% endif %}
         </div>
 
         <!-- Date of Birth -->
@@ -108,7 +108,7 @@
           <div class="pf-field-icon"><i class='bx bx-calendar'></i></div>
           {{ form.date_of_birth }}
           <label for="{{ form.date_of_birth.id_for_label }}">Date of Birth</label>
-          {% if form.date_of_birth.errors %}<span class="pf-field-error">{{ form.date_of_birth.errors.0 }}</span>{% endif %}
+          {% if form.date_of_birth.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.date_of_birth.errors.0 }}</span>{% endif %}
         </div>
 
         <!-- Sex -->
@@ -116,7 +116,7 @@
           <div class="pf-field-icon"><i class='bx bxs-dog'></i></div>
           {{ form.sex }}
           <label for="{{ form.sex.id_for_label }}">Sex <span class="pf-required">*</span></label>
-          {% if form.sex.errors %}<span class="pf-field-error">{{ form.sex.errors.0 }}</span>{% endif %}
+          {% if form.sex.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.sex.errors.0 }}</span>{% endif %}
         </div>
 
         <!-- Color -->
@@ -124,7 +124,7 @@
           <div class="pf-field-icon"><i class='bx bx-palette'></i></div>
           {{ form.color }}
           <label for="{{ form.color.id_for_label }}">Color</label>
-          {% if form.color.errors %}<span class="pf-field-error">{{ form.color.errors.0 }}</span>{% endif %}
+          {% if form.color.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.color.errors.0 }}</span>{% endif %}
         </div>
 
         <!-- Active Status -->
@@ -134,7 +134,7 @@
             <label for="{{ form.is_active.id_for_label }}">Active Status</label>
           </div>
           <small class="pf-help-text">Inactive pets will be hidden from appointment booking but keep their medical history.</small>
-          {% if form.is_active.errors %}<span class="pf-field-error">{{ form.is_active.errors.0 }}</span>{% endif %}
+          {% if form.is_active.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.is_active.errors.0 }}</span>{% endif %}
         </div>
         <div class="pf-field {% if form.inactive_reason.errors %}has-error{% endif %}"
              id="inactiveReasonField"
@@ -143,7 +143,7 @@
           {{ form.inactive_reason }}
           <label for="{{ form.inactive_reason.id_for_label }}">Reason for Inactive Status <span class="pf-required">*</span></label>
           <small class="pf-help-text">Required when this pet is inactive.</small>
-          {% if form.inactive_reason.errors %}<span class="pf-field-error">{{ form.inactive_reason.errors.0 }}</span>{% endif %}
+          {% if form.inactive_reason.errors %}<span class="pf-field-error"><i class='bx bx-error-circle' aria-hidden="true"></i>{{ form.inactive_reason.errors.0 }}</span>{% endif %}
         </div>
       </div>
 

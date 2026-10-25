@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import JsonResponse
+from django.urls import reverse
 from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Q
 from django.utils import timezone
@@ -24,6 +25,7 @@ from .models import Appointment, AppointmentHistory
 from .forms import (
     PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm,
     AppointmentEditForm, AppointmentCancellationForm,
+    PORTAL_DUPLICATE_PET_NAME_ERROR, GUEST_DUPLICATE_PET_NAME_ERROR,
 )
 from .clinic_hours import CLINIC_CLOSE_TIME, CLINIC_OPEN_TIME
 from .services import AppointmentService
@@ -1786,6 +1788,16 @@ def admin_quick_create(request):
             )
             form = AdminQuickCreateForm(request.POST, user=request.user)
             appointment = form.save() if form.is_valid() else None
+            duplicate_pet_name = bool(
+                not appointment
+                and form.errors.get('pet_name')
+                and (
+                    str(form.errors['pet_name'][0]) in (
+                        PORTAL_DUPLICATE_PET_NAME_ERROR,
+                        GUEST_DUPLICATE_PET_NAME_ERROR,
+                    )
+                )
+            )
             if appointment and followup:
                 source_appointment = followup.appointment
                 followup_pet = (
@@ -1866,10 +1878,20 @@ def admin_quick_create(request):
                 ),
             )
         else:
-            # Include specific form errors in the message for easier debugging
-            error_details = ' | '.join([f"{k}: {', '.join(v)}" for k, v in form.errors.items()])
-            messages.error(
-                request, f'Invalid appointment data. Please check the form. Errors: {error_details}')
+            if duplicate_pet_name:
+                messages.error(request, form.errors['pet_name'][0])
+            else:
+                error_details = ' | '.join(
+                    [f"{k}: {', '.join(v)}" for k, v in form.errors.items()]
+                )
+                messages.error(
+                    request,
+                    f'Invalid appointment data. Please check the form. Errors: {error_details}',
+                )
+            if duplicate_pet_name:
+                return redirect(
+                    f"{reverse('appointments:admin_list')}#quickCreateModal"
+                )
     return redirect('appointments:admin_list')
 
 
