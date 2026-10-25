@@ -227,6 +227,87 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(response.context['service_branch_id'], self.branch.pk)
         self.assertEqual(response.context['selected_branch_id'], str(self.branch.pk))
         self.assertContains(response, 'petData.branch_id && !serviceBranchId')
+        self.assertContains(response, 'name="selected_pet_id"')
+        self.assertContains(response, 'This pet is already registered for this owner.')
+        self.assertContains(response, "result.addEventListener('mousedown'")
+
+    def test_create_rejects_duplicate_portal_pet_without_updating_owner_or_pet(self):
+        owner = get_user_model().objects.create_user(
+            username='duplicate-record-owner',
+            email='duplicate-record-owner@example.com',
+            password='A-secure-test-password-923!',
+            phone_number='09123456789',
+            address='Original owner address',
+        )
+        pet = Pet.objects.create(
+            name='Milo',
+            owner=owner,
+            species='Cat',
+            sex=Pet.Sex.MALE,
+            color='Black',
+        )
+
+        response = self.client.post(reverse('records:admin_create'), {
+            'vet': self.vet.pk,
+            'date_recorded': '2026-10-17',
+            'history_clinical_signs': 'Routine examination',
+            'treatment': 'Examination completed',
+            'rx': 'None',
+            'action_required': ClinicalStatus.get_default().pk,
+            'client_source': 'PORTAL',
+            'selected_user_id': owner.pk,
+            'owner_name': 'Duplicate Record Owner',
+            'owner_contact': '09987654321',
+            'owner_address': 'Changed owner address',
+            'pet_name': ' milo ',
+            'pet_species': 'Dog',
+            'pet_sex': 'FEMALE',
+            'pet_color': 'White',
+            'branch': self.branch.pk,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already registered to this account')
+        owner.refresh_from_db()
+        pet.refresh_from_db()
+        self.assertEqual(owner.phone_number, '09123456789')
+        self.assertEqual(owner.address, 'Original owner address')
+        self.assertEqual((pet.species, pet.sex, pet.color), ('Cat', Pet.Sex.MALE, 'Black'))
+        self.assertFalse(MedicalRecord.objects.filter(pet=pet).exists())
+
+    def test_create_rejects_duplicate_guest_pet(self):
+        Pet.objects.create(
+            name='Luna',
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Guest Record Owner',
+            guest_owner_phone='09123456789',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+            color='Gray',
+        )
+
+        response = self.client.post(reverse('records:admin_create'), {
+            'vet': self.vet.pk,
+            'date_recorded': '2026-10-17',
+            'history_clinical_signs': 'Routine examination',
+            'treatment': 'Examination completed',
+            'rx': 'None',
+            'action_required': ClinicalStatus.get_default().pk,
+            'client_source': 'WALKIN',
+            'owner_name': 'Guest Record Owner',
+            'owner_contact': '09123456789',
+            'owner_address': 'Guest address',
+            'pet_name': 'luna',
+            'pet_species': 'Dog',
+            'pet_sex': 'MALE',
+            'pet_color': 'Brown',
+            'branch': self.branch.pk,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already registered for this guest owner')
+        self.assertEqual(Pet.objects.filter(guest_owner_name='Guest Record Owner').count(), 1)
+        self.assertEqual(MedicalRecord.objects.count(), 0)
 
     def test_add_visit_entry_defaults_to_logged_in_vet_and_clinic_over_record(self):
         previous_vet_user = get_user_model().objects.create_user(
@@ -367,6 +448,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
             'owner_contact': owner.phone_number,
             'owner_address': '',
             'pet_name': pet.name,
+            'selected_pet_id': pet.pk,
             'pet_species': pet.species,
             'pet_sex': 'FEMALE',
             'pet_color': pet.color,

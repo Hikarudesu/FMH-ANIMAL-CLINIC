@@ -320,11 +320,6 @@ def admin_record_create(request):
                         owner = User.objects.filter(
                             Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
                         ).get(pk=int(selected_user_id))
-                        if owner_contact:
-                            owner.phone_number = owner_contact
-                        if owner_address:
-                            owner.address = owner_address
-                        owner.save()
                     except (User.DoesNotExist, ValueError):
                         entry_form.add_error(
                             None,
@@ -337,34 +332,92 @@ def admin_record_create(request):
                     )
 
                 if not entry_form.errors:
-                    # --- Dynamic Pet Resolution or Creation ---
                     pet_name_str = request.POST.get('pet_name', '').strip()
+                    selected_pet_id = request.POST.get('selected_pet_id', '').strip()
                     pet = None
-
-                    if client_source == 'WALKIN' and pet_name_str:
-                        # Walk-in: look up pet by name + guest owner name
-                        pet_qs = Pet.objects.filter(  # pylint: disable=no-member
+                    if selected_pet_id:
+                        try:
+                            selected_pet_query = Pet.objects.filter(
+                                pk=int(selected_pet_id),
+                                name__iexact=pet_name_str,
+                            )
+                            if client_source == 'WALKIN':
+                                selected_pet_query = selected_pet_query.filter(
+                                    source=Pet.Source.WALKIN,
+                                    guest_owner_name__iexact=owner_name_str,
+                                )
+                            else:
+                                selected_pet_query = selected_pet_query.filter(
+                                    source=Pet.Source.PORTAL,
+                                    owner=owner,
+                                )
+                            pet = selected_pet_query.first()
+                        except (TypeError, ValueError):
+                            pet = None
+                        if not pet:
+                            entry_form.add_error(
+                                None,
+                                'The selected pet does not match this owner. '
+                                'Please select the pet again.',
+                            )
+                    elif client_source == 'WALKIN' and pet_name_str:
+                        existing_pets = Pet.objects.filter(
                             name__iexact=pet_name_str,
                             source=Pet.Source.WALKIN,
                             guest_owner_name__iexact=owner_name_str,
                         )
-                        if pet_qs.exists():
-                            pet = pet_qs.first()
-                        else:
-                            pet = Pet(name=pet_name_str, source=Pet.Source.WALKIN)
-                        pet.guest_owner_name = owner_name_str
-                        pet.guest_owner_phone = owner_contact
-                        pet.guest_owner_address = owner_address
-                    elif pet_name_str and owner:
-                        pet_qs = Pet.objects.filter(  # pylint: disable=no-member
-                            name__iexact=pet_name_str, owner=owner)
-                        if pet_qs.exists():
-                            pet = pet_qs.first()
-                        else:
-                            pet = Pet(name=pet_name_str, owner=owner)
-                        pet.source = Pet.Source.PORTAL
+                        contact_match = Q()
+                        owner_email = request.POST.get('owner_email', '').strip()
+                        if owner_contact:
+                            contact_match |= Q(guest_owner_phone=owner_contact)
+                        if owner_email:
+                            contact_match |= Q(guest_owner_email__iexact=owner_email)
+                        if contact_match:
+                            existing_pets = existing_pets.filter(contact_match)
 
-                    if pet:
+                        if existing_pets.exists():
+                            entry_form.add_error(
+                                None,
+                                'This pet is already registered for this guest owner. '
+                                'Select the existing pet instead of entering it as a new pet.',
+                            )
+                    elif pet_name_str and owner:
+                        if Pet.objects.filter(
+                            name__iexact=pet_name_str,
+                            owner=owner,
+                        ).exists():
+                            entry_form.add_error(
+                                None,
+                                'This pet is already registered to this account. '
+                                'Select the existing pet instead of entering it as a new pet.',
+                            )
+
+                    if not entry_form.errors:
+                        # Persist contact updates only after pet identity is validated.
+                        if owner:
+                            if owner_contact:
+                                owner.phone_number = owner_contact
+                            if owner_address:
+                                owner.address = owner_address
+                            owner.save()
+
+                        # --- Create a new pet only after duplicate validation ---
+                        if not pet and client_source == 'WALKIN' and pet_name_str:
+                            pet = Pet(
+                                name=pet_name_str,
+                                source=Pet.Source.WALKIN,
+                                guest_owner_name=owner_name_str,
+                                guest_owner_phone=owner_contact,
+                                guest_owner_address=owner_address,
+                            )
+                        elif not pet and pet_name_str and owner:
+                            pet = Pet(
+                                name=pet_name_str,
+                                owner=owner,
+                                source=Pet.Source.PORTAL,
+                            )
+
+                    if pet and not entry_form.errors:
                         if 'pet_color' in request.POST:
                             pet.color = request.POST.get('pet_color')
                         if 'pet_breed' in request.POST:
@@ -510,7 +563,7 @@ def admin_record_create(request):
                         if from_patients:
                             return redirect('patients:admin_detail', pk=pet.id)
                         return redirect('records:admin_detail', pk=record.pk)
-                    else:
+                    elif not entry_form.errors:
                         entry_form.add_error(
                             None,
                             "Could not resolve or create patient profile. "
@@ -541,6 +594,7 @@ def admin_record_create(request):
     # Build pet details JSON for dynamic form population
     pets = Pet.objects.select_related('owner').all()  # pylint: disable=no-member
     pets_data = {}
+    pets_list_data = []
     for p in pets:
         last_record = p.medical_records.filter(
             branch__isnull=False
@@ -559,7 +613,9 @@ def admin_record_create(request):
             owner_contact = p.guest_owner_phone
             branch_id = last_record.branch_id if last_record else ''
 
-        pets_data[p.name] = {
+        pet_data = {
+            'id': p.pk,
+            'name': p.name,
             'owner_id': p.owner_id or '',
             'owner_name': owner_name,
             'owner_address': owner_address,
@@ -572,6 +628,8 @@ def admin_record_create(request):
             'branch_id': branch_id,
             'source': p.source,
         }
+        pets_data[p.name] = pet_data
+        pets_list_data.append(pet_data)
 
     branches = Branch.objects.filter(is_active=True)  # pylint: disable=no-member
     # Support ?pet=<pk> to pre-fill form with the specified pet's data
@@ -661,6 +719,7 @@ def admin_record_create(request):
         'form': entry_form,
         'pets_data': pets_data,
         'pets_json': json.dumps(pets_data),
+        'pets_list_json': json.dumps(pets_list_data),
         'branches': branches,
         'vets': vets,
         'vets_json': json.dumps(vets_for_json),
