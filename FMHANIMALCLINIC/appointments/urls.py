@@ -34,6 +34,11 @@ urlpatterns = [
     path('api/times/', views.api_vet_times, name='api_times'),
     path('api/dates/', views.api_available_dates, name='api_dates'),
     path('api/owners/', views.api_pet_owners, name='api_owners'),
+    path(
+        'api/check-owner-identity/',
+        views.api_check_owner_identity,
+        name='api_check_owner_identity',
+    ),
     path('api/pets/', views.api_owner_pets, name='api_pets'),
     path('api/walkin-guests/', views.api_walkin_guests, name='api_walkin_guests'),
     path('api/walkin-guest-pets/', views.api_walkin_guest_pets, name='api_walkin_guest_pets'),

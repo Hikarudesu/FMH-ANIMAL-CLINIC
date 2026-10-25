@@ -18,6 +18,7 @@ from settings.utils import get_setting
 from .models import Appointment
 from .clinic_hours import CLINIC_CLOSE_TIME, CLINIC_OPEN_TIME
 from .services import AppointmentService
+from accounts.owner_identity import check_existing_owner_identity
 
 
 PET_SEX_CHOICES = [
@@ -33,6 +34,10 @@ PORTAL_DUPLICATE_PET_NAME_ERROR = (
 GUEST_DUPLICATE_PET_NAME_ERROR = (
     'A pet with this name is already registered under these owner details. '
     'Please check the pet name or contact the clinic if this is a different pet.'
+)
+GUEST_DUPLICATE_OWNER_ERROR = (
+    'An owner with this name and contact information is already registered. '
+    'Select the returning owner instead of registering a new guest.'
 )
 
 
@@ -917,7 +922,6 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
             cleaned_data.get('owner_name') or ''
         ).strip():
             self.add_error('owner_name', 'Owner name is required for walk-in appointments.')
-
         if pet_name and source == Appointment.Source.PORTAL:
             from accounts.models import User
             from patients.models import Pet
@@ -943,6 +947,18 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                 exclude_pet_id=selected_pet_id,
             ):
                 self.add_error('pet_name', GUEST_DUPLICATE_PET_NAME_ERROR)
+
+        if source == Appointment.Source.WALKIN and (cleaned_data.get('owner_name') or '').strip():
+            owner_match = check_existing_owner_identity(
+                cleaned_data.get('owner_name'),
+                cleaned_data.get('owner_phone'),
+                cleaned_data.get('owner_email'),
+            )
+            selected_returning_guest = self.data.get('selected_guest_owner') in (
+                '1', 'true', 'on',
+            )
+            if owner_match['identity_match'] and not selected_returning_guest:
+                self.add_error('owner_name', GUEST_DUPLICATE_OWNER_ERROR)
         
         time_str = self.data.get('appointment_time')
         _resolve_flexible_appointment_time(cleaned_data, time_str)

@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from accounts.activity_context import reset_current_actor, set_current_actor
 from accounts.models import User
+from accounts.owner_identity import check_existing_owner_identity
 from accounts.rbac_models import Module, ModulePermission, Role
 from appointments.models import Appointment, AppointmentHistory
 from appointments.forms import (
@@ -501,6 +502,48 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
             'Owner name is required for walk-in appointments.',
         )
 
+    def test_new_guest_is_blocked_when_name_and_contact_match_registered_owner(self):
+        User.objects.create_user(
+            username='existing-guest-identity',
+            first_name='Taylor',
+            last_name='Owner',
+            email='taylor-owner@example.com',
+            phone_number='09123456789',
+        )
+
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.WALKIN,
+            'owner_name': 'Taylor Owner',
+            'owner_phone': '09123456789',
+            'owner_email': 'different@example.com',
+        })
+
+        form.is_valid()
+
+        self.assertIn('owner_name', form.errors)
+        self.assertIn('contact information is already registered', form.errors['owner_name'][0])
+
+    def test_new_guest_name_only_match_does_not_block_different_contact(self):
+        User.objects.create_user(
+            username='another-existing-owner',
+            first_name='Taylor',
+            last_name='Owner',
+            email='taylor-owner@example.com',
+            phone_number='09123456789',
+        )
+
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.WALKIN,
+            'owner_name': 'Taylor Owner',
+            'owner_phone': '09987654321',
+            'owner_email': 'different@example.com',
+        })
+
+        form.is_valid()
+
+        self.assertNotIn('owner_name', form.errors)
+        self.assertTrue(check_existing_owner_identity('Taylor Owner')['name_match'])
+
 
 class AdminQuickCreatePetNameValidationTests(TestCase):
     def setUp(self):
@@ -601,6 +644,7 @@ class AdminQuickCreatePetNameValidationTests(TestCase):
     def test_guest_can_book_with_the_selected_existing_pet(self):
         form = AdminQuickCreateForm(data={
             'source': Appointment.Source.WALKIN,
+            'selected_guest_owner': '1',
             'owner_name': 'Returning Guest',
             'owner_phone': '09123456789',
             'owner_email': 'returning-guest@example.com',
@@ -611,6 +655,7 @@ class AdminQuickCreatePetNameValidationTests(TestCase):
         form.is_valid()
 
         self.assertNotIn('pet_name', form.errors)
+        self.assertNotIn('owner_name', form.errors)
 
 
 class FlexibleAppointmentTimeTests(TestCase):
@@ -1303,6 +1348,9 @@ class FollowUpAppointmentBookingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'quickFollowUpEnabled')
         self.assertNotContains(response, 'quickFollowUpFields')
+        self.assertContains(response, 'qc-duplicate-owner-note')
+        self.assertContains(response, 'An owner with this name may already exist.')
+        self.assertContains(response, 'api/check-owner-identity/')
 
     @patch('appointments.views.notify_staff_appointment_status_change')
     @patch('appointments.views.notify_appointment_status_change')

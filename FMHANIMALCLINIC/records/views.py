@@ -25,6 +25,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from accounts.decorators import module_permission_required
+from accounts.owner_identity import check_existing_owner_identity
 from patients.models import Pet  # pylint: disable=no-member
 from branches.models import Branch
 from employees.models import StaffMember
@@ -271,6 +272,20 @@ def admin_record_create(request):
             owner_name_str = request.POST.get('owner_name', '').strip()
             owner_contact = request.POST.get('owner_contact', '').strip()
             owner_address = request.POST.get('owner_address', '').strip()
+            if client_source == 'WALKIN':
+                owner_match = check_existing_owner_identity(
+                    owner_name_str,
+                    owner_contact,
+                )
+                selected_returning_guest = request.POST.get(
+                    'selected_guest_owner',
+                ) in ('1', 'true', 'on')
+                if owner_match['identity_match'] and not selected_returning_guest:
+                    entry_form.add_error(
+                        None,
+                        'An owner with this name and contact number is already registered. '
+                        'Select the returning owner instead of registering a new guest.',
+                    )
             selected_user_id = request.POST.get('selected_user_id', '').strip()
             required_values = {
                 'pet_name': request.POST.get('pet_name', '').strip(),
@@ -1401,6 +1416,17 @@ def api_search_owners(request):
     } for owner in owners]
 
     return JsonResponse({'owners': data})
+
+
+@login_required
+@module_permission_required('medical_records', 'CREATE')
+def api_check_owner_identity(request):
+    """Check owner identity while registering a new guest without exposing details."""
+    return JsonResponse(check_existing_owner_identity(
+        request.GET.get('name', ''),
+        request.GET.get('phone', ''),
+        request.GET.get('email', ''),
+    ))
 
 
 def _pdf_link_callback(uri, rel):

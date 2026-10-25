@@ -19,6 +19,11 @@ urlpatterns = [
     path('admin/entry/<int:entry_pk>/edit/', views.admin_entry_edit, name='admin_entry_edit'),
     path('admin/entry/<int:entry_pk>/delete/', views.admin_entry_delete, name='admin_entry_delete'),
     path('api/search-owners/', views.api_search_owners, name='api_search_owners'),
+    path(
+        'api/check-owner-identity/',
+        views.api_check_owner_identity,
+        name='api_check_owner_identity',
+    ),
     path('<int:pk>/download-pdf/', views.download_pdf_view, name='download_pdf'),
     path('<int:pk>/view/', views.user_record_detail, name='user_detail'),
 ]

@@ -99,6 +99,40 @@
     background: rgba(127, 29, 29, .2);
     color: #fecaca;
   }
+  .qc-duplicate-owner-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 9px 11px;
+    border: 1px solid rgba(217, 119, 6, .25);
+    border-left: 3px solid #d97706;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: .78rem;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+  .qc-duplicate-owner-note[hidden] { display: none; }
+  .qc-duplicate-owner-note.is-blocking {
+    border-color: rgba(220, 38, 38, .22);
+    border-left-color: #dc2626;
+    background: #fff5f5;
+    color: #991b1b;
+  }
+  [data-theme='dark'] .qc-duplicate-owner-note {
+    border-color: rgba(251, 191, 36, .32);
+    border-left-color: #fbbf24;
+    background: rgba(120, 53, 15, .2);
+    color: #fde68a;
+  }
+  [data-theme='dark'] .qc-duplicate-owner-note.is-blocking {
+    border-color: rgba(248, 113, 113, .32);
+    border-left-color: #f87171;
+    background: rgba(127, 29, 29, .2);
+    color: #fecaca;
+  }
 
   .pet-manual-toggle-input {
     position: absolute;
@@ -817,7 +851,9 @@
           <div class="qc-group qc-full" id="qc-owner-name-group" style="display: none;">
             <label>Owner Name *</label>
             {{ quick_form.owner_name }}
+            <div class="qc-duplicate-owner-note" id="qc-duplicate-owner-note" role="status" aria-live="polite" hidden></div>
           </div>
+          <input type="hidden" name="selected_guest_owner" id="qc-selected-guest-owner" value="0">
           <div class="qc-group">
             <label>Phone *</label>
             {{ quick_form.owner_phone }}
@@ -1568,6 +1604,7 @@ const API_OWNERS_URL       = "{% url 'appointments:api_owners' %}";
 const API_PETS_URL         = "{% url 'appointments:api_pets' %}";
 const API_WALKIN_GUESTS    = "{% url 'appointments:api_walkin_guests' %}";
 const API_WALKIN_PET_URL   = "{% url 'appointments:api_walkin_guest_pets' %}";
+const API_OWNER_IDENTITY   = "{% url 'appointments:api_check_owner_identity' %}";
 
 const clientSourceSelect = document.getElementById('qc-client-source');
 const sourceHidden       = document.getElementById('qc-source-hidden');
@@ -1606,10 +1643,15 @@ const petSexField      = document.querySelector('[name="pet_sex"]');
 const petColorField    = document.querySelector('[name="pet_color"]');
 const selectedUserIdField = document.querySelector('[name="selected_user_id"]');
 const selectedPetIdField  = document.querySelector('[name="selected_pet_id"]');
+const duplicateOwnerNote = document.getElementById('qc-duplicate-owner-note');
+const selectedGuestOwnerField = document.getElementById('qc-selected-guest-owner');
+let ownerIdentityCheckTimer = null;
+let duplicateOwnerIdentity = false;
 
 function setPortalMode() {
   if (!ownerPortalGroup) return;
   sourceHidden.value = 'PORTAL';
+  if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
   ownerPortalGroup.style.display = '';
   if (ownerSearchInput) ownerSearchInput.required = true;
   ownerNameGroup.style.display = 'none';
@@ -1621,11 +1663,13 @@ function setPortalMode() {
   clearOwnerFields();
   clearPetFields();
   if (walkinManualToggle) walkinManualToggle.checked = false;
+  checkDuplicateGuestOwner();
 }
 
 function setWalkinMode() {
   if (!ownerPortalGroup) return;
   sourceHidden.value = 'WALKIN';
+  if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
   ownerPortalGroup.style.display = 'none';
   if (ownerSearchInput) {
     ownerSearchInput.required = false;
@@ -1642,6 +1686,7 @@ function setWalkinMode() {
   clearOwnerFields();
   clearPetFields();
   if (walkinManualToggle) walkinManualToggle.checked = false;
+  checkDuplicateGuestOwner();
 }
 
 function clearOwnerFields() {
@@ -1710,12 +1755,80 @@ if (ownerSelect) {
 if (walkinPetSelect) {
   walkinPetSelect.addEventListener('change', updateDuplicatePetNameNote);
 }
+function updateDuplicateOwnerNote(result) {
+  if (!duplicateOwnerNote) return;
+  duplicateOwnerIdentity = Boolean(result && result.identity_match);
+  const nameMatch = Boolean(result && result.name_match);
+  duplicateOwnerNote.hidden = !nameMatch;
+  duplicateOwnerNote.classList.toggle('is-blocking', duplicateOwnerIdentity);
+  if (ownerNameField) {
+    if (duplicateOwnerIdentity) ownerNameField.setAttribute('aria-invalid', 'true');
+    else ownerNameField.removeAttribute('aria-invalid');
+  }
+  if (nameMatch) {
+    duplicateOwnerNote.innerHTML = duplicateOwnerIdentity
+      ? "<i class='bx bx-error-circle' aria-hidden='true'></i><span>An owner with this name and contact information is already registered. Select the returning owner instead of creating a new guest.</span>"
+      : "<i class='bx bx-info-circle' aria-hidden='true'></i><span>An owner with this name may already exist. Confirm this is a different person before continuing; matching phone or email details will prevent duplicate registration.</span>";
+  } else {
+    duplicateOwnerNote.textContent = '';
+  }
+}
+
+function checkDuplicateGuestOwner() {
+  clearTimeout(ownerIdentityCheckTimer);
+  if (
+    !clientSourceSelect
+    || clientSourceSelect.value !== 'WALKIN'
+    || !walkinManualToggle
+    || !walkinManualToggle.checked
+    || !ownerNameField
+  ) {
+    updateDuplicateOwnerNote(null);
+    return;
+  }
+  const name = ownerNameField.value.trim();
+  const phone = ownerPhoneField ? ownerPhoneField.value.trim() : '';
+  const email = ownerEmailField ? ownerEmailField.value.trim() : '';
+  if (name.length < 2) {
+    updateDuplicateOwnerNote(null);
+    return;
+  }
+  ownerIdentityCheckTimer = setTimeout(() => {
+    const params = new URLSearchParams({name, phone, email});
+    fetch(API_OWNER_IDENTITY + '?' + params.toString(), {cache: 'no-store'})
+      .then(response => {
+        if (!response.ok) throw new Error('Owner identity check failed.');
+        return response.json();
+      })
+      .then(result => {
+        if (
+          name === ownerNameField.value.trim()
+          && phone === (ownerPhoneField ? ownerPhoneField.value.trim() : '')
+          && email === (ownerEmailField ? ownerEmailField.value.trim() : '')
+        ) {
+          updateDuplicateOwnerNote(result);
+        }
+      })
+      .catch(error => {
+        console.error('Unable to check existing owner details:', error);
+      });
+  }, 250);
+}
+
+if (ownerNameField) ownerNameField.addEventListener('input', checkDuplicateGuestOwner);
+if (ownerPhoneField) ownerPhoneField.addEventListener('input', checkDuplicateGuestOwner);
+if (ownerEmailField) ownerEmailField.addEventListener('input', checkDuplicateGuestOwner);
+if (walkinManualToggle) walkinManualToggle.addEventListener('change', function() {
+  if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
+  checkDuplicateGuestOwner();
+});
 const quickCreateForm = quickCreateModal?.querySelector('form');
 if (quickCreateForm) {
   quickCreateForm.addEventListener('submit', event => {
-    if (updateDuplicatePetNameNote()) {
+    if (updateDuplicatePetNameNote() || duplicateOwnerIdentity) {
       event.preventDefault();
-      petNameField?.focus();
+      if (duplicateOwnerIdentity) ownerNameField?.focus();
+      else petNameField?.focus();
     }
   });
 }
@@ -1998,6 +2111,8 @@ function selectWalkinGuest(g) {
 
   // Uncheck manual toggle since we selected a returning guest
   if (walkinManualToggle) walkinManualToggle.checked = false;
+  if (selectedGuestOwnerField) selectedGuestOwnerField.value = '1';
+  updateDuplicateOwnerNote(null);
 
   // Load pets for this guest
   loadWalkinGuestPets(g.name, g.phone);

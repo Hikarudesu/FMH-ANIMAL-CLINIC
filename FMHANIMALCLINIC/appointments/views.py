@@ -15,6 +15,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import User
+from accounts.owner_identity import check_existing_owner_identity
 from accounts.decorators import module_permission_required
 from accounts.rbac_constants import StaffRoles
 from branches.models import Branch
@@ -26,6 +27,7 @@ from .forms import (
     PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm,
     AppointmentEditForm, AppointmentCancellationForm,
     PORTAL_DUPLICATE_PET_NAME_ERROR, GUEST_DUPLICATE_PET_NAME_ERROR,
+    GUEST_DUPLICATE_OWNER_ERROR,
 )
 from .clinic_hours import CLINIC_CLOSE_TIME, CLINIC_OPEN_TIME
 from .services import AppointmentService
@@ -1798,6 +1800,11 @@ def admin_quick_create(request):
                     )
                 )
             )
+            duplicate_owner = bool(
+                not appointment
+                and form.errors.get('owner_name')
+                and str(form.errors['owner_name'][0]) == GUEST_DUPLICATE_OWNER_ERROR
+            )
             if appointment and followup:
                 source_appointment = followup.appointment
                 followup_pet = (
@@ -1878,8 +1885,13 @@ def admin_quick_create(request):
                 ),
             )
         else:
-            if duplicate_pet_name:
-                messages.error(request, form.errors['pet_name'][0])
+            if duplicate_pet_name or duplicate_owner:
+                error_message = (
+                    form.errors['pet_name'][0]
+                    if duplicate_pet_name
+                    else form.errors['owner_name'][0]
+                )
+                messages.error(request, error_message)
             else:
                 error_details = ' | '.join(
                     [f"{k}: {', '.join(v)}" for k, v in form.errors.items()]
@@ -1888,7 +1900,7 @@ def admin_quick_create(request):
                     request,
                     f'Invalid appointment data. Please check the form. Errors: {error_details}',
                 )
-            if duplicate_pet_name:
+            if duplicate_pet_name or duplicate_owner:
                 return redirect(
                     f"{reverse('appointments:admin_list')}#quickCreateModal"
                 )
@@ -2113,6 +2125,18 @@ def api_pet_owners(request):
             'address': owner.address or '',
         })
     return JsonResponse({'owners': data})
+
+
+@login_required
+@module_permission_required('appointments', 'CREATE')
+def api_check_owner_identity(request):
+    """Check for an existing owner without returning their identifying details."""
+    result = check_existing_owner_identity(
+        request.GET.get('name', ''),
+        request.GET.get('phone', ''),
+        request.GET.get('email', ''),
+    )
+    return JsonResponse(result)
 
 
 @login_required

@@ -229,6 +229,8 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertContains(response, 'petData.branch_id && !serviceBranchId')
         self.assertContains(response, 'name="selected_pet_id"')
         self.assertContains(response, 'This pet is already registered for this owner.')
+        self.assertContains(response, 'An owner with this name may already exist.')
+        self.assertContains(response, 'name="selected_guest_owner"')
         self.assertContains(response, "result.addEventListener('mousedown'")
 
     def test_create_rejects_duplicate_portal_pet_without_updating_owner_or_pet(self):
@@ -294,6 +296,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
             'rx': 'None',
             'action_required': ClinicalStatus.get_default().pk,
             'client_source': 'WALKIN',
+            'selected_guest_owner': '1',
             'owner_name': 'Guest Record Owner',
             'owner_contact': '09123456789',
             'owner_address': 'Guest address',
@@ -308,6 +311,71 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertContains(response, 'already registered for this guest owner')
         self.assertEqual(Pet.objects.filter(guest_owner_name='Guest Record Owner').count(), 1)
         self.assertEqual(MedicalRecord.objects.count(), 0)
+
+    def test_create_rejects_new_guest_when_owner_name_and_phone_match_portal_owner(self):
+        get_user_model().objects.create_user(
+            username='existing-owner-identity',
+            first_name='Taylor',
+            last_name='Owner',
+            email='taylor-owner@example.com',
+            phone_number='09123456789',
+        )
+
+        response = self.client.post(reverse('records:admin_create'), {
+            'vet': self.vet.pk,
+            'date_recorded': '2026-10-17',
+            'history_clinical_signs': 'Routine examination',
+            'treatment': 'Examination completed',
+            'rx': 'None',
+            'action_required': ClinicalStatus.get_default().pk,
+            'client_source': 'WALKIN',
+            'owner_name': 'Taylor Owner',
+            'owner_contact': '09123456789',
+            'owner_address': 'Guest address',
+            'pet_name': 'Poppy',
+            'pet_species': 'Dog',
+            'pet_sex': 'FEMALE',
+            'pet_color': 'Brown',
+            'branch': self.branch.pk,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'contact number is already registered')
+        self.assertFalse(Pet.objects.filter(name='Poppy').exists())
+        self.assertEqual(MedicalRecord.objects.count(), 0)
+
+    def test_new_guest_with_same_name_but_different_phone_can_be_registered(self):
+        get_user_model().objects.create_user(
+            username='same-name-different-client',
+            first_name='Taylor',
+            last_name='Owner',
+            email='taylor-owner@example.com',
+            phone_number='09123456789',
+        )
+
+        response = self.client.post(reverse('records:admin_create'), {
+            'vet': self.vet.pk,
+            'date_recorded': '2026-10-17',
+            'history_clinical_signs': 'Routine examination',
+            'treatment': 'Examination completed',
+            'rx': 'None',
+            'action_required': ClinicalStatus.get_default().pk,
+            'client_source': 'WALKIN',
+            'owner_name': 'Taylor Owner',
+            'owner_contact': '09987654321',
+            'owner_address': 'Different guest address',
+            'pet_name': 'Poppy',
+            'pet_species': 'Dog',
+            'pet_sex': 'FEMALE',
+            'pet_color': 'Brown',
+            'branch': self.branch.pk,
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Pet.objects.filter(
+            name='Poppy',
+            guest_owner_phone='09987654321',
+        ).exists())
 
     def test_add_visit_entry_defaults_to_logged_in_vet_and_clinic_over_record(self):
         previous_vet_user = get_user_model().objects.create_user(
