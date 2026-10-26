@@ -26,6 +26,35 @@ from .views import _get_pdf_styles, _pdf_link_callback
 from settings.forms import MedicalRecordsSettingsForm
 
 
+class MedicalRecordOwnerEmailDisplayTests(TestCase):
+    def test_portal_patient_displays_email_from_linked_account(self):
+        owner = get_user_model().objects.create_user(
+            username='record-email-owner',
+            email='portal-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        pet = Pet.objects.create(
+            owner=owner,
+            name='Portal Email Patient',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+
+        self.assertEqual(pet.owner_display_email, 'portal-owner@example.com')
+
+    def test_walkin_patient_displays_email_from_guest_contact_details(self):
+        pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Walk-in Owner',
+            guest_owner_email='walkin-owner@example.com',
+            name='Walk-in Email Patient',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+
+        self.assertEqual(pet.owner_display_email, 'walkin-owner@example.com')
+
+
 class ArchiveSoftDeleteTests(TestCase):
     def setUp(self):
         self.pet = Pet.objects.create(
