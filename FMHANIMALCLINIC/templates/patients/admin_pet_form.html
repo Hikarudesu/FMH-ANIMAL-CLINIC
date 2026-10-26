@@ -84,6 +84,11 @@
     line-height: 1.45;
   }
   .apf-field-help i { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+  .apf-identity-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: #475569; font-size: .78rem; line-height: 1.45; }
+  .apf-identity-note[hidden] { display: none; }
+  .apf-identity-note i { flex: 0 0 auto; margin-top: 1px; }
+  .apf-identity-note.is-blocking { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+  .apf-identity-note.is-advisory { border-color: #fde68a; background: #fffbeb; color: #92400e; }
 
   /* Link-to-account notice */
   .apf-link-notice {
@@ -676,7 +681,8 @@
     </div>
 
     <!-- Form Body -->
-    <form method="POST" class="apf-form-body" autocomplete="off" enctype="multipart/form-data" id="apfForm">
+    <form method="POST" class="apf-form-body" autocomplete="off" enctype="multipart/form-data" id="apfForm"
+          {% if pet and pet.source == 'WALKIN' %}data-owner-identity-url="{% url 'patients:api_check_walkin_owner_identity' %}" data-current-pet-id="{{ pet.pk }}"{% endif %}>
       {% csrf_token %}
 
       {% if form.non_field_errors %}
@@ -794,6 +800,9 @@
           <div class="apf-field {% if form.guest_owner_name.errors %}has-error{% endif %}">
             <label for="{{ form.guest_owner_name.id_for_label }}">Owner Name <span class="req">*</span></label>
             {{ form.guest_owner_name }}
+            {% if pet and pet.source == 'WALKIN' %}
+            <div class="apf-identity-note" id="guestOwnerNameMatchNote" role="status" aria-live="polite" hidden></div>
+            {% endif %}
             {% if form.guest_owner_name.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_name.errors.0 }}</span>{% endif %}
           </div>
           <div class="apf-field {% if form.guest_owner_phone.errors %}has-error{% endif %}">
@@ -804,6 +813,9 @@
           <div class="apf-field {% if form.guest_owner_email.errors %}has-error{% endif %}">
             <label for="{{ form.guest_owner_email.id_for_label }}">Email Address <span class="req">*</span></label>
             {{ form.guest_owner_email }}
+            {% if pet and pet.source == 'WALKIN' %}
+            <div class="apf-identity-note" id="guestOwnerEmailMatchNote" role="status" aria-live="polite" hidden></div>
+            {% endif %}
             {% if form.guest_owner_email.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_email.errors.0 }}</span>{% endif %}
           </div>
           <div class="apf-field {% if form.guest_owner_address.errors %}has-error{% endif %}">
@@ -1069,6 +1081,147 @@
       document.getElementById('{{ form.guest_owner_phone.id_for_label }}').required = initial === 'WALKIN';
       document.getElementById('{{ form.guest_owner_email.id_for_label }}').required = initial === 'WALKIN';
     }
+  })();
+
+  (function initWalkinOwnerIdentityCheck() {
+    const form = document.getElementById('apfForm');
+    const endpoint = form && form.dataset.ownerIdentityUrl;
+    const nameInput = document.getElementById('{{ form.guest_owner_name.id_for_label }}');
+    const emailInput = document.getElementById('{{ form.guest_owner_email.id_for_label }}');
+    const nameNote = document.getElementById('guestOwnerNameMatchNote');
+    const emailNote = document.getElementById('guestOwnerEmailMatchNote');
+    if (!endpoint || !nameInput || !emailInput || !nameNote || !emailNote) return;
+
+    let debounceTimer = null;
+    let requestSequence = 0;
+    let approvedSubmit = false;
+
+    function showNote(element, messages, blocking = false) {
+      element.replaceChildren();
+      element.hidden = messages.length === 0;
+      element.classList.toggle('is-blocking', blocking);
+      element.classList.toggle('is-advisory', !blocking && messages.length > 0);
+      messages.forEach(message => {
+        const icon = document.createElement('i');
+        icon.className = `bx ${blocking ? 'bx-error-circle' : 'bx-info-circle'}`;
+        icon.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('span');
+        text.textContent = message;
+        element.append(icon, text);
+      });
+    }
+
+    function clearNotes() {
+      showNote(nameNote, []);
+      showNote(emailNote, []);
+      emailInput.removeAttribute('aria-invalid');
+    }
+
+    function renderResult(result) {
+      const nameMessages = [];
+      if (result.registered_name_match) {
+        nameMessages.push(
+          'A registered portal owner uses this name. Verify the client’s identity before updating; a name match alone does not confirm ownership.'
+        );
+      }
+      if (result.guest_name_match) {
+        nameMessages.push(
+          'Another walk-in patient record uses this owner name. Confirm that these records belong to the same person before updating.'
+        );
+      }
+      showNote(nameNote, nameMessages);
+
+      const emailMessages = [];
+      if (result.registered_email_match) {
+        emailMessages.push(
+          'This email belongs to a registered portal account. Walk-in details cannot use it; enter another email or use the portal-owner transfer option.'
+        );
+        emailInput.setAttribute('aria-invalid', 'true');
+      } else {
+        emailInput.removeAttribute('aria-invalid');
+      }
+      if (result.guest_email_match) {
+        emailMessages.push(
+          'Another walk-in patient record uses this email. Verify that it belongs to the same guest before updating.'
+        );
+      }
+      showNote(emailNote, emailMessages, Boolean(result.registered_email_match));
+      return !result.registered_email_match;
+    }
+
+    async function checkIdentity() {
+      const sequence = ++requestSequence;
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+      if (name.length < 2 && !email) {
+        clearNotes();
+        return true;
+      }
+
+      showNote(nameNote, ['Checking for matching owner records…']);
+      showNote(emailNote, ['Checking for matching email addresses…']);
+      const params = new URLSearchParams({
+        name,
+        email,
+        exclude_pet_id: form.dataset.currentPetId || '',
+      });
+      try {
+        const response = await fetch(`${endpoint}?${params.toString()}`, {
+          cache: 'no-store',
+          headers: {'Accept': 'application/json'},
+        });
+        if (!response.ok) {
+          throw new Error('Owner identity check failed.');
+        }
+        const result = await response.json();
+        if (
+          sequence !== requestSequence
+          || name !== nameInput.value.trim()
+          || email !== emailInput.value.trim()
+        ) return false;
+        return renderResult(result);
+      } catch (error) {
+        if (sequence === requestSequence) {
+          showNote(nameNote, [
+            'Owner details could not be verified. Please wait and try again before saving.',
+          ], true);
+          showNote(emailNote, []);
+          console.error('Unable to verify walk-in owner details:', error);
+        }
+        return false;
+      }
+    }
+
+    function scheduleCheck() {
+      window.clearTimeout(debounceTimer);
+      requestSequence += 1;
+      clearNotes();
+      if (nameInput.value.trim().length < 2 && !emailInput.value.trim()) return;
+      showNote(nameNote, ['Checking for matching owner records…']);
+      debounceTimer = window.setTimeout(checkIdentity, 250);
+    }
+
+    nameInput.addEventListener('input', scheduleCheck);
+    emailInput.addEventListener('input', scheduleCheck);
+    scheduleCheck();
+
+    form.addEventListener('submit', async event => {
+      if (approvedSubmit) {
+        approvedSubmit = false;
+        return;
+      }
+      event.preventDefault();
+      window.clearTimeout(debounceTimer);
+      const submitter = event.submitter;
+      const canSubmit = await checkIdentity();
+      if (!canSubmit) {
+        emailInput.focus();
+        return;
+      }
+      approvedSubmit = true;
+      if (submitter) form.requestSubmit(submitter);
+      else form.requestSubmit();
+    });
   })();
 
   // Live photo preview

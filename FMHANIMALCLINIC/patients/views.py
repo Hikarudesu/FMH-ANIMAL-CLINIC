@@ -559,6 +559,75 @@ def api_transfer_owner_search(request):
     return _portal_owner_search_response(request)
 
 
+@login_required
+@module_permission_required('patients', 'EDIT')
+@require_GET
+def api_check_walkin_owner_identity(request):
+    """Check whether walk-in owner details match portal or guest records."""
+    from django.contrib.auth import get_user_model
+    from appointments.models import Appointment
+
+    owner_name = ' '.join(request.GET.get('name', '').split())
+    email = request.GET.get('email', '').strip()
+    registered_owners = get_user_model().objects.filter(
+        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True),
+        is_staff=False,
+        is_superuser=False,
+    )
+
+    registered_name_match = False
+    if owner_name:
+        name_parts = owner_name.split()
+        name_query = Q(username__iexact=owner_name)
+        if len(name_parts) == 1:
+            name_query |= (
+                Q(first_name__iexact=name_parts[0])
+                | Q(last_name__iexact=name_parts[0])
+            )
+        else:
+            name_query |= Q(
+                first_name__iexact=name_parts[0],
+                last_name__iexact=' '.join(name_parts[1:]),
+            )
+        registered_name_match = registered_owners.filter(name_query).exists()
+
+    guest_patients = Pet.objects.filter(source=Pet.Source.WALKIN)
+    exclude_pet_id = request.GET.get('exclude_pet_id', '').strip()
+    if exclude_pet_id.isdecimal():
+        guest_patients = guest_patients.exclude(pk=exclude_pet_id)
+    guest_appointments = Appointment.objects.filter(
+        source=Appointment.Source.WALKIN,
+    )
+    if exclude_pet_id.isdecimal():
+        guest_appointments = guest_appointments.exclude(pet_id=exclude_pet_id)
+
+    guest_name_match = bool(
+        owner_name
+        and (
+            guest_patients.filter(
+                guest_owner_name__iexact=owner_name,
+            ).exists()
+            or guest_appointments.filter(owner_name__iexact=owner_name).exists()
+        )
+    )
+    guest_email_match = bool(
+        email
+        and (
+            guest_patients.filter(guest_owner_email__iexact=email).exists()
+            or guest_appointments.filter(owner_email__iexact=email).exists()
+        )
+    )
+
+    return JsonResponse({
+        'registered_name_match': registered_name_match,
+        'guest_name_match': guest_name_match,
+        'registered_email_match': bool(
+            email and registered_owners.filter(email__iexact=email).exists()
+        ),
+        'guest_email_match': guest_email_match,
+    })
+
+
 def _portal_owner_search_response(request):
     from django.contrib.auth import get_user_model
 

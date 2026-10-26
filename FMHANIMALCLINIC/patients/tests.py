@@ -81,6 +81,24 @@ class AdminPetWalkInContactTests(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
 
+    def test_editing_walkin_patient_allows_email_already_used_by_another_guest(self):
+        pet = AdminPetForm(data=self.form_data).save()
+        other_pet_data = self.form_data.copy()
+        other_pet_data.update({
+            'guest_owner_name': 'Another Guest',
+            'name': 'Luna',
+        })
+        AdminPetForm(data=other_pet_data).save()
+        edit_data = self.form_data.copy()
+        edit_data.update({
+            'guest_owner_name': 'Updated Guest Name',
+            'guest_owner_email': 'OWNER@example.com',
+        })
+
+        form = AdminPetForm(data=edit_data, instance=pet)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
     def test_editing_walkin_patient_rejects_matching_another_patient_record(self):
         pet = AdminPetForm(data=self.form_data).save()
         other_pet_data = self.form_data.copy()
@@ -96,12 +114,12 @@ class AdminPetWalkInContactTests(TestCase):
         self.assertIn('same owner details', form.errors['name'][0])
 
     def test_walkin_account_creation_rejects_existing_email_during_edit(self):
+        pet = AdminPetForm(data=self.form_data).save()
         get_user_model().objects.create_user(
             username='existing-walkin-email',
             email='owner@example.com',
             password='A-secure-test-password-923!',
         )
-        pet = AdminPetForm(data=self.form_data).save()
         form_data = self.form_data.copy()
         form_data['create_new_account'] = 'on'
 
@@ -110,6 +128,24 @@ class AdminPetWalkInContactTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('guest_owner_email', form.errors)
         self.assertIn('already linked to a portal account', form.errors['guest_owner_email'][0])
+
+    def test_walkin_edit_rejects_email_used_by_registered_portal_account(self):
+        get_user_model().objects.create_user(
+            username='registered-walkin-conflict',
+            first_name='Portal',
+            last_name='Owner',
+            email='portal-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        pet = AdminPetForm(data=self.form_data).save()
+        form_data = self.form_data.copy()
+        form_data['guest_owner_email'] = 'PORTAL-OWNER@example.com'
+
+        form = AdminPetForm(data=form_data, instance=pet)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('guest_owner_email', form.errors)
+        self.assertIn('registered user', form.errors['guest_owner_email'][0])
 
     def test_inactive_pet_requires_reason(self):
         form_data = self.form_data.copy()
@@ -130,6 +166,87 @@ class AdminPetWalkInContactTests(TestCase):
         pet = form.save()
         self.assertFalse(pet.is_active)
         self.assertEqual(pet.inactive_reason, form_data['inactive_reason'])
+
+
+@override_settings(STORAGES={
+    **settings.STORAGES,
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+})
+class WalkInOwnerIdentityApiTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username='walkin-identity-admin',
+            email='walkin-identity-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.current_pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Current Guest',
+            guest_owner_email='current-guest@example.com',
+            name='Current Guest Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Returning Guest',
+            guest_owner_email='returning-guest@example.com',
+            name='Returning Guest Pet',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        self.portal_owner = get_user_model().objects.create_user(
+            username='walkin-identity-portal-owner',
+            first_name='Portal',
+            last_name='Owner',
+            email='portal-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(self.admin)
+
+    def test_live_check_distinguishes_portal_and_guest_owner_matches(self):
+        response = self.client.get(
+            reverse('patients:api_check_walkin_owner_identity'),
+            {
+                'name': 'Returning Guest',
+                'email': 'PORTAL-OWNER@example.com',
+                'exclude_pet_id': self.current_pet.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            'registered_name_match': False,
+            'guest_name_match': True,
+            'registered_email_match': True,
+            'guest_email_match': False,
+        })
+
+    def test_live_check_excludes_the_pet_being_edited_from_guest_matches(self):
+        response = self.client.get(
+            reverse('patients:api_check_walkin_owner_identity'),
+            {
+                'name': 'Current Guest',
+                'email': 'current-guest@example.com',
+                'exclude_pet_id': self.current_pet.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['guest_name_match'])
+        self.assertFalse(response.json()['guest_email_match'])
+
+    def test_walkin_pet_edit_renders_live_identity_notes(self):
+        response = self.client.get(
+            reverse('patients:admin_edit_pet', args=[self.current_pet.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-owner-identity-url=')
+        self.assertContains(response, 'guestOwnerNameMatchNote')
+        self.assertContains(response, 'guestOwnerEmailMatchNote')
 
 
 @override_settings(STORAGES={
