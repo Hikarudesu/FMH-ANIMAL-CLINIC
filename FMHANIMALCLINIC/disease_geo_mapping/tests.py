@@ -1,6 +1,8 @@
 from datetime import date, timedelta
 
+from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
 
 from branches.models import Branch
 from disease_geo_mapping.services import summarize_branch_disease_trends
@@ -147,3 +149,57 @@ class DiseaseVisitAggregationTests(TestCase):
         self.assertEqual(result['total_cases'], 3)
         self.assertEqual(len(result['disease_counts']), 1)
         self.assertEqual(result['disease_counts'][0]['value'], 2)
+
+
+class DiseaseDashboardViewTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(
+            name='Disease Dashboard Test Branch',
+            phone_number='09123456789',
+            address='1 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1000',
+        )
+        admin = get_user_model().objects.create_superuser(
+            username='disease-dashboard-admin',
+            email='disease-dashboard-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(admin)
+
+    def test_superadmin_dashboard_loads_with_default_and_disease_filters(self):
+        visit_date = date.today()
+        for index in range(2):
+            pet = Pet.objects.create(
+                name=f'Disease Dashboard Pet {index}',
+                species='Dog',
+                sex=Pet.Sex.MALE,
+                branch=self.branch,
+            )
+            record = MedicalRecord.objects.create(
+                pet=pet,
+                branch=self.branch,
+                date_recorded=visit_date,
+            )
+            RecordEntry.objects.create(
+                record=record,
+                date_recorded=visit_date,
+                history_clinical_signs='Pneumonia with persistent cough',
+            )
+
+        url = reverse('disease_geo_mapping:dashboard')
+
+        default_response = self.client.get(url)
+        filtered_response = self.client.get(url, {
+            'branch': self.branch.pk,
+            'disease_type': 'Respiratory',
+        })
+
+        self.assertEqual(default_response.status_code, 200)
+        self.assertEqual(filtered_response.status_code, 200)
+        self.assertEqual(
+            filtered_response.context['selected_disease_type'],
+            'Respiratory',
+        )
+        self.assertContains(filtered_response, 'Pneumonia')
