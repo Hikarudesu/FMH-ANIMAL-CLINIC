@@ -1087,7 +1087,9 @@
     const form = document.getElementById('apfForm');
     const endpoint = form && form.dataset.ownerIdentityUrl;
     const nameInput = document.getElementById('{{ form.guest_owner_name.id_for_label }}');
+    const phoneInput = document.getElementById('{{ form.guest_owner_phone.id_for_label }}');
     const emailInput = document.getElementById('{{ form.guest_owner_email.id_for_label }}');
+    const addressInput = document.getElementById('{{ form.guest_owner_address.id_for_label }}');
     const nameNote = document.getElementById('guestOwnerNameMatchNote');
     const emailNote = document.getElementById('guestOwnerEmailMatchNote');
     if (!endpoint || !nameInput || !emailInput || !nameNote || !emailNote) return;
@@ -1121,12 +1123,12 @@
       const nameMessages = [];
       if (result.registered_name_match) {
         nameMessages.push(
-          'A registered portal owner uses this name. Verify the client’s identity before updating; a name match alone does not confirm ownership.'
+          'A registered portal owner has this name but different contact details. Verify the owner’s identity before updating.'
         );
       }
       if (result.guest_name_match) {
         nameMessages.push(
-          'Another walk-in patient record uses this owner name. Confirm that these records belong to the same person before updating.'
+          'A walk-in record has this name but different contact details. Confirm the owner’s identity before updating.'
         );
       }
       showNote(nameNote, nameMessages);
@@ -1142,7 +1144,7 @@
       }
       if (result.guest_email_match) {
         emailMessages.push(
-          'Another walk-in patient record uses this email. Verify that it belongs to the same guest before updating.'
+          'A walk-in record has this email but different owner details. Verify that this email belongs to the guest before updating.'
         );
       }
       showNote(emailNote, emailMessages, Boolean(result.registered_email_match));
@@ -1152,7 +1154,9 @@
     async function checkIdentity() {
       const sequence = ++requestSequence;
       const name = nameInput.value.trim();
+      const phone = phoneInput ? phoneInput.value.trim() : '';
       const email = emailInput.value.trim();
+      const address = addressInput ? addressInput.value.trim() : '';
       if (name.length < 2 && !email) {
         clearNotes();
         return true;
@@ -1162,7 +1166,9 @@
       showNote(emailNote, ['Checking for matching email addresses…']);
       const params = new URLSearchParams({
         name,
+        phone,
         email,
+        address,
         exclude_pet_id: form.dataset.currentPetId || '',
       });
       try {
@@ -1177,7 +1183,9 @@
         if (
           sequence !== requestSequence
           || name !== nameInput.value.trim()
+          || phone !== (phoneInput ? phoneInput.value.trim() : '')
           || email !== emailInput.value.trim()
+          || address !== (addressInput ? addressInput.value.trim() : '')
         ) return false;
         return renderResult(result);
       } catch (error) {
@@ -1202,7 +1210,9 @@
     }
 
     nameInput.addEventListener('input', scheduleCheck);
+    if (phoneInput) phoneInput.addEventListener('input', scheduleCheck);
     emailInput.addEventListener('input', scheduleCheck);
+    if (addressInput) addressInput.addEventListener('input', scheduleCheck);
     scheduleCheck();
 
     form.addEventListener('submit', async event => {

@@ -184,7 +184,9 @@ class WalkInOwnerIdentityApiTests(TestCase):
         self.current_pet = Pet.objects.create(
             source=Pet.Source.WALKIN,
             guest_owner_name='Current Guest',
+            guest_owner_phone='09123456789',
             guest_owner_email='current-guest@example.com',
+            guest_owner_address='Current Guest Address',
             name='Current Guest Pet',
             species='Dog',
             sex=Pet.Sex.MALE,
@@ -192,7 +194,9 @@ class WalkInOwnerIdentityApiTests(TestCase):
         Pet.objects.create(
             source=Pet.Source.WALKIN,
             guest_owner_name='Returning Guest',
+            guest_owner_phone='09987654321',
             guest_owner_email='returning-guest@example.com',
+            guest_owner_address='Returning Guest Address',
             name='Returning Guest Pet',
             species='Cat',
             sex=Pet.Sex.FEMALE,
@@ -211,7 +215,9 @@ class WalkInOwnerIdentityApiTests(TestCase):
             reverse('patients:api_check_walkin_owner_identity'),
             {
                 'name': 'Returning Guest',
+                'phone': '09111111111',
                 'email': 'PORTAL-OWNER@example.com',
+                'address': 'Different Address',
                 'exclude_pet_id': self.current_pet.pk,
             },
         )
@@ -237,6 +243,37 @@ class WalkInOwnerIdentityApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.json()['guest_name_match'])
         self.assertFalse(response.json()['guest_email_match'])
+
+    def test_live_check_suppresses_name_and_email_notes_when_details_match(self):
+        response = self.client.get(
+            reverse('patients:api_check_walkin_owner_identity'),
+            {
+                'name': 'Returning Guest',
+                'phone': '099-876-54321',
+                'email': 'RETURNING-GUEST@example.com',
+                'address': '  Returning   Guest Address ',
+                'exclude_pet_id': self.current_pet.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['guest_name_match'])
+        self.assertFalse(response.json()['guest_email_match'])
+
+    def test_live_check_flags_matching_email_with_different_owner_details(self):
+        response = self.client.get(
+            reverse('patients:api_check_walkin_owner_identity'),
+            {
+                'name': 'Someone Else',
+                'phone': '09111111111',
+                'email': 'returning-guest@example.com',
+                'address': 'Different Address',
+                'exclude_pet_id': self.current_pet.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['guest_email_match'])
 
     def test_walkin_pet_edit_renders_live_identity_notes(self):
         response = self.client.get(

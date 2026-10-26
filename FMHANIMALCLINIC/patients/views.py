@@ -563,19 +563,45 @@ def api_transfer_owner_search(request):
 @module_permission_required('patients', 'EDIT')
 @require_GET
 def api_check_walkin_owner_identity(request):
-    """Check whether walk-in owner details match portal or guest records."""
+    """Flag owner names/emails that match records with conflicting details."""
     from django.contrib.auth import get_user_model
     from appointments.models import Appointment
 
     owner_name = ' '.join(request.GET.get('name', '').split())
     email = request.GET.get('email', '').strip()
+    phone = request.GET.get('phone', '').strip()
+    address = ' '.join(request.GET.get('address', '').split())
+
+    def normalize_phone(value):
+        return ''.join(character for character in (value or '') if character.isdigit())
+
+    def details_differ(existing, current, fields):
+        for field in fields:
+            existing_value = existing.get(field, '') or ''
+            current_value = current.get(field, '') or ''
+            if field == 'phone':
+                existing_value = normalize_phone(existing_value)
+                current_value = normalize_phone(current_value)
+            else:
+                existing_value = ' '.join(existing_value.split()).casefold()
+                current_value = ' '.join(current_value.split()).casefold()
+            if existing_value != current_value:
+                return True
+        return False
+
+    current_details = {
+        'name': owner_name,
+        'phone': phone,
+        'email': email,
+        'address': address,
+    }
     registered_owners = get_user_model().objects.filter(
         Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True),
         is_staff=False,
         is_superuser=False,
     )
 
-    registered_name_match = False
+    name_query = Q()
     if owner_name:
         name_parts = owner_name.split()
         name_query = Q(username__iexact=owner_name)
@@ -589,7 +615,6 @@ def api_check_walkin_owner_identity(request):
                 first_name__iexact=name_parts[0],
                 last_name__iexact=' '.join(name_parts[1:]),
             )
-        registered_name_match = registered_owners.filter(name_query).exists()
 
     guest_patients = Pet.objects.filter(source=Pet.Source.WALKIN)
     exclude_pet_id = request.GET.get('exclude_pet_id', '').strip()
@@ -601,30 +626,85 @@ def api_check_walkin_owner_identity(request):
     if exclude_pet_id.isdecimal():
         guest_appointments = guest_appointments.exclude(pet_id=exclude_pet_id)
 
-    guest_name_match = bool(
-        owner_name
-        and (
-            guest_patients.filter(
-                guest_owner_name__iexact=owner_name,
-            ).exists()
-            or guest_appointments.filter(owner_name__iexact=owner_name).exists()
+    registered_name_conflict = False
+    guest_name_conflict = False
+    if owner_name:
+        portal_candidates = registered_owners.filter(name_query).values(
+            'first_name', 'last_name', 'username', 'phone_number', 'email', 'address',
         )
-    )
-    guest_email_match = bool(
-        email
-        and (
-            guest_patients.filter(guest_owner_email__iexact=email).exists()
-            or guest_appointments.filter(owner_email__iexact=email).exists()
-        )
-    )
+        for owner in portal_candidates:
+            candidate = {
+                'phone': owner['phone_number'],
+                'email': owner['email'],
+                'address': owner['address'],
+            }
+            if details_differ(
+                candidate,
+                current_details,
+                ('phone', 'email', 'address'),
+            ):
+                registered_name_conflict = True
+                break
+
+        guest_name_candidates = guest_patients.filter(
+            guest_owner_name__iexact=owner_name,
+        ).values('guest_owner_phone', 'guest_owner_email', 'guest_owner_address')
+        for guest in guest_name_candidates:
+            candidate = {
+                'phone': guest['guest_owner_phone'],
+                'email': guest['guest_owner_email'],
+                'address': guest['guest_owner_address'],
+            }
+            if details_differ(candidate, current_details, ('phone', 'email', 'address')):
+                guest_name_conflict = True
+                break
+        if not guest_name_conflict:
+            for guest in guest_appointments.filter(owner_name__iexact=owner_name).values(
+                'owner_phone', 'owner_email', 'owner_address',
+            ):
+                candidate = {
+                    'phone': guest['owner_phone'],
+                    'email': guest['owner_email'],
+                    'address': guest['owner_address'],
+                }
+                if details_differ(candidate, current_details, ('phone', 'email', 'address')):
+                    guest_name_conflict = True
+                    break
+
+    conflicting_email_details = False
+    if email:
+        guest_email_candidates = guest_patients.filter(
+            guest_owner_email__iexact=email,
+        ).values('guest_owner_name', 'guest_owner_phone', 'guest_owner_address')
+        for guest in guest_email_candidates:
+            candidate = {
+                'name': guest['guest_owner_name'],
+                'phone': guest['guest_owner_phone'],
+                'address': guest['guest_owner_address'],
+            }
+            if details_differ(candidate, current_details, ('name', 'phone', 'address')):
+                conflicting_email_details = True
+                break
+        if not conflicting_email_details:
+            for guest in guest_appointments.filter(owner_email__iexact=email).values(
+                'owner_name', 'owner_phone', 'owner_address',
+            ):
+                candidate = {
+                    'name': guest['owner_name'],
+                    'phone': guest['owner_phone'],
+                    'address': guest['owner_address'],
+                }
+                if details_differ(candidate, current_details, ('name', 'phone', 'address')):
+                    conflicting_email_details = True
+                    break
 
     return JsonResponse({
-        'registered_name_match': registered_name_match,
-        'guest_name_match': guest_name_match,
+        'registered_name_match': registered_name_conflict,
+        'guest_name_match': guest_name_conflict,
         'registered_email_match': bool(
             email and registered_owners.filter(email__iexact=email).exists()
         ),
-        'guest_email_match': guest_email_match,
+        'guest_email_match': conflicting_email_details,
     })
 
 
