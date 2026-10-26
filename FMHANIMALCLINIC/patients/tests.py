@@ -132,6 +132,117 @@ class AdminPetWalkInContactTests(TestCase):
         self.assertEqual(pet.inactive_reason, form_data['inactive_reason'])
 
 
+@override_settings(STORAGES={
+    **settings.STORAGES,
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+})
+class RegisteredOwnerPetEditTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username='registered-owner-edit-admin',
+            email='registered-owner-edit-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.current_owner = get_user_model().objects.create_user(
+            username='current-pet-owner',
+            first_name='Current',
+            last_name='Owner',
+            email='current-owner@example.com',
+            phone_number='09123456789',
+            address='Current owner address',
+            password='A-secure-test-password-923!',
+        )
+        self.correct_owner = get_user_model().objects.create_user(
+            username='correct-pet-owner',
+            first_name='Correct',
+            last_name='Owner',
+            email='correct-owner@example.com',
+            phone_number='09987654321',
+            address='Correct owner address',
+            password='A-secure-test-password-923!',
+        )
+        self.pet = Pet.objects.create(
+            owner=self.current_owner,
+            source=Pet.Source.PORTAL,
+            name='Registered Owner Edit Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+            color='Brown',
+        )
+        self.record = MedicalRecord.objects.create(
+            pet=self.pet,
+            date_recorded='2026-10-27',
+        )
+        self.client.force_login(self.admin)
+
+    def test_portal_pet_edit_shows_read_only_owner_details_and_search_picker(self):
+        response = self.client.get(
+            reverse('patients:admin_edit_pet', args=[self.pet.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Search by name, phone, or email to correct the owner')
+        self.assertContains(response, 'Current owner address')
+        self.assertContains(response, 'current-owner@example.com')
+        self.assertContains(response, 'data-confirm-owner-change="true"')
+        self.assertContains(response, 'id="ownerChangeDialog"')
+        self.assertNotRegex(
+            response.content.decode(),
+            r'<select[^>]+name="owner"',
+        )
+        self.assertTrue(response.context['form'].fields['owner'].required)
+        self.assertEqual(
+            response.context['form'].fields['owner'].widget.__class__.__name__,
+            'HiddenInput',
+        )
+
+    def test_portal_pet_edit_can_correct_owner_without_changing_owner_profile_or_history(self):
+        response = self.client.post(
+            reverse('patients:admin_edit_pet', args=[self.pet.pk]),
+            {
+                'source': Pet.Source.PORTAL,
+                'owner': self.correct_owner.pk,
+                'name': self.pet.name,
+                'species': self.pet.species,
+                'sex': self.pet.sex,
+                'color': self.pet.color,
+                'is_active': 'on',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.pet.refresh_from_db()
+        self.current_owner.refresh_from_db()
+        self.correct_owner.refresh_from_db()
+        self.record.refresh_from_db()
+        self.assertEqual(self.pet.owner_id, self.correct_owner.pk)
+        self.assertEqual(self.current_owner.email, 'current-owner@example.com')
+        self.assertEqual(self.correct_owner.email, 'correct-owner@example.com')
+        self.assertEqual(self.record.pet_id, self.pet.pk)
+
+    def test_portal_pet_edit_requires_a_registered_owner(self):
+        from .forms import AdminPetForm
+
+        form = AdminPetForm(
+            data={
+                'source': Pet.Source.PORTAL,
+                'owner': '',
+                'name': self.pet.name,
+                'species': self.pet.species,
+                'sex': self.pet.sex,
+                'color': self.pet.color,
+                'is_active': 'on',
+            },
+            instance=self.pet,
+            user=self.admin,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('owner', form.errors)
+
+
 class PetInactiveReasonFormTests(TestCase):
     def test_portal_form_requires_reason_when_pet_is_inactive(self):
         form = PetForm(data={
@@ -286,6 +397,7 @@ class PortalOwnerSearchTests(TestCase):
             phone_number='09123456789',
             first_name='Portal',
             last_name='Owner',
+            address='Portal owner address',
             password='A-secure-test-password-924!',
         )
         client = Client()
@@ -299,6 +411,7 @@ class PortalOwnerSearchTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['owners'][0]['id'], owner.pk)
         self.assertEqual(response.json()['owners'][0]['phone'], '09123456789')
+        self.assertEqual(response.json()['owners'][0]['address'], 'Portal owner address')
 
     def test_transfer_owner_search_is_available_to_patient_editors(self):
         admin = get_user_model().objects.create_superuser(

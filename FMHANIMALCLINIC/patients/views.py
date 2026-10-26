@@ -600,6 +600,7 @@ def _portal_owner_search_response(request):
         'username': owner.username,
         'email': owner.email or '',
         'phone': owner.phone_number or '',
+        'address': owner.address or '',
     } for owner in matches[:25]]
     return JsonResponse({'owners': data, 'has_more': len(matches) > 25})
 
@@ -816,11 +817,15 @@ def admin_edit_pet_view(request, pk):
 
     # Expose the can_transfer flag to the template
     can_transfer = getattr(form, '_can_transfer', False)
+    selected_owner = (
+        form.cleaned_data.get('owner') if form.is_bound else pet.owner
+    ) or pet.owner
 
     return render(request, 'patients/admin_pet_form.html', {
         'form': form,
         'action': 'Update',
         'pet': pet,
+        'selected_owner': selected_owner,
         'created_credentials': created_credentials,
         'can_transfer': can_transfer,
     })
