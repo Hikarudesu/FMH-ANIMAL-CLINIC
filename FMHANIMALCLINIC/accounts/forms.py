@@ -219,8 +219,28 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
     def clean_phone_number(self):
         return validate_philippines_phone(self.cleaned_data.get('phone_number', ''))
 
+    def clean(self):
+        cleaned_data = super().clean()
+        first_name = cleaned_data.get('first_name', '').strip()
+        last_name = cleaned_data.get('last_name', '').strip()
+
+        if (
+            first_name
+            and last_name
+            and User.objects.filter(
+                first_name__iexact=first_name,
+                last_name__iexact=last_name,
+            ).exclude(pk=self.instance.pk).exists()
+        ):
+            self.add_error(
+                'first_name',
+                'A user with this first and last name already exists.',
+            )
+
+        return cleaned_data
+
     def clean_email(self):
-        """Ensure the email address is not the username."""
+        """Ensure the email address is unique and is not the username."""
         email = self.cleaned_data.get('email')
         username = self.cleaned_data.get('username') or self.instance.username
         if email and username and email.casefold() == username.casefold():

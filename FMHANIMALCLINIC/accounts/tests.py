@@ -2249,6 +2249,65 @@ class RegistrationEmailVerificationTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('email', form.errors)
 
+    def test_profile_rejects_duplicate_first_and_last_names_case_insensitively(self):
+        user_model = get_user_model()
+        user_model.objects.create_user(
+            username='existing-name-owner',
+            email='existing-name-owner@example.com',
+            first_name='Jamie',
+            last_name='Smith',
+            password='A-secure-test-password-923!',
+        )
+        editing_user = user_model.objects.create_user(
+            username='editing-name-owner',
+            email='editing-name-owner@example.com',
+            first_name='Taylor',
+            last_name='Jones',
+            password='A-secure-test-password-923!',
+        )
+        from .forms import UserProfileUpdateForm
+
+        form = UserProfileUpdateForm(
+            data={
+                'username': editing_user.username,
+                'first_name': ' jamie ',
+                'last_name': 'SMITH',
+                'email': editing_user.email,
+                'phone_number': '09123456789',
+                'address': '',
+            },
+            instance=editing_user,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('first_name', form.errors)
+        self.assertIn('already exists', form.errors['first_name'][0])
+
+    def test_profile_allows_unchanged_name_and_email_for_current_user(self):
+        user = get_user_model().objects.create_user(
+            username='unchanged-profile-owner',
+            email='unchanged-profile-owner@example.com',
+            first_name='Casey',
+            last_name='Brown',
+            phone_number='09123456789',
+            password='A-secure-test-password-923!',
+        )
+        from .forms import UserProfileUpdateForm
+
+        form = UserProfileUpdateForm(
+            data={
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'phone_number': user.phone_number,
+                'address': user.address,
+            },
+            instance=user,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
     def test_pet_owner_profile_does_not_expose_branch_editing(self):
         branch = Branch.objects.create(
             name='Profile Locked Branch',
