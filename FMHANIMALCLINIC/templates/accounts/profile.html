@@ -525,7 +525,7 @@
             {% if form.last_name.errors %}<small class="field-error">{{ form.last_name.errors.as_text }}</small>{% endif %}
             <small class="profile-duplicate-note" data-duplicate-note="name" role="status" hidden>
               <i class='bx bx-info-circle' aria-hidden="true"></i>
-              <span>Another account already uses this first and last name.</span>
+              <span>Another account has the same first and last name. This may be a different person; verify the spelling. You can still save your profile.</span>
             </small>
           </div>
           <div class="floating-field">
@@ -533,12 +533,12 @@
             {{ form.email }}
             <label for="{{ form.email.id_for_label }}">Email <span aria-hidden="true">*</span></label>
             {% if form.email.errors %}<small class="field-error">{{ form.email.errors.as_text }}</small>{% endif %}
-            <small class="profile-duplicate-note" data-duplicate-note="email" role="status" hidden>
-              <i class='bx bx-info-circle' aria-hidden="true"></i>
-              <span>This email address is already linked to another account.</span>
+            <small class="profile-duplicate-note is-blocking" data-duplicate-note="email" role="status" hidden>
+              <i class='bx bx-error-circle' aria-hidden="true"></i>
+              <span>This email address is already in use. Enter a different email address to save your profile.</span>
             </small>
             <small class="profile-duplicate-check-error" data-duplicate-check-error role="status" hidden>
-              Unable to check for existing details right now. They will still be checked when you save.
+              Unable to check for existing details right now. Your profile will still be validated when you save.
             </small>
           </div>
           <div class="floating-field">

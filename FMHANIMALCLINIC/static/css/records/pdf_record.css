@@ -76,11 +76,11 @@ body {
     table-layout: fixed;
 }
 
-.owner-info-table .label {
+.owner-info-table .owner-label-column {
     width: 18%;
 }
 
-.owner-info-table .value {
+.owner-info-table .owner-value-column {
     width: 82%;
 }
 

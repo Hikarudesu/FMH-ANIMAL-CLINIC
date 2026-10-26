@@ -248,13 +248,11 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
             last_name=cleaned_data.get('last_name', ''),
             email=cleaned_data.get('email', ''),
         )
-        if conflicts['name_exists']:
-            self.add_error(
-                'first_name',
-                'A user with this first and last name already exists.',
-            )
         if conflicts['email_exists']:
-            self.add_error('email', 'A user with this email already exists.')
+            self.add_error(
+                'email',
+                'This email address is already in use. Enter a different email address to save your profile.',
+            )
 
         return cleaned_data
 

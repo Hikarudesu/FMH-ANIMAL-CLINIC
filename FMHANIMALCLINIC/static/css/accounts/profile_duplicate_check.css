@@ -33,3 +33,11 @@
 [data-theme="dark"] .profile-duplicate-note {
   color: #fbbf24;
 }
+
+.profile-duplicate-note.is-blocking {
+  color: #b91c1c;
+}
+
+[data-theme="dark"] .profile-duplicate-note.is-blocking {
+  color: #fca5a5;
+}

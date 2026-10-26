@@ -2323,7 +2323,7 @@ class RegistrationEmailVerificationTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
 
-    def test_profile_rejects_duplicate_first_and_last_names_case_insensitively(self):
+    def test_profile_warns_but_allows_duplicate_first_and_last_names(self):
         user_model = get_user_model()
         staff_role, _ = Role.objects.get_or_create(
             code='veterinarian',
@@ -2362,9 +2362,37 @@ class RegistrationEmailVerificationTests(TestCase):
             instance=editing_user,
         )
 
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_profile_rejects_duplicate_email_with_actionable_message(self):
+        user_model = get_user_model()
+        existing_user = user_model.objects.create_user(
+            username='existing-profile-email-owner',
+            email='in-use-profile-email@example.com',
+            password='A-secure-test-password-923!',
+        )
+        editing_user = user_model.objects.create_user(
+            username='editing-profile-email-owner',
+            email='editing-profile-email@example.com',
+            password='A-secure-test-password-923!',
+        )
+        from .forms import UserProfileUpdateForm
+
+        form = UserProfileUpdateForm(
+            data={
+                'username': editing_user.username,
+                'first_name': 'Taylor',
+                'last_name': 'Jones',
+                'email': existing_user.email.upper(),
+                'phone_number': '09123456789',
+                'address': '',
+            },
+            instance=editing_user,
+        )
+
         self.assertFalse(form.is_valid())
-        self.assertIn('first_name', form.errors)
-        self.assertIn('already exists', form.errors['first_name'][0])
+        self.assertIn('email', form.errors)
+        self.assertIn('different email address to save', form.errors['email'][0])
 
     def test_profile_allows_unchanged_name_and_email_for_current_user(self):
         user = get_user_model().objects.create_user(
