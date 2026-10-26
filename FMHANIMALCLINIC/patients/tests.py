@@ -235,6 +235,30 @@ class PortalOwnerSearchTests(TestCase):
         self.assertEqual(response.json()['owners'][0]['id'], owner.pk)
         self.assertEqual(response.json()['owners'][0]['phone'], '09123456789')
 
+    def test_transfer_owner_search_is_available_to_patient_editors(self):
+        admin = get_user_model().objects.create_superuser(
+            username='transfer-search-admin',
+            email='transfer-search-admin@example.com',
+            password='A-secure-test-password-927!',
+        )
+        owner = get_user_model().objects.create_user(
+            username='transfersearchowner',
+            email='transfer-owner@example.com',
+            first_name='Transfer',
+            last_name='Owner',
+            password='A-secure-test-password-928!',
+        )
+        client = Client()
+        client.force_login(admin)
+
+        response = client.get(
+            reverse('patients:api_transfer_owner_search'),
+            {'q': 'Transfer Owner'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['owners'][0]['id'], owner.pk)
+
 
 class BranchRestrictedPatientListTests(TestCase):
     def setUp(self):

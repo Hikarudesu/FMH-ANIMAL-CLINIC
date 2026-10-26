@@ -12,6 +12,11 @@ urlpatterns = [
     path('admin/add/', views.admin_add_pet_view, name='admin_add_pet'),
     path('admin/api/patient-search/', views.api_patient_search, name='api_patient_search'),
     path('admin/api/owner-search/', views.api_owner_search, name='api_owner_search'),
+    path(
+        'admin/api/transfer-owner-search/',
+        views.api_transfer_owner_search,
+        name='api_transfer_owner_search',
+    ),
     path('admin/<int:pk>/', views.admin_detail_view, name='admin_detail'),
     path('admin/<int:pk>/edit/', views.admin_edit_pet_view, name='admin_edit_pet'),
     path('admin/<int:pk>/delete/', views.admin_delete_pet_view, name='admin_delete_pet'),

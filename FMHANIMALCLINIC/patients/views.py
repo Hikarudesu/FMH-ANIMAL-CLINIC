@@ -548,6 +548,18 @@ def admin_add_pet_view(request):
 @require_GET
 def api_owner_search(request):
     """Search eligible portal owners without sending the full account list."""
+    return _portal_owner_search_response(request)
+
+
+@login_required
+@module_permission_required('patients', 'EDIT')
+@require_GET
+def api_transfer_owner_search(request):
+    """Search eligible portal owners for walk-in account transfers."""
+    return _portal_owner_search_response(request)
+
+
+def _portal_owner_search_response(request):
     from django.contrib.auth import get_user_model
 
     User = get_user_model()
