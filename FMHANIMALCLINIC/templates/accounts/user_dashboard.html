@@ -937,6 +937,103 @@
     align-items: center;
     padding-left: 12px;
   }
+
+  .activity-confirm-dialog {
+    width: min(440px, calc(100% - 32px));
+    max-width: none;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--surface);
+    color: var(--text-1);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+  }
+
+  .activity-confirm-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.58);
+    backdrop-filter: blur(3px);
+  }
+
+  .activity-confirm-content {
+    padding: 28px;
+    text-align: center;
+  }
+
+  .activity-confirm-icon {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    font-size: 26px;
+  }
+
+  .activity-confirm-title {
+    margin: 0 0 9px;
+    color: var(--text-1);
+    font-size: 19px;
+    font-weight: 700;
+  }
+
+  .activity-confirm-message {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .activity-confirm-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .activity-confirm-actions button {
+    min-width: 128px;
+    padding: 10px 16px;
+    border-radius: 9px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+
+  .activity-confirm-cancel {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-2);
+  }
+
+  .activity-confirm-cancel:hover {
+    background: var(--bg);
+  }
+
+  .activity-confirm-submit {
+    border: 1px solid #dc2626;
+    background: #dc2626;
+    color: #fff;
+  }
+
+  .activity-confirm-submit:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+  }
+
+  .activity-confirm-actions button:focus-visible {
+    outline: 3px solid rgba(0, 150, 136, 0.35);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 480px) {
+    .activity-confirm-content { padding: 24px 20px; }
+    .activity-confirm-actions { flex-direction: column-reverse; }
+    .activity-confirm-actions button { width: 100%; }
+  }
   
 
   /* ═══════════════════════════════════════════════ */
@@ -1264,10 +1361,10 @@
           <span>Recent Activity</span>
         </div>
         {% if recent_activities %}
-        <form method="POST" action="{% url 'accounts:clear_all_activities' %}">
+        <form method="POST" action="{% url 'accounts:clear_all_activities' %}" class="activity-confirm-form" data-confirm-action="clear">
           {% csrf_token %}
-          <button type="submit" class="btn-glass-clear" onclick="return confirm('Are you sure you want to clear all activities?');">
-            <i class='bx bx-trash'></i> Clear All
+          <button type="submit" class="btn-glass-clear">
+            <i class='bx bx-trash'></i> Clear History
           </button>
         </form>
         {% endif %}
@@ -1286,9 +1383,9 @@
             </div>
             <div class="activity-time" style="padding-right: 8px;">{{ activity.timestamp|timesince }} ago</div>
             <div class="activity-item-actions">
-              <form method="POST" action="{% url 'accounts:delete_activity' activity.id %}">
+              <form method="POST" action="{% url 'accounts:delete_activity' activity.id %}" class="activity-confirm-form" data-confirm-action="delete">
                 {% csrf_token %}
-                <button type="submit" class="btn-glass-delete-icon" title="Delete" onclick="return confirm('Delete this activity?');">
+                <button type="submit" class="btn-glass-delete-icon" title="Remove this activity" aria-label="Remove this activity">
                   <i class='bx bx-x'></i>
                 </button>
               </form>
@@ -1394,6 +1491,76 @@
     {% endif %}
   </div>
 </div>
+
+<dialog class="activity-confirm-dialog" id="activityConfirmDialog" aria-labelledby="activityConfirmTitle" aria-describedby="activityConfirmMessage">
+  <div class="activity-confirm-content">
+    <div class="activity-confirm-icon" aria-hidden="true">
+      <i class='bx bx-trash'></i>
+    </div>
+    <h2 class="activity-confirm-title" id="activityConfirmTitle">Remove activity?</h2>
+    <p class="activity-confirm-message" id="activityConfirmMessage"></p>
+    <div class="activity-confirm-actions">
+      <button type="button" class="activity-confirm-cancel" id="activityConfirmCancel" autofocus>Keep activity</button>
+      <button type="button" class="activity-confirm-submit" id="activityConfirmSubmit">Remove activity</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  (function () {
+    const dialog = document.getElementById('activityConfirmDialog');
+    if (!dialog || typeof dialog.showModal !== 'function') return;
+
+    const title = document.getElementById('activityConfirmTitle');
+    const message = document.getElementById('activityConfirmMessage');
+    const cancelButton = document.getElementById('activityConfirmCancel');
+    const confirmButton = document.getElementById('activityConfirmSubmit');
+    let pendingForm = null;
+    let previousFocus = null;
+
+    document.querySelectorAll('.activity-confirm-form').forEach(function (form) {
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        pendingForm = form;
+        previousFocus = document.activeElement;
+
+        if (form.dataset.confirmAction === 'clear') {
+          title.textContent = 'Clear recent activity?';
+          message.textContent = 'This will remove every item from your recent activity list. Your pets, appointments, and medical records will not be deleted.';
+          confirmButton.textContent = 'Clear activity history';
+        } else {
+          title.textContent = 'Remove activity?';
+          message.textContent = 'This entry will be removed from your recent activity list. The related pet, appointment, or other record will not be deleted.';
+          confirmButton.textContent = 'Remove activity';
+        }
+
+        dialog.showModal();
+        cancelButton.focus();
+      });
+    });
+
+    cancelButton.addEventListener('click', function () {
+      pendingForm = null;
+      dialog.close();
+    });
+
+    confirmButton.addEventListener('click', function () {
+      const form = pendingForm;
+      pendingForm = null;
+      dialog.close();
+      if (form) form.submit();
+    });
+
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog) dialog.close();
+    });
+
+    dialog.addEventListener('close', function () {
+      pendingForm = null;
+      if (previousFocus && previousFocus.isConnected) previousFocus.focus();
+    });
+  })();
+</script>
 
 <!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>

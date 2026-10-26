@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.activity_context import reset_current_actor, set_current_actor
-from accounts.models import ActivityLog, OwnerAccountLink
+from accounts.models import ActivityLog, OwnerAccountLink, UserActivity
 from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermission
 from branches.models import Branch
 from appointments.models import Appointment
@@ -1078,6 +1078,30 @@ class VetDashboardContentTests(TestCase):
     }
 )
 class UserPortalDashboardTests(TestCase):
+    def test_recent_activity_uses_centered_confirmation_for_removal_actions(self):
+        owner = get_user_model().objects.create_user(
+            username='dashboard-activity-confirm-owner',
+            email='dashboard-activity-confirm-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        UserActivity.objects.create(
+            user=owner,
+            action='Created Pet',
+            object_name='Milo',
+        )
+        self.client.force_login(owner)
+
+        response = self.client.get(reverse('accounts:user_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="activityConfirmDialog"')
+        self.assertContains(response, 'Clear recent activity?')
+        self.assertContains(response, 'Remove activity?')
+        self.assertContains(response, 'data-confirm-action="clear"')
+        self.assertContains(response, 'data-confirm-action="delete"')
+        self.assertNotContains(response, 'window.confirm(')
+        self.assertContains(response, 'Your pets, appointments, and medical records will not be deleted.')
+
     def test_dashboard_upcoming_appointments_exclude_completed_and_cancelled(self):
         owner = get_user_model().objects.create_user(
             username='dashboard-upcoming-owner',
