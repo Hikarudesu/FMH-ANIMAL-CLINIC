@@ -492,6 +492,16 @@ class AppointmentVeterinarianOptionsTests(TestCase):
 
 
 class AdminQuickCreateOwnerValidationTests(TestCase):
+    def test_portal_client_details_are_read_only_and_explain_profile_source(self):
+        form = AdminQuickCreateForm()
+
+        for field_name in ('owner_phone', 'owner_email', 'owner_address'):
+            with self.subTest(field_name=field_name):
+                self.assertEqual(
+                    form.fields[field_name].widget.attrs.get('readonly'),
+                    'readonly',
+                )
+
     def test_walkin_owner_name_is_required(self):
         form = AdminQuickCreateForm(data={'source': Appointment.Source.WALKIN})
 
@@ -572,8 +582,12 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
     def test_portal_owner_can_keep_their_own_email(self):
         selected_owner = User.objects.create_user(
             username='portal-appointment-own-email',
+            first_name='Portal',
+            last_name='Owner',
             email='portal-own-email@example.com',
             password='A-secure-test-password-923!',
+            phone_number='09123456789',
+            address='Portal owner address',
         )
 
         form = AdminQuickCreateForm(data={
@@ -585,6 +599,36 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
         form.is_valid()
 
         self.assertNotIn('owner_email', form.errors)
+
+    def test_portal_owner_details_cannot_be_changed_in_the_appointment_form(self):
+        selected_owner = User.objects.create_user(
+            username='portal-appointment-readonly-owner',
+            first_name='Portal',
+            last_name='Owner',
+            email='readonly-owner@example.com',
+            password='A-secure-test-password-923!',
+            phone_number='09123456789',
+            address='Profile address',
+        )
+
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.PORTAL,
+            'selected_user_id': str(selected_owner.pk),
+            'owner_name': 'Edited Name',
+            'owner_email': 'readonly-owner@example.com',
+            'owner_phone': '09123456789',
+            'owner_address': 'Edited address',
+        })
+        form.is_valid()
+
+        self.assertIn(
+            'Registered client details are read-only here.',
+            form.non_field_errors()[0],
+        )
+        self.assertEqual(form.cleaned_data['owner_name'], 'Portal Owner')
+        self.assertEqual(form.cleaned_data['owner_email'], 'readonly-owner@example.com')
+        self.assertEqual(form.cleaned_data['owner_phone'], '09123456789')
+        self.assertEqual(form.cleaned_data['owner_address'], 'Profile address')
 
     def test_portal_email_change_is_blocked_when_a_guest_record_uses_it(self):
         selected_owner = User.objects.create_user(
@@ -2440,9 +2484,16 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertEqual(notifications.get().user_id, veterinarian.pk)
 
     def test_receptionist_manages_appointment_in_dedicated_workspace(self):
+        ModulePermission.objects.create(
+            role=self.role,
+            module=Module.objects.get(code='appointments'),
+            permission_type=ModulePermission.PermissionType.CREATE,
+        )
         list_response = self.client.get(reverse('appointments:admin_list'))
 
         self.assertEqual(list_response.status_code, 200)
+        self.assertContains(list_response, 'read-only here')
+        self.assertEqual(list_response.content.count(b'readonly="readonly"'), 3)
         self.assertContains(list_response, 'Manage appointment')
         self.assertContains(list_response, 'Pending')
         self.assertContains(list_response, 'Walk-In / Guest User')

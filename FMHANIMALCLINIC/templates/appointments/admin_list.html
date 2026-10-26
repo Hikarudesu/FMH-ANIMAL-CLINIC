@@ -385,6 +385,42 @@
     gap: 8px;
   }
 
+  .qc-profile-readonly-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 2px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0, 150, 136, 0.2);
+    border-radius: 9px;
+    background: rgba(0, 150, 136, 0.06);
+    color: var(--text-2, #475569);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  #qc-portal-profile-note[hidden] {
+    display: none;
+  }
+
+  .qc-profile-readonly-note i {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--primary, #009688);
+    font-size: 1rem;
+  }
+
+  #quickCreateModal .qc-input[readonly] {
+    background-color: var(--bg, #f1f5f9);
+    color: var(--text-2, #475569);
+    cursor: default;
+  }
+
+  #quickCreateModal .qc-input[readonly]:focus {
+    border-color: var(--border, #cbd5e1);
+    box-shadow: none;
+  }
+
   /* ══════ WALK-IN PET SELECT ITEMS ══════ */
   /* Pet select uses the native <select> styled via qc-input,
      but we add a hint row below the select to describe the pet */
@@ -873,6 +909,10 @@
           <div class="qc-group qc-full">
             <label>Address</label>
             {{ quick_form.owner_address }}
+          </div>
+          <div class="qc-group qc-full qc-profile-readonly-note" id="qc-portal-profile-note">
+            <i class='bx bx-info-circle' aria-hidden="true"></i>
+            <span>These details are from the client’s portal profile and are read-only here. Update the client’s profile if a correction is needed.</span>
           </div>
         </div>
 
@@ -1724,6 +1764,11 @@ function checkDuplicatePortalOwnerEmail() {
 function setPortalMode() {
   if (!ownerPortalGroup) return;
   resetPortalOwnerEmailNote();
+  [ownerPhoneField, ownerEmailField, ownerAddressField].forEach(field => {
+    if (field) field.readOnly = true;
+  });
+  const portalProfileNote = document.getElementById('qc-portal-profile-note');
+  if (portalProfileNote) portalProfileNote.hidden = false;
   sourceHidden.value = 'PORTAL';
   if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
   ownerPortalGroup.style.display = '';
@@ -1743,6 +1788,11 @@ function setPortalMode() {
 function setWalkinMode() {
   if (!ownerPortalGroup) return;
   resetPortalOwnerEmailNote();
+  [ownerPhoneField, ownerEmailField, ownerAddressField].forEach(field => {
+    if (field) field.readOnly = false;
+  });
+  const portalProfileNote = document.getElementById('qc-portal-profile-note');
+  if (portalProfileNote) portalProfileNote.hidden = true;
   sourceHidden.value = 'WALKIN';
   if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
   ownerPortalGroup.style.display = 'none';

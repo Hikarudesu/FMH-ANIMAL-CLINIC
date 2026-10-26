@@ -1004,6 +1004,7 @@ function getLocalYMD(d) {
   const ownerPhoneField = document.querySelector('#quickCreateModal input[name="owner_phone"]');
   const ownerEmailField = document.querySelector('#quickCreateModal input[name="owner_email"]');
   const ownerAddressField = document.querySelector('#quickCreateModal textarea[name="owner_address"]');
+  const portalProfileNote = document.getElementById("qc-portal-profile-note");
   const petNameField = document.querySelector('#quickCreateModal input[name="pet_name"]');
   const petSpeciesField = document.querySelector('#quickCreateModal input[name="pet_species"]');
   const petBreedField = document.querySelector('#quickCreateModal input[name="pet_breed"]');
@@ -1027,6 +1028,10 @@ function getLocalYMD(d) {
     if (petNameField) petNameField.required = !isPortal || Boolean(petManualToggle?.checked);
 
     if (isPortal) {
+      [ownerPhoneField, ownerEmailField, ownerAddressField].forEach((field) => {
+        if (field) field.readOnly = true;
+      });
+      if (portalProfileNote) portalProfileNote.hidden = false;
       // Portal Mode: Show owner dropdown, hide walk-in search, hide manual owner name input
       if (ownerPortalGroup) ownerPortalGroup.style.display = "";
       if (walkinSearchGroup) walkinSearchGroup.style.display = "none";
@@ -1044,6 +1049,10 @@ function getLocalYMD(d) {
         petSelect.disabled = true;
       }
     } else {
+      [ownerPhoneField, ownerEmailField, ownerAddressField].forEach((field) => {
+        if (field) field.readOnly = false;
+      });
+      if (portalProfileNote) portalProfileNote.hidden = true;
       // Walk-in Mode: Hide owner dropdown, show search + manual toggle
       if (ownerPortalGroup) ownerPortalGroup.style.display = "none";
       if (walkinSearchGroup) walkinSearchGroup.style.display = "";

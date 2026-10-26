@@ -736,7 +736,10 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
         ]
         widgets = {
             'owner_name': forms.TextInput(attrs={'placeholder': 'Owner name'}),
-            'owner_email': forms.EmailInput(attrs={'placeholder': 'email@example.com'}),
+            'owner_email': forms.EmailInput(attrs={
+                'placeholder': 'email@example.com',
+                'readonly': 'readonly',
+            }),
             'owner_phone': forms.TextInput(attrs={
                 'placeholder': '09XXXXXXXXX',
                 'inputmode': 'numeric',
@@ -744,9 +747,12 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                 'minlength': '11',
                 'maxlength': '11',
                 'oninput': "this.value=this.value.replace(/\\D/g,'')",
+                'readonly': 'readonly',
             }),
             'owner_address': forms.Textarea(attrs={
-                'rows': 2, 'placeholder': 'Full address',
+                'rows': 2,
+                'placeholder': 'Full address',
+                'readonly': 'readonly',
             }),
             'pet_name': forms.TextInput(attrs={'placeholder': "Pet's name", 'oninput': 'if(this.value.length === 1) this.value = this.value.toUpperCase(); else if(this.value.length > 0) this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);'}),
             'pet_species': forms.TextInput(attrs={'placeholder': 'e.g. Dog, Cat', 'oninput': 'if(this.value.length === 1) this.value = this.value.toUpperCase(); else if(this.value.length > 0) this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);'}),
@@ -943,6 +949,30 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                     'This email address is already associated with another owner record. '
                     'Enter a different email address.',
                 )
+            if selected_owner:
+                profile_details = {
+                    'owner_name': selected_owner.get_full_name() or selected_owner.username,
+                    'owner_email': selected_owner.email or '',
+                    'owner_phone': selected_owner.phone_number or '',
+                    'owner_address': selected_owner.address or '',
+                }
+                changed_profile_details = any(
+                    (
+                        (cleaned_data.get(field_name) or '').strip().casefold()
+                        != value.strip().casefold()
+                        if field_name == 'owner_email'
+                        else (cleaned_data.get(field_name) or '').strip()
+                        != value.strip()
+                    )
+                    for field_name, value in profile_details.items()
+                )
+                if changed_profile_details:
+                    self.add_error(
+                        None,
+                        'Registered client details are read-only here. '
+                        'Update the client’s portal profile if a correction is needed.',
+                    )
+                cleaned_data.update(profile_details)
         if pet_name and source == Appointment.Source.PORTAL:
             from patients.models import Pet
 
