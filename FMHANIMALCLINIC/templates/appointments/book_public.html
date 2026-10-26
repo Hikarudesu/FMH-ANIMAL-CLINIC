@@ -93,6 +93,7 @@
             <div class="form-group-book">
               <label for="{{ form.owner_name.id_for_label }}">Full Name *</label>
               {{ form.owner_name }}
+              <div id="duplicate-owner-name-note" class="duplicate-owner-name-note" role="status" aria-live="polite" hidden></div>
               {% if form.owner_name.errors %}<span class="form-error">{{ form.owner_name.errors.0 }}</span>{% endif %}
             </div>
             <div class="form-group-book">
@@ -209,12 +210,33 @@
   .schedule-day-dot.no-schedule { background: #d93b42; }
   .schedule-legend { display: flex; gap: 14px; }
   .schedule-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .duplicate-owner-name-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #fff8e1;
+    border: 1px solid #f3d57c;
+    color: #7a4d00;
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+  .duplicate-owner-name-note[hidden] { display: none; }
+  .duplicate-owner-name-note.is-blocking {
+    background: #ffebee;
+    border-color: #f4b4bb;
+    color: #a1182d;
+  }
+  .duplicate-owner-name-note i { flex: 0 0 auto; font-size: 15px; }
 </style>
 
 <script>
 const API_VETS = "{% url 'appointments:api_vets' %}";
 const API_TIMES = "{% url 'appointments:api_times' %}";
 const API_DATES = "{% url 'appointments:api_dates' %}";
+const API_OWNER_IDENTITY = "{% url 'appointments:api_check_owner_identity' %}";
 </script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{% static 'js/appointments/booking.js' %}"></script>
@@ -234,10 +256,15 @@ document.addEventListener("DOMContentLoaded", function() {
     'pet_name', 'pet_species', 'pet_breed', 'pet_color'
   ];
 
+  const ownerNameField = document.querySelector('[name="owner_name"]');
+  const ownerPhoneField = document.querySelector('[name="owner_phone"]');
+  const ownerEmailField = document.querySelector('[name="owner_email"]');
+  const duplicateOwnerNote = document.getElementById('duplicate-owner-name-note');
+  let ownerIdentityCheckTimer = null;
+
   fieldsToCapitalize.forEach(function(fieldName) {
     const field = document.querySelector('[name="' + fieldName + '"]');
     if (field && (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA')) {
-      // Capitalize on input
       field.addEventListener('input', function() {
         const start = this.selectionStart;
         const end = this.selectionEnd;
@@ -246,6 +273,58 @@ document.addEventListener("DOMContentLoaded", function() {
       });
     }
   });
+
+  function updateDuplicateOwnerNote(result) {
+    if (!duplicateOwnerNote) return;
+    const nameMatch = Boolean(result && result.name_match);
+    const duplicateOwnerIdentity = Boolean(result && result.identity_match);
+    duplicateOwnerNote.hidden = !nameMatch;
+    duplicateOwnerNote.classList.toggle('is-blocking', duplicateOwnerIdentity);
+    if (ownerNameField) {
+      if (duplicateOwnerIdentity) ownerNameField.setAttribute('aria-invalid', 'true');
+      else ownerNameField.removeAttribute('aria-invalid');
+    }
+    if (nameMatch) {
+      duplicateOwnerNote.innerHTML = duplicateOwnerIdentity
+        ? "<i class='bx bx-error-circle' aria-hidden='true'></i><span>An owner with this name and contact information is already registered. Select the returning owner instead of creating a new guest.</span>"
+        : "<i class='bx bx-info-circle' aria-hidden='true'></i><span>An owner with this name may already exist. Confirm this is a different person before continuing; matching phone or email details will prevent duplicate registration.</span>";
+    } else {
+      duplicateOwnerNote.textContent = '';
+    }
+  }
+
+  function checkDuplicateGuestOwner() {
+    clearTimeout(ownerIdentityCheckTimer);
+    if (!ownerNameField) {
+      updateDuplicateOwnerNote(null);
+      return;
+    }
+
+    const name = ownerNameField.value.trim();
+    const phone = ownerPhoneField ? ownerPhoneField.value.trim() : '';
+    const email = ownerEmailField ? ownerEmailField.value.trim() : '';
+
+    if (name.length < 2) {
+      updateDuplicateOwnerNote(null);
+      return;
+    }
+
+    const params = new URLSearchParams({ name, phone, email });
+    ownerIdentityCheckTimer = setTimeout(() => {
+      fetch(API_OWNER_IDENTITY + '?' + params.toString(), { cache: 'no-store' })
+        .then(response => response.ok ? response.json() : null)
+        .then(result => {
+          if (result && typeof result === 'object') updateDuplicateOwnerNote(result);
+          else updateDuplicateOwnerNote(null);
+        })
+        .catch(() => updateDuplicateOwnerNote(null));
+    }, 350);
+  }
+
+  if (ownerNameField) ownerNameField.addEventListener('input', checkDuplicateGuestOwner);
+  if (ownerPhoneField) ownerPhoneField.addEventListener('input', checkDuplicateGuestOwner);
+  if (ownerEmailField) ownerEmailField.addEventListener('input', checkDuplicateGuestOwner);
+  checkDuplicateGuestOwner();
 });
 </script>
 
