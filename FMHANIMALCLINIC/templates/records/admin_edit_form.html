@@ -89,36 +89,44 @@
             <h3 class="section-title">Owner & Contact Information</h3>
             <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="form-group">
-                    <label class="form-label">Client Source *</label>
-                    <select name="client_source" class="form-control-custom" required>
+                    <label class="form-label">Client Source</label>
+                    <select class="form-control-custom" disabled aria-disabled="true">
                         <option value="PORTAL" {% if record.pet.owner %}selected{% endif %}>Portal (Registered User)</option>
                         <option value="WALKIN" {% if not record.pet.owner %}selected{% endif %}>Walk-in (Guest)</option>
                     </select>
+                    <input type="hidden" name="client_source" value="{% if record.pet.owner %}PORTAL{% else %}WALKIN{% endif %}">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Select Owner *</label>
-                    <input type="text" id="ro-owner-name" name="owner_name" class="form-control-custom"
-                           value="{% if record.pet.owner %}{{ record.pet.owner.get_full_name }}{% else %}{{ record.pet.guest_owner_name|default:'' }}{% endif %}" required />
+                    <label class="form-label">Owner Name</label>
+                    <input type="text" id="ro-owner-name" class="form-control-custom" readonly
+                           value="{{ record.pet.owner_display_name }}" />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Contact # *</label>
-                    <input type="text" id="ro-owner-contact" name="owner_contact" class="form-control-custom"
-                           inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11"
-                           oninput="this.value=this.value.replace(/\D/g,'')"
-                           value="{% if record.pet.owner %}{{ record.pet.owner.phone_number|default:'' }}{% else %}{{ record.pet.guest_owner_phone|default:'' }}{% endif %}" required />
+                    <label class="form-label">Contact Number</label>
+                    <input type="text" id="ro-owner-contact" class="form-control-custom" readonly
+                           value="{{ record.pet.owner_display_phone }}" />
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="{{ form.owner_email.id_for_label }}">Email Address</label>
-                    {{ form.owner_email }}
-                    {% if form.owner_email.errors %}
-                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.owner_email.errors }}</div>
-                    {% endif %}
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="ro-owner-email" class="form-control-custom" readonly
+                           value="{{ record.pet.owner_display_email }}" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Address</label>
-                    <input type="text" id="ro-owner-address" name="owner_address" class="form-control-custom"
-                           value="{% if record.pet.owner %}{{ record.pet.owner.address|default:'' }}{% else %}{{ record.pet.guest_owner_address|default:'' }}{% endif %}" />
+                    <input type="text" id="ro-owner-address" class="form-control-custom" readonly
+                           value="{{ record.pet.owner_display_address }}" />
                 </div>
+                <div style="grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; border: 1px solid #b7dfe0; border-radius: 8px; background: #effafa; color: #245e60; font-size: 12.5px; line-height: 1.5;">
+                    <i class='bx bx-lock-alt' aria-hidden="true" style="font-size: 16px; margin-top: 1px; flex-shrink: 0;"></i>
+                    <span>Owner and contact details are read-only on this screen. Update registered account details in account management, or walk-in contact details in the Patients module.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consultation Details -->
+        <div>
+            <h3 class="section-title">Consultation Details</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="form-group">
                     <label class="form-label">Branch / Location *</label>
                     {{ form.branch }}
@@ -137,7 +145,7 @@
                 </div>
                 <div style="grid-column: 1 / -1; background: #eef5ff; border: 1px solid #c3d9ff; border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #2d5fa6;">
                     <i class='bx bx-info-circle' style="font-size:16px; margin-top:1px; flex-shrink:0;"></i>
-                    <span><strong>Tip:</strong> Select a <strong>Branch</strong> first — the Veterinarian list will automatically filter to show only vets assigned to that branch. Changing the branch or vet here updates the record’s attending information.</span>
+                    <span>Select the clinic location and attending veterinarian for this consultation. The veterinarian list updates based on the selected branch.</span>
                 </div>
             </div>
         </div>

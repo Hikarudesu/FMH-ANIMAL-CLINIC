@@ -377,12 +377,15 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(pet.owner_display_email, 'updated-owner@example.com')
         self.assertEqual(appointment.current_owner_email, 'updated-owner@example.com')
 
-    def test_edit_syncs_portal_owner_email_and_requires_reverification(self):
+    def test_edit_keeps_owner_details_read_only_while_updating_patient_and_record(self):
         owner = get_user_model().objects.create_user(
             username='medical-record-edit-owner',
+            first_name='Medical',
+            last_name='Record Owner',
             email='original-owner@example.com',
             password='A-secure-test-password-923!',
             phone_number='09123456789',
+            address='Original owner address',
             email_verified=True,
         )
         pet = Pet.objects.create(
@@ -411,14 +414,17 @@ class AttendingVeterinarianDefaultTests(TestCase):
         response = self.client.post(
             reverse('records:admin_edit', args=[record.pk]),
             {
-                'owner_name': owner.get_full_name() or owner.username,
-                'owner_contact': owner.phone_number,
-                'owner_address': '',
+                'client_source': 'WALKIN',
+                'owner_name': 'Tampered Owner Name',
+                'owner_contact': '09987654321',
+                'owner_address': 'Tampered address',
                 'owner_email': 'edited-owner@example.com',
                 'pet_name': pet.name,
-                'pet_species': pet.species,
+                'pet_species': 'Dog',
+                'pet_breed': 'Beagle',
+                'pet_age': '2020-01-02',
                 'pet_sex': 'FEMALE',
-                'pet_color': pet.color,
+                'pet_color': 'Brown',
                 'branch': self.branch.pk,
                 'vet': self.vet.pk,
                 'date_recorded': '2026-10-17',
@@ -432,9 +438,48 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(response.status_code, 302)
         owner.refresh_from_db()
         pet.refresh_from_db()
-        self.assertEqual(owner.email, 'edited-owner@example.com')
-        self.assertFalse(owner.email_verified)
-        self.assertEqual(pet.owner_display_email, 'edited-owner@example.com')
+        self.assertEqual(owner.email, 'original-owner@example.com')
+        self.assertTrue(owner.email_verified)
+        self.assertEqual(owner.phone_number, '09123456789')
+        self.assertEqual(owner.address, 'Original owner address')
+        self.assertEqual(pet.owner_id, owner.pk)
+        self.assertEqual(pet.owner_display_email, 'original-owner@example.com')
+        self.assertEqual(
+            (pet.species, pet.breed, pet.date_of_birth, pet.sex, pet.color),
+            ('Dog', 'Beagle', date(2020, 1, 2), Pet.Sex.FEMALE, 'Brown'),
+        )
+
+    def test_edit_form_locks_client_source_and_owner_contact_fields(self):
+        owner = get_user_model().objects.create_user(
+            username='medical-record-readonly-owner',
+            email='readonly-owner@example.com',
+            password='A-secure-test-password-923!',
+            phone_number='09123456789',
+            address='Owner address',
+        )
+        pet = Pet.objects.create(
+            name='Read-only Owner Pet',
+            owner=owner,
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+            color='Black',
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+        )
+
+        response = self.client.get(reverse('records:admin_edit', args=[record.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Owner Name')
+        self.assertContains(response, 'Consultation Details')
+        self.assertContains(response, 'name="client_source" value="PORTAL"')
+        self.assertContains(response, 'select class="form-control-custom" disabled')
+        self.assertEqual(response.content.count(b'class="form-control-custom" readonly'), 4)
+        self.assertNotContains(response, 'Select Owner *')
 
     def test_create_rejects_new_guest_when_owner_name_and_phone_match_portal_owner(self):
         get_user_model().objects.create_user(
