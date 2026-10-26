@@ -9,7 +9,13 @@
   .apf-owner-picker { position: relative; }
   .apf-owner-search-wrap { position: relative; }
   .apf-owner-search-icon { position: absolute; top: 50%; left: 13px; z-index: 1; color: var(--text-secondary); transform: translateY(-50%); pointer-events: none; }
-  #ownerSearch { padding-left: 40px; }
+  #ownerSearch, #linkAccountSearch { padding-left: 40px; }
+  #linkAccountSearch { padding-right: 44px; }
+  #linkAccountSearch::-webkit-search-cancel-button,
+  #linkAccountSearch::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+  #linkAccountSearch::-ms-clear { display: none; width: 0; height: 0; }
+  .apf-link-account-label { display: inline-flex; align-items: center; gap: 6px; }
+  .apf-link-account-label i { color: var(--primary); font-size: .95rem; }
   .apf-owner-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30; display: none; max-height: 260px; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface, #fff); box-shadow: 0 12px 28px rgba(15, 23, 42, .16); }
   .apf-owner-results.open { display: block; }
   .apf-owner-result { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 62px; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text-primary); text-align: left; cursor: pointer; }
@@ -769,8 +775,20 @@
         <div class="apf-link-panel" id="panel-link-existing">
           <div class="apf-grid">
             <div class="apf-field apf-field-full {% if form.link_to_account.errors %}has-error{% endif %}">
-              <label for="{{ form.link_to_account.id_for_label }}">Select Portal User</label>
-              {{ form.link_to_account }}
+              <label class="apf-link-account-label" for="linkAccountSearch"><i class='bx bx-user' aria-hidden="true"></i> Select Portal User</label>
+              <div class="apf-owner-picker" id="linkAccountPicker" data-search-url="{% url 'patients:api_transfer_owner_search' %}" data-initial-owner-id="{{ form.link_to_account.value|default:'' }}">
+                <div class="apf-owner-search-wrap">
+                  <i class='bx bx-search apf-owner-search-icon' aria-hidden="true"></i>
+                  <input type="search" id="linkAccountSearch" class="pf-input" placeholder="Search by name, phone, or email..." autocomplete="off" role="combobox" aria-controls="linkAccountResults" aria-autocomplete="list" aria-expanded="false">
+                  <button type="button" class="apf-link-account-clear" id="linkAccountClear" aria-label="Clear selected portal user" title="Clear selection" hidden><i class='bx bx-x' aria-hidden="true"></i></button>
+                </div>
+                <div class="apf-owner-results" id="linkAccountResults" role="listbox" aria-live="polite"></div>
+                {{ form.link_to_account }}
+              </div>
+              <div class="apf-field-help">
+                <i class='bx bx-info-circle'></i>
+                <span>Search by name, phone number, or email. Choose an account to transfer this patient's records and appointments.</span>
+              </div>
               {% if form.link_to_account.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.link_to_account.errors.0 }}</span>{% endif %}
             </div>
           </div>
@@ -1094,7 +1112,7 @@
       panelCreate.style.display = 'block';
       if (createFlag) createFlag.value = 'True';
       // Force-clear link dropdown when switching to create
-      if (linkSelect) { linkSelect.selectedIndex = 0; linkSelect.value = ''; }
+      if (linkSelect) clearLinkAccountSelection();
     } else {
       tabCreate.classList.remove('active');
       tabExisting.classList.add('active');
@@ -1156,22 +1174,23 @@
 
       if (isCreateMode) {
         const nameInput = document.querySelector('[name="guest_owner_name"]');
-        const guestName = nameInput ? nameInput.value.trim() : 'this guest';
-        const petName = '{{ pet.name|escapejs }}';
-        title = 'Create New Portal Account';
-        body = `A new portal account will be created for <strong>${guestName}</strong>. ` +
-               `<strong>${petName}</strong>'s medical records and appointments will be transferred to this new account.<br><br>` +
-               `Login credentials will be shown after creation.`;
-        btnText = '<i class="bx bx-user-plus"></i> Create Account & Transfer';
+         const guestName = escapeHtml(nameInput ? nameInput.value.trim() : 'this guest');
+         const petName = escapeHtml('{{ pet.name|escapejs }}');
+         title = 'Create Account & Transfer Patient';
+         body = `A new portal account will be created for <strong>${guestName}</strong>. ` +
+           `<strong>${petName}</strong>, its medical records, and appointment history will be transferred to that account. ` +
+           `The walk-in owner details will be cleared, and this transfer cannot be undone.<br><br>` +
+           `The new account's login credentials will be shown once after creation.`;
+         btnText = '<i class="bx bx-user-plus"></i> Create Account & Transfer';
         iconClass = 'bx-user-plus';
       } else {
-        const selectedOption = linkSelect.options[linkSelect.selectedIndex];
-        const userName = selectedOption.textContent.trim();
-        const petName = '{{ pet.name|escapejs }}';
-        title = 'Confirm Account Link';
-        body = `You are about to transfer <strong>${petName}</strong> to <strong>${userName}</strong>'s portal account.<br>` +
-               `All medical records and appointments will be linked to this user. This action cannot be undone.`;
-        btnText = '<i class="bx bx-check"></i> Confirm Transfer';
+        const searchInput = document.getElementById('linkAccountSearch');
+         const userName = escapeHtml(searchInput ? searchInput.value.trim() : 'the selected user');
+         const petName = escapeHtml('{{ pet.name|escapejs }}');
+         title = 'Confirm Patient Transfer';
+         body = `<strong>${petName}</strong>, its medical records, and appointment history will be transferred to <strong>${userName}</strong>'s portal account. ` +
+           `The walk-in owner details will be cleared. This transfer cannot be undone.`;
+         btnText = '<i class="bx bx-transfer-alt"></i> Transfer to This Account';
         iconClass = 'bx-transfer-alt';
       }
 
@@ -1211,7 +1230,7 @@
       overlay.querySelector('#confirmProceed').addEventListener('click', () => {
         confirmed = true;
         // Safety: force-clear dropdown when in create mode to prevent stale values
-        if (isCreateMode && linkSelect) { linkSelect.selectedIndex = 0; linkSelect.value = ''; }
+        if (isCreateMode && linkSelect) clearLinkAccountSelection();
         overlay.remove();
         form.submit();
       });
@@ -1219,6 +1238,16 @@
         if (e.target === overlay) closeConfirmModal();
       });
     });
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character]);
+    }
   })();
 
   // ── Credentials modal (shown after successful account creation) ──
@@ -1421,10 +1450,172 @@
       }).catch(() => showStatus('Could not load the selected owner. Please try again.'));
     }
   })();
+
+  function clearLinkAccountSelection() {
+    const ownerField = document.getElementById('id_link_to_account');
+    const searchInput = document.getElementById('linkAccountSearch');
+    const clearButton = document.getElementById('linkAccountClear');
+    const results = document.getElementById('linkAccountResults');
+    if (ownerField) ownerField.value = '';
+    if (searchInput) searchInput.value = '';
+    if (clearButton) clearButton.hidden = true;
+    if (results) results.classList.remove('open');
+    if (searchInput) searchInput.setAttribute('aria-expanded', 'false');
+  }
+
+  (function initTransferOwnerPicker() {
+    const picker = document.getElementById('linkAccountPicker');
+    if (!picker) return;
+
+    const ownerField = document.getElementById('id_link_to_account');
+    const searchInput = document.getElementById('linkAccountSearch');
+    const clearButton = document.getElementById('linkAccountClear');
+    const results = document.getElementById('linkAccountResults');
+    let debounceTimer;
+    let activeRequest;
+
+    function closeResults() {
+      results.classList.remove('open');
+      searchInput.setAttribute('aria-expanded', 'false');
+    }
+
+    function showStatus(message) {
+      results.replaceChildren();
+      const status = document.createElement('span');
+      status.className = 'apf-owner-search-status';
+      status.textContent = message;
+      results.appendChild(status);
+      results.classList.add('open');
+      searchInput.setAttribute('aria-expanded', 'true');
+    }
+
+    function chooseOwner(owner) {
+      ownerField.value = owner.id;
+      searchInput.value = owner.name;
+      clearButton.hidden = false;
+      closeResults();
+    }
+
+    function searchOwners() {
+      const query = searchInput.value.trim();
+      if (query.length < 2) {
+        closeResults();
+        return;
+      }
+
+      if (activeRequest) activeRequest.abort();
+      activeRequest = new AbortController();
+      const params = new URLSearchParams({ q: query });
+      showStatus('Searching portal accounts…');
+
+      fetch(`${picker.dataset.searchUrl}?${params.toString()}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: activeRequest.signal,
+      }).then(response => {
+        if (!response.ok) throw new Error('Owner search failed');
+        return response.json();
+      }).then(data => {
+        results.replaceChildren();
+        if (!data.owners.length) {
+          showStatus('No matching portal accounts found.');
+          return;
+        }
+
+        data.owners.forEach(owner => {
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'apf-owner-result';
+          option.setAttribute('role', 'option');
+          option.setAttribute('aria-selected', 'false');
+          const icon = document.createElement('i');
+          icon.className = 'bx bx-user apf-owner-result-icon';
+          icon.setAttribute('aria-hidden', 'true');
+          const info = document.createElement('span');
+          info.className = 'apf-owner-result-info';
+          const name = document.createElement('strong');
+          name.textContent = owner.name;
+          const details = document.createElement('span');
+          details.textContent = owner.email || owner.phone || owner.username;
+          info.append(name, details);
+          option.append(icon, info);
+          option.addEventListener('click', () => chooseOwner(owner));
+          results.appendChild(option);
+        });
+
+        if (data.has_more) {
+          const hint = document.createElement('span');
+          hint.className = 'apf-owner-search-status';
+          hint.textContent = 'Showing the first 25 matches. Refine your search to narrow the results.';
+          results.appendChild(hint);
+        }
+        results.classList.add('open');
+        searchInput.setAttribute('aria-expanded', 'true');
+      }).catch(error => {
+        if (error.name !== 'AbortError') showStatus('Could not load accounts. Please try again.');
+      });
+    }
+
+    searchInput.addEventListener('input', () => {
+      window.clearTimeout(debounceTimer);
+      ownerField.value = '';
+      clearButton.hidden = true;
+      if (activeRequest) activeRequest.abort();
+      if (searchInput.value.trim().length < 2) {
+        closeResults();
+        return;
+      }
+      debounceTimer = window.setTimeout(searchOwners, 250);
+    });
+
+    searchInput.addEventListener('focus', () => {
+      if (searchInput.value.trim().length >= 2 && !ownerField.value) searchOwners();
+    });
+    searchInput.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeResults();
+      if (event.key === 'ArrowDown' && results.classList.contains('open')) {
+        results.querySelector('.apf-owner-result')?.focus();
+      }
+    });
+    clearButton.addEventListener('click', () => {
+      clearLinkAccountSelection();
+      searchInput.focus();
+    });
+    document.addEventListener('pointerdown', event => {
+      if (!picker.contains(event.target)) closeResults();
+    }, true);
+
+    if (picker.dataset.initialOwnerId) {
+      const params = new URLSearchParams({ owner_id: picker.dataset.initialOwnerId });
+      fetch(`${picker.dataset.searchUrl}?${params.toString()}`, {
+        headers: { 'Accept': 'application/json' },
+      }).then(response => response.ok ? response.json() : Promise.reject())
+        .then(data => {
+          if (data.owners.length && ownerField.value === String(data.owners[0].id)) {
+            chooseOwner(data.owners[0]);
+          }
+        }).catch(() => showStatus('Could not load the selected account. Please try again.'));
+    }
+  })();
 </script>
 
 <style>
   .apf-field[hidden] { display: none; }
+  .apf-link-account-clear {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    z-index: 2;
+    transform: translateY(-50%);
+    display: inline-grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .apf-link-account-clear[hidden] { display: none; }
 </style>
 
 {% endblock %}

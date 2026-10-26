@@ -353,9 +353,9 @@
           {% endif %}
         </div>
 
-        {% if can_edit or can_delete %}
+        {% if can_edit_details or can_delete %}
         <div class="appointment-manage__toolbar">
-          {% if can_edit %}<a class="appointment-manage__button appointment-manage__button--secondary" href="{% url 'appointments:admin_edit' appointment.pk %}"><i class='bx bx-edit'></i> Edit details</a>{% endif %}
+          {% if can_edit_details %}<a class="appointment-manage__button appointment-manage__button--secondary" href="{% url 'appointments:admin_edit' appointment.pk %}"><i class='bx bx-edit'></i> Edit details</a>{% endif %}
           {% if can_delete and appointment.status == 'CANCELLED' %}
           <button class="appointment-manage__button appointment-manage__button--danger" type="button" id="openAppointmentDeleteDialog" aria-haspopup="dialog" aria-controls="appointmentDeleteDialog"><i class='bx bx-trash'></i> Delete appointment</button>
           {% endif %}

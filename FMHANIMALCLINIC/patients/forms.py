@@ -109,9 +109,8 @@ class AdminPetForm(forms.ModelForm):
     link_to_account = forms.ModelChoiceField(
         queryset=None,  # populated in __init__
         required=False,
-        empty_label='— Select Portal Account to Link —',
         label='Link to Portal Account',
-        widget=forms.Select(attrs={'class': 'pf-input', 'id': 'id_link_to_account'}),
+        widget=forms.HiddenInput(attrs={'id': 'id_link_to_account'}),
     )
 
     # Hidden flag: when True the view creates a brand-new user from guest info

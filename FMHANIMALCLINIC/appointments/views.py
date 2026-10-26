@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from accounts.owner_identity import check_existing_owner_identity
+from accounts.rate_limits import consume_rate_limit
 from accounts.decorators import module_permission_required
 from accounts.rbac_constants import StaffRoles
 from branches.models import Branch
@@ -1066,6 +1067,10 @@ def admin_detail(request, pk):
         request.user.has_module_permission('appointments', 'EDIT')
         and not is_veterinarian
     )
+    can_edit_details = (
+        can_edit
+        and appointment.status != Appointment.Status.COMPLETED
+    )
     can_manage_workflow = can_edit
     can_delete = (
         request.user.has_module_permission('appointments', 'DELETE')
@@ -1142,6 +1147,7 @@ def admin_detail(request, pk):
         'originating_follow_ups': originating_follow_ups,
         'is_veterinarian': is_veterinarian,
         'can_edit': can_edit,
+        'can_edit_details': can_edit_details,
         'can_manage_workflow': can_manage_workflow,
         'can_delete': can_delete,
         'can_create_medical_record': can_create_medical_record,
@@ -1912,6 +1918,12 @@ def admin_quick_create(request):
 def admin_edit(request, pk):
     """Admin view: edit an appointment with follow-up support."""
     appointment = get_object_or_404(Appointment, pk=pk)
+    if appointment.status == Appointment.Status.COMPLETED:
+        messages.error(
+            request,
+            'Completed appointments are read-only. Contact your administrator to request a correction.',
+        )
+        return redirect('appointments:admin_detail', pk=pk)
 
     if request.method == 'POST':
         with transaction.atomic():
@@ -1919,6 +1931,12 @@ def admin_edit(request, pk):
                 Appointment.objects.select_for_update(),
                 pk=pk,
             )
+            if appointment.status == Appointment.Status.COMPLETED:
+                messages.error(
+                    request,
+                    'Completed appointments are read-only. Contact your administrator to request a correction.',
+                )
+                return redirect('appointments:admin_detail', pk=pk)
             original_status = appointment.status
             AppointmentService.lock_booking_schedule(
                 request.POST.get('branch'),
@@ -2131,6 +2149,26 @@ def api_pet_owners(request):
 @module_permission_required('appointments', 'CREATE')
 def api_check_owner_identity(request):
     """Check for an existing owner without returning their identifying details."""
+    result = check_existing_owner_identity(
+        request.GET.get('name', ''),
+        request.GET.get('phone', ''),
+        request.GET.get('email', ''),
+    )
+    return JsonResponse(result)
+
+
+@require_GET
+def api_check_public_owner_identity(request):
+    """Check for duplicate owners during public booking, with per-IP throttling."""
+    retry_after = consume_rate_limit(
+        'public-owner-identity', request.META.get('REMOTE_ADDR', 'unknown'),
+        60, 60,
+    )
+    if retry_after:
+        response = JsonResponse({'error': 'Too many checks. Please try again shortly.'}, status=429)
+        response['Retry-After'] = str(retry_after)
+        return response
+
     result = check_existing_owner_identity(
         request.GET.get('name', ''),
         request.GET.get('phone', ''),
