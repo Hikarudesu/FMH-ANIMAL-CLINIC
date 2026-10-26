@@ -1703,7 +1703,6 @@ const portalEmailCheckError = document.getElementById('qc-portal-email-check-err
 const selectedGuestOwnerField = document.getElementById('qc-selected-guest-owner');
 let ownerIdentityCheckTimer = null;
 let ownerIdentityCheckRequest = 0;
-let duplicateOwnerIdentity = false;
 let duplicateOwnerEmail = false;
 let duplicateGuestEmail = false;
 let duplicatePortalEmail = false;
@@ -1889,16 +1888,12 @@ if (walkinPetSelect) {
 }
 function updateDuplicateOwnerNote(result) {
   if (!duplicateOwnerNote) return;
-  const selectedReturningGuest = selectedGuestOwnerField?.value === '1';
-  duplicateOwnerIdentity = Boolean(
-    result && result.identity_match && !selectedReturningGuest
-  );
   duplicateOwnerEmail = Boolean(result && result.registered_email_match);
   duplicateGuestEmail = Boolean(result && result.guest_email_match);
   const nameMatch = Boolean(result && result.name_match);
   const registeredNameMatch = Boolean(result && result.registered_name_match);
   const guestNameMatch = Boolean(result && result.guest_name_match);
-  const isBlocking = duplicateOwnerIdentity;
+  const isBlocking = false;
   const messages = [];
   if (registeredNameMatch) {
     messages.push(
@@ -1915,11 +1910,6 @@ function updateDuplicateOwnerNote(result) {
       'An existing owner uses this name. Verify the details before continuing; a matching name alone does not confirm identity.'
     );
   }
-  if (duplicateOwnerIdentity) {
-    messages.push(
-      'This owner name and phone number match an existing account. Select the matching returning guest or choose the registered client source.'
-    );
-  }
   duplicateOwnerNote.hidden = messages.length === 0;
   duplicateOwnerNote.classList.toggle('is-blocking', isBlocking);
   duplicateOwnerNote.replaceChildren();
@@ -1933,10 +1923,7 @@ function updateDuplicateOwnerNote(result) {
     line.append(icon, text);
     duplicateOwnerNote.appendChild(line);
   });
-  if (ownerNameField) {
-    if (isBlocking) ownerNameField.setAttribute('aria-invalid', 'true');
-    else ownerNameField.removeAttribute('aria-invalid');
-  }
+  if (ownerNameField) ownerNameField.removeAttribute('aria-invalid');
   if (ownerEmailField) {
     if (duplicateOwnerEmail) ownerEmailField.setAttribute('aria-invalid', 'true');
     else ownerEmailField.removeAttribute('aria-invalid');
@@ -2007,13 +1994,11 @@ if (quickCreateForm) {
   quickCreateForm.addEventListener('submit', event => {
     if (
       updateDuplicatePetNameNote()
-      || duplicateOwnerIdentity
       || duplicateOwnerEmail
       || duplicatePortalEmail
     ) {
       event.preventDefault();
       if (duplicateOwnerEmail || duplicatePortalEmail) ownerEmailField?.focus();
-      else if (duplicateOwnerIdentity) ownerNameField?.focus();
       else petNameField?.focus();
     }
   });

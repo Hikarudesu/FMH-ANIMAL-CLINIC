@@ -29,7 +29,6 @@ from .forms import (
     PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm,
     AppointmentEditForm, AppointmentCancellationForm,
     PORTAL_DUPLICATE_PET_NAME_ERROR, GUEST_DUPLICATE_PET_NAME_ERROR,
-    GUEST_DUPLICATE_OWNER_ERROR,
 )
 from .clinic_hours import CLINIC_CLOSE_TIME, CLINIC_OPEN_TIME
 from .services import AppointmentService
@@ -1807,16 +1806,15 @@ def admin_quick_create(request):
                     )
                 )
             )
-            duplicate_owner = bool(
-                not appointment
-                and form.errors.get('owner_name')
-                and str(form.errors['owner_name'][0]) == GUEST_DUPLICATE_OWNER_ERROR
-            )
-            duplicate_portal_email = bool(
+            duplicate_registered_email = bool(
                 not appointment
                 and form.errors.get('owner_email')
-                and 'already associated with another owner record'
-                in str(form.errors['owner_email'][0])
+                and (
+                    'already associated with another owner record'
+                    in str(form.errors['owner_email'][0])
+                    or 'registered portal account'
+                    in str(form.errors['owner_email'][0])
+                )
             )
             if appointment and followup:
                 source_appointment = followup.appointment
@@ -1898,12 +1896,10 @@ def admin_quick_create(request):
                 ),
             )
         else:
-            if duplicate_pet_name or duplicate_owner or duplicate_portal_email:
+            if duplicate_pet_name or duplicate_registered_email:
                 error_message = (
                     form.errors['pet_name'][0]
                     if duplicate_pet_name
-                    else form.errors['owner_name'][0]
-                    if duplicate_owner
                     else form.errors['owner_email'][0]
                 )
                 messages.error(request, error_message)
@@ -1915,7 +1911,7 @@ def admin_quick_create(request):
                     request,
                     f'Invalid appointment data. Please check the form. Errors: {error_details}',
                 )
-            if duplicate_pet_name or duplicate_owner or duplicate_portal_email:
+            if duplicate_pet_name or duplicate_registered_email:
                 return redirect(
                     f"{reverse('appointments:admin_list')}#quickCreateModal"
                 )

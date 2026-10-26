@@ -512,7 +512,7 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
             'Owner name is required for walk-in appointments.',
         )
 
-    def test_new_guest_is_blocked_when_name_and_contact_match_registered_owner(self):
+    def test_new_guest_name_and_contact_match_registered_owner_is_advisory(self):
         User.objects.create_user(
             username='existing-guest-identity',
             first_name='Taylor',
@@ -530,8 +530,7 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
 
         form.is_valid()
 
-        self.assertIn('owner_name', form.errors)
-        self.assertIn('contact information is already registered', form.errors['owner_name'][0])
+        self.assertNotIn('owner_name', form.errors)
 
     def test_new_guest_email_matching_guest_record_is_advisory(self):
         Pet.objects.create(
