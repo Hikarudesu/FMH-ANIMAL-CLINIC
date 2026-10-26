@@ -629,6 +629,8 @@ def api_check_walkin_owner_identity(request):
     registered_name_conflict = False
     guest_name_conflict = False
     if owner_name:
+        registered_name_exact_match = False
+        registered_name_has_conflict = False
         portal_candidates = registered_owners.filter(name_query).values(
             'first_name', 'last_name', 'username', 'phone_number', 'email', 'address',
         )
@@ -638,14 +640,16 @@ def api_check_walkin_owner_identity(request):
                 'email': owner['email'],
                 'address': owner['address'],
             }
-            if details_differ(
-                candidate,
-                current_details,
-                ('phone', 'email', 'address'),
-            ):
-                registered_name_conflict = True
-                break
+            if details_differ(candidate, current_details, ('phone', 'email', 'address')):
+                registered_name_has_conflict = True
+            else:
+                registered_name_exact_match = True
+        registered_name_conflict = (
+            registered_name_has_conflict and not registered_name_exact_match
+        )
 
+        guest_name_exact_match = False
+        guest_name_has_conflict = False
         guest_name_candidates = guest_patients.filter(
             guest_owner_name__iexact=owner_name,
         ).values('guest_owner_phone', 'guest_owner_email', 'guest_owner_address')
@@ -656,9 +660,10 @@ def api_check_walkin_owner_identity(request):
                 'address': guest['guest_owner_address'],
             }
             if details_differ(candidate, current_details, ('phone', 'email', 'address')):
-                guest_name_conflict = True
-                break
-        if not guest_name_conflict:
+                guest_name_has_conflict = True
+            else:
+                guest_name_exact_match = True
+        if not guest_name_exact_match:
             for guest in guest_appointments.filter(owner_name__iexact=owner_name).values(
                 'owner_phone', 'owner_email', 'owner_address',
             ):
@@ -668,11 +673,15 @@ def api_check_walkin_owner_identity(request):
                     'address': guest['owner_address'],
                 }
                 if details_differ(candidate, current_details, ('phone', 'email', 'address')):
-                    guest_name_conflict = True
-                    break
+                    guest_name_has_conflict = True
+                else:
+                    guest_name_exact_match = True
+        guest_name_conflict = guest_name_has_conflict and not guest_name_exact_match
 
     conflicting_email_details = False
     if email:
+        guest_email_exact_match = False
+        guest_email_has_conflict = False
         guest_email_candidates = guest_patients.filter(
             guest_owner_email__iexact=email,
         ).values('guest_owner_name', 'guest_owner_phone', 'guest_owner_address')
@@ -683,9 +692,10 @@ def api_check_walkin_owner_identity(request):
                 'address': guest['guest_owner_address'],
             }
             if details_differ(candidate, current_details, ('name', 'phone', 'address')):
-                conflicting_email_details = True
-                break
-        if not conflicting_email_details:
+                guest_email_has_conflict = True
+            else:
+                guest_email_exact_match = True
+        if not guest_email_exact_match:
             for guest in guest_appointments.filter(owner_email__iexact=email).values(
                 'owner_name', 'owner_phone', 'owner_address',
             ):
@@ -695,8 +705,12 @@ def api_check_walkin_owner_identity(request):
                     'address': guest['owner_address'],
                 }
                 if details_differ(candidate, current_details, ('name', 'phone', 'address')):
-                    conflicting_email_details = True
-                    break
+                    guest_email_has_conflict = True
+                else:
+                    guest_email_exact_match = True
+        conflicting_email_details = (
+            guest_email_has_conflict and not guest_email_exact_match
+        )
 
     return JsonResponse({
         'registered_name_match': registered_name_conflict,
