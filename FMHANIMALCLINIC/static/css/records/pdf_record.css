@@ -76,14 +76,6 @@ body {
     table-layout: fixed;
 }
 
-.owner-info-table .owner-label-column {
-    width: 12%;
-}
-
-.owner-info-table .owner-value-column {
-    width: 38%;
-}
-
 .owner-info-table .value {
     word-break: break-all;
 }
