@@ -385,10 +385,10 @@ class StockTransfer(models.Model):
         )
 
     def complete_transfer(self, user):
-        """Executes the transfer of stock if status changes to COMPLETED."""
-        if self.status not in (self.Status.PENDING, self.Status.APPROVED):
+        """Move stock only after the transfer has been approved for receipt."""
+        if self.status != self.Status.APPROVED:
             raise ValueError(
-                "Transfer must be pending or approved to complete.")
+                "Transfer must be approved before it can be marked as received.")
 
         # Validate sufficient stock
         # pylint: disable=no-member

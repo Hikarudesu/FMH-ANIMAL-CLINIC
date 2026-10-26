@@ -787,6 +787,43 @@ class InventoryWorkflowTests(TestCase):
             ).exists()
         )
 
+    def test_pending_transfer_cannot_move_stock_before_recipient_receives_it(self):
+        destination = Branch.objects.create(
+            name='Pending Transfer Destination',
+            phone_number='09123456780',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1001',
+        )
+        source_product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Pending Transfer Product',
+            price=20,
+            stock_quantity=8,
+        )
+        transfer = StockTransfer.objects.create(
+            source_product=source_product,
+            destination_branch=destination,
+            requested_by=self.admin,
+            quantity=2,
+        )
+
+        with self.assertRaisesMessage(ValueError, 'must be approved'):
+            transfer.complete_transfer(self.admin)
+
+        source_product.refresh_from_db()
+        self.assertEqual(source_product.stock_quantity, 8)
+        self.assertFalse(
+            Product.objects.filter(branch=destination).exists()
+        )
+        self.assertFalse(
+            StockAdjustment.objects.filter(
+                adjustment_type__in=['TRANSFER_IN', 'TRANSFER_OUT'],
+            ).exists()
+        )
+
     def test_inventory_search_filters_products_before_pagination(self):
         older_product = Product.objects.create(
             branch=self.branch,
