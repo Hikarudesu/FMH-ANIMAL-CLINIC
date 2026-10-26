@@ -279,7 +279,8 @@ def get_disease_details(disease_name):
     return DISEASE_REFERENCE_DATABASE.get(disease_name)
 
 
-
+def _get_disease_type_keywords(disease_type):
+    """Return clinical-sign keywords used to filter visits by disease type."""
     if not disease_type:
         return []
 
