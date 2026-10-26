@@ -46,6 +46,71 @@ class AdminPetWalkInContactTests(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
 
+    def test_walkin_patient_rejects_duplicate_patient_for_same_owner_identity(self):
+        existing = AdminPetForm(data=self.form_data)
+        self.assertTrue(existing.is_valid(), existing.errors)
+        existing.save()
+
+        duplicate_data = self.form_data.copy()
+        duplicate_data.update({
+            'guest_owner_name': ' walk-in OWNER ',
+            'guest_owner_email': 'OWNER@example.com',
+            'name': ' buddy ',
+        })
+        form = AdminPetForm(data=duplicate_data)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('name', form.errors)
+        self.assertIn('same owner details', form.errors['name'][0])
+
+    def test_walkin_patient_allows_another_pet_for_the_same_guest_owner(self):
+        existing = AdminPetForm(data=self.form_data)
+        self.assertTrue(existing.is_valid(), existing.errors)
+        existing.save()
+
+        form_data = self.form_data.copy()
+        form_data['name'] = 'Luna'
+        form = AdminPetForm(data=form_data)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_editing_walkin_patient_allows_unchanged_owner_and_pet_details(self):
+        pet = AdminPetForm(data=self.form_data).save()
+
+        form = AdminPetForm(data=self.form_data, instance=pet)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_editing_walkin_patient_rejects_matching_another_patient_record(self):
+        pet = AdminPetForm(data=self.form_data).save()
+        other_pet_data = self.form_data.copy()
+        other_pet_data['name'] = 'Luna'
+        other_pet = AdminPetForm(data=other_pet_data).save()
+        edit_data = self.form_data.copy()
+        edit_data['name'] = other_pet.name
+
+        form = AdminPetForm(data=edit_data, instance=pet)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('name', form.errors)
+        self.assertIn('same owner details', form.errors['name'][0])
+
+    def test_walkin_account_creation_rejects_existing_email_during_edit(self):
+        get_user_model().objects.create_user(
+            username='existing-walkin-email',
+            email='owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        pet = AdminPetForm(data=self.form_data).save()
+        form_data = self.form_data.copy()
+        form_data['create_new_account'] = 'on'
+
+        form = AdminPetForm(data=form_data, instance=pet)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('guest_owner_email', form.errors)
+        self.assertIn('already linked to a portal account', form.errors['guest_owner_email'][0])
+
     def test_inactive_pet_requires_reason(self):
         form_data = self.form_data.copy()
         form_data['is_active'] = ''

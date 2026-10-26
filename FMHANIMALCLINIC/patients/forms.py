@@ -1,5 +1,6 @@
 from django import forms
 from django.db.models import Q
+from django.db.models.functions import Trim
 from FMHANIMALCLINIC.form_mixins import validate_philippines_phone
 from .models import Pet
 
@@ -317,21 +318,56 @@ class AdminPetForm(forms.ModelForm):
             if not email:
                 self.add_error('guest_owner_email', 'Email address is required for walk-in patients.')
 
+            pet_name = (cleaned.get('name') or '').strip()
+            identity_changed = not (self.instance and self.instance.pk) or (
+                pet_name.casefold() != (self.instance.name or '').strip().casefold()
+                or guest_name.casefold()
+                != (self.instance.guest_owner_name or '').strip().casefold()
+                or email.casefold()
+                != (self.instance.guest_owner_email or '').strip().casefold()
+                or phone != (self.instance.guest_owner_phone or '').strip()
+            )
+            if identity_changed and guest_name and pet_name and (email or phone):
+                duplicate_patients = Pet.objects.annotate(
+                    normalized_guest_owner_name=Trim('guest_owner_name'),
+                    normalized_pet_name=Trim('name'),
+                ).filter(
+                    source=Pet.Source.WALKIN,
+                    normalized_guest_owner_name__iexact=guest_name,
+                    normalized_pet_name__iexact=pet_name,
+                )
+                if email or phone:
+                    matching_contact = Q()
+                    if email:
+                        matching_contact |= Q(guest_owner_email__iexact=email)
+                    if phone:
+                        matching_contact |= Q(guest_owner_phone=phone)
+                    duplicate_patients = duplicate_patients.filter(matching_contact)
+                if self.instance and self.instance.pk:
+                    duplicate_patients = duplicate_patients.exclude(pk=self.instance.pk)
+                if duplicate_patients.exists():
+                    self.add_error(
+                        'name',
+                        'A patient with this name is already recorded for the same owner details. '
+                        'Review the existing patient profile instead of adding a duplicate.',
+                    )
+
+            if cleaned.get('create_new_account') and email:
+                from django.contrib.auth import get_user_model
+
+                if get_user_model().objects.filter(email__iexact=email).exists():
+                    self.add_error(
+                        'guest_owner_email',
+                        'This email address is already linked to a portal account. '
+                        'Select the registered owner to link this patient instead.',
+                    )
+
             # Only validate and clear if this is a new record (not editing)
             if not self.instance or not self.instance.pk:
                 if not guest_name:
                     self.add_error('guest_owner_name', 'Owner name is required for walk-in patients.')
                 # Clear portal owner when source is WALKIN
                 cleaned['owner'] = None
-                if cleaned.get('create_new_account'):
-                    if email:
-                        from django.contrib.auth import get_user_model
-
-                        if get_user_model().objects.filter(email__iexact=email).exists():
-                            self.add_error(
-                                'guest_owner_email',
-                                'This email already has an account. Select that account to link it instead.',
-                            )
 
         return cleaned
 

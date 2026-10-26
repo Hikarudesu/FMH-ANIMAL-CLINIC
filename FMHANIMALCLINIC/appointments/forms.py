@@ -959,6 +959,14 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
             )
             if owner_match['identity_match'] and not selected_returning_guest:
                 self.add_error('owner_name', GUEST_DUPLICATE_OWNER_ERROR)
+            if owner_match['email_match'] and not (
+                selected_returning_guest and owner_match['identity_match']
+            ):
+                self.add_error(
+                    'owner_email',
+                    'This email address is already associated with an owner record. '
+                    'Select the returning guest or enter a different email address.',
+                )
         
         time_str = self.data.get('appointment_time')
         _resolve_flexible_appointment_time(cleaned_data, time_str)

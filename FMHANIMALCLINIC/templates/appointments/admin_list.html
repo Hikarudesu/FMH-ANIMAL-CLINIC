@@ -1647,6 +1647,7 @@ const duplicateOwnerNote = document.getElementById('qc-duplicate-owner-note');
 const selectedGuestOwnerField = document.getElementById('qc-selected-guest-owner');
 let ownerIdentityCheckTimer = null;
 let duplicateOwnerIdentity = false;
+let duplicateOwnerEmail = false;
 
 function setPortalMode() {
   if (!ownerPortalGroup) return;
@@ -1758,17 +1759,27 @@ if (walkinPetSelect) {
 function updateDuplicateOwnerNote(result) {
   if (!duplicateOwnerNote) return;
   duplicateOwnerIdentity = Boolean(result && result.identity_match);
+  duplicateOwnerEmail = Boolean(result && result.email_match);
   const nameMatch = Boolean(result && result.name_match);
-  duplicateOwnerNote.hidden = !nameMatch;
-  duplicateOwnerNote.classList.toggle('is-blocking', duplicateOwnerIdentity);
+  const hasDuplicate = nameMatch || duplicateOwnerEmail;
+  const isBlocking = duplicateOwnerIdentity || duplicateOwnerEmail;
+  duplicateOwnerNote.hidden = !hasDuplicate;
+  duplicateOwnerNote.classList.toggle('is-blocking', isBlocking);
   if (ownerNameField) {
     if (duplicateOwnerIdentity) ownerNameField.setAttribute('aria-invalid', 'true');
     else ownerNameField.removeAttribute('aria-invalid');
   }
-  if (nameMatch) {
-    duplicateOwnerNote.innerHTML = duplicateOwnerIdentity
-      ? "<i class='bx bx-error-circle' aria-hidden='true'></i><span>An owner with this name and contact information is already registered. Select the returning owner instead of creating a new guest.</span>"
-      : "<i class='bx bx-info-circle' aria-hidden='true'></i><span>An owner with this name may already exist. Confirm this is a different person before continuing; matching phone or email details will prevent duplicate registration.</span>";
+  if (ownerEmailField) {
+    if (duplicateOwnerEmail) ownerEmailField.setAttribute('aria-invalid', 'true');
+    else ownerEmailField.removeAttribute('aria-invalid');
+  }
+  if (hasDuplicate) {
+    const message = duplicateOwnerEmail
+      ? 'This email address is already associated with an owner record. Select the returning guest or enter a different email address.'
+      : duplicateOwnerIdentity
+        ? 'A guest owner with this name and contact information is already registered. Select the returning guest instead of creating a new guest record.'
+        : 'A guest owner with this name may already exist. Confirm the details before continuing; matching contact information will prevent duplicate registration.';
+    duplicateOwnerNote.innerHTML = `<i class='bx ${isBlocking ? 'bx-error-circle' : 'bx-info-circle'}' aria-hidden='true'></i><span>${message}</span>`;
   } else {
     duplicateOwnerNote.textContent = '';
   }
@@ -1825,9 +1836,10 @@ if (walkinManualToggle) walkinManualToggle.addEventListener('change', function()
 const quickCreateForm = quickCreateModal?.querySelector('form');
 if (quickCreateForm) {
   quickCreateForm.addEventListener('submit', event => {
-    if (updateDuplicatePetNameNote() || duplicateOwnerIdentity) {
+    if (updateDuplicatePetNameNote() || duplicateOwnerIdentity || duplicateOwnerEmail) {
       event.preventDefault();
-      if (duplicateOwnerIdentity) ownerNameField?.focus();
+      if (duplicateOwnerEmail) ownerEmailField?.focus();
+      else if (duplicateOwnerIdentity) ownerNameField?.focus();
       else petNameField?.focus();
     }
   });
