@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_GET
 
 from accounts.decorators import module_permission_required
 from accounts.owner_identity import check_existing_owner_identity
@@ -1455,6 +1456,79 @@ def api_check_owner_identity(request):
         request.GET.get('phone', ''),
         request.GET.get('email', ''),
     ))
+
+
+@login_required
+@module_permission_required('medical_records', 'EDIT')
+@require_GET
+def api_check_guest_owner_edit_conflicts(request):
+    """Check guest owner name and email conflicts without exposing matching records."""
+    owner_name = ' '.join(request.GET.get('name', '').split())
+    email = request.GET.get('email', '').strip()
+    excluded_pet_id = request.GET.get('pet_id', '').strip()
+
+    if len(owner_name) > 200 or len(email) > 254:
+        return JsonResponse({'error': 'Owner details exceed the allowed length.'}, status=400)
+    if excluded_pet_id and not excluded_pet_id.isdigit():
+        return JsonResponse({'error': 'Invalid patient record.'}, status=400)
+
+    from appointments.models import Appointment
+
+    registered_owners = User.objects.filter(
+        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True),
+        is_staff=False,
+        is_superuser=False,
+    )
+    guest_pets = Pet.objects.filter(source=Pet.Source.WALKIN)
+    guest_appointments = Appointment.objects.filter(
+        source=Appointment.Source.WALKIN,
+    )
+    if excluded_pet_id:
+        guest_pets = guest_pets.exclude(pk=excluded_pet_id)
+        guest_appointments = guest_appointments.exclude(pet_id=excluded_pet_id)
+
+    registered_name_match = False
+    if owner_name:
+        name_parts = owner_name.split()
+        registered_name_query = Q(username__iexact=owner_name)
+        if len(name_parts) == 1:
+            registered_name_query |= (
+                Q(first_name__iexact=name_parts[0])
+                | Q(last_name__iexact=name_parts[0])
+            )
+        else:
+            registered_name_query |= Q(
+                first_name__iexact=name_parts[0],
+                last_name__iexact=' '.join(name_parts[1:]),
+            )
+        registered_name_match = registered_owners.filter(
+            registered_name_query,
+        ).exists()
+
+    guest_name_match = bool(
+        owner_name
+        and (
+            guest_pets.filter(guest_owner_name__iexact=owner_name).exists()
+            or guest_appointments.filter(owner_name__iexact=owner_name).exists()
+        )
+    )
+    registered_email_match = bool(
+        email and registered_owners.filter(email__iexact=email).exists()
+    )
+    guest_email_match = bool(
+        email
+        and (
+            guest_pets.filter(guest_owner_email__iexact=email).exists()
+            or guest_appointments.filter(owner_email__iexact=email).exists()
+        )
+    )
+
+    return JsonResponse({
+        'registered_name_match': registered_name_match,
+        'guest_name_match': guest_name_match,
+        'registered_email_match': registered_email_match,
+        'guest_email_match': guest_email_match,
+    })
 
 
 def _pdf_link_callback(uri, rel):

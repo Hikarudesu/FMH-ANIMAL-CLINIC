@@ -413,12 +413,27 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(edit_response.status_code, 200)
         self.assertContains(edit_response, 'value="Portal (Registered User)"')
         self.assertContains(edit_response, 'Owner Name *')
+        self.assertContains(edit_response, 'Email Address *')
+        self.assertRegex(
+            edit_response.content.decode(),
+            r'id="ro-owner-email"[^>]*required',
+        )
+        self.assertEqual(
+            edit_response.context['form']['owner_email'].value(),
+            'original-owner@example.com',
+        )
         self.assertRegex(
             edit_response.content.decode(),
             r'name="owner_name"[^>]*readonly',
         )
+        self.assertRegex(
+            edit_response.content.decode(),
+            r'id="ro-owner-email"[^>]*readonly',
+        )
         self.assertNotContains(edit_response, 'name="client_source"')
+        self.assertNotContains(edit_response, 'guest-owner-name-conflict-note')
         self.assertContains(edit_response, 'Consultation Information')
+        self.assertTrue(edit_response.context['form'].fields['owner_email'].required)
 
         response = self.client.post(
             edit_url,
@@ -483,6 +498,11 @@ class AttendingVeterinarianDefaultTests(TestCase):
         edit_response = self.client.get(edit_url)
         self.assertEqual(edit_response.status_code, 200)
         self.assertContains(edit_response, 'value="Walk-in (Guest)"')
+        self.assertContains(edit_response, 'Email Address *')
+        self.assertContains(edit_response, 'guest-owner-name-conflict-note')
+        self.assertContains(edit_response, 'guest-owner-email-conflict-note')
+        self.assertContains(edit_response, 'api/check-guest-owner-edit-conflicts/')
+        self.assertTrue(edit_response.context['form'].fields['owner_email'].required)
         self.assertNotRegex(
             edit_response.content.decode(),
             r'name="owner_name"[^>]*readonly',
@@ -516,6 +536,92 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(pet.guest_owner_phone, '09987654321')
         self.assertEqual(pet.guest_owner_email, 'updated-guest@example.com')
         self.assertEqual(pet.guest_owner_address, 'Updated address')
+
+    def test_guest_owner_edit_conflict_api_distinguishes_registered_and_guest_matches(self):
+        registered_owner = get_user_model().objects.create_user(
+            username='edit-conflict-registered-owner',
+            first_name='Morgan',
+            last_name='Portal',
+            email='morgan-portal@example.com',
+            password='A-secure-test-password-923!',
+        )
+        matching_guest = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Jamie Guest',
+            guest_owner_email='jamie-guest@example.com',
+            name='Matching Guest Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        current_pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Current Guest',
+            guest_owner_email='current-guest@example.com',
+            name='Current Edit Pet',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        Appointment.objects.create(
+            source=Appointment.Source.WALKIN,
+            owner_name='Taylor Appointment Guest',
+            owner_email='taylor-appointment-guest@example.com',
+            owner_phone='09123456789',
+            pet_name='Appointment Guest Pet',
+            branch=self.branch,
+            appointment_date=date(2026, 10, 27),
+            appointment_time=time(10),
+            status=Appointment.Status.COMPLETED,
+        )
+        endpoint = reverse('records:api_check_guest_owner_edit_conflicts')
+
+        registered_response = self.client.get(endpoint, {
+            'name': 'Morgan Portal',
+            'email': registered_owner.email,
+            'pet_id': current_pet.pk,
+        })
+        self.assertEqual(registered_response.status_code, 200)
+        self.assertEqual(registered_response.json(), {
+            'registered_name_match': True,
+            'guest_name_match': False,
+            'registered_email_match': True,
+            'guest_email_match': False,
+        })
+
+        guest_response = self.client.get(endpoint, {
+            'name': 'Jamie Guest',
+            'email': 'jamie-guest@example.com',
+            'pet_id': current_pet.pk,
+        })
+        self.assertEqual(guest_response.status_code, 200)
+        self.assertEqual(guest_response.json(), {
+            'registered_name_match': False,
+            'guest_name_match': True,
+            'registered_email_match': False,
+            'guest_email_match': True,
+        })
+
+        appointment_guest_response = self.client.get(endpoint, {
+            'name': 'Taylor Appointment Guest',
+            'email': 'taylor-appointment-guest@example.com',
+            'pet_id': current_pet.pk,
+        })
+        self.assertEqual(appointment_guest_response.status_code, 200)
+        self.assertEqual(appointment_guest_response.json(), {
+            'registered_name_match': False,
+            'guest_name_match': True,
+            'registered_email_match': False,
+            'guest_email_match': True,
+        })
+
+        own_email_response = self.client.get(endpoint, {
+            'name': current_pet.guest_owner_name,
+            'email': current_pet.guest_owner_email,
+            'pet_id': current_pet.pk,
+        })
+        self.assertEqual(own_email_response.status_code, 200)
+        self.assertFalse(own_email_response.json()['guest_email_match'])
+
+        self.assertTrue(Pet.objects.filter(pk=matching_guest.pk).exists())
 
     def test_create_rejects_new_guest_when_owner_name_and_phone_match_portal_owner(self):
         get_user_model().objects.create_user(

@@ -99,6 +99,9 @@
                     <input type="text" id="ro-owner-name" name="owner_name" class="form-control-custom"
                            value="{% if record.pet.owner %}{{ record.pet.owner.get_full_name|default:record.pet.owner.username }}{% else %}{{ record.pet.guest_owner_name|default:'' }}{% endif %}"
                            {% if record.pet.owner_id %}readonly aria-readonly="true"{% endif %} required />
+                    {% if not record.pet.owner_id %}
+                    <div id="guest-owner-name-conflict-note" class="owner-identity-note" role="status" aria-live="polite" hidden></div>
+                    {% endif %}
                 </div>
                 <div class="form-group">
                     <label class="form-label">Contact # *</label>
@@ -109,11 +112,15 @@
                            {% if record.pet.owner_id %}readonly aria-readonly="true"{% endif %} required />
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="{{ form.owner_email.id_for_label }}">Email Address</label>
+                    <label class="form-label" for="{{ form.owner_email.id_for_label }}">Email Address *</label>
                     {{ form.owner_email }}
                     {% if form.owner_email.errors %}
                         <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.owner_email.errors }}</div>
                     {% endif %}
+                    <div id="guest-owner-email-conflict-note" class="owner-identity-note" role="status" aria-live="polite" hidden></div>
+                    <div id="guest-owner-conflict-check-error" class="owner-identity-note" role="status" aria-live="polite" hidden>
+                        <div><i class='bx bx-info-circle' aria-hidden="true"></i><span>We couldn’t check for existing owner details right now. Please verify the information before saving.</span></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Address</label>
@@ -185,6 +192,140 @@
             }
         })();
         </script>
+
+        <style>
+            .owner-identity-note {
+                display: flex;
+                flex-direction: column;
+                gap: 7px;
+                padding: 9px 11px;
+                border: 1px solid rgba(217, 119, 6, .22);
+                border-left: 3px solid #d97706;
+                border-radius: 7px;
+                background: #fffbeb;
+                color: #854d0e;
+                font-size: 12px;
+                line-height: 1.45;
+            }
+            .owner-identity-note[hidden] {
+                display: none;
+            }
+            .owner-identity-note > div {
+                display: flex;
+                align-items: flex-start;
+                gap: 7px;
+            }
+            .owner-identity-note i {
+                flex-shrink: 0;
+                margin-top: 1px;
+                font-size: 15px;
+            }
+            [data-theme="dark"] .owner-identity-note {
+                border-color: rgba(251, 191, 36, .3);
+                background: rgba(120, 53, 15, .2);
+                color: #fde68a;
+            }
+        </style>
+        {% if not record.pet.owner_id %}
+        <script>
+        (function () {
+            const nameField = document.getElementById('ro-owner-name');
+            const emailField = document.getElementById('{{ form.owner_email.id_for_label }}');
+            const nameNote = document.getElementById('guest-owner-name-conflict-note');
+            const emailNote = document.getElementById('guest-owner-email-conflict-note');
+            const checkErrorNote = document.getElementById('guest-owner-conflict-check-error');
+            const endpoint = "{% url 'records:api_check_guest_owner_edit_conflicts' %}";
+            const petId = "{{ record.pet_id }}";
+            let checkTimer = null;
+            let requestNumber = 0;
+
+            function renderNote(note, messages) {
+                note.replaceChildren();
+                messages.forEach(function (message) {
+                    const line = document.createElement('div');
+                    const icon = document.createElement('i');
+                    icon.className = 'bx bx-error-circle';
+                    icon.setAttribute('aria-hidden', 'true');
+                    const text = document.createElement('span');
+                    text.textContent = message;
+                    line.append(icon, text);
+                    note.appendChild(line);
+                });
+                note.hidden = messages.length === 0;
+            }
+
+            function checkOwnerConflicts() {
+                clearTimeout(checkTimer);
+                const name = nameField.value.trim();
+                const email = emailField.value.trim();
+                const currentRequest = ++requestNumber;
+                checkErrorNote.hidden = true;
+
+                if (!name && !email) {
+                    renderNote(nameNote, []);
+                    renderNote(emailNote, []);
+                    return;
+                }
+
+                checkTimer = setTimeout(function () {
+                    const params = new URLSearchParams({
+                        name: name,
+                        email: email,
+                        pet_id: petId,
+                    });
+                    fetch(endpoint + '?' + params.toString(), {cache: 'no-store'})
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Guest owner conflict check failed.');
+                            }
+                            return response.json();
+                        })
+                        .then(function (result) {
+                            if (
+                                currentRequest !== requestNumber
+                                || name !== nameField.value.trim()
+                                || email !== emailField.value.trim()
+                            ) return;
+
+                            const nameMessages = [];
+                            if (result.registered_name_match) {
+                                nameMessages.push(
+                                    'A registered portal account already uses this owner name. Confirm this is a different client before saving.'
+                                );
+                            }
+                            if (result.guest_name_match) {
+                                nameMessages.push(
+                                    'An existing guest record already uses this owner name. Check that record before saving.'
+                                );
+                            }
+                            const emailMessages = [];
+                            if (result.registered_email_match) {
+                                emailMessages.push(
+                                    'This email is already associated with a registered portal account. Confirm the correct client before saving.'
+                                );
+                            }
+                            if (result.guest_email_match) {
+                                emailMessages.push(
+                                    'This email is already associated with an existing guest record. Check that record before saving.'
+                                );
+                            }
+                            renderNote(nameNote, nameMessages);
+                            renderNote(emailNote, emailMessages);
+                            checkErrorNote.hidden = true;
+                        })
+                        .catch(function (error) {
+                            if (currentRequest !== requestNumber) return;
+                            checkErrorNote.hidden = false;
+                            console.error('Unable to check guest owner details:', error);
+                        });
+                }, 250);
+            }
+
+            nameField.addEventListener('input', checkOwnerConflicts);
+            emailField.addEventListener('input', checkOwnerConflicts);
+        })();
+        </script>
+        {% endif %}
 
         <!-- Pet Identification -->
         <div>
