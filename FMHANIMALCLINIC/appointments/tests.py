@@ -523,6 +523,29 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
         self.assertIn('owner_name', form.errors)
         self.assertIn('contact information is already registered', form.errors['owner_name'][0])
 
+    def test_new_guest_is_blocked_when_email_is_already_used(self):
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Existing Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='existing-guest@example.com',
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.WALKIN,
+            'owner_name': 'Different Guest',
+            'owner_phone': '09987654321',
+            'owner_email': 'EXISTING-GUEST@example.com',
+        })
+
+        form.is_valid()
+
+        self.assertIn('owner_email', form.errors)
+        self.assertIn('already associated with an owner record', form.errors['owner_email'][0])
+
     def test_new_guest_name_only_match_does_not_block_different_contact(self):
         User.objects.create_user(
             username='another-existing-owner',
@@ -563,7 +586,38 @@ class PublicOwnerIdentityCheckTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'name_match': True, 'identity_match': False})
+        self.assertEqual(response.json(), {
+            'name_match': True,
+            'identity_match': False,
+            'email_match': False,
+        })
+
+    def test_public_endpoint_reports_matching_email_without_returning_owner_details(self):
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Existing Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='existing-guest@example.com',
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+
+        response = self.client.get(
+            reverse('appointments:api_check_public_owner_identity'),
+            {
+                'name': 'Different Guest',
+                'phone': '09987654321',
+                'email': 'EXISTING-GUEST@example.com',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            'name_match': False,
+            'identity_match': False,
+            'email_match': True,
+        })
 
 
 class AdminQuickCreatePetNameValidationTests(TestCase):

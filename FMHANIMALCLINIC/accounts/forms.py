@@ -3,6 +3,7 @@ Forms for the accounts application.
 """
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
+from django.db.models.functions import Trim
 from FMHANIMALCLINIC.form_mixins import FormControlMixin, validate_philippines_phone
 from .models import User
 from .rbac_models import Role, SpecialPermissionCodes
@@ -247,9 +248,12 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
         if (
             first_name
             and last_name
-            and User.objects.filter(
-                first_name__iexact=first_name,
-                last_name__iexact=last_name,
+            and User.objects.annotate(
+                normalized_first_name=Trim('first_name'),
+                normalized_last_name=Trim('last_name'),
+            ).filter(
+                normalized_first_name__iexact=first_name,
+                normalized_last_name__iexact=last_name,
             ).exclude(pk=self.instance.pk).exists()
         ):
             self.add_error(
