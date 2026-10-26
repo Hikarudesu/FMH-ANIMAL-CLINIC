@@ -4,7 +4,20 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from billing.models import CustomerStatement
+from billing.forms import ServiceForm
+from billing.models import CustomerStatement, Service
+
+
+class ClinicServiceTaxRemovalTests(TestCase):
+    def test_service_form_and_model_do_not_expose_tax_rate(self):
+        self.assertNotIn('tax_rate', ServiceForm().fields)
+        self.assertNotIn('tax_rate', {field.name for field in Service._meta.fields})
+
+    def test_service_can_be_created_without_tax_rate(self):
+        service = Service.objects.create(name='Dental Cleaning', price=1500)
+
+        self.assertEqual(service.name, 'Dental Cleaning')
+        self.assertEqual(service.price, 1500)
 
 
 @override_settings(

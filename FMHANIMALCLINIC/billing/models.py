@@ -12,7 +12,6 @@ class Service(SoftDeleteModel):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     category = models.CharField(max_length=100, blank=True)
-    tax_rate = models.CharField(max_length=50, blank=True)
     duration = models.IntegerField(default=0, help_text="Duration in minutes")
 
     description = models.TextField(blank=True)

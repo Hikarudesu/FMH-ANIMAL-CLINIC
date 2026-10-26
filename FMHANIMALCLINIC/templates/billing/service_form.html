@@ -309,7 +309,7 @@
         <i class='bx bx-dollar-circle'></i>
         <h3>Pricing</h3>
       </div>
-      <div class="form-grid-3">
+      <div class="form-grid-2">
         <div class="form-group">
           <label for="{{ form.cost.id_for_label }}">Cost (₱)</label>
           {{ form.cost }}
@@ -324,11 +324,6 @@
           {{ form.price }}
           <span class="form-help-text">Price charged to the client</span>
           {% if form.price.errors %}<small class="error-message">{{ form.price.errors.as_text }}</small>{% endif %}
-        </div>
-        <div class="form-group">
-          <label for="{{ form.tax_rate.id_for_label }}">Tax Rate</label>
-          {{ form.tax_rate }}
-          {% if form.tax_rate.errors %}<small class="error-message">{{ form.tax_rate.errors.as_text }}</small>{% endif %}
         </div>
       </div>
 
