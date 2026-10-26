@@ -894,6 +894,60 @@ class InventoryWorkflowTests(TestCase):
         self.assertContains(response, 'PO-1001')
         self.assertContains(response, 'Inventory Test Branch')
 
+    def test_activity_logs_use_server_pagination_and_two_step_clear_confirmation(self):
+        for index in range(55):
+            ActivityLog.objects.create(
+                user=self.admin,
+                action=f'Activity log pagination {index}',
+                category=ActivityLog.Category.SYSTEM,
+            )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('inventory:activity_logs'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['page_obj'].paginator.count,
+            ActivityLog.objects.count(),
+        )
+        self.assertEqual(len(response.context['logs']), 50)
+        self.assertEqual(response.content.decode().count('class="log-card category-'), 50)
+        self.assertContains(response, 'id="continueClearActivityLogsBtn"')
+        self.assertContains(response, 'id="finalClearModal"')
+        self.assertContains(response, 'This is the final warning.')
+
+    def test_clear_activity_logs_deletes_only_selected_logs(self):
+        ActivityLog.objects.create(
+            user=self.admin,
+            action='POS log to clear',
+            category=ActivityLog.Category.POS,
+        )
+        ActivityLog.objects.create(
+            user=self.admin,
+            action='System log to keep',
+            category=ActivityLog.Category.SYSTEM,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('inventory:clear_activity_logs'),
+            {
+                'date_filter': 'all',
+                'branch_id': '',
+                'category': ActivityLog.Category.POS,
+                'user_id': '',
+                'action_type': 'all',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            ActivityLog.objects.filter(category=ActivityLog.Category.POS).exists()
+        )
+        self.assertTrue(
+            ActivityLog.objects.filter(category=ActivityLog.Category.SYSTEM).exists()
+        )
+
     @patch(
         'inventory.forms.get_inventory_unit_choices',
         return_value=[('1 piece', '1 piece'), ('1 tablet', '1 tablet')],

@@ -1,6 +1,6 @@
 """Views for handling inventory catalog display."""
 # pylint: disable=no-member, unused-argument, too-many-lines
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from collections import defaultdict
 from decimal import Decimal
 
@@ -1338,6 +1338,18 @@ def group_logs_by_date(logs):
     return [(name, logs) for name, logs in groups.items() if logs]
 
 
+def _filter_activity_logs_by_date(logs, start_date, end_date=None):
+    """Filter timestamps with index-friendly local date bounds."""
+    start = timezone.make_aware(datetime.combine(start_date, time.min))
+    filters = {'timestamp__gte': start}
+    if end_date:
+        end = timezone.make_aware(
+            datetime.combine(end_date + timedelta(days=1), time.min)
+        )
+        filters['timestamp__lt'] = end
+    return logs.filter(**filters)
+
+
 def group_logs_by_branch(logs):
     """Groups logs by branch."""
     grouped = defaultdict(list)
@@ -1358,9 +1370,9 @@ def activity_logs_view(request):
     """
     Comprehensive Activity Log with filtering by Date, Branch, and Category.
     """
-    # Get all logs
+    # Keep page rendering and Python grouping bounded even as the audit log grows.
     logs = ActivityLog.objects.select_related(
-        'user', 'branch').all().order_by('-timestamp')
+        'user', 'branch').order_by('-timestamp')
 
     # Filter by branch
     branch_id = request.GET.get('branch_id')
@@ -1389,22 +1401,25 @@ def activity_logs_view(request):
     today = now.date()
 
     if date_filter == 'today':
-        logs = logs.filter(timestamp__date=today)
+        logs = _filter_activity_logs_by_date(logs, today, today)
     elif date_filter == 'yesterday':
         yesterday = today - timedelta(days=1)
-        logs = logs.filter(timestamp__date=yesterday)
+        logs = _filter_activity_logs_by_date(logs, yesterday, yesterday)
     elif date_filter == 'week':
         week_start = today - timedelta(days=today.weekday())
-        logs = logs.filter(timestamp__date__gte=week_start)
+        logs = _filter_activity_logs_by_date(logs, week_start)
     elif date_filter == 'month':
         month_start = today.replace(day=1)
-        logs = logs.filter(timestamp__date__gte=month_start)
+        logs = _filter_activity_logs_by_date(logs, month_start)
+
+    page_obj = Paginator(logs, 50).get_page(request.GET.get('page'))
 
     # Simplified: always group by date and provide concise filters.
     # Keep users/action_types in context for the Clear modal, but
     # the top-level filter bar exposes only: Date, Category, Branch, Action Type.
     context = {
-        'logs': logs,
+        'logs': page_obj.object_list,
+        'page_obj': page_obj,
         'page_title': 'System Activity Logs',
         'branches': Branch.objects.filter(is_active=True),
         'users': User.objects.filter(is_active=True).order_by('first_name', 'last_name', 'username'),
@@ -1417,7 +1432,7 @@ def activity_logs_view(request):
     }
 
     # Always group by date for simpler UX
-    context['grouped_logs'] = group_logs_by_date(logs)
+    context['grouped_logs'] = group_logs_by_date(page_obj.object_list)
     context['group_key'] = 'date'
 
     return render(request, 'inventory/activity_logs.html', context)
@@ -1453,19 +1468,22 @@ def clear_activity_logs(request):
 
         # Filter by date
         if date_filter == 'today':
-            logs = logs.filter(timestamp__date=today)
+            logs = _filter_activity_logs_by_date(logs, today, today)
         elif date_filter == 'yesterday':
             yesterday = today - timedelta(days=1)
-            logs = logs.filter(timestamp__date=yesterday)
+            logs = _filter_activity_logs_by_date(logs, yesterday, yesterday)
         elif date_filter == 'week':
             week_start = today - timedelta(days=today.weekday())
-            logs = logs.filter(timestamp__date__gte=week_start)
+            logs = _filter_activity_logs_by_date(logs, week_start)
         elif date_filter == 'month':
             month_start = today.replace(day=1)
-            logs = logs.filter(timestamp__date__gte=month_start)
+            logs = _filter_activity_logs_by_date(logs, month_start)
         elif date_filter == 'older':
             month_start = today.replace(day=1)
-            logs = logs.filter(timestamp__date__lt=month_start)
+            month_start_time = timezone.make_aware(
+                datetime.combine(month_start, time.min)
+            )
+            logs = logs.filter(timestamp__lt=month_start_time)
 
         # Filter by branch
         if branch_id:
@@ -1484,8 +1502,7 @@ def clear_activity_logs(request):
         if action_type and action_type != 'all':
             logs = logs.filter(action_type=action_type)
 
-        count = logs.count()
-        logs.delete()
+        count, _deleted_by_model = logs.delete()
 
         messages.success(
             request, f'Successfully cleared {count} activity log(s).')

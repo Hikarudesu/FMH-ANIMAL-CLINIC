@@ -129,7 +129,7 @@
         <div class="log-items-container">
           <div class="log-items" data-page="1">
             {% for log in group_logs %}
-            <div class="log-card category-{{ log.get_category_display|slugify }}" {% if forloop.counter > 5 %}style="display: none;"{% endif %} data-index="{{ forloop.counter }}">
+            <div class="log-card category-{{ log.get_category_display|slugify }}">
               <div class="log-card-inner">
                 <!-- Category Icon -->
                 <div class="log-icon category-{{ log.get_category_display|slugify }}">
@@ -198,40 +198,11 @@
             {% endfor %}
           </div>
 
-          <!-- Pagination -->
-          {% if group_logs|length > 5 %}
-          <div class="modern-pagination activity-log-pagination" data-total-items="{{ group_logs|length }}" data-items-per-page="5">
-            <div class="pagination-controls">
-              
-              <button type="button" class="pagination-btn pagination-btn-first" onclick="goToPage(this, 1)" disabled title="First Page">
-                <i class='bx bx-chevrons-left'></i>
-              </button>
-              <button type="button" class="pagination-btn pagination-btn-prev" onclick="changePage(this, -1)" disabled title="Previous">
-                <i class='bx bx-chevron-left'></i>
-              </button>
-              
-              <div class="pagination-pages page-number-container">
-                <!-- Javascript will insert dots and page numbers here -->
-              </div>
-
-              <button type="button" class="pagination-btn pagination-btn-next" onclick="changePage(this, 1)" title="Next">
-                <i class='bx bx-chevron-right'></i>
-              </button>
-              <button type="button" class="pagination-btn pagination-btn-last" onclick="goToLastPage(this)" title="Last Page">
-                <i class='bx bx-chevrons-right'></i>
-              </button>
-            </div>
-            
-            <div class="page-info" style="display:none;">
-              <span class="current-page">1</span>
-              <span class="total-pages">{{ group_logs|length|add:4|divisibleby:5|default:1 }}</span>
-            </div>
-          </div>
-          {% endif %}
         </div>
       </div>
       {% endif %}
     {% endfor %}
+    {% include "components/modern_pagination.html" with page_obj=page_obj %}
   {% else %}
     <!-- Empty State -->
     <div class="empty-state-card">
@@ -256,7 +227,7 @@
         <i class='bx bx-x'></i>
       </button>
     </div>
-    <form method="POST" action="{% url 'inventory:clear_activity_logs' %}">
+    <form method="POST" action="{% url 'inventory:clear_activity_logs' %}" id="clearActivityLogsForm">
       {% csrf_token %}
       <div class="modal-body">
         <p class="warning-text">
@@ -313,8 +284,39 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" onclick="closeClearModal()">Cancel</button>
+        <button type="button" class="btn-danger" id="continueClearActivityLogsBtn">
+          Continue
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="finalClearModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="finalClearLogsTitle">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="finalClearLogsTitle"><i class='bx bx-error-circle'></i> Final Confirmation</h3>
+      <button type="button" class="modal-close" id="closeFinalClearModal" aria-label="Close">
+        <i class='bx bx-x'></i>
+      </button>
+    </div>
+    <form method="POST" action="{% url 'inventory:clear_activity_logs' %}" id="finalClearActivityLogsForm">
+      {% csrf_token %}
+      <input type="hidden" name="date_filter">
+      <input type="hidden" name="branch_id">
+      <input type="hidden" name="category">
+      <input type="hidden" name="user_id">
+      <input type="hidden" name="action_type">
+      <div class="modal-body">
+        <p class="warning-text">
+          <i class='bx bx-error-circle'></i>
+          This is the final warning. The selected activity logs will be permanently deleted and cannot be restored. Confirm only if you intend to remove them.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="cancelFinalClearModal">Cancel</button>
         <button type="submit" class="btn-danger">
-          <i class='bx bx-trash'></i> Clear Logs
+          <i class='bx bx-trash'></i> Permanently Clear Logs
         </button>
       </div>
     </form>
@@ -965,8 +967,7 @@
   .log-footer { flex-wrap: wrap; }
   .delete-btn { opacity: 1; }
 
-  .activity-log-pagination { flex-wrap: wrap; }
-  .page-btn span { display: none; }
+  .modern-pagination { flex-wrap: wrap; }
 }
 </style>
 
@@ -976,96 +977,6 @@ function toggleSection(btn) {
   const section = btn.closest('.log-section');
   section.classList.toggle('collapsed');
 }
-
-function setPage(container, newPage) {
-  const items = container.querySelectorAll('.log-card');
-  const itemsPerPage = 5;
-  const totalPages = Math.ceil(items.length / itemsPerPage);
-
-  if (newPage < 1 || newPage > totalPages) return;
-
-  const pageInfo = container.querySelector('.page-info');
-  const currentPageEl = pageInfo.querySelector('.current-page');
-  currentPageEl.textContent = newPage;
-
-  // Show/hide items
-  items.forEach((item, index) => {
-    const itemPage = Math.ceil((index + 1) / itemsPerPage);
-    item.style.display = itemPage === newPage ? '' : 'none';
-  });
-
-  const pagination = container.querySelector('.activity-log-pagination');
-  const firstBtn = pagination.querySelector('.pagination-btn-first');
-  const prevBtn = pagination.querySelector('.pagination-btn-prev');
-  const nextBtn = pagination.querySelector('.pagination-btn-next');
-  const lastBtn = pagination.querySelector('.pagination-btn-last');
-
-  if(newPage === 1) {
-    firstBtn.classList.add('pagination-btn-disabled');
-    prevBtn.classList.add('pagination-btn-disabled');
-  } else {
-    firstBtn.classList.remove('pagination-btn-disabled');
-    prevBtn.classList.remove('pagination-btn-disabled');
-  }
-
-  if(newPage === totalPages) {
-    nextBtn.classList.add('pagination-btn-disabled');
-    lastBtn.classList.add('pagination-btn-disabled');
-  } else {
-    nextBtn.classList.remove('pagination-btn-disabled');
-    lastBtn.classList.remove('pagination-btn-disabled');
-  }
-
-  renderPageNumbers(pagination, newPage, totalPages);
-}
-
-function changePage(btn, direction) {
-  const container = btn.closest('.log-items-container');
-  const currentPageEl = container.querySelector('.current-page');
-  let currentPage = parseInt(currentPageEl.textContent);
-  setPage(container, currentPage + direction);
-}
-
-function goToPageNative(btn, targetPage) {
-  const container = btn.closest('.log-items-container');
-  setPage(container, targetPage);
-}
-
-function goToPage(btn, page) {
-  const container = btn.closest('.log-items-container');
-  setPage(container, page);
-}
-
-function goToLastPage(btn) {
-  const container = btn.closest('.log-items-container');
-  const totalPages = parseInt(container.querySelector('.total-pages').textContent);
-  setPage(container, totalPages);
-}
-
-function renderPageNumbers(pagination, currentPage, totalPages) {
-  const pageContainer = pagination.querySelector('.page-number-container');
-  if(!pageContainer) return;
-  pageContainer.innerHTML = '';
-  
-  for(let i = 1; i <= totalPages; i++) {
-    if (i === currentPage) {
-      pageContainer.innerHTML += `<span class="pagination-page active">${i}</span>`;
-    } else if (i >= currentPage - 2 && i <= currentPage + 2) {
-      pageContainer.innerHTML += `<button type="button" class="pagination-page" onclick="goToPage(this, ${i})">${i}</button>`;
-    }
-  }
-}
-
-// Initialize total pages on load
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('.activity-log-pagination').forEach(pagination => {
-    const container = pagination.closest('.log-items-container');
-    const items = container.querySelectorAll('.log-card');
-    const totalPages = Math.ceil(items.length / 5);
-    pagination.querySelector('.total-pages').textContent = totalPages;
-    renderPageNumbers(pagination, 1, totalPages);
-  });
-});
 
 // Modal functions
 function openClearModal() {
@@ -1078,6 +989,30 @@ function closeClearModal() {
   document.body.style.overflow = '';
 }
 
+function openFinalClearModal() {
+  const selectionForm = document.getElementById('clearActivityLogsForm');
+  const finalForm = document.getElementById('finalClearActivityLogsForm');
+  new FormData(selectionForm).forEach((value, name) => {
+    const field = finalForm.elements.namedItem(name);
+    if (field) field.value = value;
+  });
+  closeClearModal();
+  document.getElementById('finalClearModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFinalClearModal() {
+  document.getElementById('finalClearModal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('continueClearActivityLogsBtn').addEventListener('click', openFinalClearModal);
+document.getElementById('closeFinalClearModal').addEventListener('click', closeFinalClearModal);
+document.getElementById('cancelFinalClearModal').addEventListener('click', closeFinalClearModal);
+document.getElementById('finalClearModal').addEventListener('click', function(e) {
+  if (e.target === this) closeFinalClearModal();
+});
+
 document.getElementById('clearModal').addEventListener('click', function(e) {
   if (e.target === this) closeClearModal();
 });
@@ -1085,6 +1020,9 @@ document.getElementById('clearModal').addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape' && document.getElementById('clearModal').classList.contains('active')) {
     closeClearModal();
+  }
+  if (e.key === 'Escape' && document.getElementById('finalClearModal').classList.contains('active')) {
+    closeFinalClearModal();
   }
 });
 </script>

@@ -398,6 +398,7 @@ class ActivityLog(models.Model):
         """Meta options for ActivityLog."""
         ordering = ['-timestamp']
         indexes = [
+            models.Index(fields=['-timestamp'], name='acct_actlog_ts_desc_idx'),
             models.Index(fields=['category', '-timestamp']),
             models.Index(fields=['user', '-timestamp']),
             models.Index(fields=['action_type', '-timestamp']),
