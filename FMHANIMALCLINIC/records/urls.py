@@ -24,6 +24,11 @@ urlpatterns = [
         views.api_check_owner_identity,
         name='api_check_owner_identity',
     ),
+    path(
+        'api/check-guest-owner-edit-conflicts/',
+        views.api_check_guest_owner_edit_conflicts,
+        name='api_check_guest_owner_edit_conflicts',
+    ),
     path('<int:pk>/download-pdf/', views.download_pdf_view, name='download_pdf'),
     path('<int:pk>/view/', views.user_record_detail, name='user_detail'),
 ]

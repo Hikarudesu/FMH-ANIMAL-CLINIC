@@ -11,7 +11,7 @@ from settings.models import ClinicalStatus
 
 class MedicalRecordForm(FormControlMixin, forms.ModelForm):
     owner_email = forms.EmailField(
-        required=False,
+        required=True,
         widget=forms.EmailInput(attrs={
             'id': 'ro-owner-email',
             'class': 'form-control-custom',
