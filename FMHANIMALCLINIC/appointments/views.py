@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from accounts.owner_identity import check_existing_owner_identity
+from accounts.rate_limits import consume_rate_limit
 from accounts.decorators import module_permission_required
 from accounts.rbac_constants import StaffRoles
 from branches.models import Branch
@@ -2131,6 +2132,26 @@ def api_pet_owners(request):
 @module_permission_required('appointments', 'CREATE')
 def api_check_owner_identity(request):
     """Check for an existing owner without returning their identifying details."""
+    result = check_existing_owner_identity(
+        request.GET.get('name', ''),
+        request.GET.get('phone', ''),
+        request.GET.get('email', ''),
+    )
+    return JsonResponse(result)
+
+
+@require_GET
+def api_check_public_owner_identity(request):
+    """Check for duplicate owners during public booking, with per-IP throttling."""
+    retry_after = consume_rate_limit(
+        'public-owner-identity', request.META.get('REMOTE_ADDR', 'unknown'),
+        60, 60,
+    )
+    if retry_after:
+        response = JsonResponse({'error': 'Too many checks. Please try again shortly.'}, status=429)
+        response['Retry-After'] = str(retry_after)
+        return response
+
     result = check_existing_owner_identity(
         request.GET.get('name', ''),
         request.GET.get('phone', ''),

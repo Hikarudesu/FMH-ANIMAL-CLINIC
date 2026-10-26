@@ -39,6 +39,11 @@ urlpatterns = [
         views.api_check_owner_identity,
         name='api_check_owner_identity',
     ),
+    path(
+        'api/public-check-owner-identity/',
+        views.api_check_public_owner_identity,
+        name='api_check_public_owner_identity',
+    ),
     path('api/pets/', views.api_owner_pets, name='api_pets'),
     path('api/walkin-guests/', views.api_walkin_guests, name='api_walkin_guests'),
     path('api/walkin-guest-pets/', views.api_walkin_guest_pets, name='api_walkin_guest_pets'),

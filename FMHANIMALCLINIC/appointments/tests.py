@@ -545,6 +545,27 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
         self.assertTrue(check_existing_owner_identity('Taylor Owner')['name_match'])
 
 
+class PublicOwnerIdentityCheckTests(TestCase):
+    def test_public_endpoint_reports_existing_guest_name_without_login(self):
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Returning Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='returning-guest@example.com',
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+
+        response = self.client.get(
+            reverse('appointments:api_check_public_owner_identity'),
+            {'name': 'Returning Guest', 'phone': '09987654321', 'email': 'new@example.com'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'name_match': True, 'identity_match': False})
+
+
 class AdminQuickCreatePetNameValidationTests(TestCase):
     def setUp(self):
         self.owner = User.objects.create_user(
