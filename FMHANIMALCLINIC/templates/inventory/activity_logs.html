@@ -66,17 +66,27 @@
     <div class="filter-group">
       <i class='bx bx-category'></i>
       <select name="category" class="filter-select sd-convert" onchange="this.form.submit()">
-        <option value="all">All Categories</option>
+        <option value="all" {% if selected_category == 'all' %}selected{% endif %}>All Categories</option>
         {% for cat_value, cat_label in categories %}
           <option value="{{ cat_value }}" {% if selected_category == cat_value %}selected{% endif %}>{{ cat_label }}</option>
         {% endfor %}
       </select>
     </div>
-    <!-- user filter removed for simplified UI -->
+    <div class="filter-group">
+      <i class='bx bx-user'></i>
+      <select name="user_id" class="filter-select sd-convert" onchange="this.form.submit()">
+        <option value="">All Users</option>
+        {% for log_user in users %}
+          <option value="{{ log_user.id }}" {% if selected_user_id|stringformat:"s" == log_user.id|stringformat:"s" %}selected{% endif %}>
+            {{ log_user.get_full_name|default:log_user.username }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
     <div class="filter-group">
       <i class='bx bx-bolt-circle'></i>
       <select name="action_type" class="filter-select sd-convert" onchange="this.form.submit()">
-        <option value="all">All Action Types</option>
+        <option value="all" {% if selected_action_type == 'all' %}selected{% endif %}>All Action Types</option>
         {% for action_value, action_label in action_types %}
           <option value="{{ action_value }}" {% if selected_action_type == action_value %}selected{% endif %}>{{ action_label }}</option>
         {% endfor %}

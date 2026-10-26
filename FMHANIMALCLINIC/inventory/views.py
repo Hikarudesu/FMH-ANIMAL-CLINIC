@@ -2,6 +2,7 @@
 # pylint: disable=no-member, unused-argument, too-many-lines
 from datetime import date, datetime, time, timedelta
 from collections import defaultdict
+from calendar import monthrange
 from decimal import Decimal
 
 from django.core.paginator import Paginator
@@ -1407,10 +1408,11 @@ def activity_logs_view(request):
         logs = _filter_activity_logs_by_date(logs, yesterday, yesterday)
     elif date_filter == 'week':
         week_start = today - timedelta(days=today.weekday())
-        logs = _filter_activity_logs_by_date(logs, week_start)
+        logs = _filter_activity_logs_by_date(logs, week_start, week_start + timedelta(days=6))
     elif date_filter == 'month':
         month_start = today.replace(day=1)
-        logs = _filter_activity_logs_by_date(logs, month_start)
+        month_end = today.replace(day=monthrange(today.year, today.month)[1])
+        logs = _filter_activity_logs_by_date(logs, month_start, month_end)
 
     page_obj = Paginator(logs, 50).get_page(request.GET.get('page'))
 
@@ -1422,13 +1424,14 @@ def activity_logs_view(request):
         'page_obj': page_obj,
         'page_title': 'System Activity Logs',
         'branches': Branch.objects.filter(is_active=True),
-        'users': User.objects.filter(is_active=True).order_by('first_name', 'last_name', 'username'),
+        'users': User.objects.order_by('first_name', 'last_name', 'username'),
         'categories': ActivityLog.Category.choices,
         'action_types': ActivityLog.ActionType.choices,
         'selected_branch_id': branch_id,
         'selected_category': category,
         'selected_action_type': action_type,
         'selected_date_filter': date_filter,
+        'selected_user_id': user_id,
     }
 
     # Always group by date for simpler UX

@@ -1,7 +1,9 @@
+from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from unittest.mock import patch
 
 from accounts.rbac_models import Module, ModulePermission, Role
@@ -915,6 +917,65 @@ class InventoryWorkflowTests(TestCase):
         self.assertContains(response, 'id="continueClearActivityLogsBtn"')
         self.assertContains(response, 'id="finalClearModal"')
         self.assertContains(response, 'This is the final warning.')
+
+    def test_activity_log_filters_fetch_matching_data_across_system(self):
+        other_branch = Branch.objects.create(
+            name='Other Activity Log Branch',
+            phone_number='09123456780',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1001',
+        )
+        other_user = get_user_model().objects.create_user(
+            username='activity-log-filter-user',
+            email='activity-log-filter-user@example.com',
+            password='A-secure-test-password-923!',
+        )
+        matching_log = ActivityLog.objects.create(
+            user=other_user,
+            action='Created a POS transaction',
+            category=ActivityLog.Category.POS,
+            action_type=ActivityLog.ActionType.CREATE,
+            branch=other_branch,
+        )
+        ActivityLog.objects.create(
+            user=self.admin,
+            action='Updated inventory',
+            category=ActivityLog.Category.STOCK,
+            action_type=ActivityLog.ActionType.UPDATE,
+            branch=self.branch,
+        )
+        old_log = ActivityLog.objects.create(
+            user=other_user,
+            action='Older POS transaction',
+            category=ActivityLog.Category.POS,
+            action_type=ActivityLog.ActionType.CREATE,
+            branch=other_branch,
+        )
+        ActivityLog.objects.filter(pk=old_log.pk).update(
+            timestamp=timezone.now() - timedelta(days=2),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('inventory:activity_logs'),
+            {
+                'branch_id': other_branch.pk,
+                'category': ActivityLog.Category.POS,
+                'user_id': other_user.pk,
+                'action_type': ActivityLog.ActionType.CREATE,
+                'date_filter': 'today',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [log.pk for _group, logs in response.context['grouped_logs'] for log in logs],
+            [matching_log.pk],
+        )
+        self.assertContains(response, 'name="user_id"')
+        self.assertContains(response, f'value="{other_user.pk}" selected')
 
     def test_clear_activity_logs_deletes_only_selected_logs(self):
         ActivityLog.objects.create(
