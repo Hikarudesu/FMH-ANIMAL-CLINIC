@@ -409,22 +409,42 @@ class StockTransfer(models.Model):
                 cost_per_unit=self.source_product.unit_cost
             )
 
-            # Create or find destination product
-            dest_product, _created = Product.objects.get_or_create(
+            # Prefer the shared SKU; fall back to the destination's matching item
+            # when branch-local SKUs differ.
+            dest_product = Product.objects.filter(
                 sku=self.source_product.sku,
                 branch=self.destination_branch,
-                defaults={
-                    'name': self.source_product.name,
-                    'description': self.source_product.description,
-                    'item_type': self.source_product.item_type,
-                    'manufacturer': self.source_product.manufacturer,
-                    'unit_cost': self.source_product.unit_cost,
-                    'price': self.source_product.price,
-                    'unit_of_measurement': self.source_product.unit_of_measurement,
-                    'sale_type': self.source_product.sale_type,
-                    'expiration_date': self.source_product.expiration_date,
-                }
-            )
+                is_deleted=False,
+            ).first()
+            if not dest_product:
+                matching_products = Product.objects.filter(
+                    branch=self.destination_branch,
+                    name__iexact=self.source_product.name,
+                    item_type=self.source_product.item_type,
+                    manufacturer__iexact=self.source_product.manufacturer,
+                    is_deleted=False,
+                )
+                if matching_products.count() > 1:
+                    raise ValueError(
+                        'Multiple matching products exist in the destination branch. '
+                        'Resolve the duplicate products before completing this transfer.'
+                    )
+                dest_product = matching_products.first()
+
+            if not dest_product:
+                dest_product = Product.objects.create(
+                    name=self.source_product.name,
+                    description=self.source_product.description,
+                    item_type=self.source_product.item_type,
+                    sku=self.source_product.sku,
+                    manufacturer=self.source_product.manufacturer,
+                    unit_cost=self.source_product.unit_cost,
+                    price=self.source_product.price,
+                    unit_of_measurement=self.source_product.unit_of_measurement,
+                    sale_type=self.source_product.sale_type,
+                    branch=self.destination_branch,
+                    expiration_date=self.source_product.expiration_date,
+                )
 
             # Add to destination via StockAdjustment (its save() updates stock_quantity)
             StockAdjustment.objects.create(

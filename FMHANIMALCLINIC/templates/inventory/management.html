@@ -56,7 +56,7 @@
 </div>
 
 <!-- Filter Bar -->
-{% include "components/filter_bar.html" with form_action="/inventory/management/" form_id="inventoryFilterForm" search_name="q" search_value=search_value search_placeholder="Search by name, SKU, or description..." search_id="inventorySearch" search_dropdown_id="inventorySearchDropdown" filters=status_filters clear_url="/inventory/management/" show_clear=show_clear %}
+{% include "components/filter_bar.html" with form_action="/inventory/management/" form_id="inventoryFilterForm" search_name="q" search_value=search_value search_placeholder="Search by name, SKU, or description..." search_id="inventorySearch" filters=status_filters clear_url="/inventory/management/" show_clear=show_clear %}
 
 <!-- Items Section -->
 <div id="inv-items-section" class="inv-section active">
@@ -339,107 +339,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 50);
 });
 
-// ══════ INVENTORY SEARCH AUTOCOMPLETE + LIVE FILTER ══════
+// ══════ INVENTORY SEARCH ══════
 (function initInventorySearch() {
   const searchInput = document.getElementById('inventorySearch');
-  const dropdown    = document.getElementById('inventorySearchDropdown');
-  if (!searchInput || !dropdown) return;
+  if (!searchInput || !searchInput.form) return;
 
-  function buildData() {
-    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
-      name   : row.dataset.name    || '',
-      sku    : row.dataset.sku     || '',
-      status : row.dataset.status  || '',
-      row    : row
-    }));
-  }
-
-  let items = buildData();
-
-  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-  function highlight(text, q) {
-    if (!q) return text;
-    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
-      '<span class="search-dropdown-highlight">$1</span>');
-  }
-
-  function renderDropdown(results, q) {
-    if (!results.length) {
-      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No items found</div>';
-    } else {
-      dropdown.innerHTML = results.slice(0, 8).map(item => `
-        <div class="search-dropdown-item" data-name="${item.name}">
-          <i class='bx bx-package'></i>
-          <div class="item-info">
-            <div class="item-name">${highlight(item.name, q)}</div>
-            <div class="item-sub">${highlight(item.sku, q)} &bull; ${item.status}</div>
-          </div>
-          <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
-        </div>`).join('');
-      dropdown.querySelectorAll('.search-dropdown-item').forEach((elem, idx) => {
-        elem.addEventListener('mousedown', e => {
-          e.preventDefault();
-          searchInput.value = results[idx].name;
-          filterRows(results[idx].name.toLowerCase());
-          hideDropdown();
-        });
-      });
-    }
-    dropdown.style.display = 'block';
-    dropdown.classList.add('active');
-  }
-
-  function hideDropdown() {
-    dropdown.classList.remove('active');
-    dropdown.style.display = '';
-  }
-
-  function filterRows(q) {
-    items.forEach(item => {
-      const nl = item.name.toLowerCase();
-      const sl = item.sku.toLowerCase();
-      const matchesSearch = !q || nl.includes(q) || sl.includes(q);
-      item.row.style.display = matchesSearch ? '' : 'none';
-    });
-  }
-
+  let submitTimer;
   searchInput.addEventListener('input', function () {
-    const q = this.value.toLowerCase().trim();
-    filterRows(q);
-    if (!q) { hideDropdown(); return; }
-    const results = items.filter(item =>
-      item.name.toLowerCase().includes(q) ||
-      item.sku.toLowerCase().includes(q));
-    renderDropdown(results, q);
+    clearTimeout(submitTimer);
+    submitTimer = setTimeout(() => searchInput.form.requestSubmit(), 350);
   });
-
-  searchInput.addEventListener('focus', function () {
-    if (this.value.trim()) this.dispatchEvent(new Event('input'));
-  });
-
-  searchInput.addEventListener('blur', function () {
-    setTimeout(hideDropdown, 150);
-  });
-
-  searchInput.addEventListener('keydown', function (e) {
-    const items_elem = Array.from(dropdown.querySelectorAll('.search-dropdown-item'));
-    let idx = items_elem.findIndex(i => i.classList.contains('active'));
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      items_elem[idx]?.classList.remove('active');
-      idx = (idx + 1) % items_elem.length;
-      items_elem[idx]?.classList.add('active');
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      items_elem[idx]?.classList.remove('active');
-      idx = (idx - 1 + items_elem.length) % items_elem.length;
-      items_elem[idx]?.classList.add('active');
-    } else if (e.key === 'Enter' && idx >= 0) {
-      e.preventDefault(); items_elem[idx]?.click();
-    } else if (e.key === 'Escape') {
-      hideDropdown();
-    }
+  searchInput.form.addEventListener('submit', function () {
+    clearTimeout(submitTimer);
   });
 }());
 
