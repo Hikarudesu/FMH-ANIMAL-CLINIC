@@ -81,14 +81,25 @@ class MedicalRecordForm(FormControlMixin, forms.ModelForm):
             self.fields[field_name].required = True
 
         action_queryset = ClinicalStatus.objects.filter(is_active=True)
-        latest_entry = self.instance.latest_entry if self.instance and self.instance.pk else None
-        if latest_entry and latest_entry.action_required_id:
+        first_entry = self.instance.first_entry if self.instance and self.instance.pk else None
+        if first_entry and first_entry.action_required_id:
             action_queryset = ClinicalStatus.objects.filter(
-                Q(is_active=True) | Q(pk=latest_entry.action_required_id)
+                Q(is_active=True) | Q(pk=first_entry.action_required_id)
             )
         self.fields['action_required'].queryset = action_queryset.order_by('order', 'name')
-        if latest_entry and latest_entry.action_required_id:
-            self.initial['action_required'] = latest_entry.action_required_id
+        if first_entry:
+            for field_name in (
+                'date_recorded',
+                'weight',
+                'temperature',
+                'history_clinical_signs',
+                'treatment',
+                'rx',
+                'ff_up',
+            ):
+                self.initial[field_name] = getattr(first_entry, field_name)
+            if first_entry.action_required_id:
+                self.initial['action_required'] = first_entry.action_required_id
 
 
 class RecordEntryForm(FormControlMixin, forms.ModelForm):

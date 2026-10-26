@@ -880,25 +880,22 @@ def admin_record_edit(request, pk):
                 pet.save()
                 updated_record.save()
                 
-                # Sync edits down to the latest RecordEntry so that the UI correctly updates 
-                # for the admin_list and medical record detail page.
-                latest_entry = RecordEntry.objects.filter(
-                    record=updated_record
-                ).order_by('-date_recorded', '-created_at').first()
-                if latest_entry:
-                    latest_entry.date_recorded = form.cleaned_data.get('date_recorded')
-                    latest_entry.weight = form.cleaned_data.get('weight')
-                    latest_entry.temperature = form.cleaned_data.get('temperature')
-                    latest_entry.history_clinical_signs = form.cleaned_data.get('history_clinical_signs') or ''
-                    latest_entry.treatment = form.cleaned_data.get('treatment') or ''
-                    latest_entry.rx = form.cleaned_data.get('rx') or ''
-                    latest_entry.ff_up = form.cleaned_data.get('ff_up')
-                    latest_entry.action_required = form.cleaned_data.get(
+                # The edit form represents the record's first visit entry.
+                first_entry = updated_record.first_entry
+                if first_entry:
+                    first_entry.date_recorded = form.cleaned_data.get('date_recorded')
+                    first_entry.weight = form.cleaned_data.get('weight')
+                    first_entry.temperature = form.cleaned_data.get('temperature')
+                    first_entry.history_clinical_signs = form.cleaned_data.get('history_clinical_signs') or ''
+                    first_entry.treatment = form.cleaned_data.get('treatment') or ''
+                    first_entry.rx = form.cleaned_data.get('rx') or ''
+                    first_entry.ff_up = form.cleaned_data.get('ff_up')
+                    first_entry.action_required = form.cleaned_data.get(
                         'action_required'
                     )
                     if getattr(updated_record, 'vet', None):
-                        latest_entry.vet = updated_record.vet
-                    latest_entry.save()
+                        first_entry.vet = updated_record.vet
+                    first_entry.save()
 
                 notify_medical_record_follow_up(updated_record, request.user)
                 
