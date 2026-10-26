@@ -1949,6 +1949,10 @@ def get_payroll_report_rows(period):
         {
             'employee': payslip.employee.full_name,
             'position': payslip.employee.get_position_display(),
+            'attendance': payslip.days_worked,
+            'absences': payslip.days_absent,
+            'base_salary': payslip.base_salary or Decimal('0'),
+            'deductions': payslip.total_deductions or Decimal('0'),
             'days_worked': payslip.days_worked,
             'days_absent': payslip.days_absent,
             'allowances': sum(

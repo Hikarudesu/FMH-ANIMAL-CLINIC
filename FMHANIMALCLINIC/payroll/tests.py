@@ -931,6 +931,7 @@ class PayrollRulesTests(TestCase):
 
     def test_payslip_uses_daily_salary_for_absent_deduction(self):
         set_setting('payroll_default_rest_days', 4)
+        set_setting('payroll_auto_statutory', False)
 
         staff = StaffMember.objects.create(
             first_name='Ari',
@@ -966,6 +967,13 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(payslip.daily_salary, Decimal('15000') / Decimal('13'))
         self.assertEqual(payslip.absent_deduction, Decimal('15000.00'))
 
+        payslip.save()
+        payslip.refresh_from_db()
+        payslip.calculate()
+
+        self.assertEqual(payslip.absent_deduction, Decimal('15000.00'))
+        self.assertEqual(payslip.net_pay, Decimal('1000.00'))
+
     def test_report_allowances_include_all_earnings(self):
         set_setting('payroll_auto_statutory', False)
         staff = StaffMember.objects.create(
@@ -999,4 +1007,8 @@ class PayrollRulesTests(TestCase):
 
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['allowances'], Decimal('4600.00'))
+        self.assertEqual(rows[0]['base_salary'], Decimal('15000.00'))
+        self.assertEqual(rows[0]['attendance'], 0)
+        self.assertEqual(rows[0]['absences'], 0)
+        self.assertEqual(rows[0]['deductions'], Decimal('0'))
         self.assertEqual(total_net, Decimal('19600.00'))

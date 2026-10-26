@@ -399,8 +399,13 @@ class Payslip(models.Model):
             Decimal('0'),
             Decimal(str(self.days_absent or 0)) - paid_leave_days,
         )
+        absence_daily_rate = (
+            self.base_salary / Decimal(str(self.working_days))
+            if self.working_days and self.base_salary
+            else self.daily_salary or Decimal('0')
+        )
         self.absent_deduction = (
-            unpaid_absence_days * (self.daily_salary or Decimal('0'))
+            unpaid_absence_days * absence_daily_rate
         ).quantize(Decimal('0.01'))
 
         custom_total = self.custom_deductions_total or Decimal('0')
