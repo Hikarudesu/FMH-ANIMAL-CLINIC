@@ -777,11 +777,29 @@ def admin_record_edit(request, pk):
 
     if request.method == 'POST':
         form = MedicalRecordForm(request.POST, instance=record)
+        if record.pet.owner_id:
+            form.fields['owner_email'].widget.attrs['readonly'] = 'readonly'
         if form.is_valid():
-            owner_email = form.cleaned_data.get('owner_email', '').strip()
+            pet = record.pet
+            portal_owner = pet.owner if pet.owner_id else None
+            owner_email = (
+                portal_owner.email or ''
+                if portal_owner else
+                form.cleaned_data.get('owner_email', '').strip()
+            )
+            owner_contact_val = (
+                portal_owner.phone_number or ''
+                if portal_owner else
+                request.POST.get('owner_contact', '').strip()
+            )
+            owner_name_value = (
+                portal_owner.get_full_name() or portal_owner.username
+                if portal_owner else
+                request.POST.get('owner_name', '').strip()
+            )
             required_values = {
-                'owner_name': request.POST.get('owner_name', '').strip(),
-                'owner_contact': request.POST.get('owner_contact', '').strip(),
+                'owner_name': owner_name_value,
+                'owner_contact': owner_contact_val,
                 'pet_name': request.POST.get('pet_name', '').strip(),
                 'pet_species': request.POST.get('pet_species', '').strip(),
                 'pet_sex': request.POST.get('pet_sex', '').strip(),
@@ -789,7 +807,7 @@ def admin_record_edit(request, pk):
             }
             missing_fields = [
                 label for field, label in (
-                    ('owner_name', 'Select Owner'),
+                    ('owner_name', 'Owner Name'),
                     ('owner_contact', 'Contact #'),
                     ('pet_name', 'Name of Pet'),
                     ('pet_species', 'Species'),
@@ -804,9 +822,8 @@ def admin_record_edit(request, pk):
                     + ', '.join(missing_fields) + '.',
                 )
 
-            # Validate phone number using centralized function
-            owner_contact_val = request.POST.get('owner_contact', '').strip()
-            if owner_contact_val:
+            # Validate editable guest contact details only.
+            if owner_contact_val and not portal_owner:
                 try:
                     validate_philippines_phone(owner_contact_val)
                 except Exception as e:
@@ -816,20 +833,13 @@ def admin_record_edit(request, pk):
                 updated_record = form.save(commit=False)
 
                 # --- Update Pet details if provided ---
-                pet = record.pet
-                if pet.owner_id:
-                    owner = pet.owner
-                    if (owner.email or '').strip().casefold() != owner_email.casefold():
-                        owner.email = owner_email
-                        owner.email_verified = False
-                    if 'owner_contact' in request.POST:
-                        owner.phone_number = owner_contact_val
-                    if 'owner_address' in request.POST:
-                        owner.address = request.POST.get('owner_address', '').strip()
-                    owner.save()
-                else:
+                if not portal_owner:
+                    pet.guest_owner_name = owner_name_value
                     pet.guest_owner_phone = owner_contact_val
                     pet.guest_owner_email = owner_email
+                    pet.guest_owner_address = request.POST.get(
+                        'owner_address', '',
+                    ).strip()
                 if 'pet_color' in request.POST:
                     pet.color = request.POST.get('pet_color')
                 if 'pet_breed' in request.POST:
@@ -881,6 +891,8 @@ def admin_record_edit(request, pk):
                 return redirect('records:admin_detail', pk=record.pk)
     else:
         form = MedicalRecordForm(instance=record)
+        if record.pet.owner_id:
+            form.fields['owner_email'].widget.attrs['readonly'] = 'readonly'
         form.initial['owner_email'] = (
             record.pet.owner.email
             if record.pet.owner_id else record.pet.guest_owner_email

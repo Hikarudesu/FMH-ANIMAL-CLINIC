@@ -89,23 +89,24 @@
             <h3 class="section-title">Owner & Contact Information</h3>
             <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="form-group">
-                    <label class="form-label">Client Source *</label>
-                    <select name="client_source" class="form-control-custom" required>
-                        <option value="PORTAL" {% if record.pet.owner %}selected{% endif %}>Portal (Registered User)</option>
-                        <option value="WALKIN" {% if not record.pet.owner %}selected{% endif %}>Walk-in (Guest)</option>
-                    </select>
+                    <label class="form-label">Client Source</label>
+                    <input type="text" class="form-control-custom"
+                           value="{% if record.pet.owner_id %}Portal (Registered User){% else %}Walk-in (Guest){% endif %}"
+                           readonly aria-readonly="true" />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Select Owner *</label>
+                    <label class="form-label">Owner Name *</label>
                     <input type="text" id="ro-owner-name" name="owner_name" class="form-control-custom"
-                           value="{% if record.pet.owner %}{{ record.pet.owner.get_full_name }}{% else %}{{ record.pet.guest_owner_name|default:'' }}{% endif %}" required />
+                           value="{% if record.pet.owner %}{{ record.pet.owner.get_full_name|default:record.pet.owner.username }}{% else %}{{ record.pet.guest_owner_name|default:'' }}{% endif %}"
+                           {% if record.pet.owner_id %}readonly aria-readonly="true"{% endif %} required />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Contact # *</label>
                     <input type="text" id="ro-owner-contact" name="owner_contact" class="form-control-custom"
                            inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11"
                            oninput="this.value=this.value.replace(/\D/g,'')"
-                           value="{% if record.pet.owner %}{{ record.pet.owner.phone_number|default:'' }}{% else %}{{ record.pet.guest_owner_phone|default:'' }}{% endif %}" required />
+                           value="{% if record.pet.owner %}{{ record.pet.owner.phone_number|default:'' }}{% else %}{{ record.pet.guest_owner_phone|default:'' }}{% endif %}"
+                           {% if record.pet.owner_id %}readonly aria-readonly="true"{% endif %} required />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="{{ form.owner_email.id_for_label }}">Email Address</label>
@@ -117,8 +118,22 @@
                 <div class="form-group">
                     <label class="form-label">Address</label>
                     <input type="text" id="ro-owner-address" name="owner_address" class="form-control-custom"
-                           value="{% if record.pet.owner %}{{ record.pet.owner.address|default:'' }}{% else %}{{ record.pet.guest_owner_address|default:'' }}{% endif %}" />
+                           value="{% if record.pet.owner %}{{ record.pet.owner.address|default:'' }}{% else %}{{ record.pet.guest_owner_address|default:'' }}{% endif %}"
+                           {% if record.pet.owner_id %}readonly aria-readonly="true"{% endif %} />
                 </div>
+                {% if record.pet.owner_id %}
+                <div style="grid-column: 1 / -1; background: #eef8f7; border: 1px solid #b8e0dc; border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #276b66;">
+                    <i class='bx bx-info-circle' style="font-size:16px; margin-top:1px; flex-shrink:0;"></i>
+                    <span>These details are linked to the client’s portal profile and are read-only here. Contact the client or update their profile if a correction is needed.</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Consultation Information -->
+        <div>
+            <h3 class="section-title">Consultation Information</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="form-group">
                     <label class="form-label">Branch / Location *</label>
                     {{ form.branch }}

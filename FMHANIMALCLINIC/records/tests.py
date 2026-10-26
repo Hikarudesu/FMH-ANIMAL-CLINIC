@@ -377,7 +377,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(pet.owner_display_email, 'updated-owner@example.com')
         self.assertEqual(appointment.current_owner_email, 'updated-owner@example.com')
 
-    def test_edit_syncs_portal_owner_email_and_requires_reverification(self):
+    def test_edit_keeps_portal_owner_contact_details_read_only(self):
         owner = get_user_model().objects.create_user(
             username='medical-record-edit-owner',
             email='original-owner@example.com',
@@ -408,12 +408,24 @@ class AttendingVeterinarianDefaultTests(TestCase):
             action_required=ClinicalStatus.get_default(),
         )
 
+        edit_url = reverse('records:admin_edit', args=[record.pk])
+        edit_response = self.client.get(edit_url)
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertContains(edit_response, 'value="Portal (Registered User)"')
+        self.assertContains(edit_response, 'Owner Name *')
+        self.assertRegex(
+            edit_response.content.decode(),
+            r'name="owner_name"[^>]*readonly',
+        )
+        self.assertNotContains(edit_response, 'name="client_source"')
+        self.assertContains(edit_response, 'Consultation Information')
+
         response = self.client.post(
-            reverse('records:admin_edit', args=[record.pk]),
+            edit_url,
             {
-                'owner_name': owner.get_full_name() or owner.username,
-                'owner_contact': owner.phone_number,
-                'owner_address': '',
+                'owner_name': 'Changed Owner Name',
+                'owner_contact': '09999999999',
+                'owner_address': 'Changed address',
                 'owner_email': 'edited-owner@example.com',
                 'pet_name': pet.name,
                 'pet_species': pet.species,
@@ -432,9 +444,78 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(response.status_code, 302)
         owner.refresh_from_db()
         pet.refresh_from_db()
-        self.assertEqual(owner.email, 'edited-owner@example.com')
-        self.assertFalse(owner.email_verified)
-        self.assertEqual(pet.owner_display_email, 'edited-owner@example.com')
+        self.assertEqual(owner.email, 'original-owner@example.com')
+        self.assertTrue(owner.email_verified)
+        self.assertEqual(owner.phone_number, '09123456789')
+        self.assertEqual(owner.address, '')
+        self.assertEqual(pet.owner_id, owner.pk)
+        self.assertEqual(pet.owner_display_email, 'original-owner@example.com')
+
+    def test_edit_keeps_guest_owner_details_editable_and_saves_updates(self):
+        pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Original Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='original-guest@example.com',
+            guest_owner_address='Original address',
+            name='Guest Medical Record Edit Pet',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+            color='Black',
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+        )
+        RecordEntry.objects.create(
+            record=record,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+            history_clinical_signs='Routine examination',
+            treatment='Examination completed',
+            rx='None',
+            action_required=ClinicalStatus.get_default(),
+        )
+
+        edit_url = reverse('records:admin_edit', args=[record.pk])
+        edit_response = self.client.get(edit_url)
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertContains(edit_response, 'value="Walk-in (Guest)"')
+        self.assertNotRegex(
+            edit_response.content.decode(),
+            r'name="owner_name"[^>]*readonly',
+        )
+        self.assertNotContains(edit_response, 'name="client_source"')
+
+        response = self.client.post(
+            edit_url,
+            {
+                'owner_name': 'Updated Guest',
+                'owner_contact': '09987654321',
+                'owner_address': 'Updated address',
+                'owner_email': 'updated-guest@example.com',
+                'pet_name': pet.name,
+                'pet_species': pet.species,
+                'pet_sex': 'FEMALE',
+                'pet_color': pet.color,
+                'branch': self.branch.pk,
+                'vet': self.vet.pk,
+                'date_recorded': '2026-10-17',
+                'history_clinical_signs': 'Routine examination',
+                'treatment': 'Examination completed',
+                'rx': 'None',
+                'action_required': ClinicalStatus.get_default().pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        pet.refresh_from_db()
+        self.assertEqual(pet.guest_owner_name, 'Updated Guest')
+        self.assertEqual(pet.guest_owner_phone, '09987654321')
+        self.assertEqual(pet.guest_owner_email, 'updated-guest@example.com')
+        self.assertEqual(pet.guest_owner_address, 'Updated address')
 
     def test_create_rejects_new_guest_when_owner_name_and_phone_match_portal_owner(self):
         get_user_model().objects.create_user(
