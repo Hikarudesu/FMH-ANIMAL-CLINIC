@@ -169,7 +169,7 @@ def role_create(request):
     modules = modules.exclude(code__in=SUPERUSER_ONLY_MODULES)
     modules = modules.exclude(code__in=HIDDEN_FROM_MODULE_PERMISSIONS)
     modules = modules.filter(code__in=[
-        'patients', 'appointments', 'medical_records', 'ai_diagnostics', 'disease_geo_mapping',
+        'patients', 'appointments', 'medical_records', 'ai_diagnostics',
         'inquiries', 'clinic_services', 'inventory', 'reservations',
     ])
 
@@ -182,7 +182,6 @@ def role_create(request):
             models.When(code='appointments', then=models.Value(20)),
             models.When(code='medical_records', then=models.Value(30)),
             models.When(code='ai_diagnostics', then=models.Value(40)),
-            models.When(code='disease_geo_mapping', then=models.Value(50)),
             models.When(code='inquiries', then=models.Value(60)),
             models.When(code='clinic_services', then=models.Value(70)),
             models.When(code='inventory', then=models.Value(80)),
@@ -335,7 +334,7 @@ def role_edit(request, role_id):
     modules = modules.exclude(code__in=SUPERUSER_ONLY_MODULES)
     modules = modules.exclude(code__in=HIDDEN_FROM_MODULE_PERMISSIONS)
     modules = modules.filter(code__in=[
-        'patients', 'appointments', 'medical_records', 'ai_diagnostics', 'disease_geo_mapping',
+        'patients', 'appointments', 'medical_records', 'ai_diagnostics',
         'inquiries', 'clinic_services', 'inventory', 'reservations',
     ])
     modules = modules.annotate(
@@ -344,7 +343,6 @@ def role_edit(request, role_id):
             models.When(code='appointments', then=models.Value(20)),
             models.When(code='medical_records', then=models.Value(30)),
             models.When(code='ai_diagnostics', then=models.Value(40)),
-            models.When(code='disease_geo_mapping', then=models.Value(50)),
             models.When(code='inquiries', then=models.Value(60)),
             models.When(code='clinic_services', then=models.Value(70)),
             models.When(code='inventory', then=models.Value(80)),

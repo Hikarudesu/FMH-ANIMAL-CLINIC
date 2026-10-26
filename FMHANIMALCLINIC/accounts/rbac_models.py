@@ -28,6 +28,7 @@ HIDDEN_FROM_MODULE_PERMISSIONS = [
     'user_portal',        # Auto-created with user account
     'pos',                # Moved to special permissions
     'stock_monitor',      # Moved to special permissions (branch-restricted)
+    'disease_geo_mapping',  # Moved to special permissions (branch-restricted)
 ]
 
 # Modules that support full CRUD operations with branch restriction
@@ -37,7 +38,6 @@ CRUD_MODULES = [
     'appointments',
     'medical_records',
     'ai_diagnostics',    # Note: No EDIT for AI diagnostics
-    'disease_geo_mapping',
     'inquiries',
     'clinic_services',
     'inventory',
@@ -61,6 +61,7 @@ class SpecialPermissionCodes:
     # ─── Inventory & Stock Transfer ────────────────────────────
     STOCK_MONITOR = 'can_access_stock_monitor'
     REQUEST_STOCK_TRANSFER = 'can_request_stock_transfer'
+    DISEASE_GEO_MAPPING = 'can_access_disease_geo_mapping'
 
     # ─── Point of Sale ─────────────────────────────────────────
     POINT_OF_SALE = 'can_access_pos'
@@ -76,9 +77,10 @@ class SpecialPermissionCodes:
         'permanent_position': 5,
         'can_access_stock_monitor': 6,
         'can_request_stock_transfer': 7,
-        'can_access_pos': 8,
-        'can_approve_refunds': 9,
-        'can_void_sales': 10,
+        'can_access_disease_geo_mapping': 8,
+        'can_access_pos': 9,
+        'can_approve_refunds': 10,
+        'can_void_sales': 11,
     }
 
 

@@ -490,7 +490,7 @@
           {% endif %}
 
           {# 5. Disease Geo Mapping (explicitly placed below AI Diagnostics) #}
-          {% if user|has_nav_module:'disease_geo_mapping' %}
+          {% if user|has_nav_special_permission:'can_access_disease_geo_mapping' %}
           <a
             href="{% url 'disease_geo_mapping:dashboard' %}"
             class="sidebar-link {% if 'disease-geo-mapping' in request.path %}active{% endif %}"

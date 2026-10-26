@@ -372,11 +372,14 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
             'trend_labels': [],
             'trend_values': [],
             'available_diseases': [],
+            'medical_record_count': 0,
             'show_warning': True,
         }
 
     visits = RecordEntry.objects.select_related('record', 'record__pet').filter(
-        Q(record__branch=branch) | Q(record__pet__branch=branch)
+        record__branch=branch,
+        record__is_deleted=False,
+        record__pet__is_deleted=False,
     )
 
     if start_date:
@@ -420,12 +423,14 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
 
     insights = []
     total_visits = 0
+    medical_record_ids = set()
     # Track per-disease stats: total records and distinct pets affected
     disease_counter = Counter()
     disease_pet_map = defaultdict(set)
 
     for visit in visits.iterator(chunk_size=500):
         total_visits += 1
+        medical_record_ids.add(visit.record_id)
         combined_text = ' '.join([
             visit.history_clinical_signs or '',
             visit.treatment or '',
@@ -479,6 +484,7 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
             'trend_values': [],
             'available_diseases': [],
             'total_cases': total_visits,
+            'medical_record_count': len(medical_record_ids),
             'show_warning': True,
         }
 
@@ -553,5 +559,6 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
         'trend_values': trend_values,
         'available_diseases': available_disease_types,
         'total_cases': total_cases,
+        'medical_record_count': len(medical_record_ids),
         'show_warning': show_warning,
     }

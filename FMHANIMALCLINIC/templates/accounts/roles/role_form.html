@@ -215,36 +215,7 @@
             </tr>
             {% endif %}{% endfor %}
 
-            {# 5) Disease Geo Mapping #}
-            {% for module in modules %}{% if module.code == 'disease_geo_mapping' %}
-            <tr data-module="{{ module.code }}">
-              <td>
-                <div class="module-cell">
-                  <i class='bx {{ module.icon|default:"bx-cube" }}'></i>
-                  <span>{{ module.display_name }}</span>
-                </div>
-              </td>
-              {% for perm_type, perm_label in permission_types %}
-              {% if perm_type %}
-              <td>
-                <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
-                       class="perm-cb module-perm perm-{{ perm_type }}"
-                       data-module="{{ module.code }}"
-                       {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
-              </td>
-              {% endif %}
-              {% endfor %}
-              <td>
-                <input type="checkbox" name="branch_restrict_{{ module.code }}"
-                       class="perm-cb branch-restrict-cb"
-                       data-module="{{ module.code }}"
-                       {% if module.code in current_branch_restrict %}checked{% endif %}
-                       title="Restrict {{ module.display_name }} data to own branch">
-              </td>
-            </tr>
-            {% endif %}{% endfor %}
-
-            {# 6) Inquiries #}
+            {# 5) Inquiries #}
             {% for module in modules %}{% if module.code == 'inquiries' %}
             <tr data-module="{{ module.code }}">
               <td>

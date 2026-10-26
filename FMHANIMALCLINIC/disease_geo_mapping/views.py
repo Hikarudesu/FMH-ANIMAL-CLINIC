@@ -1,16 +1,16 @@
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from dateutil.relativedelta import relativedelta
 
-from accounts.decorators import module_permission_required
+from accounts.decorators import special_permission_required
+from accounts.rbac_models import SpecialPermissionCodes
 from branches.models import Branch
 from disease_geo_mapping.services import CONTROLLED_DISEASE_TYPES, summarize_branch_disease_trends
-from records.models import RecordEntry
 
 
 def _parse_iso_date(value):
@@ -34,46 +34,25 @@ def _get_analysis_date_range(date_from, date_to, today):
     return earliest_date, start_date, end_date
 
 
-def _branch_has_records(branch):
-    if not branch:
-        return False
-    return RecordEntry.objects.filter(
-        Q(record__branch=branch) | Q(record__pet__branch=branch)
-    ).exists()
-
-
-def _get_branch_selection(request, branches, branch_restricted):
-    if branch_restricted:
-        if request.user.branch_id:
-            preferred_branch = branches.filter(pk=request.user.branch_id).first()
-            if preferred_branch and preferred_branch.is_active:
-                return preferred_branch
+def _get_user_branch(user):
+    branch = getattr(user, 'branch', None)
+    if branch:
+        return branch
+    try:
+        return user.staff_profile.branch
+    except ObjectDoesNotExist:
         return None
-
-    branch_id = request.GET.get('branch')
-    if branch_id:
-        selected_branch = branches.filter(pk=branch_id).first()
-        if selected_branch:
-            return selected_branch
-
-    for branch in branches:
-        if _branch_has_records(branch):
-            return branch
-
-    return branches.first() if branches.exists() else None
 
 
 @login_required
-@module_permission_required('disease_geo_mapping', 'VIEW')
+@special_permission_required(SpecialPermissionCodes.DISEASE_GEO_MAPPING)
 def dashboard(request):
-    """Render the Disease Geo Mapping dashboard with RBAC-aware branch filtering."""
-    branch_restricted = request.user.is_module_branch_restricted('disease_geo_mapping')
-    branches = Branch.objects.filter(is_active=True).order_by('name')
-
-    if branch_restricted:
-        branches = branches.filter(pk=request.user.branch_id) if request.user.branch_id else Branch.objects.none()
-
-    selected_branch = _get_branch_selection(request, branches, branch_restricted)
+    """Render disease trends for the authenticated user's assigned branch only."""
+    user_branch = _get_user_branch(request.user)
+    branches = Branch.objects.filter(
+        pk=user_branch.pk, is_active=True,
+    ).order_by('name') if user_branch else Branch.objects.none()
+    selected_branch = branches.first()
 
     today = timezone.localdate()
     earliest_date, start_date, end_date = _get_analysis_date_range(
@@ -93,7 +72,7 @@ def dashboard(request):
     payload.update({
         'branches': branches,
         'selected_branch_id': str(selected_branch.id) if selected_branch else '',
-        'branch_restricted': branch_restricted,
+        'branch_restricted': True,
         'selected_disease_type': disease_type,
         'available_diseases': payload.get('available_diseases', []),
         'date_from': start_date.isoformat(),
