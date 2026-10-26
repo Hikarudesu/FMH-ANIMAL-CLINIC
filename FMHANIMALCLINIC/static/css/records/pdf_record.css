@@ -77,11 +77,15 @@ body {
 }
 
 .owner-info-table .owner-label-column {
-    width: 18%;
+    width: 12%;
 }
 
 .owner-info-table .owner-value-column {
-    width: 82%;
+    width: 38%;
+}
+
+.owner-info-table .value {
+    word-break: break-all;
 }
 
 /* ---- Vet Banner ---- */
