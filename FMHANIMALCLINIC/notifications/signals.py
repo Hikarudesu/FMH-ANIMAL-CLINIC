@@ -56,10 +56,6 @@ def create_low_inventory_notification(sender, instance, **kwargs):
     Creates low/critical inventory notifications using configured system thresholds.
     Emails are only sent to users with full inventory management access.
     """
-    alerts_enabled = get_setting('inventory_enable_alerts', True)
-    if not alerts_enabled:
-        return
-
     low_threshold = int(get_setting('inventory_low_stock_threshold', 10) or 10)
     critical_threshold = int(get_setting('inventory_critical_threshold', 5))
 

@@ -54,6 +54,9 @@ class InventoryWorkflowTests(TestCase):
     def test_allow_negative_stock_control_is_not_available(self):
         self.assertNotIn('allow_negative', InventorySettingsForm().fields)
 
+    def test_stock_alert_toggle_is_not_available(self):
+        self.assertNotIn('enable_alerts', InventorySettingsForm().fields)
+
     def test_management_type_filter_uses_configured_inventory_item_types(self):
         set_setting('inventory_item_type_options', ['Medical Supplies'])
         matching_product = Product.objects.create(

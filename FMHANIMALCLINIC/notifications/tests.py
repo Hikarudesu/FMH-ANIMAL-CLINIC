@@ -174,7 +174,7 @@ class InventoryThresholdSettingsTests(TestCase):
             instance=SimpleNamespace(
                 stock_quantity=3,
                 name='Zero Threshold Test',
-                branch=SimpleNamespace(pk=1),
+                branch=1,
                 pk=1,
                 id=1,
             ),
@@ -184,6 +184,30 @@ class InventoryThresholdSettingsTests(TestCase):
             notify_mock.call_args.kwargs['title'],
             'Low Inventory Alert',
         )
+
+    @patch('notifications.signals.notify_module_users')
+    @patch('notifications.signals.get_setting')
+    def test_low_stock_alert_is_not_disabled_by_legacy_setting(
+        self, get_setting_mock, notify_mock
+    ):
+        get_setting_mock.side_effect = lambda key, default=None: {
+            'inventory_enable_alerts': False,
+            'inventory_low_stock_threshold': 10,
+            'inventory_critical_threshold': 5,
+        }.get(key, default)
+
+        create_low_inventory_notification(
+            sender=Product,
+            instance=SimpleNamespace(
+                stock_quantity=3,
+                name='Always Alert Test',
+                branch=1,
+                pk=1,
+                id=1,
+            ),
+        )
+
+        notify_mock.assert_called_once()
 
     def test_payslip_delivery_is_idempotent(self):
         staff_user = User.objects.create_user(
@@ -440,7 +464,7 @@ class InventoryExpiryEmailTests(TestCase):
             )
 
         setting_values = {
-            'inventory_enable_alerts': True,
+            'inventory_enable_alerts': False,
             'inventory_expiry_warning_days': 30,
         }
         with patch(

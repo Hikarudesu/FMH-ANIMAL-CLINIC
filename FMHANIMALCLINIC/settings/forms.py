@@ -167,12 +167,6 @@ class InventorySettingsForm(AdminInputMixin, forms.Form):
         widget=forms.NumberInput(),
         help_text='Critical alert when stock falls below this level'
     )
-    enable_alerts = forms.BooleanField(
-        label='Enable Stock Alerts',
-        required=False,
-        widget=forms.CheckboxInput(),
-        help_text='Send notifications for low/critical stock'
-    )
     expiry_warning_days = forms.IntegerField(
         label='Expiry Warning (days)',
         min_value=1,
@@ -212,7 +206,6 @@ class InventorySettingsForm(AdminInputMixin, forms.Form):
         super().__init__(*args, **kwargs)
         self.fields['low_stock_threshold'].initial = get_setting('inventory_low_stock_threshold', 10)
         self.fields['critical_threshold'].initial = get_setting('inventory_critical_threshold', 5)
-        self.fields['enable_alerts'].initial = get_setting('inventory_enable_alerts', True)
         self.fields['expiry_warning_days'].initial = get_setting('inventory_expiry_warning_days', 30)
         self.fields['item_type_options'].initial = '\n'.join(get_inventory_item_type_options())
         self.fields['uom_options'].initial = '\n'.join(get_inventory_unit_options())
