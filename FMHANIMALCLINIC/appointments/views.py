@@ -2157,12 +2157,69 @@ def api_pet_owners(request):
 @login_required
 @module_permission_required('appointments', 'CREATE')
 def api_check_owner_identity(request):
-    """Check for an existing owner without returning their identifying details."""
+    """Check owner conflicts and match roles without exposing account details."""
+    owner_name = ' '.join(request.GET.get('name', '').split())
+    email = request.GET.get('email', '').strip()
     result = check_existing_owner_identity(
-        request.GET.get('name', ''),
+        owner_name,
         request.GET.get('phone', ''),
-        request.GET.get('email', ''),
+        '',
     )
+    registered_owners = User.objects.filter(
+        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True),
+        is_staff=False,
+        is_superuser=False,
+    )
+
+    registered_name_match = False
+    if owner_name:
+        name_parts = owner_name.split()
+        name_query = Q(username__iexact=owner_name)
+        if len(name_parts) == 1:
+            name_query |= (
+                Q(first_name__iexact=name_parts[0])
+                | Q(last_name__iexact=name_parts[0])
+            )
+        else:
+            name_query |= Q(
+                first_name__iexact=name_parts[0],
+                last_name__iexact=' '.join(name_parts[1:]),
+            )
+        registered_name_match = registered_owners.filter(name_query).exists()
+
+    guest_name_match = bool(
+        owner_name
+        and (
+            Appointment.objects.filter(
+                source=Appointment.Source.WALKIN,
+                owner_name__iexact=owner_name,
+            ).exists()
+            or Pet.objects.filter(
+                source=Pet.Source.WALKIN,
+                guest_owner_name__iexact=owner_name,
+            ).exists()
+        )
+    )
+    result.update({
+        'registered_name_match': registered_name_match,
+        'guest_name_match': guest_name_match,
+        'registered_email_match': bool(
+            email and registered_owners.filter(email__iexact=email).exists()
+        ),
+        'guest_email_match': bool(
+            email
+            and (
+                Appointment.objects.filter(
+                    source=Appointment.Source.WALKIN,
+                    owner_email__iexact=email,
+                ).exists()
+                or Pet.objects.filter(
+                    source=Pet.Source.WALKIN,
+                    guest_owner_email__iexact=email,
+                ).exists()
+            )
+        ),
+    })
     return JsonResponse(result)
 
 

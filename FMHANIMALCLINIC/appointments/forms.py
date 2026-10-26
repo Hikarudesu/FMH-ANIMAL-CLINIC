@@ -997,24 +997,34 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                 self.add_error('pet_name', GUEST_DUPLICATE_PET_NAME_ERROR)
 
         if source == Appointment.Source.WALKIN and (cleaned_data.get('owner_name') or '').strip():
+            from accounts.models import User
+
+            registered_portal_owners = User.objects.filter(
+                Q(assigned_role__is_staff_role=False)
+                | Q(assigned_role__isnull=True),
+                is_staff=False,
+                is_superuser=False,
+            )
+            email = (cleaned_data.get('owner_email') or '').strip()
+            if email and registered_portal_owners.filter(
+                email__iexact=email,
+            ).exists():
+                self.add_error(
+                    'owner_email',
+                    'This email belongs to a registered portal account. '
+                    'Use the registered client source or enter a different email address.',
+                )
+
             owner_match = check_existing_owner_identity(
                 cleaned_data.get('owner_name'),
                 cleaned_data.get('owner_phone'),
-                cleaned_data.get('owner_email'),
+                '',
             )
             selected_returning_guest = self.data.get('selected_guest_owner') in (
                 '1', 'true', 'on',
             )
             if owner_match['identity_match'] and not selected_returning_guest:
                 self.add_error('owner_name', GUEST_DUPLICATE_OWNER_ERROR)
-            if owner_match['email_match'] and not (
-                selected_returning_guest and owner_match['identity_match']
-            ):
-                self.add_error(
-                    'owner_email',
-                    'This email address is already associated with an owner record. '
-                    'Select the returning guest or enter a different email address.',
-                )
         
         time_str = self.data.get('appointment_time')
         _resolve_flexible_appointment_time(cleaned_data, time_str)

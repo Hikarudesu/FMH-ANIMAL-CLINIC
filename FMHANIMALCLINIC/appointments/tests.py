@@ -533,7 +533,7 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
         self.assertIn('owner_name', form.errors)
         self.assertIn('contact information is already registered', form.errors['owner_name'][0])
 
-    def test_new_guest_is_blocked_when_email_is_already_used(self):
+    def test_new_guest_email_matching_guest_record_is_advisory(self):
         Pet.objects.create(
             source=Pet.Source.WALKIN,
             guest_owner_name='Existing Guest',
@@ -553,8 +553,31 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
 
         form.is_valid()
 
+        self.assertNotIn('owner_email', form.errors)
+
+    def test_new_guest_is_blocked_when_email_is_used_by_registered_portal_account(self):
+        User.objects.create_user(
+            username='registered-email-owner',
+            first_name='Portal',
+            last_name='Client',
+            email='portal-email-conflict@example.com',
+            password='A-secure-test-password-923!',
+        )
+
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.WALKIN,
+            'owner_name': 'Different Guest',
+            'owner_phone': '09987654321',
+            'owner_email': 'PORTAL-EMAIL-CONFLICT@example.com',
+        })
+
+        form.is_valid()
+
         self.assertIn('owner_email', form.errors)
-        self.assertIn('already associated with an owner record', form.errors['owner_email'][0])
+        self.assertIn(
+            'registered portal account',
+            form.errors['owner_email'][0],
+        )
 
     def test_portal_email_change_is_blocked_when_another_registered_owner_uses_it(self):
         selected_owner = User.objects.create_user(
@@ -1211,6 +1234,50 @@ class AdminQuickCreateOwnerApiTests(TestCase):
         self.assertEqual(own_email_response.json(), {'email_match': False})
         self.assertEqual(duplicate_email_response.status_code, 200)
         self.assertEqual(duplicate_email_response.json(), {'email_match': True})
+
+    def test_owner_identity_check_classifies_registered_and_guest_matches(self):
+        admin = User.objects.create_superuser(
+            username='owner-identity-classification-admin',
+            email='owner-identity-classification-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        registered_owner = User.objects.create_user(
+            username='classified-portal-owner',
+            first_name='Morgan',
+            last_name='Portal',
+            email='classified-portal@example.com',
+            password='A-secure-test-password-923!',
+        )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Jamie Guest',
+            guest_owner_email='classified-guest@example.com',
+            name='Guest Classification Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        self.client.force_login(admin)
+
+        portal_response = self.client.get(
+            reverse('appointments:api_check_owner_identity'),
+            {'name': 'Morgan Portal', 'email': registered_owner.email},
+        )
+        guest_response = self.client.get(
+            reverse('appointments:api_check_owner_identity'),
+            {'name': 'Jamie Guest', 'email': 'CLASSIFIED-GUEST@example.com'},
+        )
+
+        self.assertEqual(portal_response.status_code, 200)
+        self.assertTrue(portal_response.json()['registered_name_match'])
+        self.assertTrue(portal_response.json()['registered_email_match'])
+        self.assertFalse(portal_response.json()['guest_name_match'])
+        self.assertFalse(portal_response.json()['guest_email_match'])
+        self.assertEqual(guest_response.status_code, 200)
+        self.assertTrue(guest_response.json()['guest_name_match'])
+        self.assertTrue(guest_response.json()['guest_email_match'])
+        self.assertFalse(guest_response.json()['identity_match'])
+        self.assertFalse(guest_response.json()['registered_name_match'])
+        self.assertFalse(guest_response.json()['registered_email_match'])
 
 
 class AppointmentEditVeterinarianOptionalTests(TestCase):
