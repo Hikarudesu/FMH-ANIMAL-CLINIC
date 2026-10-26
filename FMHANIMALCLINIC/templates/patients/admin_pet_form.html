@@ -11,6 +11,9 @@
   .apf-owner-search-icon { position: absolute; top: 50%; left: 13px; z-index: 1; color: var(--text-secondary); transform: translateY(-50%); pointer-events: none; }
   #ownerSearch, #linkAccountSearch { padding-left: 40px; }
   #linkAccountSearch { padding-right: 44px; }
+  #linkAccountSearch::-webkit-search-cancel-button,
+  #linkAccountSearch::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+  #linkAccountSearch::-ms-clear { display: none; width: 0; height: 0; }
   .apf-link-account-label { display: inline-flex; align-items: center; gap: 6px; }
   .apf-link-account-label i { color: var(--primary); font-size: .95rem; }
   .apf-owner-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30; display: none; max-height: 260px; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface, #fff); box-shadow: 0 12px 28px rgba(15, 23, 42, .16); }

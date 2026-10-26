@@ -2283,7 +2283,38 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(detail_response, self.appointment.pet_name)
         self.assertContains(detail_response, 'Confirm appointment')
         self.assertContains(detail_response, 'Cancellation reason')
+        self.assertContains(detail_response, 'Edit details')
         self.assertNotContains(detail_response, 'Delete appointment')
+        edit_response = self.client.get(
+            reverse('appointments:admin_edit', args=[self.appointment.pk])
+        )
+        self.assertEqual(edit_response.status_code, 200)
+
+    def test_completed_appointment_is_read_only_to_receptionist(self):
+        self.appointment.status = Appointment.Status.COMPLETED
+        self.appointment.save(update_fields=['status', 'updated_at'])
+        detail_url = reverse(
+            'appointments:admin_detail', args=[self.appointment.pk],
+        )
+        edit_url = reverse(
+            'appointments:admin_edit', args=[self.appointment.pk],
+        )
+
+        detail_response = self.client.get(detail_url)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertNotContains(detail_response, 'Edit details')
+
+        edit_response = self.client.get(edit_url)
+        self.assertRedirects(edit_response, detail_url, fetch_redirect_response=False)
+
+        post_response = self.client.post(
+            edit_url,
+            {'owner_name': 'Changed After Completion'},
+            follow=True,
+        )
+        self.assertContains(post_response, 'Completed appointments are read-only')
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.owner_name, 'Workflow Owner')
 
     @patch('notifications.email_utils.send_appointment_deletion_email', return_value=True)
     def test_staff_can_delete_cancelled_appointment_after_customer_notification(

@@ -1067,6 +1067,10 @@ def admin_detail(request, pk):
         request.user.has_module_permission('appointments', 'EDIT')
         and not is_veterinarian
     )
+    can_edit_details = (
+        can_edit
+        and appointment.status != Appointment.Status.COMPLETED
+    )
     can_manage_workflow = can_edit
     can_delete = (
         request.user.has_module_permission('appointments', 'DELETE')
@@ -1143,6 +1147,7 @@ def admin_detail(request, pk):
         'originating_follow_ups': originating_follow_ups,
         'is_veterinarian': is_veterinarian,
         'can_edit': can_edit,
+        'can_edit_details': can_edit_details,
         'can_manage_workflow': can_manage_workflow,
         'can_delete': can_delete,
         'can_create_medical_record': can_create_medical_record,
@@ -1913,6 +1918,12 @@ def admin_quick_create(request):
 def admin_edit(request, pk):
     """Admin view: edit an appointment with follow-up support."""
     appointment = get_object_or_404(Appointment, pk=pk)
+    if appointment.status == Appointment.Status.COMPLETED:
+        messages.error(
+            request,
+            'Completed appointments are read-only. Contact your administrator to request a correction.',
+        )
+        return redirect('appointments:admin_detail', pk=pk)
 
     if request.method == 'POST':
         with transaction.atomic():
@@ -1920,6 +1931,12 @@ def admin_edit(request, pk):
                 Appointment.objects.select_for_update(),
                 pk=pk,
             )
+            if appointment.status == Appointment.Status.COMPLETED:
+                messages.error(
+                    request,
+                    'Completed appointments are read-only. Contact your administrator to request a correction.',
+                )
+                return redirect('appointments:admin_detail', pk=pk)
             original_status = appointment.status
             AppointmentService.lock_booking_schedule(
                 request.POST.get('branch'),
