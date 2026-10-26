@@ -778,59 +778,113 @@ def admin_record_edit(request, pk):
     if request.method == 'POST':
         form = MedicalRecordForm(request.POST, instance=record)
         if form.is_valid():
-            updated_record = form.save(commit=False)
-
-            # Patient profile fields remain editable here; owner profile fields do not.
-            pet = record.pet
-            if 'pet_color' in request.POST:
-                pet.color = request.POST.get('pet_color')
-            if 'pet_breed' in request.POST:
-                pet.breed = request.POST.get('pet_breed')
-            if 'pet_species' in request.POST:
-                pet.species = request.POST.get('pet_species')
-
-            pet_age_str = request.POST.get('pet_age', '')
-            if pet_age_str:
-                from datetime import date as _d
-                try:
-                    pet.date_of_birth = _d.fromisoformat(pet_age_str.strip())
-                except ValueError:
-                    pass
-
-            pet_sex_str = request.POST.get('pet_sex', '').strip().upper()
-            if pet_sex_str in ('FEMALE', 'MALE'):
-                pet.sex = pet_sex_str
-
-            pet.save()
-            updated_record.save()
-                
-            # Sync edits down to the latest RecordEntry so the admin list and
-            # medical record detail page reflect the updated clinical details.
-            latest_entry = RecordEntry.objects.filter(
-                record=updated_record
-            ).order_by('-date_recorded', '-created_at').first()
-            if latest_entry:
-                latest_entry.date_recorded = form.cleaned_data.get('date_recorded')
-                latest_entry.weight = form.cleaned_data.get('weight')
-                latest_entry.temperature = form.cleaned_data.get('temperature')
-                latest_entry.history_clinical_signs = form.cleaned_data.get('history_clinical_signs') or ''
-                latest_entry.treatment = form.cleaned_data.get('treatment') or ''
-                latest_entry.rx = form.cleaned_data.get('rx') or ''
-                latest_entry.ff_up = form.cleaned_data.get('ff_up')
-                latest_entry.action_required = form.cleaned_data.get(
-                    'action_required'
+            owner_email = form.cleaned_data.get('owner_email', '').strip()
+            required_values = {
+                'owner_name': request.POST.get('owner_name', '').strip(),
+                'owner_contact': request.POST.get('owner_contact', '').strip(),
+                'pet_name': request.POST.get('pet_name', '').strip(),
+                'pet_species': request.POST.get('pet_species', '').strip(),
+                'pet_sex': request.POST.get('pet_sex', '').strip(),
+                'pet_color': request.POST.get('pet_color', '').strip(),
+            }
+            missing_fields = [
+                label for field, label in (
+                    ('owner_name', 'Select Owner'),
+                    ('owner_contact', 'Contact #'),
+                    ('pet_name', 'Name of Pet'),
+                    ('pet_species', 'Species'),
+                    ('pet_sex', 'Sex'),
+                    ('pet_color', 'Color'),
+                ) if not required_values[field]
+            ]
+            if missing_fields:
+                form.add_error(
+                    None,
+                    'Please complete the required fields: '
+                    + ', '.join(missing_fields) + '.',
                 )
-                if getattr(updated_record, 'vet', None):
-                    latest_entry.vet = updated_record.vet
-                latest_entry.save()
 
-            notify_medical_record_follow_up(updated_record, request.user)
+            # Validate phone number using centralized function
+            owner_contact_val = request.POST.get('owner_contact', '').strip()
+            if owner_contact_val:
+                try:
+                    validate_philippines_phone(owner_contact_val)
+                except Exception as e:
+                    form.add_error(None, str(e))
+
+            if not form.errors:
+                updated_record = form.save(commit=False)
+
+                # --- Update Pet details if provided ---
+                pet = record.pet
+                if pet.owner_id:
+                    owner = pet.owner
+                    if (owner.email or '').strip().casefold() != owner_email.casefold():
+                        owner.email = owner_email
+                        owner.email_verified = False
+                    if 'owner_contact' in request.POST:
+                        owner.phone_number = owner_contact_val
+                    if 'owner_address' in request.POST:
+                        owner.address = request.POST.get('owner_address', '').strip()
+                    owner.save()
+                else:
+                    pet.guest_owner_phone = owner_contact_val
+                    pet.guest_owner_email = owner_email
+                if 'pet_color' in request.POST:
+                    pet.color = request.POST.get('pet_color')
+                if 'pet_breed' in request.POST:
+                    pet.breed = request.POST.get('pet_breed')
+                if 'pet_species' in request.POST:
+                    pet.species = request.POST.get('pet_species')
+
+                pet_age_str = request.POST.get('pet_age', '')
+                if pet_age_str:
+                    from datetime import date as _d
+                    try:
+                        pet.date_of_birth = _d.fromisoformat(pet_age_str.strip())
+                    except ValueError:
+                        pass
+
+                pet_sex_str = request.POST.get('pet_sex', '').strip().upper()
+                if pet_sex_str == "FEMALE":
+                    pet.sex = "FEMALE"
+                elif pet_sex_str == "MALE":
+                    pet.sex = "MALE"
+
+                pet.save()
+                updated_record.save()
                 
-            messages.success(
-                request, f'Record for {record.pet.name} has been updated!')
-            return redirect('records:admin_detail', pk=record.pk)
+                # Sync edits down to the latest RecordEntry so that the UI correctly updates 
+                # for the admin_list and medical record detail page.
+                latest_entry = RecordEntry.objects.filter(
+                    record=updated_record
+                ).order_by('-date_recorded', '-created_at').first()
+                if latest_entry:
+                    latest_entry.date_recorded = form.cleaned_data.get('date_recorded')
+                    latest_entry.weight = form.cleaned_data.get('weight')
+                    latest_entry.temperature = form.cleaned_data.get('temperature')
+                    latest_entry.history_clinical_signs = form.cleaned_data.get('history_clinical_signs') or ''
+                    latest_entry.treatment = form.cleaned_data.get('treatment') or ''
+                    latest_entry.rx = form.cleaned_data.get('rx') or ''
+                    latest_entry.ff_up = form.cleaned_data.get('ff_up')
+                    latest_entry.action_required = form.cleaned_data.get(
+                        'action_required'
+                    )
+                    if getattr(updated_record, 'vet', None):
+                        latest_entry.vet = updated_record.vet
+                    latest_entry.save()
+
+                notify_medical_record_follow_up(updated_record, request.user)
+                
+                messages.success(
+                    request, f'Record for {record.pet.name} has been updated!')
+                return redirect('records:admin_detail', pk=record.pk)
     else:
         form = MedicalRecordForm(instance=record)
+        form.initial['owner_email'] = (
+            record.pet.owner.email
+            if record.pet.owner_id else record.pet.guest_owner_email
+        ) or ''
 
     # Build pet details JSON for dynamic form population
     pets = Pet.objects.select_related(

@@ -10,6 +10,14 @@ from settings.models import ClinicalStatus
 
 
 class MedicalRecordForm(FormControlMixin, forms.ModelForm):
+    owner_email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={
+            'id': 'ro-owner-email',
+            'class': 'form-control-custom',
+            'placeholder': 'owner@example.com',
+        }),
+    )
     action_required = forms.ModelChoiceField(
         queryset=ClinicalStatus.objects.none(),
         required=True,
