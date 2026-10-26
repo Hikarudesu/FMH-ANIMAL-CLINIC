@@ -2313,7 +2313,75 @@ class RegistrationEmailVerificationTests(TestCase):
         self.assertEqual(response.json(), {
             'name_exists': True,
             'email_exists': True,
+            'guest_email_exists': False,
         })
+
+    def test_profile_duplicate_check_detects_guest_owner_emails(self):
+        user = get_user_model().objects.create_user(
+            username='profile-guest-email-check',
+            email='profile-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Guest Owner',
+            guest_owner_email='guest-used@example.com',
+            name='Guest Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        Appointment.objects.create(
+            source=Appointment.Source.WALKIN,
+            owner_name='Appointment Guest',
+            owner_email='appointment-guest-used@example.com',
+            owner_phone='09123456789',
+            pet_name='Appointment Guest Pet',
+            appointment_date=date(2026, 10, 27),
+            appointment_time=time(10),
+        )
+        self.client.force_login(user)
+
+        for email in ('GUEST-USED@example.com', 'APPOINTMENT-GUEST-USED@example.com'):
+            with self.subTest(email=email):
+                response = self.client.get(
+                    reverse('accounts:profile_duplicate_check_api'),
+                    {'email': email},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.json()['email_exists'])
+                self.assertTrue(response.json()['guest_email_exists'])
+
+    def test_profile_form_rejects_email_used_by_guest_owner(self):
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Guest Owner',
+            guest_owner_email='guest-profile-conflict@example.com',
+            name='Guest Profile Conflict Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        user = get_user_model().objects.create_user(
+            username='profile-guest-conflict',
+            email='profile-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        from .forms import UserProfileUpdateForm
+
+        form = UserProfileUpdateForm(
+            data={
+                'username': user.username,
+                'first_name': 'Guest',
+                'last_name': 'Owner',
+                'email': 'GUEST-PROFILE-CONFLICT@example.com',
+                'phone_number': '09123456789',
+                'address': '',
+            },
+            instance=user,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form.errors)
+        self.assertIn('guest owner record', form.errors['email'][0])
 
     def test_profile_duplicate_check_requires_authentication(self):
         response = self.client.get(

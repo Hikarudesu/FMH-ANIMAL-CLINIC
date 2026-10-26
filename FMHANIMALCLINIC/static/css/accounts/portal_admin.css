@@ -3589,7 +3589,7 @@ textarea.form-control {
 .floating-field .field-icon {
   position: absolute;
   left: 14px;
-  top: 50%;
+  top: 32px;
   transform: translateY(-50%);
   color: var(--text-3);
   font-size: 1.1rem;

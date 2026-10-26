@@ -251,7 +251,13 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
         if conflicts['email_exists']:
             self.add_error(
                 'email',
-                'This email address is already in use. Enter a different email address to save your profile.',
+                (
+                    'This email address is already used by a guest owner record. '
+                    'Enter a different email address to save your profile.'
+                    if conflicts['guest_email_exists']
+                    else
+                    'This email address is already in use. Enter a different email address to save your profile.'
+                ),
             )
 
         return cleaned_data
