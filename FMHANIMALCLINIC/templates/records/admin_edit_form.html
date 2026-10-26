@@ -18,7 +18,7 @@
         </h2>
     </div>
 
-    <form method="post" style="display: flex; flex-direction: column; gap: 24px;">
+    <form method="post" id="medical-record-edit-form" style="display: flex; flex-direction: column; gap: 24px;">
         {% csrf_token %}
         
         <style>
@@ -207,6 +207,12 @@
                 font-size: 12px;
                 line-height: 1.45;
             }
+            .owner-identity-note.is-blocking {
+                border-color: rgba(185, 28, 28, .3);
+                border-left-color: #b91c1c;
+                background: #fef2f2;
+                color: #991b1b;
+            }
             .owner-identity-note[hidden] {
                 display: none;
             }
@@ -225,6 +231,11 @@
                 background: rgba(120, 53, 15, .2);
                 color: #fde68a;
             }
+            [data-theme="dark"] .owner-identity-note.is-blocking {
+                border-color: rgba(248, 113, 113, .3);
+                background: rgba(127, 29, 29, .25);
+                color: #fecaca;
+            }
         </style>
         {% if not record.pet.owner_id %}
         <script>
@@ -234,10 +245,13 @@
             const nameNote = document.getElementById('guest-owner-name-conflict-note');
             const emailNote = document.getElementById('guest-owner-email-conflict-note');
             const checkErrorNote = document.getElementById('guest-owner-conflict-check-error');
+            const editForm = document.getElementById('medical-record-edit-form');
             const endpoint = "{% url 'records:api_check_guest_owner_edit_conflicts' %}";
             const petId = "{{ record.pet_id }}";
+            const originalEmail = "{{ record.pet.guest_owner_email|default:''|escapejs }}".trim().toLocaleLowerCase();
             let checkTimer = null;
             let requestNumber = 0;
+            let submissionPending = false;
 
             function renderNote(note, messages) {
                 note.replaceChildren();
@@ -254,7 +268,7 @@
                 note.hidden = messages.length === 0;
             }
 
-            function checkOwnerConflicts() {
+            function fetchOwnerConflicts() {
                 clearTimeout(checkTimer);
                 const name = nameField.value.trim();
                 const email = emailField.value.trim();
@@ -264,65 +278,108 @@
                 if (!name && !email) {
                     renderNote(nameNote, []);
                     renderNote(emailNote, []);
-                    return;
+                    emailField.removeAttribute('aria-invalid');
+                    return Promise.resolve(null);
                 }
 
-                checkTimer = setTimeout(function () {
-                    const params = new URLSearchParams({
-                        name: name,
-                        email: email,
-                        pet_id: petId,
-                    });
-                    fetch(endpoint + '?' + params.toString(), {cache: 'no-store'})
-                        .then(function (response) {
-                            if (!response.ok) {
-                                throw new Error('Guest owner conflict check failed.');
-                            }
-                            return response.json();
-                        })
-                        .then(function (result) {
-                            if (
-                                currentRequest !== requestNumber
-                                || name !== nameField.value.trim()
-                                || email !== emailField.value.trim()
-                            ) return;
+                const params = new URLSearchParams({
+                    name: name,
+                    email: email,
+                    pet_id: petId,
+                });
+                return fetch(endpoint + '?' + params.toString(), {cache: 'no-store'})
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Guest owner conflict check failed.');
+                        }
+                        return response.json();
+                    })
+                    .then(function (result) {
+                        if (
+                            currentRequest !== requestNumber
+                            || name !== nameField.value.trim()
+                            || email !== emailField.value.trim()
+                        ) return null;
 
-                            const nameMessages = [];
-                            if (result.registered_name_match) {
-                                nameMessages.push(
-                                    'A registered portal account already uses this owner name. Confirm this is a different client before saving.'
-                                );
-                            }
-                            if (result.guest_name_match) {
-                                nameMessages.push(
-                                    'An existing guest record already uses this owner name. Check that record before saving.'
-                                );
-                            }
-                            const emailMessages = [];
-                            if (result.registered_email_match) {
-                                emailMessages.push(
-                                    'This email is already associated with a registered portal account. Confirm the correct client before saving.'
-                                );
-                            }
-                            if (result.guest_email_match) {
-                                emailMessages.push(
-                                    'This email is already associated with an existing guest record. Check that record before saving.'
-                                );
-                            }
-                            renderNote(nameNote, nameMessages);
-                            renderNote(emailNote, emailMessages);
-                            checkErrorNote.hidden = true;
-                        })
-                        .catch(function (error) {
-                            if (currentRequest !== requestNumber) return;
+                        const nameMessages = [];
+                        if (result.registered_name_match) {
+                            nameMessages.push(
+                                'A portal account uses this name. A name match alone does not confirm it is the same client; verify the details before saving.'
+                            );
+                        }
+                        if (result.guest_name_match) {
+                            nameMessages.push(
+                                'Another guest record uses this name. Guest owners may have multiple pet records; check that the details are correct.'
+                            );
+                        }
+                        const emailMessages = [];
+                        const registeredEmailConflict = result.registered_email_match
+                            && email.toLocaleLowerCase() !== originalEmail;
+                        if (result.registered_email_match) {
+                            emailMessages.push(
+                                registeredEmailConflict
+                                    ? 'This email belongs to a registered portal account. Use a different email for this walk-in record, or use a record linked to that registered client.'
+                                    : 'This email is also associated with a registered portal account. Confirm the client details before saving.'
+                            );
+                        }
+                        if (result.guest_email_match) {
+                            emailMessages.push(
+                                'Another guest record uses this email. Guest owners may have multiple pet records; check that the details are correct.'
+                            );
+                        }
+                        renderNote(nameNote, nameMessages);
+                        renderNote(emailNote, emailMessages);
+                        emailNote.classList.toggle('is-blocking', registeredEmailConflict);
+                        if (registeredEmailConflict) {
+                            emailField.setAttribute('aria-invalid', 'true');
+                        } else {
+                            emailField.removeAttribute('aria-invalid');
+                        }
+                        checkErrorNote.hidden = true;
+                        result.registered_email_conflict = registeredEmailConflict;
+                        return result;
+                    })
+                    .catch(function (error) {
+                        if (currentRequest === requestNumber) {
                             checkErrorNote.hidden = false;
                             console.error('Unable to check guest owner details:', error);
-                        });
+                        }
+                        throw error;
+                    });
+            }
+
+            function checkOwnerConflicts() {
+                clearTimeout(checkTimer);
+                checkTimer = setTimeout(function () {
+                    fetchOwnerConflicts().catch(function () {});
                 }, 250);
             }
 
             nameField.addEventListener('input', checkOwnerConflicts);
             emailField.addEventListener('input', checkOwnerConflicts);
+            editForm.addEventListener('submit', function (event) {
+                if (submissionPending) {
+                    event.preventDefault();
+                    return;
+                }
+                event.preventDefault();
+                submissionPending = true;
+                fetchOwnerConflicts()
+                    .then(function (result) {
+                        if (!result) return;
+                        if (result.registered_email_conflict) {
+                            emailField.focus();
+                            return;
+                        }
+                        HTMLFormElement.prototype.submit.call(editForm);
+                    })
+                    .catch(function () {
+                        HTMLFormElement.prototype.submit.call(editForm);
+                    })
+                    .finally(function () {
+                        submissionPending = false;
+                    });
+            });
         })();
         </script>
         {% endif %}

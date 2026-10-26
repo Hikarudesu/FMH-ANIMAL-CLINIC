@@ -798,6 +798,21 @@ def admin_record_edit(request, pk):
                 if portal_owner else
                 request.POST.get('owner_name', '').strip()
             )
+            if (
+                not portal_owner
+                and owner_email.strip().casefold()
+                != (pet.guest_owner_email or '').strip().casefold()
+                and owner_email
+                and _registered_portal_owners().filter(
+                    email__iexact=owner_email,
+                ).exists()
+            ):
+                form.add_error(
+                    'owner_email',
+                    'This email belongs to a registered portal account. '
+                    'Use a different email for this walk-in record, or use a '
+                    'record linked to that registered client.',
+                )
             required_values = {
                 'owner_name': owner_name_value,
                 'owner_contact': owner_contact_val,
@@ -1474,11 +1489,7 @@ def api_check_guest_owner_edit_conflicts(request):
 
     from appointments.models import Appointment
 
-    registered_owners = User.objects.filter(
-        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True),
-        is_staff=False,
-        is_superuser=False,
-    )
+    registered_owners = _registered_portal_owners()
     guest_pets = Pet.objects.filter(source=Pet.Source.WALKIN)
     guest_appointments = Appointment.objects.filter(
         source=Appointment.Source.WALKIN,
@@ -1529,6 +1540,14 @@ def api_check_guest_owner_edit_conflicts(request):
         'registered_email_match': registered_email_match,
         'guest_email_match': guest_email_match,
     })
+
+
+def _registered_portal_owners():
+    return User.objects.filter(
+        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True),
+        is_staff=False,
+        is_superuser=False,
+    )
 
 
 def _pdf_link_callback(uri, rel):

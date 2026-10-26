@@ -484,6 +484,14 @@ class AttendingVeterinarianDefaultTests(TestCase):
             vet=self.vet,
             date_recorded='2026-10-17',
         )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Updated Guest',
+            guest_owner_email='updated-guest@example.com',
+            name='Another Guest Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
         RecordEntry.objects.create(
             record=record,
             vet=self.vet,
@@ -536,6 +544,68 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(pet.guest_owner_phone, '09987654321')
         self.assertEqual(pet.guest_owner_email, 'updated-guest@example.com')
         self.assertEqual(pet.guest_owner_address, 'Updated address')
+
+    def test_edit_blocks_changing_guest_email_to_registered_portal_email(self):
+        portal_owner = get_user_model().objects.create_user(
+            username='registered-email-conflict',
+            first_name='Registered',
+            last_name='Owner',
+            email='registered-email-conflict@example.com',
+            password='A-secure-test-password-923!',
+        )
+        pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Original Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='original-guest@example.com',
+            name='Guest Email Conflict Pet',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+            color='Black',
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+        )
+        RecordEntry.objects.create(
+            record=record,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+            history_clinical_signs='Routine examination',
+            treatment='Examination completed',
+            rx='None',
+            action_required=ClinicalStatus.get_default(),
+        )
+
+        response = self.client.post(
+            reverse('records:admin_edit', args=[record.pk]),
+            {
+                'owner_name': 'Registered Owner',
+                'owner_contact': '09987654321',
+                'owner_address': 'Updated address',
+                'owner_email': portal_owner.email,
+                'pet_name': pet.name,
+                'pet_species': pet.species,
+                'pet_sex': 'FEMALE',
+                'pet_color': pet.color,
+                'branch': self.branch.pk,
+                'vet': self.vet.pk,
+                'date_recorded': '2026-10-17',
+                'history_clinical_signs': 'Routine examination',
+                'treatment': 'Examination completed',
+                'rx': 'None',
+                'action_required': ClinicalStatus.get_default().pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('owner_email', response.context['form'].errors)
+        self.assertIn('registered portal account', response.context['form'].errors['owner_email'][0])
+        pet.refresh_from_db()
+        self.assertEqual(pet.guest_owner_name, 'Original Guest')
+        self.assertEqual(pet.guest_owner_email, 'original-guest@example.com')
 
     def test_guest_owner_edit_conflict_api_distinguishes_registered_and_guest_matches(self):
         registered_owner = get_user_model().objects.create_user(
