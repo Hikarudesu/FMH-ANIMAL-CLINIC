@@ -8,6 +8,26 @@ from .models import User
 from .rbac_models import Role, SpecialPermissionCodes
 from branches.models import Branch
 
+COMMON_EMAIL_DOMAIN_TYPOS = {
+    'gmai.com': 'gmail.com',
+    'gmal.com': 'gmail.com',
+    'gmial.com': 'gmail.com',
+    'gamil.com': 'gmail.com',
+    'gmail.con': 'gmail.com',
+    'gmail.comm': 'gmail.com',
+    'yaho.com': 'yahoo.com',
+    'yahho.com': 'yahoo.com',
+    'yahoo.con': 'yahoo.com',
+    'hotmai.com': 'hotmail.com',
+    'hotmial.com': 'hotmail.com',
+    'hotmail.con': 'hotmail.com',
+    'outlok.com': 'outlook.com',
+    'outloo.com': 'outlook.com',
+    'outlook.con': 'outlook.com',
+    'iclould.com': 'icloud.com',
+    'icloud.con': 'icloud.com',
+}
+
 
 class ProfilePhotoClearableFileInput(forms.ClearableFileInput):
     """Render a cleaner profile image control without exposing the raw media URL."""
@@ -248,7 +268,10 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
 
     email = forms.EmailField(
         required=True,
-        widget=forms.EmailInput(attrs={'placeholder': 'Email address'})
+        widget=forms.EmailInput(attrs={
+            'placeholder': 'Email address',
+            'autocomplete': 'email',
+        })
     )
 
     phone_number = forms.CharField(
@@ -336,6 +359,12 @@ class AdminAccountCreationForm(FormControlMixin, UserCreationForm):
         """Ensure the email is unique."""
         email = self.cleaned_data.get('email')
         username = self.cleaned_data.get('username')
+        local_part, domain = email.rsplit('@', 1)
+        suggested_domain = COMMON_EMAIL_DOMAIN_TYPOS.get(domain.casefold())
+        if suggested_domain:
+            raise forms.ValidationError(
+                f'Check the email domain. Did you mean {local_part}@{suggested_domain}?'
+            )
         if email and username and email.casefold() == username.casefold():
             raise forms.ValidationError(
                 "Email address cannot be the same as the username.")

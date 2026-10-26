@@ -21,7 +21,7 @@ from employees.models import StaffMember
 from inventory.models import Product, Reservation, StockAdjustment
 from patients.models import Pet
 from pos.models import Sale, SaleItem
-from .forms import PetOwnerRegistrationForm
+from .forms import AdminAccountCreationForm, PetOwnerRegistrationForm
 from .lifecycle import (
     expire_due_owner_accounts,
     resolve_owner_deactivation_on_login,
@@ -2381,6 +2381,38 @@ class RegistrationEmailVerificationTests(TestCase):
                     email='OWNER@example.com',
                     password='A-secure-test-password-923!',
                 )
+
+
+class AdminAccountCreationEmailValidationTests(TestCase):
+    def test_staff_email_is_required(self):
+        form = AdminAccountCreationForm(data={})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form.errors)
+
+    def test_valid_education_gmail_yahoo_and_custom_domains_are_accepted(self):
+        for email in (
+            'staff@university.edu',
+            'staff@gmail.com',
+            'staff@yahoo.com',
+            'staff@clinic.com',
+        ):
+            with self.subTest(email=email):
+                form = AdminAccountCreationForm(data={'email': email})
+                form.is_valid()
+                self.assertNotIn('email', form.errors)
+
+    def test_common_email_provider_typos_are_rejected_with_suggestion(self):
+        for email, suggestion in (
+            ('staff@gmal.com', 'staff@gmail.com'),
+            ('staff@yaho.com', 'staff@yahoo.com'),
+            ('staff@outlok.com', 'staff@outlook.com'),
+        ):
+            with self.subTest(email=email):
+                form = AdminAccountCreationForm(data={'email': email})
+
+                self.assertFalse(form.is_valid())
+                self.assertIn(suggestion, str(form.errors['email']))
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')

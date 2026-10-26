@@ -215,8 +215,8 @@
               </div>
             </div>
             <div class="schedule-entry-actions" style="display:flex; gap: 8px; align-items:center; margin-left:auto;">
-              <button type="button" class="pet-action-btn danger" title="Delete this week"
-                onclick="openDeleteModal('{% url 'employees:recurring_delete' group.sample_rs.pk %}', 'Delete week for {{ group.staff.full_name|escapejs }}', 'Delete generated schedule entries for this recurring template during the current week (Mon–Sun). The recurring template remains active.')">
+              <button type="button" class="pet-action-btn danger" title="Delete recurring schedule"
+                onclick="openDeleteModal('{% url 'employees:recurring_delete' group.sample_rs.pk %}', 'Delete recurring schedule for {{ group.staff.full_name|escapejs }}', 'This removes the recurring template set and matching generated schedule entries for the current week. This cannot be undone.')">
                 <i class='bx bx-trash'></i>
               </button>
             </div>
@@ -353,7 +353,7 @@
     </div>
     <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
       <button type="button" class="btn-cancel" id="cancelClearAllRecurringModal">Cancel</button>
-      <form method="POST" action="{% url 'employees:recurring_clear_all' %}" style="margin:0;">
+      <form method="POST" action="{% url 'employees:recurring_clear_all' %}" id="clearAllRecurringForm" style="margin:0;">
         {% csrf_token %}
         <button type="submit" class="btn-submit" style="background: #e63946; border-color: #e63946; color: #fff;">Yes, Delete All</button>
       </form>
