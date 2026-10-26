@@ -26,6 +26,8 @@
   .apf-owner-result strong { overflow: hidden; font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
   .apf-owner-result span, .apf-owner-search-status { overflow: hidden; color: var(--text-secondary); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
   .apf-owner-search-status { display: block; padding: 12px 14px; }
+  .apf-owner-result-meta { display: flex; flex-wrap: wrap; gap: 3px 12px; }
+  .apf-owner-result-meta span { overflow-wrap: anywhere; white-space: normal; }
 
   /* Source toggle pills */
   .apf-source-toggle {
@@ -73,20 +75,21 @@
   .apf-link-notice {
     display: flex; align-items: flex-start; gap: 12px;
     padding: 14px 18px; border-radius: 10px;
-    background: linear-gradient(135deg, #e3f2fd, #e8eaf6);
-    border: 1px solid #90caf9;
-    color: #1565c0; font-size: 0.82rem; margin-bottom: 18px;
+    background: #fff8e1;
+    border: 1px solid #f4c95d;
+    border-left: 4px solid #d97706;
+    color: #713f12; font-size: 0.84rem; margin-bottom: 18px;
     line-height: 1.5;
   }
   .apf-link-notice i {
     font-size: 1.4rem; flex-shrink: 0; margin-top: 2px;
-    color: #1976d2;
+    color: #b45309;
   }
   .apf-link-notice strong {
     display: block; margin-bottom: 4px; font-size: 0.88rem;
-    color: #0d47a1;
+    color: #78350f;
   }
-  .apf-link-notice span { color: #37474f; }
+  .apf-link-notice span { color: #713f12; }
 
   /* Confirmation modal – uses system .modal-overlay / .modal-content */
   #apfConfirmModal .modal-body { text-align: center; padding-top: 30px; }
@@ -146,6 +149,48 @@
   .apf-link-tab i { font-size: 1rem; }
   .apf-link-panel { animation: fadeIn 0.25s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .apf-transfer-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 12px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .apf-transfer-step-number {
+    display: inline-grid;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(0, 150, 136, 0.12);
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .apf-selected-account {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0, 150, 136, 0.28);
+    border-radius: 10px;
+    background: rgba(0, 150, 136, 0.07);
+    color: var(--text-primary);
+  }
+  .apf-selected-account[hidden] { display: none; }
+  .apf-selected-account > i {
+    margin-top: 2px;
+    color: var(--primary);
+    font-size: 1.1rem;
+  }
+  .apf-selected-account-info { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+  .apf-selected-account-info strong { font-size: 0.84rem; }
+  .apf-selected-account-info span { color: var(--text-secondary); font-size: 0.76rem; overflow-wrap: anywhere; }
 
   /* Account preview card */
   .apf-create-preview {
@@ -752,22 +797,25 @@
       {% if pet and pet.source == 'WALKIN' and can_transfer %}
       <!-- ── Convert to Portal Account Section (Walk-in only) ── -->
       <div class="apf-section" id="panel-link-account">
-        <div class="apf-section-title"><i class='bx bx-link-alt'></i> Convert to Portal Account</div>
+        <div class="apf-section-title"><i class='bx bx-transfer-alt'></i> Transfer Walk-in Patient to a Portal Account</div>
         <div class="apf-link-notice">
-          <i class='bx bx-transfer-alt'></i>
+          <i class='bx bx-error-circle' aria-hidden="true"></i>
           <div>
-            <strong>Transfer this walk-in patient to a portal account</strong>
-            <span>Use this when a walk-in guest has created or chosen a portal account. It links the pet to that account and transfers ownership, medical records, and appointment history. Guest owner details will be cleared. This action cannot be undone.</span>
+            <strong>This changes who owns the patient record in the portal.</strong>
+            <span>The pet, its medical records, appointment history, and purchase history will be assigned to the destination account. The walk-in contact details will be removed from this patient record. The destination account’s profile details will not be changed. Review the selected account carefully; this transfer cannot be undone.</span>
           </div>
         </div>
 
-        <!-- Sub-tabs -->
-        <div class="apf-link-tabs">
-          <button type="button" class="apf-link-tab active" id="tab-link-existing" onclick="switchLinkTab('existing')">
-            <i class='bx bx-search'></i> Link Existing Account
+        <div class="apf-transfer-step">
+          <span class="apf-transfer-step-number">1</span>
+          <span>Choose whether the client already has a portal account. Use the existing-account option whenever possible to avoid creating a duplicate.</span>
+        </div>
+        <div class="apf-link-tabs" role="group" aria-label="Choose portal account transfer method">
+          <button type="button" class="apf-link-tab active" id="tab-link-existing" aria-pressed="true" onclick="switchLinkTab('existing')">
+            <i class='bx bx-user-check' aria-hidden="true"></i> Use Existing Account
           </button>
-          <button type="button" class="apf-link-tab" id="tab-create-new" onclick="switchLinkTab('create')">
-            <i class='bx bx-user-plus'></i> Create New Account
+          <button type="button" class="apf-link-tab" id="tab-create-new" aria-pressed="false" onclick="switchLinkTab('create')">
+            <i class='bx bx-user-plus' aria-hidden="true"></i> Create Account for This Client
           </button>
         </div>
 
@@ -775,19 +823,26 @@
         <div class="apf-link-panel" id="panel-link-existing">
           <div class="apf-grid">
             <div class="apf-field apf-field-full {% if form.link_to_account.errors %}has-error{% endif %}">
-              <label class="apf-link-account-label" for="linkAccountSearch"><i class='bx bx-user' aria-hidden="true"></i> Select Portal User</label>
+              <label class="apf-link-account-label" for="linkAccountSearch"><i class='bx bx-user' aria-hidden="true"></i> Find the client’s existing account</label>
               <div class="apf-owner-picker" id="linkAccountPicker" data-search-url="{% url 'patients:api_transfer_owner_search' %}" data-initial-owner-id="{{ form.link_to_account.value|default:'' }}">
                 <div class="apf-owner-search-wrap">
                   <i class='bx bx-search apf-owner-search-icon' aria-hidden="true"></i>
-                  <input type="search" id="linkAccountSearch" class="pf-input" placeholder="Search by name, phone, or email..." autocomplete="off" role="combobox" aria-controls="linkAccountResults" aria-autocomplete="list" aria-expanded="false">
+                  <input type="search" id="linkAccountSearch" class="pf-input" placeholder="Search by name, email, phone, or username..." autocomplete="off" role="combobox" aria-controls="linkAccountResults" aria-autocomplete="list" aria-expanded="false">
                   <button type="button" class="apf-link-account-clear" id="linkAccountClear" aria-label="Clear selected portal user" title="Clear selection" hidden><i class='bx bx-x' aria-hidden="true"></i></button>
                 </div>
                 <div class="apf-owner-results" id="linkAccountResults" role="listbox" aria-live="polite"></div>
                 {{ form.link_to_account }}
               </div>
+              <div class="apf-selected-account" id="selectedTransferAccount" aria-live="polite" hidden>
+                <i class='bx bx-check-circle' aria-hidden="true"></i>
+                <div class="apf-selected-account-info">
+                  <strong>Destination account</strong>
+                  <span id="selectedTransferAccountDetails"></span>
+                </div>
+              </div>
               <div class="apf-field-help">
                 <i class='bx bx-info-circle'></i>
-                <span>Search by name, phone number, or email. Choose an account to transfer this patient's records and appointments.</span>
+                <span>Search for the person who should become the portal owner. Confirm their name and contact details in the results before selecting.</span>
               </div>
               {% if form.link_to_account.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.link_to_account.errors.0 }}</span>{% endif %}
             </div>
@@ -801,8 +856,8 @@
             <div class="apf-create-preview-header">
               <i class='bx bx-user-circle'></i>
               <div>
-                <strong>Account Preview</strong>
-                <span>A new portal account will be auto-generated using the guest owner's information above.</span>
+                <strong>New account for this walk-in client</strong>
+                <span>A portal account will be created from the guest owner details above, then this patient and its history will be assigned to it.</span>
               </div>
             </div>
             <div class="apf-create-preview-grid">
@@ -831,7 +886,7 @@
             </div>
             <div class="apf-create-hint">
               <i class='bx bx-info-circle'></i>
-              The login credentials will be displayed after saving. Please share them with the client so they can access the portal.
+              Login credentials will be displayed once after creation. Share them securely with the client; the client should change the temporary password after signing in.
             </div>
           </div>
         </div>
@@ -1108,6 +1163,8 @@
     if (mode === 'create') {
       tabExisting.classList.remove('active');
       tabCreate.classList.add('active');
+      tabExisting.setAttribute('aria-pressed', 'false');
+      tabCreate.setAttribute('aria-pressed', 'true');
       panelExisting.style.display = 'none';
       panelCreate.style.display = 'block';
       if (createFlag) createFlag.value = 'True';
@@ -1116,6 +1173,8 @@
     } else {
       tabCreate.classList.remove('active');
       tabExisting.classList.add('active');
+      tabCreate.setAttribute('aria-pressed', 'false');
+      tabExisting.setAttribute('aria-pressed', 'true');
       panelCreate.style.display = 'none';
       panelExisting.style.display = 'block';
       // Clear create flag when switching to link mode
@@ -1176,21 +1235,25 @@
         const nameInput = document.querySelector('[name="guest_owner_name"]');
          const guestName = escapeHtml(nameInput ? nameInput.value.trim() : 'this guest');
          const petName = escapeHtml('{{ pet.name|escapejs }}');
-         title = 'Create Account & Transfer Patient';
-         body = `A new portal account will be created for <strong>${guestName}</strong>. ` +
-           `<strong>${petName}</strong>, its medical records, and appointment history will be transferred to that account. ` +
-           `The walk-in owner details will be cleared, and this transfer cannot be undone.<br><br>` +
-           `The new account's login credentials will be shown once after creation.`;
+         title = 'Create Portal Account & Transfer Patient';
+         body = `A new portal account will be created from <strong>${guestName}</strong>’s walk-in contact details. ` +
+           `<strong>${petName}</strong>, its medical records, appointment history, and purchase history will be assigned to that account. ` +
+           `The walk-in contact details will be cleared from this patient record. This does not change any existing account. ` +
+           `The transfer cannot be undone. Login credentials will be shown once after creation.`;
          btnText = '<i class="bx bx-user-plus"></i> Create Account & Transfer';
         iconClass = 'bx-user-plus';
       } else {
         const searchInput = document.getElementById('linkAccountSearch');
-         const userName = escapeHtml(searchInput ? searchInput.value.trim() : 'the selected user');
+         const accountDetails = document.getElementById('selectedTransferAccountDetails');
+         const selectedAccount = escapeHtml(
+           accountDetails ? accountDetails.textContent : searchInput ? searchInput.value.trim() : 'the selected account'
+         );
          const petName = escapeHtml('{{ pet.name|escapejs }}');
-         title = 'Confirm Patient Transfer';
-         body = `<strong>${petName}</strong>, its medical records, and appointment history will be transferred to <strong>${userName}</strong>'s portal account. ` +
-           `The walk-in owner details will be cleared. This transfer cannot be undone.`;
-         btnText = '<i class="bx bx-transfer-alt"></i> Transfer to This Account';
+         title = 'Confirm Portal Ownership Transfer';
+         body = `<strong>${petName}</strong> and its medical records, appointment history, and purchase history will be assigned to this portal account: ` +
+           `<strong>${selectedAccount}</strong>. Walk-in contact details will be cleared from this patient record. ` +
+           `The account’s profile will not be changed. This transfer cannot be undone.`;
+         btnText = '<i class="bx bx-transfer-alt"></i> Confirm Transfer';
         iconClass = 'bx-transfer-alt';
       }
 
@@ -1456,9 +1519,13 @@
     const searchInput = document.getElementById('linkAccountSearch');
     const clearButton = document.getElementById('linkAccountClear');
     const results = document.getElementById('linkAccountResults');
+    const selectedAccount = document.getElementById('selectedTransferAccount');
+    const selectedAccountDetails = document.getElementById('selectedTransferAccountDetails');
     if (ownerField) ownerField.value = '';
     if (searchInput) searchInput.value = '';
     if (clearButton) clearButton.hidden = true;
+    if (selectedAccount) selectedAccount.hidden = true;
+    if (selectedAccountDetails) selectedAccountDetails.textContent = '';
     if (results) results.classList.remove('open');
     if (searchInput) searchInput.setAttribute('aria-expanded', 'false');
   }
@@ -1471,6 +1538,8 @@
     const searchInput = document.getElementById('linkAccountSearch');
     const clearButton = document.getElementById('linkAccountClear');
     const results = document.getElementById('linkAccountResults');
+    const selectedAccount = document.getElementById('selectedTransferAccount');
+    const selectedAccountDetails = document.getElementById('selectedTransferAccountDetails');
     let debounceTimer;
     let activeRequest;
 
@@ -1493,6 +1562,11 @@
       ownerField.value = owner.id;
       searchInput.value = owner.name;
       clearButton.hidden = false;
+      const accountContact = [owner.email, owner.phone].filter(Boolean).join(' · ');
+      selectedAccountDetails.textContent = accountContact
+        ? `${owner.name} — ${accountContact}`
+        : `${owner.name} — @${owner.username}`;
+      selectedAccount.hidden = false;
       closeResults();
     }
 
@@ -1535,7 +1609,12 @@
           const name = document.createElement('strong');
           name.textContent = owner.name;
           const details = document.createElement('span');
-          details.textContent = owner.email || owner.phone || owner.username;
+          details.className = 'apf-owner-result-meta';
+          [owner.email, owner.phone, `@${owner.username}`].filter(Boolean).forEach(value => {
+            const detail = document.createElement('span');
+            detail.textContent = value;
+            details.appendChild(detail);
+          });
           info.append(name, details);
           option.append(icon, info);
           option.addEventListener('click', () => chooseOwner(owner));

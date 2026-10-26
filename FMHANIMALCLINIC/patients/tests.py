@@ -312,6 +312,7 @@ class PortalOwnerSearchTests(TestCase):
             first_name='Transfer',
             last_name='Owner',
             password='A-secure-test-password-928!',
+            phone_number='09123456789',
         )
         client = Client()
         client.force_login(admin)
@@ -323,6 +324,43 @@ class PortalOwnerSearchTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['owners'][0]['id'], owner.pk)
+        self.assertEqual(response.json()['owners'][0]['email'], owner.email)
+        self.assertEqual(response.json()['owners'][0]['phone'], owner.phone_number)
+
+    @override_settings(STORAGES={
+        **settings.STORAGES,
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    })
+    def test_walkin_patient_edit_explains_transfer_and_account_selection(self):
+        admin = get_user_model().objects.create_superuser(
+            username='transfer-flow-admin',
+            email='transfer-flow-admin@example.com',
+            password='A-secure-test-password-929!',
+        )
+        pet = Pet.objects.create(
+            name='Transfer Flow Pet',
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Walk-in Client',
+            guest_owner_phone='09123456789',
+            guest_owner_email='walkin-client@example.com',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(
+            reverse('patients:admin_edit_pet', args=[pet.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'This changes who owns the patient record in the portal.')
+        self.assertContains(response, 'Use Existing Account')
+        self.assertContains(response, 'Create Account for This Client')
+        self.assertContains(response, 'selectedTransferAccount')
+        self.assertContains(response, 'purchase history')
+        self.assertContains(response, 'The destination account’s profile details will not be changed.')
 
 
 class BranchRestrictedPatientListTests(TestCase):
