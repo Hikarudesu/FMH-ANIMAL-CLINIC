@@ -39,7 +39,7 @@
 
         <!-- Account Details Grid -->
         <div class="account-details-grid">
-          <div class="detail-card">
+          <div class="detail-card staff-branch-card">
             <div class="detail-icon branch">
               <i class='bx bx-building'></i>
             </div>
@@ -53,7 +53,10 @@
               </select>
               {% if permanent_position_locked %}
               <input type="hidden" name="branch" value="{{ edited_user.branch_id|default:'' }}">
-              <small class="form-hint">Permanent Position keeps this active branch assignment fixed. A new branch can be selected if this branch becomes inactive.</small>
+              <div class="permanent-position-note" role="note">
+                <i class='bx bx-info-circle' aria-hidden="true"></i>
+                <p>Permanent Position keeps this active branch assignment fixed. A new branch can be selected if this branch becomes inactive.</p>
+              </div>
               {% endif %}
             </div>
           </div>
@@ -275,8 +278,43 @@
     margin-top: 0;
   }
 
+  .staff-edit-form .staff-branch-card {
+    align-items: flex-start;
+  }
+
+  .staff-edit-form .staff-branch-card .detail-content {
+    flex: 1;
+    min-width: 0;
+  }
+
   .staff-edit-form .admin-input {
     width: 100%;
+    box-sizing: border-box;
+  }
+
+  .permanent-position-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0, 150, 136, 0.2);
+    border-radius: 9px;
+    background: rgba(0, 150, 136, 0.06);
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .permanent-position-note i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: var(--primary);
+    font-size: 16px;
+  }
+
+  .permanent-position-note p {
+    margin: 0;
   }
 
   .staff-edit-form .form-actions {
@@ -485,8 +523,18 @@
       text-align: center;
     }
 
+    .staff-edit-form .staff-branch-card {
+      flex-direction: row;
+      gap: 12px;
+      text-align: left;
+    }
+
     .detail-icon {
       margin: 0 auto;
+    }
+
+    .staff-edit-form .staff-branch-card .detail-icon {
+      margin: 0;
     }
   }
 </style>

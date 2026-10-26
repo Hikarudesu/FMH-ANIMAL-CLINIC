@@ -861,6 +861,14 @@
           <div class="qc-group">
             <label>Email *</label>
             {{ quick_form.owner_email }}
+            <div class="qc-duplicate-owner-note is-blocking" id="qc-duplicate-portal-email-note" role="status" aria-live="polite" hidden>
+              <i class='bx bx-error-circle' aria-hidden="true"></i>
+              <span>This email address is already associated with another owner record. Enter a different email address.</span>
+            </div>
+            <div class="qc-duplicate-owner-note" id="qc-portal-email-check-error" role="status" aria-live="polite" hidden>
+              <i class='bx bx-info-circle' aria-hidden="true"></i>
+              <span>The email could not be checked right now. It will still be validated when you create the appointment.</span>
+            </div>
           </div>
           <div class="qc-group qc-full">
             <label>Address</label>
@@ -1605,6 +1613,7 @@ const API_PETS_URL         = "{% url 'appointments:api_pets' %}";
 const API_WALKIN_GUESTS    = "{% url 'appointments:api_walkin_guests' %}";
 const API_WALKIN_PET_URL   = "{% url 'appointments:api_walkin_guest_pets' %}";
 const API_OWNER_IDENTITY   = "{% url 'appointments:api_check_owner_identity' %}";
+const API_PORTAL_OWNER_EMAIL = "{% url 'appointments:api_check_portal_owner_email' %}";
 
 const clientSourceSelect = document.getElementById('qc-client-source');
 const sourceHidden       = document.getElementById('qc-source-hidden');
@@ -1644,13 +1653,77 @@ const petColorField    = document.querySelector('[name="pet_color"]');
 const selectedUserIdField = document.querySelector('[name="selected_user_id"]');
 const selectedPetIdField  = document.querySelector('[name="selected_pet_id"]');
 const duplicateOwnerNote = document.getElementById('qc-duplicate-owner-note');
+const duplicatePortalEmailNote = document.getElementById('qc-duplicate-portal-email-note');
+const portalEmailCheckError = document.getElementById('qc-portal-email-check-error');
 const selectedGuestOwnerField = document.getElementById('qc-selected-guest-owner');
 let ownerIdentityCheckTimer = null;
 let duplicateOwnerIdentity = false;
 let duplicateOwnerEmail = false;
+let duplicatePortalEmail = false;
+let portalEmailCheckTimer = null;
+let portalEmailCheckRequest = 0;
+
+function resetPortalOwnerEmailNote() {
+  clearTimeout(portalEmailCheckTimer);
+  portalEmailCheckRequest += 1;
+  duplicatePortalEmail = false;
+  if (duplicatePortalEmailNote) duplicatePortalEmailNote.hidden = true;
+  if (portalEmailCheckError) portalEmailCheckError.hidden = true;
+  if (ownerEmailField) ownerEmailField.removeAttribute('aria-invalid');
+}
+
+function checkDuplicatePortalOwnerEmail() {
+  clearTimeout(portalEmailCheckTimer);
+  const requestId = ++portalEmailCheckRequest;
+  duplicatePortalEmail = false;
+  if (duplicatePortalEmailNote) duplicatePortalEmailNote.hidden = true;
+  if (portalEmailCheckError) portalEmailCheckError.hidden = true;
+  if (ownerEmailField) ownerEmailField.removeAttribute('aria-invalid');
+
+  const email = ownerEmailField ? ownerEmailField.value.trim() : '';
+  const selectedUserId = selectedUserIdField ? selectedUserIdField.value : '';
+  if (
+    !clientSourceSelect
+    || clientSourceSelect.value !== 'PORTAL'
+    || !selectedUserId
+    || !email
+    || !ownerEmailField.validity.valid
+  ) return;
+
+  portalEmailCheckTimer = setTimeout(() => {
+    const params = new URLSearchParams({email, selected_user_id: selectedUserId});
+    fetch(API_PORTAL_OWNER_EMAIL + '?' + params.toString(), {cache: 'no-store'})
+      .then(response => {
+        if (!response.ok) throw new Error('Portal owner email check failed.');
+        return response.json();
+      })
+      .then(result => {
+        if (
+          requestId !== portalEmailCheckRequest
+          || email !== ownerEmailField.value.trim()
+          || selectedUserId !== selectedUserIdField.value
+          || clientSourceSelect.value !== 'PORTAL'
+        ) return;
+        duplicatePortalEmail = Boolean(result.email_match);
+        if (duplicatePortalEmailNote) {
+          duplicatePortalEmailNote.hidden = !duplicatePortalEmail;
+        }
+        if (ownerEmailField) {
+          if (duplicatePortalEmail) ownerEmailField.setAttribute('aria-invalid', 'true');
+          else ownerEmailField.removeAttribute('aria-invalid');
+        }
+      })
+      .catch(error => {
+        if (requestId !== portalEmailCheckRequest) return;
+        if (portalEmailCheckError) portalEmailCheckError.hidden = false;
+        console.error('Unable to check registered client email:', error);
+      });
+  }, 250);
+}
 
 function setPortalMode() {
   if (!ownerPortalGroup) return;
+  resetPortalOwnerEmailNote();
   sourceHidden.value = 'PORTAL';
   if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
   ownerPortalGroup.style.display = '';
@@ -1669,6 +1742,7 @@ function setPortalMode() {
 
 function setWalkinMode() {
   if (!ownerPortalGroup) return;
+  resetPortalOwnerEmailNote();
   sourceHidden.value = 'WALKIN';
   if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
   ownerPortalGroup.style.display = 'none';
@@ -1829,6 +1903,7 @@ function checkDuplicateGuestOwner() {
 if (ownerNameField) ownerNameField.addEventListener('input', checkDuplicateGuestOwner);
 if (ownerPhoneField) ownerPhoneField.addEventListener('input', checkDuplicateGuestOwner);
 if (ownerEmailField) ownerEmailField.addEventListener('input', checkDuplicateGuestOwner);
+if (ownerEmailField) ownerEmailField.addEventListener('input', checkDuplicatePortalOwnerEmail);
 if (walkinManualToggle) walkinManualToggle.addEventListener('change', function() {
   if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
   checkDuplicateGuestOwner();
@@ -1836,9 +1911,14 @@ if (walkinManualToggle) walkinManualToggle.addEventListener('change', function()
 const quickCreateForm = quickCreateModal?.querySelector('form');
 if (quickCreateForm) {
   quickCreateForm.addEventListener('submit', event => {
-    if (updateDuplicatePetNameNote() || duplicateOwnerIdentity || duplicateOwnerEmail) {
+    if (
+      updateDuplicatePetNameNote()
+      || duplicateOwnerIdentity
+      || duplicateOwnerEmail
+      || duplicatePortalEmail
+    ) {
       event.preventDefault();
-      if (duplicateOwnerEmail) ownerEmailField?.focus();
+      if (duplicateOwnerEmail || duplicatePortalEmail) ownerEmailField?.focus();
       else if (duplicateOwnerIdentity) ownerNameField?.focus();
       else petNameField?.focus();
     }
@@ -1937,6 +2017,7 @@ if (ownerSearchInput) {
     if (ownerSelect && ownerSelect.value && this.value.trim() !== selectedName) {
       ownerSelect.value = '';
       if (selectedUserIdField) selectedUserIdField.value = '';
+      resetPortalOwnerEmailNote();
       clearOwnerFields();
       if (petSelect) {
         petSelect.innerHTML = '<option value="">— Select owner first —</option>';
@@ -1962,6 +2043,7 @@ if (ownerSelect) {
       if (ownerSearchInput) ownerSearchInput.value = '';
       clearOwnerFields();
       if (selectedUserIdField) selectedUserIdField.value = '';
+      resetPortalOwnerEmailNote();
       petSelect.innerHTML = '<option value="">— Select owner first —</option>';
       petSelect.disabled = true;
       if (petManualToggleLabel) petManualToggleLabel.style.display = 'none';
@@ -1973,6 +2055,7 @@ if (ownerSelect) {
     if (ownerPhoneField)   ownerPhoneField.value   = opt.dataset.phone   || '';
     if (ownerEmailField)   ownerEmailField.value   = opt.dataset.email   || '';
     if (ownerAddressField) ownerAddressField.value = opt.dataset.address || '';
+    checkDuplicatePortalOwnerEmail();
     // Load pets for this owner
     loadOwnerPets(opt.value);
   });

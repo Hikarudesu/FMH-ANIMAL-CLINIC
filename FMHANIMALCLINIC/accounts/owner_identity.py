@@ -7,7 +7,12 @@ def _normalized_phone(value):
     return ''.join(character for character in (value or '') if character.isdigit())
 
 
-def check_existing_owner_identity(owner_name, phone='', email=''):
+def check_existing_owner_identity(
+    owner_name,
+    phone='',
+    email='',
+    exclude_user_id=None,
+):
     """Return whether an owner name exists and whether contact details also match."""
     normalized_name = ' '.join((owner_name or '').split()).casefold()
     normalized_phone = _normalized_phone(phone)
@@ -17,10 +22,13 @@ def check_existing_owner_identity(owner_name, phone='', email=''):
     from appointments.models import Appointment
     from patients.models import Pet
 
+    matching_users = User.objects.filter(email__iexact=normalized_email)
+    if exclude_user_id is not None:
+        matching_users = matching_users.exclude(pk=exclude_user_id)
     email_match = bool(
         normalized_email
         and (
-            User.objects.filter(email__iexact=normalized_email).exists()
+            matching_users.exists()
             or Appointment.objects.filter(
                 source=Appointment.Source.WALKIN,
                 owner_email__iexact=normalized_email,

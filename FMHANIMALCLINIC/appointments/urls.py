@@ -40,6 +40,11 @@ urlpatterns = [
         name='api_check_owner_identity',
     ),
     path(
+        'api/check-portal-owner-email/',
+        views.api_check_portal_owner_email,
+        name='api_check_portal_owner_email',
+    ),
+    path(
         'api/public-check-owner-identity/',
         views.api_check_public_owner_identity,
         name='api_check_public_owner_identity',

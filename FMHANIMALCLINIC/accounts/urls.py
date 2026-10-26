@@ -29,6 +29,11 @@ urlpatterns = [
     ),
     path('receptionist-dashboard/', views.receptionist_dashboard_view, name='receptionist_dashboard'),
     path('profile/', views.profile_view, name='profile'),
+    path(
+        'profile/check-duplicates/',
+        views.profile_duplicate_check_api,
+        name='profile_duplicate_check_api',
+    ),
     path('profile/deactivate/', views.request_owner_deactivation, name='request_owner_deactivation'),
     path('owner-archive/', archive_views.owner_archive, name='owner_archive'),
     path(

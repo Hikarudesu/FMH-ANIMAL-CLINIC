@@ -3,9 +3,9 @@ Forms for the accounts application.
 """
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from django.db.models.functions import Trim
 from FMHANIMALCLINIC.form_mixins import FormControlMixin, validate_philippines_phone
 from .models import User
+from .profile_conflicts import find_profile_conflicts
 from .rbac_models import Role, SpecialPermissionCodes
 from branches.models import Branch
 
@@ -242,24 +242,19 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        first_name = cleaned_data.get('first_name', '').strip()
-        last_name = cleaned_data.get('last_name', '').strip()
-
-        if (
-            first_name
-            and last_name
-            and User.objects.annotate(
-                normalized_first_name=Trim('first_name'),
-                normalized_last_name=Trim('last_name'),
-            ).filter(
-                normalized_first_name__iexact=first_name,
-                normalized_last_name__iexact=last_name,
-            ).exclude(pk=self.instance.pk).exists()
-        ):
+        conflicts = find_profile_conflicts(
+            user=self.instance,
+            first_name=cleaned_data.get('first_name', ''),
+            last_name=cleaned_data.get('last_name', ''),
+            email=cleaned_data.get('email', ''),
+        )
+        if conflicts['name_exists']:
             self.add_error(
                 'first_name',
                 'A user with this first and last name already exists.',
             )
+        if conflicts['email_exists']:
+            self.add_error('email', 'A user with this email already exists.')
 
         return cleaned_data
 
@@ -270,8 +265,6 @@ class UserProfileUpdateForm(FormControlMixin, forms.ModelForm):
         if email and username and email.casefold() == username.casefold():
             raise forms.ValidationError(
                 "Email address cannot be the same as your username.")
-        if email and User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError("A user with this email already exists.")
         return email
 
 

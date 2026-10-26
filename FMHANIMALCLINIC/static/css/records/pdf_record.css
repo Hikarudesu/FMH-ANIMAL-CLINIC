@@ -72,6 +72,18 @@ body {
     overflow-wrap: break-word;
 }
 
+.owner-info-table {
+    table-layout: fixed;
+}
+
+.owner-info-table .label {
+    width: 18%;
+}
+
+.owner-info-table .value {
+    width: 82%;
+}
+
 /* ---- Vet Banner ---- */
 .vet-banner {
     background-color: #e8f4f8;

@@ -271,6 +271,7 @@ def admin_record_create(request):
             client_source = request.POST.get('client_source', 'PORTAL').strip()
             owner_name_str = request.POST.get('owner_name', '').strip()
             owner_contact = request.POST.get('owner_contact', '').strip()
+            owner_email = entry_form.cleaned_data.get('owner_email', '').strip()
             owner_address = request.POST.get('owner_address', '').strip()
             if client_source == 'WALKIN':
                 owner_match = check_existing_owner_identity(
@@ -410,6 +411,9 @@ def admin_record_create(request):
                     if not entry_form.errors:
                         # Persist contact updates only after pet identity is validated.
                         if owner:
+                            if (owner.email or '').strip().casefold() != owner_email.casefold():
+                                owner.email = owner_email
+                                owner.email_verified = False
                             if owner_contact:
                                 owner.phone_number = owner_contact
                             if owner_address:
@@ -423,6 +427,7 @@ def admin_record_create(request):
                                 source=Pet.Source.WALKIN,
                                 guest_owner_name=owner_name_str,
                                 guest_owner_phone=owner_contact,
+                                guest_owner_email=owner_email,
                                 guest_owner_address=owner_address,
                             )
                         elif not pet and pet_name_str and owner:
@@ -460,6 +465,8 @@ def admin_record_create(request):
                                 pet.branch = Branch.objects.get(pk=branch_id)
                             except (Branch.DoesNotExist, ValueError):
                                 pass
+                        if pet.source == Pet.Source.WALKIN:
+                            pet.guest_owner_email = owner_email
 
                         pet.save()
 
@@ -635,6 +642,7 @@ def admin_record_create(request):
             'owner_name': owner_name,
             'owner_address': owner_address,
             'owner_contact': owner_contact,
+            'owner_email': (p.owner.email if p.owner_id else p.guest_owner_email) or '',
             'date_of_birth': p.date_of_birth.isoformat() if p.date_of_birth else '',
             'pet_color': p.color,
             'pet_species': p.species,
@@ -685,6 +693,10 @@ def admin_record_create(request):
                     appointment_owner.phone_number
                     if appointment_owner else linked_appointment.owner_phone
                 ) or '',
+                'owner_email': (
+                    appointment_owner.email
+                    if appointment_owner else appointment_pet.guest_owner_email
+                ) or linked_appointment.owner_email or '',
                 'date_of_birth': (
                     appointment_pet.date_of_birth.isoformat()
                     if appointment_pet.date_of_birth
@@ -717,6 +729,10 @@ def admin_record_create(request):
             'owner_contact': (
                 selected_pet_owner.phone_number
                 if selected_pet_owner else selected_pet.guest_owner_phone
+            ) or '',
+            'owner_email': (
+                selected_pet_owner.email
+                if selected_pet_owner else selected_pet.guest_owner_email
             ) or '',
             'date_of_birth': (
                 selected_pet.date_of_birth.isoformat()
@@ -762,6 +778,7 @@ def admin_record_edit(request, pk):
     if request.method == 'POST':
         form = MedicalRecordForm(request.POST, instance=record)
         if form.is_valid():
+            owner_email = form.cleaned_data.get('owner_email', '').strip()
             required_values = {
                 'owner_name': request.POST.get('owner_name', '').strip(),
                 'owner_contact': request.POST.get('owner_contact', '').strip(),
@@ -798,30 +815,21 @@ def admin_record_edit(request, pk):
             if not form.errors:
                 updated_record = form.save(commit=False)
 
-                # --- Update Owner details if provided ---
-                owner_name_str = request.POST.get('owner_name', '').strip()
-                if owner_name_str:
-                    parts = owner_name_str.split(' ', 1)
-                    first_name = parts[0]
-                    last_name = parts[1] if len(parts) > 1 else ''
-                    owner_qs = User.objects.filter(
-                        first_name=first_name,
-                        last_name=last_name,
-                    ).filter(
-                        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
-                    )
-                    if owner_qs.exists():
-                        owner = owner_qs.first()
-                        if 'owner_contact' in request.POST:
-                            owner.phone_number = request.POST.get('owner_contact')
-                        if 'owner_address' in request.POST:
-                            owner.address = request.POST.get('owner_address')
-                        owner.save()
-
                 # --- Update Pet details if provided ---
                 pet = record.pet
-                if pet.source == Pet.Source.WALKIN:
+                if pet.owner_id:
+                    owner = pet.owner
+                    if (owner.email or '').strip().casefold() != owner_email.casefold():
+                        owner.email = owner_email
+                        owner.email_verified = False
+                    if 'owner_contact' in request.POST:
+                        owner.phone_number = owner_contact_val
+                    if 'owner_address' in request.POST:
+                        owner.address = request.POST.get('owner_address', '').strip()
+                    owner.save()
+                else:
                     pet.guest_owner_phone = owner_contact_val
+                    pet.guest_owner_email = owner_email
                 if 'pet_color' in request.POST:
                     pet.color = request.POST.get('pet_color')
                 if 'pet_breed' in request.POST:
@@ -873,6 +881,10 @@ def admin_record_edit(request, pk):
                 return redirect('records:admin_detail', pk=record.pk)
     else:
         form = MedicalRecordForm(instance=record)
+        form.initial['owner_email'] = (
+            record.pet.owner.email
+            if record.pet.owner_id else record.pet.guest_owner_email
+        ) or ''
 
     # Build pet details JSON for dynamic form population
     pets = Pet.objects.select_related(
@@ -888,18 +900,21 @@ def admin_record_edit(request, pk):
             owner_name = p.owner.get_full_name() or p.owner.username
             owner_address = p.owner.address
             owner_contact = p.owner.phone_number
+            owner_email = p.owner.email
             branch_id = p.owner.branch_id or (last_record.branch_id if last_record else '')
         else:
             # Walk-in patient
             owner_name = p.guest_owner_name
             owner_address = p.guest_owner_address
             owner_contact = p.guest_owner_phone
+            owner_email = p.guest_owner_email
             branch_id = last_record.branch_id if last_record else ''
 
         pets_data[p.name] = {
             'owner_name': owner_name,
             'owner_address': owner_address,
             'owner_contact': owner_contact,
+            'owner_email': owner_email,
             'date_of_birth': p.date_of_birth.isoformat() if p.date_of_birth else '',
             'pet_color': p.color,
             'pet_species': p.species,
@@ -1412,6 +1427,7 @@ def api_search_owners(request):
         'first_name': owner.first_name,
         'last_name': owner.last_name,
         'phone_number': owner.phone_number or '',
+        'email': owner.email or '',
         'address': owner.address or '',
     } for owner in owners]
 

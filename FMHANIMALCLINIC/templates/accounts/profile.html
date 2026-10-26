@@ -5,6 +5,7 @@
 {% block title %}My Profile{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/accounts/profile_duplicate_check.css' %}">
 <div id="passwordSuccessToast" role="status" aria-live="polite"
      style="position: fixed; top: 24px; right: 24px; z-index: 2000; display: flex; align-items: center; gap: 10px; max-width: min(360px, calc(100vw - 48px)); padding: 14px 18px; border-radius: 10px; background: #178a5b; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.2); opacity: 0; pointer-events: none; transform: translateY(-12px); transition: opacity .2s ease, transform .2s ease;">
   <i class='bx bx-check-circle' aria-hidden="true"></i>
@@ -481,7 +482,8 @@
       </div>
       <button class="modal-close" id="closeProfileModal">&times;</button>
     </div>
-    <form method="POST" action="{% url 'profile' %}" enctype="multipart/form-data">
+    <form method="POST" action="{% url 'profile' %}" enctype="multipart/form-data"
+          id="profileEditForm" data-duplicate-check-url="{% url 'accounts:profile_duplicate_check_api' %}">
       {% csrf_token %}
       <div class="modal-body">
         {% if form.non_field_errors %}
@@ -521,12 +523,23 @@
             {{ form.last_name }}
             <label for="{{ form.last_name.id_for_label }}">Last Name <span aria-hidden="true">*</span></label>
             {% if form.last_name.errors %}<small class="field-error">{{ form.last_name.errors.as_text }}</small>{% endif %}
+            <small class="profile-duplicate-note" data-duplicate-note="name" role="status" hidden>
+              <i class='bx bx-info-circle' aria-hidden="true"></i>
+              <span>Another account already uses this first and last name.</span>
+            </small>
           </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-envelope'></i></div>
             {{ form.email }}
             <label for="{{ form.email.id_for_label }}">Email <span aria-hidden="true">*</span></label>
             {% if form.email.errors %}<small class="field-error">{{ form.email.errors.as_text }}</small>{% endif %}
+            <small class="profile-duplicate-note" data-duplicate-note="email" role="status" hidden>
+              <i class='bx bx-info-circle' aria-hidden="true"></i>
+              <span>This email address is already linked to another account.</span>
+            </small>
+            <small class="profile-duplicate-check-error" data-duplicate-check-error role="status" hidden>
+              Unable to check for existing details right now. They will still be checked when you save.
+            </small>
           </div>
           <div class="floating-field">
             <div class="field-icon"><i class='bx bx-phone'></i></div>
@@ -786,4 +799,5 @@
 
   });
 </script>
+<script src="{% static 'js/accounts/profile_duplicate_check.js' %}" defer></script>
 {% endblock %}

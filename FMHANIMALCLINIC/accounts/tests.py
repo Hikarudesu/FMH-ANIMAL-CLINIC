@@ -2258,6 +2258,47 @@ class RegistrationEmailVerificationTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('email', form.errors)
 
+    def test_profile_duplicate_check_detects_existing_name_and_email(self):
+        user_model = get_user_model()
+        existing_user = user_model.objects.create_user(
+            username='duplicate-profile-check-existing',
+            first_name='Jamie',
+            last_name='Smith',
+            email='duplicate-profile-check@example.com',
+            password='A-secure-test-password-923!',
+        )
+        editing_user = user_model.objects.create_user(
+            username='duplicate-profile-check-editing',
+            first_name='Taylor',
+            last_name='Jones',
+            email='editing-profile-check@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(editing_user)
+
+        response = self.client.get(
+            reverse('accounts:profile_duplicate_check_api'),
+            {
+                'first_name': ' jamie ',
+                'last_name': 'SMITH',
+                'email': existing_user.email.upper(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            'name_exists': True,
+            'email_exists': True,
+        })
+
+    def test_profile_duplicate_check_requires_authentication(self):
+        response = self.client.get(
+            reverse('accounts:profile_duplicate_check_api'),
+            {'first_name': 'Jamie', 'last_name': 'Smith'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+
     def test_profile_rejects_duplicate_first_and_last_names_case_insensitively(self):
         user_model = get_user_model()
         staff_role, _ = Role.objects.get_or_create(

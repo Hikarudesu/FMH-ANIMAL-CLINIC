@@ -314,6 +314,13 @@
                            placeholder="09XXXXXXXXX" inputmode="numeric" pattern="[0-9]{11}" minlength="11" maxlength="11"
                            oninput="this.value=this.value.replace(/\D/g,'')" required />
                 </div>
+                <div class="form-group">
+                    <label class="form-label" for="{{ form.owner_email.id_for_label }}">Email Address</label>
+                    {{ form.owner_email }}
+                    {% if form.owner_email.errors %}
+                        <div style="color: var(--accent); font-size: 12px; margin-top: 4px;">{{ form.owner_email.errors }}</div>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
@@ -562,6 +569,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const ownerPortalGroup = document.getElementById('owner-portal-group');
     const ownerWalkinGroup = document.getElementById('owner-walkin-group');
     const ownerContactInput = document.getElementById('ro-owner-contact');
+    const ownerEmailInput = document.getElementById('ro-owner-email');
     const ownerAddressInput = document.getElementById('ro-owner-address');
     
     // Walk-in specific elements
@@ -608,6 +616,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const samplePet = walkinPetsMap[guestName][0];
             opt.dataset.name = guestName;
             opt.dataset.phone = samplePet.owner_contact || '';
+            opt.dataset.email = samplePet.owner_email || '';
             opt.dataset.address = samplePet.owner_address || '';
             
             walkinSelect.appendChild(opt);
@@ -699,6 +708,7 @@ document.addEventListener('DOMContentLoaded', function() {
             opt.textContent = owner.full_name + (owner.phone_number ? ' (' + owner.phone_number + ')' : '');
             opt.dataset.name = owner.full_name;
             opt.dataset.phone = owner.phone_number || '';
+            opt.dataset.email = owner.email || '';
             opt.dataset.address = owner.address || '';
             ownerSelect.appendChild(opt);
         });
@@ -962,6 +972,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerSearch.value = selectedOpt.textContent;
             ownerSearch.setCustomValidity('');
             ownerContactInput.value = selectedOpt.dataset.phone || '';
+            ownerEmailInput.value = selectedOpt.dataset.email || '';
             ownerAddressInput.value = selectedOpt.dataset.address || '';
             // Populate pet dropdown for this owner
             populatePetDropdown(this.value, 'PORTAL');
@@ -971,6 +982,7 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedUserIdField.value = '';
             ownerNameHidden.value = '';
             ownerContactInput.value = '';
+            ownerEmailInput.value = '';
             ownerAddressInput.value = '';
             resetPetToManual();
         }
@@ -985,6 +997,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateDuplicateOwnerNameNote(null);
                 ownerNameWalkin.value = this.value; // Store the selected name
                 ownerContactInput.value = selectedOpt.dataset.phone || '';
+                ownerEmailInput.value = selectedOpt.dataset.email || '';
                 ownerAddressInput.value = selectedOpt.dataset.address || '';
                 // Populate pet dropdown for this guest owner
                 populatePetDropdown(this.value, 'WALKIN');
@@ -992,6 +1005,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 selectedGuestOwnerField.value = '0';
                 ownerNameWalkin.value = '';
                 ownerContactInput.value = '';
+                ownerEmailInput.value = '';
                 ownerAddressInput.value = '';
                 resetPetToManual();
             }
@@ -1234,6 +1248,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (ownerAddressInput) ownerAddressInput.value = prefillData.owner_address || '';
         if (ownerContactInput) ownerContactInput.value = prefillData.owner_contact || '';
+        if (ownerEmailInput) ownerEmailInput.value = prefillData.owner_email || '';
 
         if (prefillData.source === 'WALKIN') {
             if (walkinSearch && prefillData.owner_name) {
@@ -1273,6 +1288,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 id: prefillData.owner_id,
                 full_name: prefillData.owner_name || '',
                 phone_number: prefillData.owner_contact || '',
+                email: prefillData.owner_email || '',
                 address: prefillData.owner_address || ''
             });
             restorePetFields();

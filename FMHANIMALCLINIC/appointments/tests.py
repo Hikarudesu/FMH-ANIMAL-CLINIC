@@ -546,6 +546,73 @@ class AdminQuickCreateOwnerValidationTests(TestCase):
         self.assertIn('owner_email', form.errors)
         self.assertIn('already associated with an owner record', form.errors['owner_email'][0])
 
+    def test_portal_email_change_is_blocked_when_another_registered_owner_uses_it(self):
+        selected_owner = User.objects.create_user(
+            username='portal-appointment-selected-owner',
+            email='selected-portal-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        existing_owner = User.objects.create_user(
+            username='portal-appointment-existing-owner',
+            email='existing-portal-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.PORTAL,
+            'selected_user_id': str(selected_owner.pk),
+            'owner_email': existing_owner.email.upper(),
+        })
+
+        form.is_valid()
+
+        self.assertIn('owner_email', form.errors)
+        self.assertIn('already associated with another owner record', form.errors['owner_email'][0])
+
+    def test_portal_owner_can_keep_their_own_email(self):
+        selected_owner = User.objects.create_user(
+            username='portal-appointment-own-email',
+            email='portal-own-email@example.com',
+            password='A-secure-test-password-923!',
+        )
+
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.PORTAL,
+            'selected_user_id': str(selected_owner.pk),
+            'owner_email': selected_owner.email,
+        })
+
+        form.is_valid()
+
+        self.assertNotIn('owner_email', form.errors)
+
+    def test_portal_email_change_is_blocked_when_a_guest_record_uses_it(self):
+        selected_owner = User.objects.create_user(
+            username='portal-appointment-guest-email-selected',
+            email='selected-guest-email@example.com',
+            password='A-secure-test-password-923!',
+        )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Existing Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='existing-guest-email@example.com',
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.PORTAL,
+            'selected_user_id': str(selected_owner.pk),
+            'owner_email': 'EXISTING-GUEST-EMAIL@example.com',
+        })
+
+        form.is_valid()
+
+        self.assertIn('owner_email', form.errors)
+        self.assertIn('already associated with another owner record', form.errors['owner_email'][0])
+
     def test_new_guest_name_only_match_does_not_block_different_contact(self):
         User.objects.create_user(
             username='another-existing-owner',
@@ -1062,6 +1129,44 @@ class AdminQuickCreateOwnerApiTests(TestCase):
             new_owner.pk,
             [owner['id'] for owner in response.json()['owners']],
         )
+
+    def test_portal_email_check_excludes_selected_owner_and_detects_other_owner(self):
+        admin = User.objects.create_superuser(
+            username='portal-email-check-admin',
+            email='portal-email-check-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        selected_owner = User.objects.create_user(
+            username='portal-email-check-selected',
+            email='portal-email-check-selected@example.com',
+            password='A-secure-test-password-923!',
+        )
+        existing_owner = User.objects.create_user(
+            username='portal-email-check-existing',
+            email='portal-email-check-existing@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(admin)
+
+        own_email_response = self.client.get(
+            reverse('appointments:api_check_portal_owner_email'),
+            {
+                'selected_user_id': selected_owner.pk,
+                'email': selected_owner.email,
+            },
+        )
+        duplicate_email_response = self.client.get(
+            reverse('appointments:api_check_portal_owner_email'),
+            {
+                'selected_user_id': selected_owner.pk,
+                'email': existing_owner.email.upper(),
+            },
+        )
+
+        self.assertEqual(own_email_response.status_code, 200)
+        self.assertEqual(own_email_response.json(), {'email_match': False})
+        self.assertEqual(duplicate_email_response.status_code, 200)
+        self.assertEqual(duplicate_email_response.json(), {'email_match': True})
 
 
 class AppointmentEditVeterinarianOptionalTests(TestCase):

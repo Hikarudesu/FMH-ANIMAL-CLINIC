@@ -8,16 +8,19 @@ from datetime import date, timedelta
 from django.conf import settings as django_settings
 from django.core import signing
 from django.core.mail import send_mail
+from django.core.validators import validate_email
 from django.db.models import Count, Sum, Q, F, DecimalField, ExpressionWrapper
 from django.db.models.functions import TruncDate
 from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.html import format_html
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
+from django.views.decorators.http import require_GET
 from django.db import transaction
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -29,6 +32,7 @@ from branches.models import Branch
 from .models import User
 from .decorators import module_permission_required, admin_only, special_permission_required, staff_only
 from .forms import PetOwnerRegistrationForm
+from .profile_conflicts import find_profile_conflicts
 from .rate_limits import clear_rate_limit, consume_rate_limit
 from settings.utils import get_inventory_low_stock_threshold, get_setting
 
@@ -689,6 +693,32 @@ def profile_view(request):
         'user': request.user,
         'form': form,
     })
+
+
+@login_required
+@require_GET
+def profile_duplicate_check_api(request):
+    """Check the signed-in user's proposed profile name and email for duplicates."""
+    first_name = request.GET.get('first_name', '').strip()
+    last_name = request.GET.get('last_name', '').strip()
+    email = request.GET.get('email', '').strip()
+
+    if len(first_name) > 30 or len(last_name) > 30 or len(email) > 254:
+        return JsonResponse({'error': 'Profile values are too long.'}, status=400)
+
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            email = ''
+
+    conflicts = find_profile_conflicts(
+        user=request.user,
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+    )
+    return JsonResponse(conflicts)
 
 
 @login_required
@@ -2742,7 +2772,6 @@ def change_password_view(request):
 # In-Profile Inline Password Reset APIs
 # =============================================================================
 
-from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 
 @login_required

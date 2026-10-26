@@ -1,0 +1,35 @@
+.profile-duplicate-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  color: #9a5b00;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.profile-duplicate-note[hidden] {
+  display: none;
+}
+
+.profile-duplicate-check-error {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-2);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.profile-duplicate-check-error[hidden] {
+  display: none;
+}
+
+.profile-duplicate-note i {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  font-size: 1rem;
+}
+
+[data-theme="dark"] .profile-duplicate-note {
+  color: #fbbf24;
+}

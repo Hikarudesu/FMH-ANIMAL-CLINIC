@@ -922,13 +922,31 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
             cleaned_data.get('owner_name') or ''
         ).strip():
             self.add_error('owner_name', 'Owner name is required for walk-in appointments.')
-        if pet_name and source == Appointment.Source.PORTAL:
+        if source == Appointment.Source.PORTAL:
             from accounts.models import User
-            from patients.models import Pet
 
-            owner = User.objects.filter(
+            selected_owner = User.objects.filter(
                 pk=cleaned_data.get('selected_user_id')
             ).first()
+            email = (cleaned_data.get('owner_email') or '').strip()
+            if (
+                selected_owner
+                and email.casefold() != (selected_owner.email or '').strip().casefold()
+                and check_existing_owner_identity(
+                    '',
+                    email=email,
+                    exclude_user_id=selected_owner.pk,
+                )['email_match']
+            ):
+                self.add_error(
+                    'owner_email',
+                    'This email address is already associated with another owner record. '
+                    'Enter a different email address.',
+                )
+        if pet_name and source == Appointment.Source.PORTAL:
+            from patients.models import Pet
+
+            owner = selected_owner
             if owner:
                 existing_pets = Pet.objects.filter(
                     owner=owner,

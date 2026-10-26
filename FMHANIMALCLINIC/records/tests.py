@@ -232,6 +232,11 @@ class AttendingVeterinarianDefaultTests(TestCase):
             module=module,
             permission_type=ModulePermission.PermissionType.CREATE,
         )
+        ModulePermission.objects.get_or_create(
+            role=role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.EDIT,
+        )
         self.user = get_user_model().objects.create_user(
             username='attending-vet-default',
             email='attending-vet-default@example.com',
@@ -261,6 +266,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertContains(response, 'An owner with this name may already exist.')
         self.assertContains(response, 'name="selected_guest_owner"')
         self.assertContains(response, "result.addEventListener('mousedown'")
+        self.assertContains(response, 'name="owner_email"')
 
     def test_create_rejects_duplicate_portal_pet_without_updating_owner_or_pet(self):
         owner = get_user_model().objects.create_user(
@@ -341,6 +347,95 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(Pet.objects.filter(guest_owner_name='Guest Record Owner').count(), 1)
         self.assertEqual(MedicalRecord.objects.count(), 0)
 
+    def test_create_syncs_portal_email_and_requires_reverification(self):
+        owner, pet, appointment, entry_data = self._appointment_record_setup()
+        owner.email_verified = True
+        owner.save(update_fields=['email_verified'])
+        entry_data.update({
+            'client_source': 'PORTAL',
+            'selected_user_id': owner.pk,
+            'selected_pet_id': pet.pk,
+            'owner_name': 'Appointment Record Owner',
+            'owner_contact': owner.phone_number,
+            'owner_address': '',
+            'owner_email': 'updated-owner@example.com',
+            'pet_name': pet.name,
+            'pet_species': pet.species,
+            'pet_sex': 'FEMALE',
+            'pet_color': pet.color,
+            'branch': self.branch.pk,
+        })
+
+        response = self.client.post(reverse('records:admin_create'), entry_data)
+
+        self.assertEqual(response.status_code, 302)
+        owner.refresh_from_db()
+        pet.refresh_from_db()
+        appointment.refresh_from_db()
+        self.assertEqual(owner.email, 'updated-owner@example.com')
+        self.assertFalse(owner.email_verified)
+        self.assertEqual(pet.owner_display_email, 'updated-owner@example.com')
+        self.assertEqual(appointment.current_owner_email, 'updated-owner@example.com')
+
+    def test_edit_syncs_portal_owner_email_and_requires_reverification(self):
+        owner = get_user_model().objects.create_user(
+            username='medical-record-edit-owner',
+            email='original-owner@example.com',
+            password='A-secure-test-password-923!',
+            phone_number='09123456789',
+            email_verified=True,
+        )
+        pet = Pet.objects.create(
+            name='Medical Record Edit Pet',
+            owner=owner,
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+            color='Black',
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+        )
+        RecordEntry.objects.create(
+            record=record,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+            history_clinical_signs='Routine examination',
+            treatment='Examination completed',
+            rx='None',
+            action_required=ClinicalStatus.get_default(),
+        )
+
+        response = self.client.post(
+            reverse('records:admin_edit', args=[record.pk]),
+            {
+                'owner_name': owner.get_full_name() or owner.username,
+                'owner_contact': owner.phone_number,
+                'owner_address': '',
+                'owner_email': 'edited-owner@example.com',
+                'pet_name': pet.name,
+                'pet_species': pet.species,
+                'pet_sex': 'FEMALE',
+                'pet_color': pet.color,
+                'branch': self.branch.pk,
+                'vet': self.vet.pk,
+                'date_recorded': '2026-10-17',
+                'history_clinical_signs': 'Routine examination',
+                'treatment': 'Examination completed',
+                'rx': 'None',
+                'action_required': ClinicalStatus.get_default().pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        owner.refresh_from_db()
+        pet.refresh_from_db()
+        self.assertEqual(owner.email, 'edited-owner@example.com')
+        self.assertFalse(owner.email_verified)
+        self.assertEqual(pet.owner_display_email, 'edited-owner@example.com')
+
     def test_create_rejects_new_guest_when_owner_name_and_phone_match_portal_owner(self):
         get_user_model().objects.create_user(
             username='existing-owner-identity',
@@ -393,6 +488,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
             'owner_name': 'Taylor Owner',
             'owner_contact': '09987654321',
             'owner_address': 'Different guest address',
+            'owner_email': 'guest-owner@example.com',
             'pet_name': 'Poppy',
             'pet_species': 'Dog',
             'pet_sex': 'FEMALE',
@@ -404,6 +500,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertTrue(Pet.objects.filter(
             name='Poppy',
             guest_owner_phone='09987654321',
+            guest_owner_email='guest-owner@example.com',
         ).exists())
 
     def test_add_visit_entry_defaults_to_logged_in_vet_and_clinic_over_record(self):

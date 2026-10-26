@@ -6,6 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.core.validators import validate_email
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import JsonResponse
@@ -1811,6 +1812,12 @@ def admin_quick_create(request):
                 and form.errors.get('owner_name')
                 and str(form.errors['owner_name'][0]) == GUEST_DUPLICATE_OWNER_ERROR
             )
+            duplicate_portal_email = bool(
+                not appointment
+                and form.errors.get('owner_email')
+                and 'already associated with another owner record'
+                in str(form.errors['owner_email'][0])
+            )
             if appointment and followup:
                 source_appointment = followup.appointment
                 followup_pet = (
@@ -1891,11 +1898,13 @@ def admin_quick_create(request):
                 ),
             )
         else:
-            if duplicate_pet_name or duplicate_owner:
+            if duplicate_pet_name or duplicate_owner or duplicate_portal_email:
                 error_message = (
                     form.errors['pet_name'][0]
                     if duplicate_pet_name
                     else form.errors['owner_name'][0]
+                    if duplicate_owner
+                    else form.errors['owner_email'][0]
                 )
                 messages.error(request, error_message)
             else:
@@ -1906,7 +1915,7 @@ def admin_quick_create(request):
                     request,
                     f'Invalid appointment data. Please check the form. Errors: {error_details}',
                 )
-            if duplicate_pet_name or duplicate_owner:
+            if duplicate_pet_name or duplicate_owner or duplicate_portal_email:
                 return redirect(
                     f"{reverse('appointments:admin_list')}#quickCreateModal"
                 )
@@ -2155,6 +2164,39 @@ def api_check_owner_identity(request):
         request.GET.get('email', ''),
     )
     return JsonResponse(result)
+
+
+@login_required
+@module_permission_required('appointments', 'CREATE')
+@require_GET
+def api_check_portal_owner_email(request):
+    """Check a portal appointment email against other registered and guest owners."""
+    email = request.GET.get('email', '').strip()
+    selected_user_id = request.GET.get('selected_user_id', '').strip()
+    if not email or len(email) > 254 or not selected_user_id.isdigit():
+        return JsonResponse({'error': 'A valid email and registered owner are required.'}, status=400)
+    try:
+        validate_email(email)
+    except ValidationError:
+        return JsonResponse({'error': 'Enter a valid email address.'}, status=400)
+
+    owner = User.objects.filter(
+        pk=selected_user_id,
+    ).filter(
+        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True)
+    ).first()
+    if not owner:
+        return JsonResponse({'error': 'Select a registered owner first.'}, status=400)
+
+    email_match = (
+        email.casefold() != (owner.email or '').strip().casefold()
+        and check_existing_owner_identity(
+            '',
+            email=email,
+            exclude_user_id=owner.pk,
+        )['email_match']
+    )
+    return JsonResponse({'email_match': email_match})
 
 
 @require_GET
