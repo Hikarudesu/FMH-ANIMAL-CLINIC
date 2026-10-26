@@ -594,7 +594,7 @@
         <div class="lbl">Email</div>
         <div class="val">{{ record.pet.owner_display_email }}</div>
         <div class="lbl">Address</div>
-        <div class="val" style="grid-column: span 3;">{% if record.pet.owner %}{{ record.pet.owner.address|default:"—" }}{% else %}{{ record.pet.guest_owner_address|default:"—" }}{% endif %}</div>
+        <div class="val">{% if record.pet.owner %}{{ record.pet.owner.address|default:"—" }}{% else %}{{ record.pet.guest_owner_address|default:"—" }}{% endif %}</div>
     </div>
 
     <!-- Pet Information -->
