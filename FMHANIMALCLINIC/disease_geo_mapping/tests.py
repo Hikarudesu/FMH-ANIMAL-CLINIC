@@ -170,6 +170,23 @@ class DiseaseDashboardViewTests(TestCase):
 
     def test_superadmin_dashboard_loads_with_default_and_disease_filters(self):
         visit_date = date.today()
+        unmatched_pet = Pet.objects.create(
+            name='Unmatched Disease Dashboard Pet',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+            branch=self.branch,
+        )
+        unmatched_record = MedicalRecord.objects.create(
+            pet=unmatched_pet,
+            branch=self.branch,
+            date_recorded=visit_date,
+        )
+        RecordEntry.objects.create(
+            record=unmatched_record,
+            date_recorded=visit_date,
+            history_clinical_signs='Routine check-up with no specific symptoms',
+        )
+
         for index in range(2):
             pet = Pet.objects.create(
                 name=f'Disease Dashboard Pet {index}',

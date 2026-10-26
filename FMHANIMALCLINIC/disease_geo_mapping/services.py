@@ -485,6 +485,10 @@ def summarize_branch_disease_trends(branch, pet_queryset=None, start_date=None, 
     # Build disease counts but only mark as outbreak if repeated across multiple pets
     disease_counts = []
     for name, value in disease_counter.most_common(12):
+        disease_details = get_disease_details(name)
+        if disease_details is None:
+            continue
+
         distinct_pets = len(disease_pet_map.get(name, set()))
         # conservative confidence that increases with both count and distinct pets
         confidence = round(min(0.96, 0.58 + (value / 10) * 0.06 + (distinct_pets - 1) * 0.04), 2)
