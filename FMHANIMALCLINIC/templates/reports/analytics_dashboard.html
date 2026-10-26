@@ -240,6 +240,17 @@
     <div class="metric-sub">{{ new_patients_period }} new this period</div>
   </div>
 
+  <!-- Appointment Visits -->
+  <div class="metric-card">
+    <div class="metric-accent" style="background: linear-gradient(90deg, #0f766e, #2dd4bf);"></div>
+    <div class="metric-icon" style="background: rgba(15,118,110,0.1); color: #0f766e;">
+      <i class='bx bx-calendar-check'></i>
+    </div>
+    <div class="metric-label">Appointments</div>
+    <div class="metric-value" id="liveAppointmentCount">{{ appointment_count }}</div>
+    <div class="metric-sub">Cancelled appointments excluded</div>
+  </div>
+
   <!-- Gross Sales -->
   <div class="metric-card">
     <div class="metric-accent" style="background: linear-gradient(90deg, #059669, #34d399);"></div>
@@ -273,6 +284,15 @@
       ₱{{ avg_transaction|peso|default_if_none:"0.00" }}
     </div>
     <div class="metric-sub">Per completed sale</div>
+  </div>
+</div>
+
+<!-- Appointment Trend -->
+<div class="chart-section">
+  <h3><i class='bx bx-calendar-check' style="color: #0f766e;"></i> Appointment Volume</h3>
+  <p class="chart-subtitle">Non-cancelled appointments over the last 12 months</p>
+  <div class="chart-container">
+    <canvas id="appointmentsChart"></canvas>
   </div>
 </div>
 
@@ -390,6 +410,33 @@ document.addEventListener("DOMContentLoaded", function() {
       },
       interaction: { mode: 'index', intersect: false },
       animation: { duration: 1000, easing: 'easeOutQuart' }
+    }
+  });
+
+  // Appointment volume from scheduled appointments, excluding cancellations.
+  const ctxAppointments = document.getElementById('appointmentsChart').getContext('2d');
+  const appointmentsChart = new Chart(ctxAppointments, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Appointments',
+        data: monthsData.map(d => d.appointments),
+        backgroundColor: '#0f766e',
+        borderRadius: 6,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, border: { display: false }, ticks: { precision: 0 } },
+        x: { grid: { display: false }, border: { display: false } }
+      },
+      interaction: { mode: 'index', intersect: false }
     }
   });
 
@@ -540,10 +587,14 @@ document.addEventListener("DOMContentLoaded", function() {
       document.getElementById('liveAverageTransaction').textContent =
         `₱${currencyFormatter.format(data.avg_transaction)}`;
       document.getElementById('liveTransactionCount').textContent = data.transaction_count;
+      document.getElementById('liveAppointmentCount').textContent = data.appointment_count;
       document.getElementById('analyticsLastUpdated').textContent =
         `Updated ${new Date(data.updated_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 
       const refreshedLabels = data.months.map((month) => `${month.month} ${month.year}`);
+      appointmentsChart.data.labels = refreshedLabels;
+      appointmentsChart.data.datasets[0].data = data.months.map((month) => month.appointments);
+      appointmentsChart.update('none');
       grossSalesChart.data.labels = refreshedLabels;
       grossSalesChart.data.datasets[0].data = data.months.map((month) => month.gross);
       grossSalesChart.update('none');
