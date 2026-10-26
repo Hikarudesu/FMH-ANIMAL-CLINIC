@@ -374,7 +374,7 @@ function getLocalYMD(d) {
             <button type="button" class="pet-action-btn outline btn-edit-schedule" title="Edit schedule" data-events='${JSON.stringify(e).replace(/'/g, "&#39;")}'>
               <i class='bx bx-pencil'></i>
             </button>
-            <button type="button" class="pet-action-btn danger" title="Delete schedule" onclick="openDeleteModal('/employees/schedule/${e.id}/delete/', '${e.staffName.replace(/'/g, "\\'")}', 'Are you sure you want to delete this schedule entry?')">
+            <button type="button" class="pet-action-btn danger" title="Delete schedule" onclick="openDeleteModal('/employees/schedule/${e.id}/delete/', '${e.staffName.replace(/'/g, "\\'")}', 'This permanently removes only this individual schedule entry.')">
               <i class='bx bx-trash-alt'></i>
             </button>
           </div>
@@ -491,7 +491,16 @@ function getLocalYMD(d) {
 
   if (deleteScheduleForm) {
     deleteScheduleForm.addEventListener('submit', async (event) => {
-      if (deleteScheduleModal && deleteScheduleModal.dataset.ajaxDelete !== '1') {
+      const isRecurringDelete = deleteScheduleModal?.dataset.ajaxDelete === '1';
+      const confirmMessage = isRecurringDelete
+        ? 'Delete this recurring schedule pattern? Its recurring templates and generated schedule entries for this week will be removed.'
+        : 'Delete this individual schedule entry? Only this shift will be removed.';
+      if (!window.confirm(confirmMessage)) {
+        event.preventDefault();
+        return;
+      }
+
+      if (!isRecurringDelete) {
         return;
       }
 
@@ -538,6 +547,17 @@ function getLocalYMD(d) {
           submitBtn.disabled = false;
           submitBtn.innerHTML = originalHtml;
         }
+      }
+    });
+  }
+
+  const clearAllRecurringForm = document.getElementById('clearAllRecurringForm');
+  if (clearAllRecurringForm) {
+    clearAllRecurringForm.addEventListener('submit', (event) => {
+      if (!window.confirm(
+        'Permanently delete all recurring templates and their generated schedule entries? This cannot be undone.'
+      )) {
+        event.preventDefault();
       }
     });
   }

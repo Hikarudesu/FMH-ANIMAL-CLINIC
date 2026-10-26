@@ -12,8 +12,8 @@ class ServiceForm(FormControlMixin, forms.ModelForm):
         """Meta configuration for ServiceForm."""
         model = Service
         fields = [
-            'name', 'cost', 'price', 'category',
-            'tax_rate', 'duration', 'description', 'active', 'content'
+            'name', 'cost', 'price', 'category', 'duration',
+            'description', 'active', 'content'
         ]
         widgets = {
             'name': forms.TextInput(attrs={
@@ -23,9 +23,6 @@ class ServiceForm(FormControlMixin, forms.ModelForm):
             'price': forms.NumberInput(attrs={'step': '0.01'}),
             'category': forms.TextInput(attrs={
                 'placeholder': 'e.g., Consultation, Surgery, Grooming'
-            }),
-            'tax_rate': forms.TextInput(attrs={
-                'placeholder': 'e.g., VAT 12%'
             }),
             'duration': forms.NumberInput(attrs={
                 'placeholder': 'Minutes'

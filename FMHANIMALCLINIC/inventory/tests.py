@@ -1,7 +1,9 @@
+from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from unittest.mock import patch
 
 from accounts.rbac_models import Module, ModulePermission, Role
@@ -734,6 +736,127 @@ class InventoryWorkflowTests(TestCase):
         )
         self.assertIn('Branch restock request', approval_log.details)
 
+    def test_transfer_receipt_adds_stock_to_existing_destination_product(self):
+        destination = Branch.objects.create(
+            name='Existing Product Destination',
+            phone_number='09123456780',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1001',
+        )
+        source_product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Shared Transfer Product',
+            manufacturer='Test Manufacturer',
+            sku='SOURCE-SKU',
+            price=20,
+            stock_quantity=8,
+        )
+        destination_product = Product.objects.create(
+            branch=destination,
+            item_type='Product',
+            name='Shared Transfer Product',
+            manufacturer='Test Manufacturer',
+            sku='DESTINATION-SKU',
+            price=20,
+            stock_quantity=5,
+        )
+        transfer = StockTransfer.objects.create(
+            source_product=source_product,
+            destination_branch=destination,
+            requested_by=self.admin,
+            quantity=2,
+            status=StockTransfer.Status.APPROVED,
+        )
+
+        transfer.complete_transfer(self.admin)
+
+        destination_product.refresh_from_db()
+        source_product.refresh_from_db()
+        self.assertEqual(destination_product.stock_quantity, 7)
+        self.assertEqual(source_product.stock_quantity, 6)
+        self.assertEqual(
+            Product.objects.filter(branch=destination, name='Shared Transfer Product').count(),
+            1,
+        )
+        self.assertTrue(
+            StockAdjustment.objects.filter(
+                product=destination_product,
+                adjustment_type='TRANSFER_IN',
+                quantity=2,
+            ).exists()
+        )
+
+    def test_pending_transfer_cannot_move_stock_before_recipient_receives_it(self):
+        destination = Branch.objects.create(
+            name='Pending Transfer Destination',
+            phone_number='09123456780',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1001',
+        )
+        source_product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Pending Transfer Product',
+            price=20,
+            stock_quantity=8,
+        )
+        transfer = StockTransfer.objects.create(
+            source_product=source_product,
+            destination_branch=destination,
+            requested_by=self.admin,
+            quantity=2,
+        )
+
+        with self.assertRaisesMessage(ValueError, 'must be approved'):
+            transfer.complete_transfer(self.admin)
+
+        source_product.refresh_from_db()
+        self.assertEqual(source_product.stock_quantity, 8)
+        self.assertFalse(
+            Product.objects.filter(branch=destination).exists()
+        )
+        self.assertFalse(
+            StockAdjustment.objects.filter(
+                adjustment_type__in=['TRANSFER_IN', 'TRANSFER_OUT'],
+            ).exists()
+        )
+
+    def test_inventory_search_filters_products_before_pagination(self):
+        older_product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Search Result Beyond First Page',
+            price=20,
+        )
+        Product.objects.filter(pk=older_product.pk).update(
+            created_at='2020-01-01T00:00:00Z'
+        )
+        for index in range(20):
+            Product.objects.create(
+                branch=self.branch,
+                item_type='Product',
+                name=f'Unrelated Inventory Item {index}',
+                price=20,
+            )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('inventory:management'),
+            {'q': 'Search Result Beyond First Page'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [product.pk for product in response.context['products']],
+            [older_product.pk],
+        )
+        self.assertEqual(response.context['products'].paginator.count, 1)
+
     def test_superadmin_cannot_create_a_stock_transfer_request(self):
         self.admin.branch = self.branch
         self.admin.save(update_fields=['branch'])
@@ -772,6 +895,119 @@ class InventoryWorkflowTests(TestCase):
         self.assertContains(response, 'Movement Detail Item')
         self.assertContains(response, 'PO-1001')
         self.assertContains(response, 'Inventory Test Branch')
+
+    def test_activity_logs_use_server_pagination_and_two_step_clear_confirmation(self):
+        for index in range(55):
+            ActivityLog.objects.create(
+                user=self.admin,
+                action=f'Activity log pagination {index}',
+                category=ActivityLog.Category.SYSTEM,
+            )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('inventory:activity_logs'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['page_obj'].paginator.count,
+            ActivityLog.objects.count(),
+        )
+        self.assertEqual(len(response.context['logs']), 50)
+        self.assertEqual(response.content.decode().count('class="log-card category-'), 50)
+        self.assertContains(response, 'id="continueClearActivityLogsBtn"')
+        self.assertContains(response, 'id="finalClearModal"')
+        self.assertContains(response, 'This is the final warning.')
+
+    def test_activity_log_filters_fetch_matching_data_across_system(self):
+        other_branch = Branch.objects.create(
+            name='Other Activity Log Branch',
+            phone_number='09123456780',
+            address='2 Test Street',
+            city='Test City',
+            state='Test State',
+            zip_code='1001',
+        )
+        other_user = get_user_model().objects.create_user(
+            username='activity-log-filter-user',
+            email='activity-log-filter-user@example.com',
+            password='A-secure-test-password-923!',
+        )
+        matching_log = ActivityLog.objects.create(
+            user=other_user,
+            action='Created a POS transaction',
+            category=ActivityLog.Category.POS,
+            action_type=ActivityLog.ActionType.CREATE,
+            branch=other_branch,
+        )
+        ActivityLog.objects.create(
+            user=self.admin,
+            action='Updated inventory',
+            category=ActivityLog.Category.STOCK,
+            action_type=ActivityLog.ActionType.UPDATE,
+            branch=self.branch,
+        )
+        old_log = ActivityLog.objects.create(
+            user=other_user,
+            action='Older POS transaction',
+            category=ActivityLog.Category.POS,
+            action_type=ActivityLog.ActionType.CREATE,
+            branch=other_branch,
+        )
+        ActivityLog.objects.filter(pk=old_log.pk).update(
+            timestamp=timezone.now() - timedelta(days=2),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('inventory:activity_logs'),
+            {
+                'branch_id': other_branch.pk,
+                'category': ActivityLog.Category.POS,
+                'user_id': other_user.pk,
+                'action_type': ActivityLog.ActionType.CREATE,
+                'date_filter': 'today',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [log.pk for _group, logs in response.context['grouped_logs'] for log in logs],
+            [matching_log.pk],
+        )
+        self.assertContains(response, 'name="user_id"')
+        self.assertContains(response, f'value="{other_user.pk}" selected')
+
+    def test_clear_activity_logs_deletes_only_selected_logs(self):
+        ActivityLog.objects.create(
+            user=self.admin,
+            action='POS log to clear',
+            category=ActivityLog.Category.POS,
+        )
+        ActivityLog.objects.create(
+            user=self.admin,
+            action='System log to keep',
+            category=ActivityLog.Category.SYSTEM,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('inventory:clear_activity_logs'),
+            {
+                'date_filter': 'all',
+                'branch_id': '',
+                'category': ActivityLog.Category.POS,
+                'user_id': '',
+                'action_type': 'all',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            ActivityLog.objects.filter(category=ActivityLog.Category.POS).exists()
+        )
+        self.assertTrue(
+            ActivityLog.objects.filter(category=ActivityLog.Category.SYSTEM).exists()
+        )
 
     @patch(
         'inventory.forms.get_inventory_unit_choices',

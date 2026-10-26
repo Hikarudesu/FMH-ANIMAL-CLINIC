@@ -83,7 +83,7 @@ def analytics_dashboard(request):
             return queryset.filter(**{field: filter_branch})
         return queryset
 
-    # ── Metric 1: Total Patients ──────────────────────────────────────
+    # ── Patient metrics ───────────────────────────────────────────────
     pets_qs = apply_branch_filter(Pet.objects.filter(is_active=True))
     total_patients = pets_qs.count()
     new_patients_period = pets_qs.filter(
@@ -91,7 +91,7 @@ def analytics_dashboard(request):
         created_at__date__lte=date_to
     ).count()
 
-    # ── Metric 2: Gross & Net Sales ───────────────────────────────────
+    # ── POS transaction metrics ──────────────────────────────────────
     sales_qs = Sale.objects.filter(
         status__in=[Sale.Status.COMPLETED, Sale.Status.REFUNDED],
         created_at__date__gte=date_from,
@@ -149,8 +149,11 @@ def analytics_dashboard(request):
         ).exclude(status='CANCELLED')
         appts_qs = apply_branch_filter(appts_qs)
 
-        new_count = appts_qs.filter(is_returning_customer=False).count()
-        returning_count = appts_qs.filter(is_returning_customer=True).count()
+        appointment_metrics = appts_qs.aggregate(
+            total=Count('id'),
+            new=Count('id', filter=Q(is_returning_customer=False)),
+            returning=Count('id', filter=Q(is_returning_customer=True)),
+        )
 
         # Sales totals
         m_sales_qs = Sale.objects.filter(
@@ -181,8 +184,9 @@ def analytics_dashboard(request):
         months_data.append({
             'month': m_date.strftime('%b'),
             'year': m_date.year,
-            'new': new_count,
-            'returning': returning_count,
+            'appointments': appointment_metrics['total'],
+            'new': appointment_metrics['new'],
+            'returning': appointment_metrics['returning'],
             'gross': m_gross,
             'net': m_net,
         })
@@ -194,8 +198,14 @@ def analytics_dashboard(request):
     ).exclude(status='CANCELLED')
     period_appts = apply_branch_filter(period_appts)
 
-    new_clients = period_appts.filter(is_returning_customer=False).count()
-    returning_clients = period_appts.filter(is_returning_customer=True).count()
+    appointment_metrics = period_appts.aggregate(
+        total=Count('id'),
+        new=Count('id', filter=Q(is_returning_customer=False)),
+        returning=Count('id', filter=Q(is_returning_customer=True)),
+    )
+    appointment_count = appointment_metrics['total']
+    new_clients = appointment_metrics['new']
+    returning_clients = appointment_metrics['returning']
 
     # Calculate average transaction
     avg_transaction = float(net_sales) / transaction_count if transaction_count > 0 else 0.00
@@ -213,16 +223,17 @@ def analytics_dashboard(request):
         'period_label': period_label,
         'date_from': date_from,
         'date_to': date_to,
-        # Metric 1
+        # Patient metrics
         'total_patients': total_patients,
         'new_patients_period': new_patients_period,
-        # Metric 2
+        # POS metrics
         'gross_sales': gross_sales,
         'net_sales': net_sales,
         'total_discount': total_discount,
         'transaction_count': transaction_count,
         'avg_transaction': avg_transaction,
-        # Metric 3
+        # Appointment metrics
+        'appointment_count': appointment_count,
         'new_clients': new_clients,
         'returning_clients': returning_clients,
         'months_data': json.dumps(months_data),
@@ -235,7 +246,7 @@ def analytics_dashboard(request):
 @require_GET
 @never_cache
 def analytics_live_data(request):
-    """Return fresh sales metrics for the analytics dashboard poller."""
+    """Return fresh POS and appointment metrics for the analytics dashboard."""
     today = timezone.localdate()
     period = request.GET.get('period', 'monthly')
     if period == 'daily':
@@ -299,6 +310,13 @@ def analytics_live_data(request):
     net_sales = (sales_totals['net'] or Decimal('0')) - refund_total
     transaction_count = sales_totals['transactions'] or 0
 
+    appointments = Appointment.objects.filter(
+        appointment_date__gte=date_from,
+        appointment_date__lte=date_to,
+    ).exclude(status=Appointment.Status.CANCELLED)
+    appointments = apply_branch_filter(appointments)
+    appointment_count = appointments.count()
+
     month_start = today.replace(day=1)
     for _ in range(11):
         month_start = (month_start - timedelta(days=1)).replace(day=1)
@@ -326,12 +344,25 @@ def analytics_live_data(request):
         month=TruncMonth('created_at')
     ).values('month').annotate(total=Sum('amount'))
 
+    chart_appointments = Appointment.objects.filter(
+        appointment_date__gte=month_start,
+        appointment_date__lte=today.replace(day=monthrange(today.year, today.month)[1]),
+    ).exclude(status=Appointment.Status.CANCELLED)
+    chart_appointments = apply_branch_filter(chart_appointments)
+    chart_appointments = chart_appointments.annotate(
+        month=TruncMonth('appointment_date')
+    ).values('month').annotate(total=Count('id'))
+
     sales_by_month = {
         (row['month'].year, row['month'].month): row for row in chart_sales
     }
     refunds_by_month = {
         (row['month'].year, row['month'].month): row['total'] or Decimal('0')
         for row in chart_refunds
+    }
+    appointments_by_month = {
+        (row['month'].year, row['month'].month): row['total']
+        for row in chart_appointments
     }
     months = []
     cursor = month_start
@@ -341,6 +372,7 @@ def analytics_live_data(request):
         months.append({
             'month': cursor.strftime('%b'),
             'year': cursor.year,
+            'appointments': appointments_by_month.get(key, 0),
             'gross': float(monthly.get('gross') or 0),
             'net': float(
                 (monthly.get('net') or Decimal('0')) - refunds_by_month.get(key, Decimal('0'))
@@ -354,6 +386,7 @@ def analytics_live_data(request):
         'net_sales': float(net_sales),
         'total_discount': float(sales_totals['discounts'] or Decimal('0')),
         'transaction_count': transaction_count,
+        'appointment_count': appointment_count,
         'avg_transaction': float(net_sales) / transaction_count if transaction_count else 0,
         'months': months,
         'updated_at': timezone.now().isoformat(),

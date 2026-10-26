@@ -140,7 +140,7 @@ class PayrollPeriod(models.Model):
         Split based on actual days in the month for fair division:
         - Months with 28 days: First half = 1-14, Second half = 15-28
         - Months with 30 days: First half = 1-15, Second half = 16-30
-        - Months with 31 days: First half = 1-16, Second half = 17-31
+        - Months with 31 days: First half = 1-15, Second half = 16-31
         
         Returns:
             tuple: (start_date, end_date) as date objects
@@ -149,8 +149,8 @@ class PayrollPeriod(models.Model):
             SEMI_FIRST (Feb 28d): (2026-02-01, 2026-02-14)
             SEMI_SECOND (Feb 28d): (2026-02-15, 2026-02-28)
             
-            SEMI_FIRST (31-day month): (2026-08-01, 2026-08-16)
-            SEMI_SECOND (31-day month): (2026-08-17, 2026-08-31)
+            SEMI_FIRST (31-day month): (2026-08-01, 2026-08-15)
+            SEMI_SECOND (31-day month): (2026-08-16, 2026-08-31)
         """
         first_day = date(self.year, self.month, 1)
         last_day = date(self.year, self.month, self.days_in_month)
@@ -399,8 +399,13 @@ class Payslip(models.Model):
             Decimal('0'),
             Decimal(str(self.days_absent or 0)) - paid_leave_days,
         )
+        absence_daily_rate = (
+            self.base_salary / Decimal(str(self.working_days))
+            if self.working_days and self.base_salary
+            else self.daily_salary or Decimal('0')
+        )
         self.absent_deduction = (
-            unpaid_absence_days * (self.daily_salary or Decimal('0'))
+            unpaid_absence_days * absence_daily_rate
         ).quantize(Decimal('0.01'))
 
         custom_total = self.custom_deductions_total or Decimal('0')
@@ -501,13 +506,18 @@ class Payslip(models.Model):
             staff=self.employee,
             attendance_date__range=[period_start, period_end],
         )
-        has_detailed_punches = daily_records.filter(
+        monthly_daily_records = DailyAttendance.objects.filter(
+            staff=self.employee,
+            attendance_date__year=self.payroll_period.year,
+            attendance_date__month=self.payroll_period.month,
+        )
+        has_monthly_detailed_punches = monthly_daily_records.filter(
             Q(morning_in__isnull=False)
             | Q(morning_out__isnull=False)
             | Q(afternoon_in__isnull=False)
             | Q(afternoon_out__isnull=False)
         ).exists()
-        if has_detailed_punches:
+        if has_monthly_detailed_punches:
             complete_attendance_days = daily_records.filter(
                 morning_in__isnull=False,
                 morning_out__isnull=False,
@@ -523,7 +533,7 @@ class Payslip(models.Model):
         self.days_worked = min(complete_attendance_days, working_days_for_half)
         self.days_absent = max(0, working_days_for_half - self.days_worked)
 
-        if has_detailed_punches:
+        if has_monthly_detailed_punches:
             detailed_overtime = list(
                 daily_records.filter(
                     is_present=True,
@@ -537,6 +547,8 @@ class Payslip(models.Model):
 
         if detailed_overtime:
             self.overtime_hours = sum(detailed_overtime, Decimal('0'))
+        elif has_monthly_detailed_punches:
+            self.overtime_hours = Decimal('0')
         else:
             self.overtime_hours = Decimal(str(
                 attendance_summary.overtime_hours if attendance_summary else 0

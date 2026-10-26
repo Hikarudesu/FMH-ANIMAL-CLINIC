@@ -55,6 +55,21 @@ class PayrollPeriodDeletionTests(TestCase):
         self.assertRedirects(response, reverse('payroll:requests'))
         self.assertFalse(PayrollPeriod.objects.filter(pk=period.pk).exists())
 
+    def test_payroll_requests_card_displays_period_total_net(self):
+        PayrollPeriod.objects.create(
+            month=10,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_SECOND,
+            status=PayrollPeriod.Status.GENERATED,
+            total_net=Decimal('21328.58'),
+        )
+
+        response = self.client.get(reverse('payroll:requests'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '₱21,328.58')
+        self.assertNotContains(response, '₱0.00')
+
 
 class PayrollAuditLogTests(TestCase):
     def setUp(self):
@@ -555,6 +570,64 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(payslip.days_absent, 13)
         self.assertEqual(payslip.rest_days_actual, 4)
 
+    def test_october_20_attendance_counts_only_in_second_half_when_monthly_summary_exists(self):
+        set_setting('payroll_default_rest_days', 4)
+        staff = StaffMember.objects.create(
+            first_name='October',
+            last_name='Attendance',
+            biometric_id='BIO-OCT-20',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+        )
+        MonthlyAttendanceSummary.objects.create(
+            staff=staff,
+            period_start=date(2026, 10, 1),
+            period_end=date(2026, 10, 31),
+            working_days=27,
+            attendance_days=1,
+            absence_days=26,
+        )
+        DailyAttendance.objects.create(
+            staff=staff,
+            attendance_date=date(2026, 10, 20),
+            morning_in=datetime.strptime('08:00', '%H:%M').time(),
+            morning_out=datetime.strptime('12:00', '%H:%M').time(),
+            afternoon_in=datetime.strptime('13:00', '%H:%M').time(),
+            afternoon_out=datetime.strptime('17:00', '%H:%M').time(),
+            check_in=datetime.strptime('08:00', '%H:%M').time(),
+            check_out=datetime.strptime('17:00', '%H:%M').time(),
+            status='PRESENT',
+            is_present=True,
+            four_punch_complete=True,
+        )
+        first_half = PayrollPeriod.objects.create(
+            month=10,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        second_half = PayrollPeriod.objects.create(
+            month=10,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_SECOND,
+        )
+
+        first_payslip = Payslip.objects.create(
+            payroll_period=first_half,
+            employee=staff,
+            base_salary=Decimal('15000'),
+        )
+        first_payslip.generate_from_employee()
+        second_payslip = Payslip.objects.create(
+            payroll_period=second_half,
+            employee=staff,
+            base_salary=Decimal('15000'),
+        )
+        second_payslip.generate_from_employee()
+
+        self.assertEqual(first_payslip.days_worked, 0)
+        self.assertEqual(second_payslip.days_worked, 1)
+
     def test_payslip_treats_morning_only_time_as_absent_even_if_summary_shows_one_day(self):
         set_setting('payroll_default_rest_days', 4)
         staff = StaffMember.objects.create(
@@ -873,6 +946,7 @@ class PayrollRulesTests(TestCase):
 
     def test_payslip_uses_daily_salary_for_absent_deduction(self):
         set_setting('payroll_default_rest_days', 4)
+        set_setting('payroll_auto_statutory', False)
 
         staff = StaffMember.objects.create(
             first_name='Ari',
@@ -908,6 +982,13 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(payslip.daily_salary, Decimal('15000') / Decimal('13'))
         self.assertEqual(payslip.absent_deduction, Decimal('15000.00'))
 
+        payslip.save()
+        payslip.refresh_from_db()
+        payslip.calculate()
+
+        self.assertEqual(payslip.absent_deduction, Decimal('15000.00'))
+        self.assertEqual(payslip.net_pay, Decimal('1000.00'))
+
     def test_report_allowances_include_all_earnings(self):
         set_setting('payroll_auto_statutory', False)
         staff = StaffMember.objects.create(
@@ -941,4 +1022,8 @@ class PayrollRulesTests(TestCase):
 
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['allowances'], Decimal('4600.00'))
+        self.assertEqual(rows[0]['base_salary'], Decimal('15000.00'))
+        self.assertEqual(rows[0]['attendance'], 0)
+        self.assertEqual(rows[0]['absences'], 0)
+        self.assertEqual(rows[0]['deductions'], Decimal('0'))
         self.assertEqual(total_net, Decimal('19600.00'))

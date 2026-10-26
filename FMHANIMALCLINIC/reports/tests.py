@@ -78,6 +78,7 @@ class AnalyticsDashboardTests(TestCase):
         self.assertEqual(response.context['net_sales'], Decimal('90.00'))
         self.assertEqual(response.context['total_discount'], Decimal('10.00'))
         self.assertEqual(response.context['transaction_count'], 1)
+        self.assertEqual(response.context['appointment_count'], 1)
         self.assertEqual(response.context['new_clients'], 1)
         self.assertEqual(response.context['returning_clients'], 0)
 
@@ -95,6 +96,18 @@ class AnalyticsDashboardTests(TestCase):
         before_completion = self.client.get(url, query)
         self.assertEqual(before_completion.status_code, 200)
         self.assertEqual(before_completion.json()['transaction_count'], 0)
+        self.assertEqual(before_completion.json()['appointment_count'], 0)
+
+        Appointment.objects.create(
+            owner_name='Live Analytics Owner', pet_name='Live Analytics Pet',
+            branch=self.branch_a, appointment_date=timezone.localdate(),
+            appointment_time=time(10), is_returning_customer=False,
+        )
+        Appointment.objects.create(
+            owner_name='Cancelled Analytics Owner', pet_name='Cancelled Analytics Pet',
+            branch=self.branch_a, appointment_date=timezone.localdate(),
+            appointment_time=time(11), status=Appointment.Status.CANCELLED,
+        )
 
         sale.complete_sale()
 
@@ -102,6 +115,7 @@ class AnalyticsDashboardTests(TestCase):
         self.assertEqual(after_completion.status_code, 200)
         self.assertEqual(after_completion['Cache-Control'], 'max-age=0, no-cache, no-store, must-revalidate, private')
         self.assertEqual(after_completion.json()['transaction_count'], 1)
+        self.assertEqual(after_completion.json()['appointment_count'], 1)
         self.assertEqual(after_completion.json()['gross_sales'], 125.0)
         self.assertEqual(after_completion.json()['net_sales'], 112.5)
         self.assertEqual(after_completion.json()['total_discount'], 12.5)
@@ -113,3 +127,4 @@ class AnalyticsDashboardTests(TestCase):
         )
         self.assertEqual(month_data['gross'], 125.0)
         self.assertEqual(month_data['net'], 112.5)
+        self.assertEqual(month_data['appointments'], 1)
