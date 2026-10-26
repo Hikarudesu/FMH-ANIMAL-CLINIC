@@ -738,6 +738,8 @@ class FlexibleAppointmentTimeTests(TestCase):
 
         form = PublicAppointmentForm(data={
             'owner_name': 'New Owner',
+            'owner_email': 'new-owner@example.com',
+            'owner_phone': '09123456789',
             'pet_name': 'New Pet',
             'pet_species': 'Dog',
             'pet_sex': 'MALE',
@@ -749,6 +751,20 @@ class FlexibleAppointmentTimeTests(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['appointment_time'], time(8, 30))
+
+
+class PublicAppointmentContactRequiredTests(TestCase):
+    def test_public_booking_requires_owner_email_and_phone(self):
+        form = PublicAppointmentForm(data={
+            'owner_name': 'New Owner',
+            'owner_email': '',
+            'owner_phone': '',
+        })
+
+        form.is_valid()
+
+        self.assertIn('owner_email', form.errors)
+        self.assertIn('owner_phone', form.errors)
 
 
 class AppointmentPetNameUniquenessTests(TestCase):
