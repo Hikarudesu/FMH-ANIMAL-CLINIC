@@ -355,7 +355,30 @@
       <button type="button" class="btn-cancel" id="cancelClearAllRecurringModal">Cancel</button>
       <form method="POST" action="{% url 'employees:recurring_clear_all' %}" id="clearAllRecurringForm" style="margin:0;">
         {% csrf_token %}
-        <button type="submit" class="btn-submit" style="background: #e63946; border-color: #e63946; color: #fff;">Yes, Delete All</button>
+        <button type="button" class="btn-submit" id="continueClearAllRecurringBtn" style="background: #e63946; border-color: #e63946; color: #fff;">Continue</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="finalClearAllRecurringModal" role="dialog" aria-modal="true" aria-labelledby="finalClearAllRecurringTitle">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 id="finalClearAllRecurringTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Final Confirmation</h3>
+      <button type="button" class="modal-close" id="closeFinalClearAllRecurringModal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-trash-alt' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Permanently delete all recurring templates?</h4>
+      <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+        All recurring templates and their generated schedule entries will be removed. This cannot be undone.
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+      <button type="button" class="btn-cancel" id="cancelFinalClearAllRecurringModal">Cancel</button>
+      <form method="POST" action="{% url 'employees:recurring_clear_all' %}" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="btn-submit" style="background: #e63946; border-color: #e63946; color: #fff;">Delete All Recurring Schedules</button>
       </form>
     </div>
   </div>
@@ -381,6 +404,26 @@
         {% csrf_token %}
         <button type="submit" class="btn-submit" style="background-color: #e63946; border-color: #e63946; color: white;">Yes, Delete Schedule</button>
       </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="finalRecurringDeleteModal" role="dialog" aria-modal="true" aria-labelledby="finalRecurringDeleteTitle">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 id="finalRecurringDeleteTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Final Confirmation</h3>
+      <button type="button" class="modal-close" id="closeFinalRecurringDeleteModal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-trash-alt' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Permanently delete this recurring schedule?</h4>
+      <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+        The recurring template and matching generated schedule entries for this week will be removed. This cannot be undone.
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+      <button type="button" class="btn-cancel" id="cancelFinalRecurringDeleteModal">Cancel</button>
+      <button type="button" class="btn-submit" id="confirmFinalRecurringDeleteBtn" style="background: #e63946; border-color: #e63946; color: #fff;">Delete Recurring Schedule</button>
     </div>
   </div>
 </div>
