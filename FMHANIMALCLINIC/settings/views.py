@@ -180,7 +180,6 @@ def _handle_inventory_form(request):
         data = form.cleaned_data
         set_setting('inventory_low_stock_threshold', data['low_stock_threshold'], request.user, 'INVENTORY')
         set_setting('inventory_critical_threshold', data['critical_threshold'], request.user, 'INVENTORY')
-        set_setting('inventory_enable_alerts', data['enable_alerts'], request.user, 'INVENTORY')
         set_setting('inventory_expiry_warning_days', data['expiry_warning_days'], request.user, 'INVENTORY')
         set_setting('inventory_uom_options', data['uom_options'], request.user, 'INVENTORY')
         set_setting('inventory_item_type_options', data.get('item_type_options', []), request.user, 'INVENTORY')

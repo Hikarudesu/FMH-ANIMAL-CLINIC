@@ -69,15 +69,6 @@ def run_inventory_expiry_alert_job(product_ids=None):
     Returns:
         dict with summary counts for logging/command output.
     """
-    alerts_enabled = get_setting('inventory_enable_alerts', True)
-    if not alerts_enabled:
-        return {
-            'alerts_enabled': False,
-            'products_scanned': 0,
-            'notifications_created': 0,
-            'emails_sent': 0,
-        }
-
     warning_days = int(get_setting('inventory_expiry_warning_days', 30) or 30)
     warning_days = max(1, warning_days)
 
