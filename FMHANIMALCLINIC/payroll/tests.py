@@ -55,6 +55,21 @@ class PayrollPeriodDeletionTests(TestCase):
         self.assertRedirects(response, reverse('payroll:requests'))
         self.assertFalse(PayrollPeriod.objects.filter(pk=period.pk).exists())
 
+    def test_payroll_requests_card_displays_period_total_net(self):
+        PayrollPeriod.objects.create(
+            month=10,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_SECOND,
+            status=PayrollPeriod.Status.GENERATED,
+            total_net=Decimal('21328.58'),
+        )
+
+        response = self.client.get(reverse('payroll:requests'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '₱21,328.58')
+        self.assertNotContains(response, '₱0.00')
+
 
 class PayrollAuditLogTests(TestCase):
     def setUp(self):
