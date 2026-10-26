@@ -72,6 +72,10 @@ function getLocalYMD(d) {
   const clearAllTemplatesBtn = document.getElementById("clearAllTemplatesBtn");
   const closeClearAllRecurringModal = document.getElementById("closeClearAllRecurringModal");
   const cancelClearAllRecurringModal = document.getElementById("cancelClearAllRecurringModal");
+  const continueClearAllRecurringBtn = document.getElementById("continueClearAllRecurringBtn");
+  const finalClearAllRecurringModal = document.getElementById("finalClearAllRecurringModal");
+  const closeFinalClearAllRecurringModal = document.getElementById("closeFinalClearAllRecurringModal");
+  const cancelFinalClearAllRecurringModal = document.getElementById("cancelFinalClearAllRecurringModal");
 
   const MONTHS = [
     "January",
@@ -473,6 +477,10 @@ function getLocalYMD(d) {
   const closeDeleteScheduleModalBtn = document.getElementById('closeDeleteScheduleModal');
   const cancelDeleteScheduleModalBtn = document.getElementById('cancelDeleteScheduleModal');
   const deleteScheduleForm = document.getElementById('deleteScheduleForm');
+  const finalRecurringDeleteModal = document.getElementById('finalRecurringDeleteModal');
+  const closeFinalRecurringDeleteModalBtn = document.getElementById('closeFinalRecurringDeleteModal');
+  const cancelFinalRecurringDeleteModalBtn = document.getElementById('cancelFinalRecurringDeleteModal');
+  const confirmFinalRecurringDeleteBtn = document.getElementById('confirmFinalRecurringDeleteBtn');
   if (closeDeleteScheduleModalBtn) {
     closeDeleteScheduleModalBtn.addEventListener('click', closeDeleteModal);
   }
@@ -490,30 +498,28 @@ function getLocalYMD(d) {
   }
 
   if (deleteScheduleForm) {
-    deleteScheduleForm.addEventListener('submit', async (event) => {
+    deleteScheduleForm.addEventListener('submit', (event) => {
       const isRecurringDelete = deleteScheduleModal?.dataset.ajaxDelete === '1';
-      const confirmMessage = isRecurringDelete
-        ? 'Delete this recurring schedule pattern? Its recurring templates and generated schedule entries for this week will be removed.'
-        : 'Delete this individual schedule entry? Only this shift will be removed.';
-      if (!window.confirm(confirmMessage)) {
-        event.preventDefault();
-        return;
-      }
-
       if (!isRecurringDelete) {
         return;
       }
 
       event.preventDefault();
-      const form = event.currentTarget;
-      const formData = new FormData(form);
-      const submitBtn = form.querySelector('button[type="submit"]');
-      const originalHtml = submitBtn ? submitBtn.innerHTML : '';
+      closeDeleteModal();
+      openModal(finalRecurringDeleteModal);
+    });
+  }
 
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Deleting...';
-      }
+  async function confirmRecurringScheduleDelete() {
+    const form = deleteScheduleForm;
+    if (!form || !finalRecurringDeleteModal) return;
+
+      const formData = new FormData(form);
+      const submitBtn = confirmFinalRecurringDeleteBtn;
+      const originalHtml = submitBtn.innerHTML;
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Deleting...';
 
       try {
         const response = await fetch(form.action, {
@@ -538,26 +544,57 @@ function getLocalYMD(d) {
         }
 
         showScheduleToast(data.message || 'Recurring template removed.', 'success');
-        closeDeleteModal();
+        closeModalEl(finalRecurringDeleteModal);
       } catch (error) {
         console.error('Recurring delete failed:', error);
         showScheduleToast(error.message || 'Could not delete recurring template.', 'error');
       } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalHtml;
-        }
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalHtml;
+      }
+  }
+
+  if (closeFinalRecurringDeleteModalBtn) {
+    closeFinalRecurringDeleteModalBtn.addEventListener('click', () =>
+      closeModalEl(finalRecurringDeleteModal),
+    );
+  }
+  if (cancelFinalRecurringDeleteModalBtn) {
+    cancelFinalRecurringDeleteModalBtn.addEventListener('click', () =>
+      closeModalEl(finalRecurringDeleteModal),
+    );
+  }
+  if (confirmFinalRecurringDeleteBtn) {
+    confirmFinalRecurringDeleteBtn.addEventListener('click', confirmRecurringScheduleDelete);
+  }
+  if (finalRecurringDeleteModal) {
+    finalRecurringDeleteModal.addEventListener('click', (event) => {
+      if (event.target === finalRecurringDeleteModal) {
+        closeModalEl(finalRecurringDeleteModal);
       }
     });
   }
 
-  const clearAllRecurringForm = document.getElementById('clearAllRecurringForm');
-  if (clearAllRecurringForm) {
-    clearAllRecurringForm.addEventListener('submit', (event) => {
-      if (!window.confirm(
-        'Permanently delete all recurring templates and their generated schedule entries? This cannot be undone.'
-      )) {
-        event.preventDefault();
+  if (continueClearAllRecurringBtn) {
+    continueClearAllRecurringBtn.addEventListener('click', () => {
+      closeModalEl(clearAllRecurringModal);
+      openModal(finalClearAllRecurringModal);
+    });
+  }
+  if (closeFinalClearAllRecurringModal) {
+    closeFinalClearAllRecurringModal.addEventListener('click', () =>
+      closeModalEl(finalClearAllRecurringModal),
+    );
+  }
+  if (cancelFinalClearAllRecurringModal) {
+    cancelFinalClearAllRecurringModal.addEventListener('click', () =>
+      closeModalEl(finalClearAllRecurringModal),
+    );
+  }
+  if (finalClearAllRecurringModal) {
+    finalClearAllRecurringModal.addEventListener('click', (event) => {
+      if (event.target === finalClearAllRecurringModal) {
+        closeModalEl(finalClearAllRecurringModal);
       }
     });
   }
