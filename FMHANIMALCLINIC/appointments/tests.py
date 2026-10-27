@@ -127,6 +127,52 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertFalse(confirmed.auto_cancel_countdown_active)
 
 
+class GuestPatientRecordLifecycleTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Guest Patient Lifecycle Branch')
+        self.appointment = Appointment.objects.create(
+            source=Appointment.Source.WALKIN,
+            owner_name='Guest Lifecycle Owner',
+            owner_email='guest-lifecycle@example.com',
+            owner_phone='09123456789',
+            owner_address='Guest lifecycle address',
+            pet_name='Guest Lifecycle Pet',
+            pet_species='Dog',
+            pet_sex=Pet.Sex.MALE,
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(10),
+            status=Appointment.Status.CONFIRMED,
+        )
+
+    def test_guest_patient_is_not_saved_before_visit_completion(self):
+        from appointments.utils import sync_pet_from_appointment
+
+        result = sync_pet_from_appointment(self.appointment)
+
+        self.assertIsNone(result)
+        self.assertFalse(Pet.objects.filter(
+            source=Pet.Source.WALKIN,
+            name='Guest Lifecycle Pet',
+        ).exists())
+        self.appointment.refresh_from_db()
+        self.assertIsNone(self.appointment.pet_id)
+
+    def test_guest_patient_is_saved_and_linked_after_visit_completion(self):
+        from appointments.utils import sync_pet_from_appointment
+
+        self.appointment.status = Appointment.Status.COMPLETED
+        self.appointment.save(update_fields=['status', 'updated_at'])
+
+        pet = sync_pet_from_appointment(self.appointment)
+
+        self.assertIsNotNone(pet)
+        self.assertEqual(pet.source, Pet.Source.WALKIN)
+        self.assertEqual(pet.guest_owner_name, 'Guest Lifecycle Owner')
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.pet_id, pet.pk)
+
+
 class ScheduledAppointmentCleanupTests(TestCase):
     @patch('appointments.management.commands.run_scheduled_tasks.call_command')
     @patch('appointments.management.commands.run_scheduled_tasks.cache.delete')
@@ -2766,6 +2812,47 @@ class AppointmentWorkflowActionTests(TestCase):
             appointment_time=time(10),
         )
         self.client.force_login(self.user)
+
+    def test_guest_patient_is_created_only_when_receptionist_completes_the_visit(self):
+        appointment = Appointment.objects.create(
+            source=Appointment.Source.WALKIN,
+            owner_name='Completing Guest Owner',
+            owner_email='completing-guest@example.com',
+            owner_phone='09123456789',
+            pet_name='Completing Guest Pet',
+            pet_species='Cat',
+            pet_sex=Pet.Sex.FEMALE,
+            branch=self.branch,
+            appointment_date=timezone.localdate(),
+            appointment_time=time(10),
+            status=Appointment.Status.AWAITING_PAYMENT,
+            medical_record_decision=Appointment.MedicalRecordDecision.NOT_REQUIRED,
+        )
+        sale = Sale.objects.create(
+            branch=self.branch,
+            subtotal=100,
+            total=100,
+            amount_paid=100,
+            status=Sale.Status.COMPLETED,
+        )
+        appointment.sale = sale
+        appointment.save(update_fields=['sale', 'updated_at'])
+        self.client.force_login(self.user)
+        self.assertFalse(Pet.objects.filter(name='Completing Guest Pet').exists())
+
+        response = self.client.post(reverse(
+            'appointments:admin_workflow_action',
+            args=[appointment.pk, 'complete'],
+        ))
+
+        self.assertEqual(response.status_code, 302)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, Appointment.Status.COMPLETED)
+        self.assertEqual(appointment.pet.name, 'Completing Guest Pet')
+        self.assertTrue(Pet.objects.filter(
+            pk=appointment.pet_id,
+            guest_owner_name='Completing Guest Owner',
+        ).exists())
 
     def test_appointment_statuses_render_as_colored_bubbles(self):
         for status in Appointment.Status.values:

@@ -56,11 +56,10 @@ def _apply_pet_fields(pet, appointment, include_owner_fields=False):
 
 def sync_pet_from_appointment(appointment):
     """
-    Ensures a Patient (Pet) record exists for this appointment, links it back
-    via the appointment.pet FK, and keeps the Pet's fields up-to-date with the
-    latest appointment data.
+    Sync a completed visit's patient data and link it to the appointment.
 
     Rules:
+    - Walk-in appointments are not synced until the visit is completed.
     - If appointment.pet is already linked → UPDATE that Pet with latest data
       so edits to the appointment are reflected in the patient record (and
       therefore in any linked Medical Records).
@@ -81,10 +80,14 @@ def sync_pet_from_appointment(appointment):
     if not pet_name:
         return None
 
+    from .models import Appointment
+    is_walkin = appointment.source == Appointment.Source.WALKIN
+    if is_walkin and appointment.status != Appointment.Status.COMPLETED:
+        return None
+
     # ── Already linked: update the linked Pet and return ─────────────────────
     if appointment.pet_id:
         pet = appointment.pet
-        is_walkin = not appointment.user
         _apply_pet_fields(pet, appointment, include_owner_fields=is_walkin)
         return pet
 
@@ -99,10 +102,6 @@ def sync_pet_from_appointment(appointment):
         ).first()
 
         if not pet:
-            from .models import Appointment
-            if appointment.status == Appointment.Status.PENDING:
-                return None
-
             pet = Pet.objects.create(
                 owner=appointment.user,
                 branch=getattr(appointment.user, 'branch', appointment.branch),
@@ -131,11 +130,6 @@ def sync_pet_from_appointment(appointment):
         ).first()
 
         if not pet:
-            from .models import Appointment
-            # User requirement: Do not store immediately in patients list until the receptionist confirms the appointment
-            if appointment.status == Appointment.Status.PENDING:
-                return None
-
             pet = Pet.objects.create(
                 owner=None,
                 branch=appointment.branch,

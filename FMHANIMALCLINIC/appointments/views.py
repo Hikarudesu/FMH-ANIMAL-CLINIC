@@ -977,6 +977,8 @@ def admin_workflow_action(request, pk, action):
     if action == 'cancel':
         dismiss_appointment_follow_ups(appointment)
     if action == 'complete':
+        from appointments.utils import sync_pet_from_appointment
+        sync_pet_from_appointment(appointment)
         FollowUp.objects.filter(
             booked_appointment=appointment,
             is_completed=False,
