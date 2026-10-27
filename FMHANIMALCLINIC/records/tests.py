@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from datetime import date, time
@@ -267,6 +268,75 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertContains(response, 'name="selected_guest_owner"')
         self.assertContains(response, "result.addEventListener('mousedown'")
         self.assertContains(response, 'name="owner_email"')
+
+    def test_create_form_keeps_same_name_guests_separate_by_contact_details(self):
+        first_pet = Pet.objects.create(
+            name='Milo',
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Alex Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_email='alex.one@example.com',
+            guest_owner_address='First address',
+        )
+        second_pet = Pet.objects.create(
+            name='Luna',
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Alex Owner',
+            guest_owner_phone='09987654321',
+            guest_owner_email='alex.two@example.com',
+            guest_owner_address='Second address',
+        )
+
+        response = self.client.get(reverse('records:admin_create'))
+
+        self.assertEqual(response.status_code, 200)
+        guest_pets = [
+            pet for pet in json.loads(response.context['pets_list_json'])
+            if pet['source'] == Pet.Source.WALKIN
+        ]
+        self.assertEqual(
+            {(pet['id'], pet['owner_contact'], pet['owner_email']) for pet in guest_pets},
+            {
+                (first_pet.pk, '09123456789', 'alex.one@example.com'),
+                (second_pet.pk, '09987654321', 'alex.two@example.com'),
+            },
+        )
+        self.assertContains(response, 'guest.phone, guest.email')
+
+    def test_create_rejects_selected_guest_pet_from_different_contact_identity(self):
+        pet = Pet.objects.create(
+            name='Milo',
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Alex Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_email='alex.one@example.com',
+            guest_owner_address='First address',
+        )
+
+        response = self.client.post(reverse('records:admin_create'), {
+            'vet': self.vet.pk,
+            'date_recorded': '2026-10-17',
+            'history_clinical_signs': 'Routine examination',
+            'treatment': 'Examination completed',
+            'rx': 'None',
+            'action_required': ClinicalStatus.get_default().pk,
+            'client_source': 'WALKIN',
+            'selected_guest_owner': '1',
+            'owner_name': 'Alex Owner',
+            'owner_contact': '09987654321',
+            'owner_email': 'alex.two@example.com',
+            'owner_address': 'Second address',
+            'selected_pet_id': pet.pk,
+            'pet_name': pet.name,
+            'pet_species': 'Dog',
+            'pet_sex': 'MALE',
+            'pet_color': 'Brown',
+            'branch': self.branch.pk,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'The selected pet does not match this owner.')
+        self.assertFalse(MedicalRecord.objects.filter(pet=pet).exists())
 
     def test_medical_record_edit_prefills_clinical_tracking_from_first_entry(self):
         first_status = ClinicalStatus.get_default()

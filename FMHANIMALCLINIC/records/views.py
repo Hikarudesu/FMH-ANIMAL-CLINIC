@@ -362,6 +362,9 @@ def admin_record_create(request):
                                 selected_pet_query = selected_pet_query.filter(
                                     source=Pet.Source.WALKIN,
                                     guest_owner_name__iexact=owner_name_str,
+                                    guest_owner_phone=owner_contact,
+                                    guest_owner_email__iexact=owner_email,
+                                    guest_owner_address__iexact=owner_address,
                                 )
                             else:
                                 selected_pet_query = selected_pet_query.filter(

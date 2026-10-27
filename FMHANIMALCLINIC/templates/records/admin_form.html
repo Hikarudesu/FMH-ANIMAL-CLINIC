@@ -269,7 +269,7 @@
                             <label class="form-label">Search Guest Owner *</label>
                             <div style="position: relative;">
                                 <i class="bx bx-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;"></i>
-                                <input type="search" id="ro-walkin-search" class="form-control-custom" style="padding-left: 38px;" placeholder="Type guest owner name or phone..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" />
+                                <input type="search" id="ro-walkin-search" class="form-control-custom" style="padding-left: 38px;" placeholder="Type guest owner name, phone, or email..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" />
                             </div>
                             <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 6px;">
                                 Search and select a returning guest owner, or register a new guest below.
@@ -582,7 +582,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let allOwners = []; // All loaded portal owners
     let ownerPetsMap = {}; // Maps owner_id -> [pets] (Portal)
-    let walkinPetsMap = {}; // Maps guest_owner_name -> [pets] (Walkin)
+    let walkinPetsMap = {};
+
+    function walkinOwnerKey(owner) {
+        const normalize = value => (value || '').trim().toLocaleLowerCase();
+        return JSON.stringify([
+            normalize(owner.owner_name),
+            normalize(owner.owner_contact),
+            normalize(owner.owner_email),
+            normalize(owner.owner_address),
+        ]);
+    }
 
     // Build owner-to-pets mapping from petsData
     function buildOwnerPetsMap() {
@@ -595,8 +605,17 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (pet.source === 'WALKIN' && pet.owner_name) {
                 const guestName = pet.owner_name.trim();
                 if (guestName) {
-                    if (!walkinPetsMap[guestName]) walkinPetsMap[guestName] = [];
-                    walkinPetsMap[guestName].push(pet);
+                    const ownerKey = walkinOwnerKey(pet);
+                    if (!walkinPetsMap[ownerKey]) {
+                        walkinPetsMap[ownerKey] = {
+                            name: guestName,
+                            phone: pet.owner_contact || '',
+                            email: pet.owner_email || '',
+                            address: pet.owner_address || '',
+                            pets: [],
+                        };
+                    }
+                    walkinPetsMap[ownerKey].pets.push(pet);
                 }
             }
         });
@@ -607,29 +626,34 @@ document.addEventListener('DOMContentLoaded', function() {
     function populateWalkinSelect() {
         if (!walkinSelect) return;
         walkinSelect.innerHTML = '<option value="">— Select Guest Owner —</option>';
-        Object.keys(walkinPetsMap).sort().forEach(function(guestName) {
+        Object.keys(walkinPetsMap).sort(function(a, b) {
+            const first = walkinPetsMap[a];
+            const second = walkinPetsMap[b];
+            return first.name.localeCompare(second.name)
+                || first.phone.localeCompare(second.phone)
+                || first.email.localeCompare(second.email);
+        }).forEach(function(ownerKey) {
+            const guest = walkinPetsMap[ownerKey];
             const opt = document.createElement('option');
-            opt.value = guestName;
-            opt.textContent = guestName;
-            
-            // Grab contact/address from the first pet associated with this guest
-            const samplePet = walkinPetsMap[guestName][0];
-            opt.dataset.name = guestName;
-            opt.dataset.phone = samplePet.owner_contact || '';
-            opt.dataset.email = samplePet.owner_email || '';
-            opt.dataset.address = samplePet.owner_address || '';
+            opt.value = ownerKey;
+            opt.textContent = [guest.name, guest.phone, guest.email].filter(Boolean).join(' | ');
+            opt.dataset.name = guest.name;
+            opt.dataset.phone = guest.phone;
+            opt.dataset.email = guest.email;
+            opt.dataset.address = guest.address;
             
             walkinSelect.appendChild(opt);
         });
     }
 
-    function selectWalkinOwner(ownerName) {
+    function selectWalkinOwner(ownerKey) {
         const option = Array.from(walkinSelect.options).find(function(opt) {
-            return opt.value === ownerName;
+            return opt.value === ownerKey;
         });
         if (!option) return;
-        walkinSelect.value = ownerName;
-        walkinSearch.value = ownerName;
+        walkinSelect.value = ownerKey;
+        walkinSearch.value = [option.dataset.name, option.dataset.phone, option.dataset.email]
+            .filter(Boolean).join(' | ');
         walkinSearch.setCustomValidity('');
         walkinResults.innerHTML = '';
         walkinResults.style.display = 'none';
@@ -648,19 +672,25 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const matches = Object.keys(walkinPetsMap).filter(function(ownerName) {
-            const pets = walkinPetsMap[ownerName] || [];
-            return ownerName.toLowerCase().includes(normalizedQuery) || pets.some(function(pet) {
-                return (pet.owner_contact || '').toLowerCase().includes(normalizedQuery)
-                    || (pet.name || '').toLowerCase().includes(normalizedQuery);
-            });
+        const matches = Object.keys(walkinPetsMap).filter(function(ownerKey) {
+            const guest = walkinPetsMap[ownerKey];
+            return guest.name.toLowerCase().includes(normalizedQuery)
+                || guest.phone.toLowerCase().includes(normalizedQuery)
+                || guest.email.toLowerCase().includes(normalizedQuery)
+                || guest.address.toLowerCase().includes(normalizedQuery)
+                || guest.pets.some(function(pet) {
+                    return (pet.owner_contact || '').toLowerCase().includes(normalizedQuery)
+                        || (pet.owner_email || '').toLowerCase().includes(normalizedQuery)
+                        || (pet.name || '').toLowerCase().includes(normalizedQuery);
+                });
         }).slice(0, 20);
 
         walkinResults.innerHTML = '';
         if (!matches.length) {
             walkinResults.innerHTML = '<div style="padding: 10px 12px; color: var(--text-secondary);">No returning guest owners found.</div>';
         } else {
-            matches.forEach(function(ownerName) {
+            matches.forEach(function(ownerKey) {
+                const guest = walkinPetsMap[ownerKey];
                 const result = document.createElement('button');
                 result.type = 'button';
                 result.role = 'option';
@@ -669,17 +699,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     event.preventDefault();
                 });
                 const ownerLabel = document.createElement('strong');
-                ownerLabel.textContent = ownerName;
+                ownerLabel.textContent = guest.name;
                 result.appendChild(ownerLabel);
-                const samplePet = walkinPetsMap[ownerName][0];
-                if (samplePet.owner_contact) {
+                const contactDetails = [guest.phone, guest.email].filter(Boolean).join(' | ');
+                if (contactDetails) {
                     result.appendChild(document.createElement('br'));
-                    const phoneLabel = document.createElement('small');
-                    phoneLabel.textContent = samplePet.owner_contact;
-                    result.appendChild(phoneLabel);
+                    const contactLabel = document.createElement('small');
+                    contactLabel.textContent = contactDetails;
+                    result.appendChild(contactLabel);
                 }
+                result.appendChild(document.createElement('br'));
+                const petOwnerLabel = document.createElement('small');
+                petOwnerLabel.textContent = guest.pets.map(pet => pet.name).filter(Boolean).join(', ');
+                result.appendChild(petOwnerLabel);
                 result.addEventListener('click', function() {
-                    selectWalkinOwner(ownerName);
+                    selectWalkinOwner(ownerKey);
                 });
                 walkinResults.appendChild(result);
             });
@@ -805,14 +839,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (source === 'PORTAL') {
             pets = ownerPetsMap[ownerKey] || [];
         } else if (source === 'WALKIN') {
-            pets = walkinPetsMap[ownerKey] || [];
+            pets = walkinPetsMap[ownerKey] ? walkinPetsMap[ownerKey].pets : [];
         }
 
         if (pets.length > 0) {
             pets.forEach(function(pet) {
                 const opt = document.createElement('option');
                 opt.value = pet.id;
-                opt.textContent = pet.name + (pet.pet_species ? ' (' + pet.pet_species + ')' : '');
+                const petLabel = pet.name + (pet.pet_species ? ' (' + pet.pet_species + ')' : '');
+                if (source === 'WALKIN') {
+                    const guest = walkinPetsMap[ownerKey];
+                    const ownerDetails = [guest.phone, guest.email].filter(Boolean).join(' | ');
+                    opt.textContent = ownerDetails ? petLabel + ' | ' + ownerDetails : petLabel;
+                } else {
+                    opt.textContent = petLabel;
+                }
                 opt.dataset.petData = JSON.stringify(pet);
                 petSelect.appendChild(opt);
             });
@@ -861,7 +902,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (sourceSelect.value === 'PORTAL' && ownerSelect.value) {
             ownerPets = ownerPetsMap[ownerSelect.value] || [];
         } else if (sourceSelect.value === 'WALKIN' && walkinSelect.value) {
-            ownerPets = walkinPetsMap[walkinSelect.value] || [];
+            ownerPets = walkinPetsMap[walkinSelect.value]
+                ? walkinPetsMap[walkinSelect.value].pets
+                : [];
         } else if (sourceSelect.value === 'WALKIN' && walkinManualToggle.checked) {
             const guestName = (ownerNameWalkin.value || '').trim().toLocaleLowerCase();
             const guestPhone = (ownerContactInput.value || '').trim();
@@ -995,7 +1038,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.value) {
                 selectedGuestOwnerField.value = '1';
                 updateDuplicateOwnerNameNote(null);
-                ownerNameWalkin.value = this.value; // Store the selected name
+                ownerNameWalkin.value = selectedOpt.dataset.name || '';
+                ownerNameWalkin.disabled = false;
+                ownerNameWalkin.setAttribute('name', 'owner_name');
+                walkinSelect.removeAttribute('name');
                 ownerContactInput.value = selectedOpt.dataset.phone || '';
                 ownerEmailInput.value = selectedOpt.dataset.email || '';
                 ownerAddressInput.value = selectedOpt.dataset.address || '';
@@ -1003,6 +1049,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 populatePetDropdown(this.value, 'WALKIN');
             } else {
                 selectedGuestOwnerField.value = '0';
+                ownerNameWalkin.disabled = true;
+                ownerNameWalkin.removeAttribute('name');
+                walkinSelect.setAttribute('name', 'owner_name');
                 ownerNameWalkin.value = '';
                 ownerContactInput.value = '';
                 ownerEmailInput.value = '';
@@ -1090,8 +1139,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const ownerId = ownerSelect.value;
                 if (ownerId && ownerPetsMap[ownerId] && ownerPetsMap[ownerId].length > 0) hasPets = true;
             } else {
-                const guestName = walkinSelect.value;
-                if (guestName && walkinPetsMap[guestName] && walkinPetsMap[guestName].length > 0) hasPets = true;
+                const guestKey = walkinSelect.value;
+                if (
+                    guestKey
+                    && walkinPetsMap[guestKey]
+                    && walkinPetsMap[guestKey].pets.length > 0
+                ) hasPets = true;
             }
 
             if (hasPets) {
@@ -1255,11 +1308,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 walkinSearch.value = prefillData.owner_name;
             }
             if (walkinSelect && prefillData.owner_name) {
+                const matchingOwnerKey = walkinOwnerKey(prefillData);
                 const matchingGuest = Array.from(walkinSelect.options).some(function(option) {
-                    return option.value === prefillData.owner_name;
+                    return option.value === matchingOwnerKey;
                 });
                 if (matchingGuest && !walkinManualToggle.checked) {
-                    selectWalkinOwner(prefillData.owner_name);
+                    selectWalkinOwner(matchingOwnerKey);
                 } else if (ownerNameWalkin) {
                     walkinManualToggle.checked = true;
                     walkinManualToggle.dispatchEvent(new Event('change'));
