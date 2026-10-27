@@ -599,6 +599,39 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        from accounts.models import User
+
+        owner_name = ' '.join((cleaned_data.get('owner_name') or '').split())
+        if self.user and owner_name:
+            name_parts = owner_name.split(maxsplit=1)
+            if any(
+                len(part) > User._meta.get_field(field_name).max_length
+                for part, field_name in zip(
+                    name_parts,
+                    ('first_name', 'last_name'),
+                )
+            ):
+                self.add_error(
+                    'owner_name',
+                    'Owner name is too long to save to your profile. '
+                    'Please shorten the first or last name.',
+                )
+        email = (cleaned_data.get('owner_email') or '').strip()
+        if (
+            self.user
+            and email.casefold() != (self.user.email or '').strip().casefold()
+            and check_existing_owner_identity(
+                '',
+                email=email,
+                exclude_user_id=self.user.pk,
+            )['email_match']
+        ):
+            self.add_error(
+                'owner_email',
+                'This email is already linked to another registered account or '
+                'guest owner record. Enter an email address that is not in use '
+                'so the appointment stays associated with the correct owner.',
+            )
         _resolve_flexible_appointment_time(
             cleaned_data,
             self.data.get('appointment_time'),
@@ -664,6 +697,9 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         instance = super().save(commit=False)
         instance.source = Appointment.Source.PORTAL
         instance.is_returning_customer = True  # Always True for logged-in users
+        instance.owner_name = ' '.join(
+            (self.cleaned_data.get('owner_name') or '').split()
+        )
 
         # Map the 'reason' field (ModelChoiceField) to 'reason_for_visit' ForeignKey
         if 'reason' in self.cleaned_data:
@@ -690,6 +726,33 @@ class PortalAppointmentForm(FormControlMixin, forms.ModelForm):
         # Do not auto-assign vet if none was selected to preserve ANY VET option
 
         if commit:
+            if self.user:
+                owner_name = ' '.join(
+                    (self.cleaned_data.get('owner_name') or '').split()
+                )
+                name_parts = owner_name.split(maxsplit=1)
+                profile_updates = {
+                    'first_name': name_parts[0] if name_parts else '',
+                    'last_name': name_parts[1] if len(name_parts) > 1 else '',
+                    'email': instance.owner_email,
+                    'phone_number': instance.owner_phone,
+                    'address': instance.owner_address,
+                }
+                original_email = self.user.email or ''
+                update_fields = []
+                for field_name, value in profile_updates.items():
+                    if getattr(self.user, field_name) != value:
+                        setattr(self.user, field_name, value)
+                        update_fields.append(field_name)
+                if (
+                    'email' in update_fields
+                    and self.user.email.strip().casefold()
+                    != original_email.strip().casefold()
+                ):
+                    self.user.email_verified = False
+                    update_fields.append('email_verified')
+                if update_fields:
+                    self.user.save(update_fields=update_fields)
             instance.save()
             # Auto-create / link a Patient record for any unlinked pet
             from .utils import sync_pet_from_appointment

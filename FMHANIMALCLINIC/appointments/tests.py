@@ -1016,6 +1016,103 @@ class AppointmentPetNameUniquenessTests(TestCase):
             form.errors['pet_name'],
         )
 
+    def test_portal_booking_rejects_email_used_by_registered_and_guest_owners(self):
+        conflict_email = 'other-owner@example.com'
+        User.objects.create_user(
+            username='appointment-email-conflict-owner',
+            email=conflict_email,
+            password='A-secure-test-password-923!',
+        )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Existing Guest Owner',
+            guest_owner_email=conflict_email,
+            name='Luna',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+
+        form = PortalAppointmentForm(
+            data={'owner_email': conflict_email.upper()},
+            user=self.owner,
+        )
+
+        form.is_valid()
+
+        self.assertIn('owner_email', form.errors)
+        self.assertIn('another registered account or guest owner record', form.errors['owner_email'][0])
+
+    @override_settings(
+        STORAGES={
+            'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+            'staticfiles': {
+                'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+            },
+        }
+    )
+    def test_portal_booking_form_includes_live_email_conflict_notice(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('appointments:portal_book'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="booking-email-conflict-note"')
+        self.assertContains(
+            response,
+            reverse('appointments:api_check_booking_owner_email'),
+        )
+        self.assertContains(response, 'This email is already used by ')
+
+    def test_portal_booking_allows_the_current_owner_email(self):
+        form = PortalAppointmentForm(
+            data={'owner_email': self.owner.email},
+            user=self.owner,
+        )
+
+        form.is_valid()
+
+        self.assertNotIn('owner_email', form.errors)
+
+    def test_portal_booking_updates_owner_profile_with_submitted_details(self):
+        branch = Branch.objects.create(name='Portal Profile Sync Branch')
+        reason = ReasonForVisit.objects.create(
+            name='Profile Sync Consultation',
+            code='PORTAL_PROFILE_SYNC',
+        )
+        self.owner.email_verified = True
+        self.owner.save(update_fields=['email_verified'])
+        submitted_data = {
+            'owner_name': 'Updated Profile Owner',
+            'owner_email': 'updated-profile-owner@example.com',
+            'owner_phone': '09987654321',
+            'owner_address': 'Updated profile address',
+            'pet_name': 'New Profile Pet',
+            'pet_species': 'Dog',
+            'pet_sex': 'MALE',
+            'branch': str(branch.pk),
+            'appointment_date': (timezone.localdate() + timedelta(days=7)).isoformat(),
+            'appointment_time': '09:00',
+            'reason': str(reason.pk),
+        }
+        form = PortalAppointmentForm(data=submitted_data, user=self.owner)
+
+        with patch('appointments.forms._check_double_booking'):
+            self.assertTrue(form.is_valid(), form.errors)
+            appointment = form.save()
+
+        self.owner.refresh_from_db()
+        appointment.refresh_from_db()
+        self.assertEqual(self.owner.first_name, 'Updated')
+        self.assertEqual(self.owner.last_name, 'Profile Owner')
+        self.assertEqual(self.owner.email, 'updated-profile-owner@example.com')
+        self.assertFalse(self.owner.email_verified)
+        self.assertEqual(self.owner.phone_number, '09987654321')
+        self.assertEqual(self.owner.address, 'Updated profile address')
+        self.assertEqual(appointment.owner_name, self.owner.get_full_name())
+        self.assertEqual(appointment.owner_email, self.owner.email)
+        self.assertEqual(appointment.owner_phone, self.owner.phone_number)
+        self.assertEqual(appointment.owner_address, self.owner.address)
+
     def test_portal_booking_allows_selecting_the_existing_pet(self):
         form = PortalAppointmentForm(
             data={
@@ -1259,6 +1356,48 @@ class AdminQuickCreateOwnerApiTests(TestCase):
         self.assertEqual(own_email_response.json(), {'email_match': False})
         self.assertEqual(duplicate_email_response.status_code, 200)
         self.assertEqual(duplicate_email_response.json(), {'email_match': True})
+
+    def test_booking_email_check_for_portal_owner_detects_guest_and_registered_email(self):
+        portal_owner = User.objects.create_user(
+            username='portal-booking-email-check-owner',
+            email='portal-booking-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        conflict_email = 'shared-guest-and-portal@example.com'
+        User.objects.create_user(
+            username='portal-booking-email-check-other',
+            email=conflict_email,
+            password='A-secure-test-password-923!',
+        )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Existing Guest Owner',
+            guest_owner_email=conflict_email,
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        self.client.force_login(portal_owner)
+
+        conflict_response = self.client.get(
+            reverse('appointments:api_check_booking_owner_email'),
+            {'email': conflict_email.upper()},
+        )
+        own_email_response = self.client.get(
+            reverse('appointments:api_check_booking_owner_email'),
+            {'email': portal_owner.email},
+        )
+
+        self.assertEqual(conflict_response.status_code, 200)
+        self.assertEqual(conflict_response.json(), {
+            'registered_email_match': True,
+            'guest_email_match': True,
+        })
+        self.assertEqual(own_email_response.status_code, 200)
+        self.assertEqual(own_email_response.json(), {
+            'registered_email_match': False,
+            'guest_email_match': False,
+        })
 
     def test_owner_identity_check_classifies_registered_and_guest_matches(self):
         admin = User.objects.create_superuser(

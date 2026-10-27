@@ -2252,6 +2252,43 @@ def api_check_portal_owner_email(request):
     return JsonResponse({'email_match': email_match})
 
 
+@login_required
+@require_GET
+def api_check_booking_owner_email(request):
+    """Check a portal owner's proposed booking email without exposing account details."""
+    email = request.GET.get('email', '').strip()
+    if not email or len(email) > 254:
+        return JsonResponse({'error': 'A valid email address is required.'}, status=400)
+    try:
+        validate_email(email)
+    except ValidationError:
+        return JsonResponse({'error': 'Enter a valid email address.'}, status=400)
+
+    if email.casefold() == (request.user.email or '').strip().casefold():
+        return JsonResponse({
+            'registered_email_match': False,
+            'guest_email_match': False,
+        })
+
+    registered_email_match = User.objects.filter(
+        email__iexact=email,
+    ).exclude(pk=request.user.pk).exists()
+    guest_email_match = (
+        Pet.objects.filter(
+            source=Pet.Source.WALKIN,
+            guest_owner_email__iexact=email,
+        ).exists()
+        or Appointment.objects.filter(
+            source=Appointment.Source.WALKIN,
+            owner_email__iexact=email,
+        ).exists()
+    )
+    return JsonResponse({
+        'registered_email_match': registered_email_match,
+        'guest_email_match': guest_email_match,
+    })
+
+
 @require_GET
 def api_check_public_owner_identity(request):
     """Check for duplicate owners during public booking, with per-IP throttling."""

@@ -75,6 +75,7 @@
           {{ form.owner_email }}
           <label for="{{ form.owner_email.id_for_label }}">Email *</label>
           {% if form.owner_email.errors %}<span class="book-field-error">{{ form.owner_email.errors.0 }}</span>{% endif %}
+          <span id="booking-email-conflict-note" class="book-field-error book-email-conflict-note" role="status" aria-live="polite" hidden></span>
         </div>
         <div class="book-field {% if form.owner_phone.errors %}has-error{% endif %}">
           <div class="book-field-icon"><i class='bx bx-phone'></i></div>
@@ -248,14 +249,97 @@
   .schedule-day-dot.no-schedule { background: #d93b42; }
   .schedule-legend { display: flex; gap: 14px; margin-top: 6px; }
   .schedule-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .book-email-conflict-note { position: static; margin-top: 6px; line-height: 1.4; }
+  .book-email-conflict-note[hidden] { display: none; }
 </style>
 
 <script>
 const API_VETS = "{% url 'appointments:api_vets' %}";
 const API_TIMES = "{% url 'appointments:api_times' %}";
 const API_DATES = "{% url 'appointments:api_dates' %}";
+const API_BOOKING_EMAIL = "{% url 'appointments:api_check_booking_owner_email' %}";
 
 document.addEventListener("DOMContentLoaded", function() {
+  const bookingForm = document.getElementById('bookingForm');
+  const ownerEmailField = document.querySelector('[name="owner_email"]');
+  const emailConflictNote = document.getElementById('booking-email-conflict-note');
+  let emailCheckTimer;
+  let emailConflict = false;
+  let emailCheckPending = false;
+  let emailCheckFailed = false;
+
+  function showEmailConflict(message) {
+    emailConflictNote.textContent = message;
+    emailConflictNote.hidden = !message;
+    ownerEmailField.setAttribute('aria-invalid', message ? 'true' : 'false');
+  }
+
+  function checkBookingEmail() {
+    clearTimeout(emailCheckTimer);
+    const email = ownerEmailField.value.trim();
+    emailConflict = false;
+    emailCheckFailed = false;
+    emailCheckPending = false;
+    showEmailConflict('');
+    if (!email || !ownerEmailField.validity.valid) return;
+
+    emailCheckPending = true;
+    emailCheckTimer = setTimeout(function() {
+      fetch(API_BOOKING_EMAIL + '?email=' + encodeURIComponent(email), {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      })
+        .then(function(response) {
+          if (!response.ok) throw new Error('Email ownership check failed.');
+          return response.json();
+        })
+        .then(function(result) {
+          if (email !== ownerEmailField.value.trim()) return;
+          emailCheckPending = false;
+          emailConflict = Boolean(
+            result.registered_email_match || result.guest_email_match
+          );
+          if (!emailConflict) {
+            showEmailConflict('');
+            return;
+          }
+
+          const matches = [];
+          if (result.registered_email_match) matches.push('another registered account');
+          if (result.guest_email_match) matches.push('a guest owner record');
+          const matchedOwners = matches.join(' and ');
+          showEmailConflict(
+            'This email is already used by ' + matchedOwners
+              + '. Enter a different email before booking so the appointment '
+              + 'is not linked to another owner.'
+          );
+        })
+        .catch(function(error) {
+          if (email !== ownerEmailField.value.trim()) return;
+          console.error('Unable to verify appointment email:', error);
+          emailCheckPending = false;
+          emailCheckFailed = true;
+          showEmailConflict(
+            'We could not verify this email right now. Please try again before booking.'
+          );
+        });
+    }, 250);
+  }
+
+  ownerEmailField.addEventListener('input', checkBookingEmail);
+  ownerEmailField.addEventListener('change', checkBookingEmail);
+  bookingForm.addEventListener('submit', function(event) {
+    if (emailConflict || emailCheckPending || emailCheckFailed) {
+      event.preventDefault();
+      if (emailConflict) {
+        ownerEmailField.focus();
+      } else if (emailCheckFailed) {
+        checkBookingEmail();
+        ownerEmailField.focus();
+      }
+    }
+  });
+
   // Pet selector auto-fill
   const petSelector = document.getElementById('petSelector');
   const selectedPetIdField = document.querySelector('[name="selected_pet_id"]');
