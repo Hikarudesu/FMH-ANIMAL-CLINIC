@@ -899,7 +899,11 @@
             {{ quick_form.owner_email }}
             <div class="qc-duplicate-owner-note is-blocking" id="qc-duplicate-portal-email-note" role="status" aria-live="polite" hidden>
               <i class='bx bx-error-circle' aria-hidden="true"></i>
-              <span>This email address is already associated with another owner record. Enter a different email address.</span>
+              <span>This email belongs to a registered portal account. Use the registered client source or enter a different email address.</span>
+            </div>
+            <div class="qc-duplicate-owner-note" id="qc-duplicate-guest-email-note" role="status" aria-live="polite" hidden>
+              <i class='bx bx-info-circle' aria-hidden="true"></i>
+              <span>This email is already used by a guest owner record. Verify that the contact details are correct; you can continue if this is the right guest.</span>
             </div>
             <div class="qc-duplicate-owner-note" id="qc-portal-email-check-error" role="status" aria-live="polite" hidden>
               <i class='bx bx-info-circle' aria-hidden="true"></i>
@@ -1694,11 +1698,13 @@ const selectedUserIdField = document.querySelector('[name="selected_user_id"]');
 const selectedPetIdField  = document.querySelector('[name="selected_pet_id"]');
 const duplicateOwnerNote = document.getElementById('qc-duplicate-owner-note');
 const duplicatePortalEmailNote = document.getElementById('qc-duplicate-portal-email-note');
+const duplicateGuestEmailNote = document.getElementById('qc-duplicate-guest-email-note');
 const portalEmailCheckError = document.getElementById('qc-portal-email-check-error');
 const selectedGuestOwnerField = document.getElementById('qc-selected-guest-owner');
 let ownerIdentityCheckTimer = null;
-let duplicateOwnerIdentity = false;
+let ownerIdentityCheckRequest = 0;
 let duplicateOwnerEmail = false;
+let duplicateGuestEmail = false;
 let duplicatePortalEmail = false;
 let portalEmailCheckTimer = null;
 let portalEmailCheckRequest = 0;
@@ -1882,45 +1888,62 @@ if (walkinPetSelect) {
 }
 function updateDuplicateOwnerNote(result) {
   if (!duplicateOwnerNote) return;
-  duplicateOwnerIdentity = Boolean(result && result.identity_match);
-  duplicateOwnerEmail = Boolean(result && result.email_match);
+  duplicateOwnerEmail = Boolean(result && result.registered_email_match);
+  duplicateGuestEmail = Boolean(result && result.guest_email_match);
   const nameMatch = Boolean(result && result.name_match);
-  const hasDuplicate = nameMatch || duplicateOwnerEmail;
-  const isBlocking = duplicateOwnerIdentity || duplicateOwnerEmail;
-  duplicateOwnerNote.hidden = !hasDuplicate;
-  duplicateOwnerNote.classList.toggle('is-blocking', isBlocking);
-  if (ownerNameField) {
-    if (duplicateOwnerIdentity) ownerNameField.setAttribute('aria-invalid', 'true');
-    else ownerNameField.removeAttribute('aria-invalid');
+  const registeredNameMatch = Boolean(result && result.registered_name_match);
+  const guestNameMatch = Boolean(result && result.guest_name_match);
+  const isBlocking = false;
+  const messages = [];
+  if (registeredNameMatch) {
+    messages.push(
+      'A registered portal account uses this name. Verify the client’s details; if this is that account holder, choose Portal (Registered User).'
+    );
   }
+  if (guestNameMatch) {
+    messages.push(
+      'A guest record uses this name. Verify that this is the correct returning guest before continuing.'
+    );
+  }
+  if (nameMatch && !registeredNameMatch && !guestNameMatch) {
+    messages.push(
+      'An existing owner uses this name. Verify the details before continuing; a matching name alone does not confirm identity.'
+    );
+  }
+  duplicateOwnerNote.hidden = messages.length === 0;
+  duplicateOwnerNote.classList.toggle('is-blocking', isBlocking);
+  duplicateOwnerNote.replaceChildren();
+  messages.forEach(message => {
+    const line = document.createElement('div');
+    const icon = document.createElement('i');
+    icon.className = `bx ${isBlocking ? 'bx-error-circle' : 'bx-info-circle'}`;
+    icon.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span');
+    text.textContent = message;
+    line.append(icon, text);
+    duplicateOwnerNote.appendChild(line);
+  });
+  if (ownerNameField) ownerNameField.removeAttribute('aria-invalid');
   if (ownerEmailField) {
     if (duplicateOwnerEmail) ownerEmailField.setAttribute('aria-invalid', 'true');
     else ownerEmailField.removeAttribute('aria-invalid');
   }
-  if (hasDuplicate) {
-    const message = duplicateOwnerEmail
-      ? 'This email address is already associated with an owner record. Select the returning guest or enter a different email address.'
-      : duplicateOwnerIdentity
-        ? 'A guest owner with this name and contact information is already registered. Select the returning guest instead of creating a new guest record.'
-        : 'A guest owner with this name may already exist. Confirm the details before continuing; matching contact information will prevent duplicate registration.';
-    duplicateOwnerNote.innerHTML = `<i class='bx ${isBlocking ? 'bx-error-circle' : 'bx-info-circle'}' aria-hidden='true'></i><span>${message}</span>`;
-  } else {
-    duplicateOwnerNote.textContent = '';
-  }
+  if (duplicatePortalEmailNote) duplicatePortalEmailNote.hidden = !duplicateOwnerEmail;
+  if (duplicateGuestEmailNote) duplicateGuestEmailNote.hidden = !duplicateGuestEmail;
 }
 
 function checkDuplicateGuestOwner() {
   clearTimeout(ownerIdentityCheckTimer);
+  const requestId = ++ownerIdentityCheckRequest;
   if (
     !clientSourceSelect
     || clientSourceSelect.value !== 'WALKIN'
-    || !walkinManualToggle
-    || !walkinManualToggle.checked
     || !ownerNameField
   ) {
     updateDuplicateOwnerNote(null);
     return;
   }
+  updateDuplicateOwnerNote(null);
   const name = ownerNameField.value.trim();
   const phone = ownerPhoneField ? ownerPhoneField.value.trim() : '';
   const email = ownerEmailField ? ownerEmailField.value.trim() : '';
@@ -1937,7 +1960,9 @@ function checkDuplicateGuestOwner() {
       })
       .then(result => {
         if (
-          name === ownerNameField.value.trim()
+          requestId === ownerIdentityCheckRequest
+          && clientSourceSelect.value === 'WALKIN'
+          && name === ownerNameField.value.trim()
           && phone === (ownerPhoneField ? ownerPhoneField.value.trim() : '')
           && email === (ownerEmailField ? ownerEmailField.value.trim() : '')
         ) {
@@ -1953,6 +1978,12 @@ function checkDuplicateGuestOwner() {
 if (ownerNameField) ownerNameField.addEventListener('input', checkDuplicateGuestOwner);
 if (ownerPhoneField) ownerPhoneField.addEventListener('input', checkDuplicateGuestOwner);
 if (ownerEmailField) ownerEmailField.addEventListener('input', checkDuplicateGuestOwner);
+function clearReturningGuestSelection() {
+  if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
+}
+if (ownerNameField) ownerNameField.addEventListener('input', clearReturningGuestSelection);
+if (ownerPhoneField) ownerPhoneField.addEventListener('input', clearReturningGuestSelection);
+if (ownerEmailField) ownerEmailField.addEventListener('input', clearReturningGuestSelection);
 if (ownerEmailField) ownerEmailField.addEventListener('input', checkDuplicatePortalOwnerEmail);
 if (walkinManualToggle) walkinManualToggle.addEventListener('change', function() {
   if (selectedGuestOwnerField) selectedGuestOwnerField.value = '0';
@@ -1963,13 +1994,11 @@ if (quickCreateForm) {
   quickCreateForm.addEventListener('submit', event => {
     if (
       updateDuplicatePetNameNote()
-      || duplicateOwnerIdentity
       || duplicateOwnerEmail
       || duplicatePortalEmail
     ) {
       event.preventDefault();
       if (duplicateOwnerEmail || duplicatePortalEmail) ownerEmailField?.focus();
-      else if (duplicateOwnerIdentity) ownerNameField?.focus();
       else petNameField?.focus();
     }
   });
@@ -2219,11 +2248,12 @@ function renderWalkinDropdown(guests, q) {
     const item = document.createElement('div');
     item.className = 'qc-walkin-item';
     const petsText = g.pets && g.pets.length ? g.pets.slice(0, 3).join(', ') : 'No pets recorded';
+    const contactText = [g.phone, g.email].filter(Boolean).join(' | ');
     item.innerHTML = `
       <div class="qc-walkin-item-icon"><i class='bx bx-user'></i></div>
       <div class="qc-walkin-item-info">
         <div class="qc-walkin-item-name">${escHtml(g.name)}</div>
-        <div class="qc-walkin-item-sub">${escHtml(g.phone || '')}${g.phone && petsText ? ' &bull; ' : ''}${escHtml(petsText)}</div>
+        <div class="qc-walkin-item-sub">${escHtml(contactText || 'No contact details')}${petsText ? ' &bull; ' + escHtml(petsText) : ''}</div>
       </div>
       <span class="qc-walkin-item-badge"><i class='bx bx-check'></i> Returning</span>
     `;
@@ -2257,24 +2287,34 @@ function selectWalkinGuest(g) {
   // Uncheck manual toggle since we selected a returning guest
   if (walkinManualToggle) walkinManualToggle.checked = false;
   if (selectedGuestOwnerField) selectedGuestOwnerField.value = '1';
-  updateDuplicateOwnerNote(null);
+  if (selectedPetIdField) selectedPetIdField.value = '';
+  clearPetFields();
+  checkDuplicateGuestOwner();
 
   // Load pets for this guest
-  loadWalkinGuestPets(g.name, g.phone);
+  loadWalkinGuestPets(g);
 }
 
-function loadWalkinGuestPets(name, phone) {
+let walkinPetsRequest = 0;
+function loadWalkinGuestPets(guest) {
   if (!walkinPetSelect) return;
+  const requestId = ++walkinPetsRequest;
   walkinPetGroup.style.display = '';
   walkinPetSelect.innerHTML = '<option value="">Loading pets...</option>';
 
-  let url = API_WALKIN_PET_URL + '?';
-  if (name)  url += 'name='  + encodeURIComponent(name);
-  if (phone) url += (name ? '&' : '') + 'phone=' + encodeURIComponent(phone);
-
-  fetch(url)
-    .then(r => r.json())
+  const params = new URLSearchParams({
+    name: guest.name || '',
+    phone: guest.phone || '',
+    email: guest.email || '',
+    address: guest.address || '',
+  });
+  fetch(API_WALKIN_PET_URL + '?' + params.toString(), {cache: 'no-store'})
+    .then(response => {
+      if (!response.ok) throw new Error('Unable to load pets for this guest.');
+      return response.json();
+    })
     .then(data => {
+      if (requestId !== walkinPetsRequest) return;
       walkinPetSelect.innerHTML = '<option value="">— Select Pet —</option>';
       if (data.pets && data.pets.length) {
         data.pets.forEach(p => {
@@ -2295,9 +2335,11 @@ function loadWalkinGuestPets(name, phone) {
       }
       updateDuplicatePetNameNote();
     })
-    .catch(() => {
+    .catch(error => {
+      if (requestId !== walkinPetsRequest) return;
       walkinPetSelect.innerHTML = '<option value="">— Error loading pets —</option>';
       updateDuplicatePetNameNote();
+      console.error('Unable to load returning guest pets:', error);
     });
 }
 

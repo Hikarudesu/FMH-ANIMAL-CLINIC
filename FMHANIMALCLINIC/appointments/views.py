@@ -29,7 +29,6 @@ from .forms import (
     PublicAppointmentForm, PortalAppointmentForm, AdminQuickCreateForm,
     AppointmentEditForm, AppointmentCancellationForm,
     PORTAL_DUPLICATE_PET_NAME_ERROR, GUEST_DUPLICATE_PET_NAME_ERROR,
-    GUEST_DUPLICATE_OWNER_ERROR,
 )
 from .clinic_hours import CLINIC_CLOSE_TIME, CLINIC_OPEN_TIME
 from .services import AppointmentService
@@ -1807,16 +1806,15 @@ def admin_quick_create(request):
                     )
                 )
             )
-            duplicate_owner = bool(
-                not appointment
-                and form.errors.get('owner_name')
-                and str(form.errors['owner_name'][0]) == GUEST_DUPLICATE_OWNER_ERROR
-            )
-            duplicate_portal_email = bool(
+            duplicate_registered_email = bool(
                 not appointment
                 and form.errors.get('owner_email')
-                and 'already associated with another owner record'
-                in str(form.errors['owner_email'][0])
+                and (
+                    'already associated with another owner record'
+                    in str(form.errors['owner_email'][0])
+                    or 'registered portal account'
+                    in str(form.errors['owner_email'][0])
+                )
             )
             if appointment and followup:
                 source_appointment = followup.appointment
@@ -1898,12 +1896,10 @@ def admin_quick_create(request):
                 ),
             )
         else:
-            if duplicate_pet_name or duplicate_owner or duplicate_portal_email:
+            if duplicate_pet_name or duplicate_registered_email:
                 error_message = (
                     form.errors['pet_name'][0]
                     if duplicate_pet_name
-                    else form.errors['owner_name'][0]
-                    if duplicate_owner
                     else form.errors['owner_email'][0]
                 )
                 messages.error(request, error_message)
@@ -1915,7 +1911,7 @@ def admin_quick_create(request):
                     request,
                     f'Invalid appointment data. Please check the form. Errors: {error_details}',
                 )
-            if duplicate_pet_name or duplicate_owner or duplicate_portal_email:
+            if duplicate_pet_name or duplicate_registered_email:
                 return redirect(
                     f"{reverse('appointments:admin_list')}#quickCreateModal"
                 )
@@ -2157,12 +2153,69 @@ def api_pet_owners(request):
 @login_required
 @module_permission_required('appointments', 'CREATE')
 def api_check_owner_identity(request):
-    """Check for an existing owner without returning their identifying details."""
+    """Check owner conflicts and match roles without exposing account details."""
+    owner_name = ' '.join(request.GET.get('name', '').split())
+    email = request.GET.get('email', '').strip()
     result = check_existing_owner_identity(
-        request.GET.get('name', ''),
+        owner_name,
         request.GET.get('phone', ''),
-        request.GET.get('email', ''),
+        '',
     )
+    registered_owners = User.objects.filter(
+        Q(assigned_role__is_staff_role=False) | Q(assigned_role__isnull=True),
+        is_staff=False,
+        is_superuser=False,
+    )
+
+    registered_name_match = False
+    if owner_name:
+        name_parts = owner_name.split()
+        name_query = Q(username__iexact=owner_name)
+        if len(name_parts) == 1:
+            name_query |= (
+                Q(first_name__iexact=name_parts[0])
+                | Q(last_name__iexact=name_parts[0])
+            )
+        else:
+            name_query |= Q(
+                first_name__iexact=name_parts[0],
+                last_name__iexact=' '.join(name_parts[1:]),
+            )
+        registered_name_match = registered_owners.filter(name_query).exists()
+
+    guest_name_match = bool(
+        owner_name
+        and (
+            Appointment.objects.filter(
+                source=Appointment.Source.WALKIN,
+                owner_name__iexact=owner_name,
+            ).exists()
+            or Pet.objects.filter(
+                source=Pet.Source.WALKIN,
+                guest_owner_name__iexact=owner_name,
+            ).exists()
+        )
+    )
+    result.update({
+        'registered_name_match': registered_name_match,
+        'guest_name_match': guest_name_match,
+        'registered_email_match': bool(
+            email and registered_owners.filter(email__iexact=email).exists()
+        ),
+        'guest_email_match': bool(
+            email
+            and (
+                Appointment.objects.filter(
+                    source=Appointment.Source.WALKIN,
+                    owner_email__iexact=email,
+                ).exists()
+                or Pet.objects.filter(
+                    source=Pet.Source.WALKIN,
+                    guest_owner_email__iexact=email,
+                ).exists()
+            )
+        ),
+    })
     return JsonResponse(result)
 
 
@@ -2243,19 +2296,26 @@ def api_walkin_guests(request):
         'owner_name', 'owner_phone', 'owner_email', 'owner_address', 'pet_name'
     ).distinct().order_by('owner_name')[:40]
 
-    # Deduplicate by name+phone combination and aggregate pet names
+    # Keep records with the same name separate when their contact details differ.
     seen = {}
     for g in guests_qs:
         owner_name_safe = (g['owner_name'] or '').strip()
         owner_phone_safe = (g['owner_phone'] or '').strip()
+        owner_email_safe = (g['owner_email'] or '').strip()
+        owner_address_safe = (g['owner_address'] or '').strip()
 
-        key = (owner_name_safe.lower(), owner_phone_safe.lower())
+        key = tuple(value.casefold() for value in (
+            owner_name_safe,
+            owner_phone_safe,
+            owner_email_safe,
+            owner_address_safe,
+        ))
         if key not in seen:
             seen[key] = {
                 'name': owner_name_safe or 'Unknown',
                 'phone': owner_phone_safe,
-                'email': (g['owner_email'] or '').strip(),
-                'address': (g['owner_address'] or '').strip(),
+                'email': owner_email_safe,
+                'address': owner_address_safe,
                 'pets': []
             }
 
@@ -2278,14 +2338,21 @@ def api_walkin_guests(request):
     for p in walkin_pets_qs:
         owner_name_safe = (p['guest_owner_name'] or '').strip()
         owner_phone_safe = (p['guest_owner_phone'] or '').strip()
+        owner_email_safe = (p['guest_owner_email'] or '').strip()
+        owner_address_safe = (p['guest_owner_address'] or '').strip()
 
-        key = (owner_name_safe.lower(), owner_phone_safe.lower())
+        key = tuple(value.casefold() for value in (
+            owner_name_safe,
+            owner_phone_safe,
+            owner_email_safe,
+            owner_address_safe,
+        ))
         if key not in seen:
             seen[key] = {
                 'name': owner_name_safe or 'Unknown',
                 'phone': owner_phone_safe,
-                'email': (p['guest_owner_email'] or '').strip(),
-                'address': (p['guest_owner_address'] or '').strip(),
+                'email': owner_email_safe,
+                'address': owner_address_safe,
                 'pets': []
             }
 
@@ -2300,15 +2367,17 @@ def api_walkin_guests(request):
 @login_required
 @module_permission_required('appointments', 'VIEW')
 def api_walkin_guest_pets(request):
-    """API: return pets for a walk-in guest owner, searched by name and/or phone.
+    """Return pets belonging to the selected walk-in owner's contact identity.
 
     Combines results from:
-    1. Pet model — guest_owner_name / guest_owner_phone fields (registered walk-in patients)
-    2. Appointment model — owner_name / owner_phone fields (walk-in appointment history)
+    1. Pet model — guest owner contact fields on walk-in patients
+    2. Appointment model — owner contact fields on walk-in appointment history
     """
     from patients.models import Pet as PetModel
     name = request.GET.get('name', '').strip()
     phone = request.GET.get('phone', '').strip()
+    email = request.GET.get('email', '').strip()
+    address = request.GET.get('address', '').strip()
 
     if not name and not phone:
         return JsonResponse({'pets': []})
@@ -2317,13 +2386,17 @@ def api_walkin_guest_pets(request):
     seen = set()  # (name_lower, species_lower) dedup key
 
     # ── Source 1: Pet model (registered walk-in patients) ──
-    pet_filter = Q()
+    pet_filter = Q(source=PetModel.Source.WALKIN)
     if name:
-        pet_filter |= Q(guest_owner_name__iexact=name)
+        pet_filter &= Q(guest_owner_name__iexact=name)
     if phone:
-        pet_filter |= Q(guest_owner_phone=phone)
+        pet_filter &= Q(guest_owner_phone=phone)
+    if email:
+        pet_filter &= Q(guest_owner_email__iexact=email)
+    if address:
+        pet_filter &= Q(guest_owner_address__iexact=address)
 
-    for pet in PetModel.objects.filter(pet_filter, source=PetModel.Source.WALKIN).order_by('name'):
+    for pet in PetModel.objects.filter(pet_filter).order_by('name'):
         key = (pet.name.lower(), (pet.species or '').lower())
         if key not in seen:
             seen.add(key)
@@ -2343,7 +2416,11 @@ def api_walkin_guest_pets(request):
     if name:
         appt_filter &= Q(owner_name__iexact=name)
     if phone:
-        appt_filter |= Q(source=Appointment.Source.WALKIN, owner_phone=phone)
+        appt_filter &= Q(owner_phone=phone)
+    if email:
+        appt_filter &= Q(owner_email__iexact=email)
+    if address:
+        appt_filter &= Q(owner_address__iexact=address)
 
     appt_pets = Appointment.objects.filter(appt_filter).exclude(
         pet_name=''

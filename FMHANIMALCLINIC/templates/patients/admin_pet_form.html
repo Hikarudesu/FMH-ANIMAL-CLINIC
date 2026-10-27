@@ -22,6 +22,22 @@
   .apf-owner-result:last-child { border-bottom: 0; }
   .apf-owner-result:hover, .apf-owner-result:focus-visible { background: var(--bg, #f5f8f8); outline: none; }
   .apf-owner-result-icon { flex: 0 0 auto; color: var(--primary); font-size: 1.05rem; }
+  .apf-owner-details { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg, #f5f8f8); }
+  .apf-owner-details-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--primary); font-size: .88rem; font-weight: 700; }
+  .apf-owner-details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+  .apf-owner-details-grid > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .apf-owner-details-grid span { color: var(--text-secondary); font-size: .72rem; }
+  .apf-owner-details-grid strong { overflow-wrap: anywhere; color: var(--text-primary); font-size: .84rem; font-weight: 600; }
+  .apf-owner-change-notice { display: flex; align-items: flex-start; gap: 9px; margin-top: 12px; padding: 11px 13px; border: 1px solid #b8e0dc; border-radius: 9px; background: #eef8f7; color: #276b66; font-size: .82rem; line-height: 1.5; }
+  .apf-owner-change-notice i { flex: 0 0 auto; margin-top: 2px; }
+  .apf-owner-change-dialog { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .55); }
+  .apf-owner-change-dialog[hidden], .apf-owner-change-notice[hidden] { display: none; }
+  .apf-owner-change-dialog-card { width: min(440px, 100%); padding: 26px; border-radius: 16px; background: var(--surface, #fff); box-shadow: 0 24px 60px rgba(15, 23, 42, .25); text-align: center; }
+  .apf-owner-change-dialog-icon { display: grid; place-items: center; width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 50%; background: #e6f5f3; color: var(--primary); font-size: 1.4rem; }
+  .apf-owner-change-dialog-card h3 { margin: 0 0 8px; color: var(--text-primary); font-size: 1.1rem; }
+  .apf-owner-change-dialog-card p { margin: 0; color: var(--text-secondary); font-size: .9rem; line-height: 1.55; }
+  .apf-owner-change-dialog-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  @media (max-width: 520px) { .apf-owner-details-grid { grid-template-columns: 1fr; } }
   .apf-owner-result-info { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
   .apf-owner-result strong { overflow: hidden; font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
   .apf-owner-result span, .apf-owner-search-status { overflow: hidden; color: var(--text-secondary); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -68,6 +84,11 @@
     line-height: 1.45;
   }
   .apf-field-help i { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+  .apf-identity-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: #475569; font-size: .78rem; line-height: 1.45; }
+  .apf-identity-note[hidden] { display: none; }
+  .apf-identity-note i { flex: 0 0 auto; margin-top: 1px; }
+  .apf-identity-note.is-blocking { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+  .apf-identity-note.is-advisory { border-color: #fde68a; background: #fffbeb; color: #92400e; }
 
   /* Link-to-account notice */
   .apf-link-notice {
@@ -660,7 +681,8 @@
     </div>
 
     <!-- Form Body -->
-    <form method="POST" class="apf-form-body" autocomplete="off" enctype="multipart/form-data" id="apfForm">
+    <form method="POST" class="apf-form-body" autocomplete="off" enctype="multipart/form-data" id="apfForm"
+          {% if pet and pet.source == 'WALKIN' %}data-owner-identity-url="{% url 'patients:api_check_walkin_owner_identity' %}" data-current-pet-id="{{ pet.pk }}"{% endif %}>
       {% csrf_token %}
 
       {% if form.non_field_errors %}
@@ -705,6 +727,55 @@
               <div class="apf-owner-results" id="ownerSearchResults" role="listbox" aria-live="polite"></div>
               {{ form.owner }}
             </div>
+            {% elif pet.source == 'PORTAL' %}
+            <label for="ownerSearch">Registered owner <span class="req">*</span></label>
+            <div class="apf-owner-picker" id="ownerPicker"
+                 data-search-url="{% url 'patients:api_transfer_owner_search' %}"
+                 data-initial-owner-id="{{ form.owner.value|default:'' }}"
+                 data-original-owner-id="{{ pet.owner_id }}"
+                 data-original-owner-name="{% if pet.owner.get_full_name %}{{ pet.owner.get_full_name }}{% else %}{{ pet.owner.username }}{% endif %}"
+                 data-pet-name="{{ pet.name }}"
+                 data-confirm-owner-change="true">
+              <div class="apf-owner-search-wrap">
+                <i class='bx bx-search apf-owner-search-icon' aria-hidden="true"></i>
+                <input type="search" id="ownerSearch" class="pf-input"
+                       placeholder="Search by name, phone, or email to correct the owner..."
+                       value="{% if selected_owner.get_full_name %}{{ selected_owner.get_full_name }}{% else %}{{ selected_owner.username }}{% endif %}"
+                       autocomplete="off" role="combobox" aria-controls="ownerSearchResults"
+                       aria-autocomplete="list" aria-expanded="false">
+              </div>
+              <div class="apf-owner-results" id="ownerSearchResults" role="listbox" aria-live="polite"></div>
+              {{ form.owner }}
+            </div>
+            <div class="apf-field-help">
+              <i class='bx bx-info-circle' aria-hidden="true"></i>
+              <span>Search for the correct portal account. Owner contact details below are read-only. Changing the selection transfers this pet to that account; its medical and appointment history stays with the pet.</span>
+            </div>
+            <div class="apf-owner-details" id="ownerDetails" aria-live="polite">
+              <div class="apf-owner-details-heading"><i class='bx bx-user-circle' aria-hidden="true"></i><span id="ownerDetailsTitle">{% if selected_owner.pk != pet.owner_id %}Selected portal owner{% else %}Registered owner details{% endif %}</span></div>
+              <div class="apf-owner-details-grid">
+                <div><span>Name</span><strong data-owner-detail="name">{% if selected_owner.get_full_name %}{{ selected_owner.get_full_name }}{% else %}{{ selected_owner.username }}{% endif %}</strong></div>
+                <div><span>Email</span><strong data-owner-detail="email">{{ selected_owner.email|default:"—" }}</strong></div>
+                <div><span>Phone</span><strong data-owner-detail="phone">{{ selected_owner.phone_number|default:"—" }}</strong></div>
+                <div><span>Address</span><strong data-owner-detail="address">{{ selected_owner.address|default:"—" }}</strong></div>
+              </div>
+            </div>
+            <div class="apf-owner-change-notice" id="ownerChangeNotice" {% if selected_owner.pk == pet.owner_id %}hidden{% endif %}>
+              <i class='bx bx-transfer-alt' aria-hidden="true"></i>
+              <span>Saving will transfer this pet’s portal ownership to the selected account. You’ll be asked to confirm before updating.</span>
+            </div>
+            <div class="apf-owner-change-dialog" id="ownerChangeDialog" hidden>
+              <div class="apf-owner-change-dialog-card" role="alertdialog" aria-modal="true"
+                   aria-labelledby="ownerChangeDialogTitle" aria-describedby="ownerChangeDialogMessage">
+                <div class="apf-owner-change-dialog-icon"><i class='bx bx-transfer-alt' aria-hidden="true"></i></div>
+                <h3 id="ownerChangeDialogTitle">Confirm owner correction</h3>
+                <p id="ownerChangeDialogMessage"></p>
+                <div class="apf-owner-change-dialog-actions">
+                  <button type="button" class="apf-cancel-btn" id="cancelOwnerChange">Keep current owner</button>
+                  <button type="button" class="apf-submit-btn" id="confirmOwnerChange">Confirm transfer</button>
+                </div>
+              </div>
+            </div>
             {% else %}
             <label for="{{ form.owner.id_for_label }}">Portal Account <span class="req">*</span></label>
             {{ form.owner }}
@@ -729,6 +800,9 @@
           <div class="apf-field {% if form.guest_owner_name.errors %}has-error{% endif %}">
             <label for="{{ form.guest_owner_name.id_for_label }}">Owner Name <span class="req">*</span></label>
             {{ form.guest_owner_name }}
+            {% if pet and pet.source == 'WALKIN' %}
+            <div class="apf-identity-note" id="guestOwnerNameMatchNote" role="status" aria-live="polite" hidden></div>
+            {% endif %}
             {% if form.guest_owner_name.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_name.errors.0 }}</span>{% endif %}
           </div>
           <div class="apf-field {% if form.guest_owner_phone.errors %}has-error{% endif %}">
@@ -739,6 +813,9 @@
           <div class="apf-field {% if form.guest_owner_email.errors %}has-error{% endif %}">
             <label for="{{ form.guest_owner_email.id_for_label }}">Email Address <span class="req">*</span></label>
             {{ form.guest_owner_email }}
+            {% if pet and pet.source == 'WALKIN' %}
+            <div class="apf-identity-note" id="guestOwnerEmailMatchNote" role="status" aria-live="polite" hidden></div>
+            {% endif %}
             {% if form.guest_owner_email.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_email.errors.0 }}</span>{% endif %}
           </div>
           <div class="apf-field {% if form.guest_owner_address.errors %}has-error{% endif %}">
@@ -1004,6 +1081,157 @@
       document.getElementById('{{ form.guest_owner_phone.id_for_label }}').required = initial === 'WALKIN';
       document.getElementById('{{ form.guest_owner_email.id_for_label }}').required = initial === 'WALKIN';
     }
+  })();
+
+  (function initWalkinOwnerIdentityCheck() {
+    const form = document.getElementById('apfForm');
+    const endpoint = form && form.dataset.ownerIdentityUrl;
+    const nameInput = document.getElementById('{{ form.guest_owner_name.id_for_label }}');
+    const phoneInput = document.getElementById('{{ form.guest_owner_phone.id_for_label }}');
+    const emailInput = document.getElementById('{{ form.guest_owner_email.id_for_label }}');
+    const addressInput = document.getElementById('{{ form.guest_owner_address.id_for_label }}');
+    const nameNote = document.getElementById('guestOwnerNameMatchNote');
+    const emailNote = document.getElementById('guestOwnerEmailMatchNote');
+    if (!endpoint || !nameInput || !emailInput || !nameNote || !emailNote) return;
+
+    let debounceTimer = null;
+    let requestSequence = 0;
+    let approvedSubmit = false;
+
+    function showNote(element, messages, blocking = false) {
+      element.replaceChildren();
+      element.hidden = messages.length === 0;
+      element.classList.toggle('is-blocking', blocking);
+      element.classList.toggle('is-advisory', !blocking && messages.length > 0);
+      messages.forEach(message => {
+        const icon = document.createElement('i');
+        icon.className = `bx ${blocking ? 'bx-error-circle' : 'bx-info-circle'}`;
+        icon.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('span');
+        text.textContent = message;
+        element.append(icon, text);
+      });
+    }
+
+    function clearNotes() {
+      showNote(nameNote, []);
+      showNote(emailNote, []);
+      emailInput.removeAttribute('aria-invalid');
+    }
+
+    function renderResult(result) {
+      const nameMessages = [];
+      if (result.registered_name_match) {
+        nameMessages.push(
+          'A registered portal owner has this name but different contact details. Verify the owner’s identity before updating.'
+        );
+      }
+      if (result.guest_name_match) {
+        nameMessages.push(
+          'A walk-in record has this name but different contact details. Confirm the owner’s identity before updating.'
+        );
+      }
+      showNote(nameNote, nameMessages);
+
+      const emailMessages = [];
+      if (result.registered_email_match) {
+        emailMessages.push(
+          'This email belongs to a registered portal account. Walk-in details cannot use it; enter another email or use the portal-owner transfer option.'
+        );
+        emailInput.setAttribute('aria-invalid', 'true');
+      } else {
+        emailInput.removeAttribute('aria-invalid');
+      }
+      if (result.guest_email_match) {
+        emailMessages.push(
+          'A walk-in record has this email but different owner details. Verify that this email belongs to the guest before updating.'
+        );
+      }
+      showNote(emailNote, emailMessages, Boolean(result.registered_email_match));
+      return !result.registered_email_match;
+    }
+
+    async function checkIdentity() {
+      const sequence = ++requestSequence;
+      const name = nameInput.value.trim();
+      const phone = phoneInput ? phoneInput.value.trim() : '';
+      const email = emailInput.value.trim();
+      const address = addressInput ? addressInput.value.trim() : '';
+      if (name.length < 2 && !email) {
+        clearNotes();
+        return true;
+      }
+
+      showNote(nameNote, ['Checking for matching owner records…']);
+      showNote(emailNote, ['Checking for matching email addresses…']);
+      const params = new URLSearchParams({
+        name,
+        phone,
+        email,
+        address,
+        exclude_pet_id: form.dataset.currentPetId || '',
+      });
+      try {
+        const response = await fetch(`${endpoint}?${params.toString()}`, {
+          cache: 'no-store',
+          headers: {'Accept': 'application/json'},
+        });
+        if (!response.ok) {
+          throw new Error('Owner identity check failed.');
+        }
+        const result = await response.json();
+        if (
+          sequence !== requestSequence
+          || name !== nameInput.value.trim()
+          || phone !== (phoneInput ? phoneInput.value.trim() : '')
+          || email !== emailInput.value.trim()
+          || address !== (addressInput ? addressInput.value.trim() : '')
+        ) return false;
+        return renderResult(result);
+      } catch (error) {
+        if (sequence === requestSequence) {
+          showNote(nameNote, [
+            'Owner details could not be verified. Please wait and try again before saving.',
+          ], true);
+          showNote(emailNote, []);
+          console.error('Unable to verify walk-in owner details:', error);
+        }
+        return false;
+      }
+    }
+
+    function scheduleCheck() {
+      window.clearTimeout(debounceTimer);
+      requestSequence += 1;
+      clearNotes();
+      if (nameInput.value.trim().length < 2 && !emailInput.value.trim()) return;
+      showNote(nameNote, ['Checking for matching owner records…']);
+      debounceTimer = window.setTimeout(checkIdentity, 250);
+    }
+
+    nameInput.addEventListener('input', scheduleCheck);
+    if (phoneInput) phoneInput.addEventListener('input', scheduleCheck);
+    emailInput.addEventListener('input', scheduleCheck);
+    if (addressInput) addressInput.addEventListener('input', scheduleCheck);
+    scheduleCheck();
+
+    form.addEventListener('submit', async event => {
+      if (approvedSubmit) {
+        approvedSubmit = false;
+        return;
+      }
+      event.preventDefault();
+      window.clearTimeout(debounceTimer);
+      const submitter = event.submitter;
+      const canSubmit = await checkIdentity();
+      if (!canSubmit) {
+        emailInput.focus();
+        return;
+      }
+      approvedSubmit = true;
+      if (submitter) form.requestSubmit(submitter);
+      else form.requestSubmit();
+    });
   })();
 
   // Live photo preview
@@ -1329,9 +1557,19 @@
     const ownerField = document.getElementById('id_owner');
     const searchInput = document.getElementById('ownerSearch');
     const results = document.getElementById('ownerSearchResults');
+    const ownerDetails = document.getElementById('ownerDetails');
+    const ownerChangeNotice = document.getElementById('ownerChangeNotice');
+    const ownerChangeDialog = document.getElementById('ownerChangeDialog');
+    const ownerChangeDialogMessage = document.getElementById('ownerChangeDialogMessage');
+    const confirmOwnerChange = document.getElementById('confirmOwnerChange');
+    const cancelOwnerChange = document.getElementById('cancelOwnerChange');
+    const form = document.getElementById('apfForm');
+    const originalOwnerId = picker.dataset.originalOwnerId || '';
     let debounceTimer;
     let activeRequest;
     let resultsOpen = false;
+    let ownerChangeConfirmed = false;
+    let pendingSubmitter = null;
 
     function closeResults() {
       resultsOpen = false;
@@ -1350,10 +1588,25 @@
       searchInput.setAttribute('aria-expanded', 'true');
     }
 
+    function renderOwnerDetails(owner) {
+      if (!ownerDetails) return;
+      ownerDetails.querySelector('[data-owner-detail="name"]').textContent = owner.name || '—';
+      ownerDetails.querySelector('[data-owner-detail="email"]').textContent = owner.email || '—';
+      ownerDetails.querySelector('[data-owner-detail="phone"]').textContent = owner.phone || '—';
+      ownerDetails.querySelector('[data-owner-detail="address"]').textContent = owner.address || '—';
+      const changed = picker.dataset.confirmOwnerChange === 'true'
+        && String(owner.id) !== originalOwnerId;
+      const title = document.getElementById('ownerDetailsTitle');
+      if (title) title.textContent = changed ? 'Selected portal owner' : 'Registered owner details';
+      if (ownerChangeNotice) ownerChangeNotice.hidden = !changed;
+    }
+
     function chooseOwner(owner) {
       ownerField.value = owner.id;
       searchInput.value = owner.name;
       searchInput.setCustomValidity('');
+      ownerChangeConfirmed = false;
+      renderOwnerDetails(owner);
       closeResults();
     }
 
@@ -1420,6 +1673,13 @@
     searchInput.addEventListener('input', () => {
       window.clearTimeout(debounceTimer);
       ownerField.value = '';
+      if (ownerDetails) {
+        ownerDetails.querySelectorAll('[data-owner-detail]').forEach(value => {
+          value.textContent = 'Select an account to view its details.';
+        });
+      }
+      if (ownerChangeNotice) ownerChangeNotice.hidden = true;
+      ownerChangeConfirmed = false;
       if (activeRequest) activeRequest.abort();
       if (searchInput.value.trim().length < 2) {
         closeResults();
@@ -1438,7 +1698,7 @@
       if (!picker.contains(event.target)) closeResults();
     }, true);
 
-    if (picker.dataset.initialOwnerId) {
+    if (picker.dataset.initialOwnerId && !searchInput.value) {
       const params = new URLSearchParams({ owner_id: picker.dataset.initialOwnerId });
       fetch(`${picker.dataset.searchUrl}?${params.toString()}`, {
         headers: { 'Accept': 'application/json' },
@@ -1446,8 +1706,58 @@
         if (data.owners.length && ownerField.value === String(data.owners[0].id) && !searchInput.value) {
           ownerField.value = data.owners[0].id;
           searchInput.value = data.owners[0].name;
+          picker.dataset.originalOwnerName = data.owners[0].name;
+          renderOwnerDetails(data.owners[0]);
         }
       }).catch(() => showStatus('Could not load the selected owner. Please try again.'));
+    }
+
+    if (picker.dataset.confirmOwnerChange === 'true' && form) {
+      form.addEventListener('submit', event => {
+        if (!ownerField.value) {
+          event.preventDefault();
+          searchInput.setCustomValidity('Search for and select a registered portal owner.');
+          searchInput.reportValidity();
+          searchInput.addEventListener('input', () => searchInput.setCustomValidity(''), {once: true});
+          searchInput.focus();
+          return;
+        }
+        if (
+          String(ownerField.value) !== originalOwnerId
+          && !ownerChangeConfirmed
+        ) {
+          event.preventDefault();
+          pendingSubmitter = event.submitter;
+          const currentOwner = picker.dataset.originalOwnerName || 'the current owner';
+          const nextOwner = searchInput.value.trim() || 'the selected owner';
+          ownerChangeDialogMessage.textContent = `Transfer ${picker.dataset.petName} from ${currentOwner} to ${nextOwner}? The pet’s medical and appointment history will remain attached to this patient.`;
+          ownerChangeDialog.hidden = false;
+          confirmOwnerChange.focus();
+        }
+      });
+      confirmOwnerChange.addEventListener('click', () => {
+        ownerChangeConfirmed = true;
+        ownerChangeDialog.hidden = true;
+        if (typeof form.requestSubmit === 'function') {
+          if (pendingSubmitter) form.requestSubmit(pendingSubmitter);
+          else form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      });
+      cancelOwnerChange.addEventListener('click', () => {
+        ownerChangeDialog.hidden = true;
+        searchInput.focus();
+      });
+      ownerChangeDialog.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          ownerChangeDialog.hidden = true;
+          searchInput.focus();
+        }
+      });
+      ownerChangeDialog.addEventListener('click', event => {
+        if (event.target === ownerChangeDialog) ownerChangeDialog.hidden = true;
+      });
     }
   })();
 

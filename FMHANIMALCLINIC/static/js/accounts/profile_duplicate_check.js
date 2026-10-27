@@ -48,6 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
       ) return null;
       nameNote.hidden = !conflicts.name_exists;
       emailNote.hidden = !conflicts.email_exists;
+      const emailMessage = emailNote.querySelector('[data-email-conflict-message]');
+      if (emailMessage) {
+        emailMessage.textContent = conflicts.guest_email_exists
+          ? 'This email address is already used by a guest owner record. Enter a different email address to save your profile.'
+          : 'This email address is already in use. Enter a different email address to save your profile.';
+      }
       email.setAttribute('aria-invalid', conflicts.email_exists ? 'true' : 'false');
       checkError.hidden = true;
       return conflicts;

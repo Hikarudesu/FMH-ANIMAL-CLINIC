@@ -35,12 +35,6 @@ GUEST_DUPLICATE_PET_NAME_ERROR = (
     'A pet with this name is already registered under these owner details. '
     'Please check the pet name or contact the clinic if this is a different pet.'
 )
-GUEST_DUPLICATE_OWNER_ERROR = (
-    'An owner with this name and contact information is already registered. '
-    'Select the returning owner instead of registering a new guest.'
-)
-
-
 def _guest_pet_name_exists(
     name,
     owner_name,
@@ -987,6 +981,35 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                 if existing_pets.exists():
                     self.add_error('pet_name', PORTAL_DUPLICATE_PET_NAME_ERROR)
         elif pet_name and source == Appointment.Source.WALKIN:
+            if selected_pet_id:
+                from patients.models import Pet
+
+                selected_guest_pet = Pet.objects.filter(
+                    pk=selected_pet_id,
+                    source=Pet.Source.WALKIN,
+                    guest_owner_name__iexact=(cleaned_data.get('owner_name') or '').strip(),
+                )
+                owner_phone = (cleaned_data.get('owner_phone') or '').strip()
+                owner_email = (cleaned_data.get('owner_email') or '').strip()
+                owner_address = (cleaned_data.get('owner_address') or '').strip()
+                if owner_phone:
+                    selected_guest_pet = selected_guest_pet.filter(
+                        guest_owner_phone=owner_phone,
+                    )
+                if owner_email:
+                    selected_guest_pet = selected_guest_pet.filter(
+                        guest_owner_email__iexact=owner_email,
+                    )
+                if owner_address:
+                    selected_guest_pet = selected_guest_pet.filter(
+                        guest_owner_address__iexact=owner_address,
+                    )
+                if not selected_guest_pet.exists():
+                    self.add_error(
+                        'selected_pet_id',
+                        'The selected pet does not belong to the selected guest. '
+                        'Choose a pet from the matching owner details.',
+                    )
             if _guest_pet_name_exists(
                 pet_name,
                 (cleaned_data.get('owner_name') or '').strip(),
@@ -997,25 +1020,24 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                 self.add_error('pet_name', GUEST_DUPLICATE_PET_NAME_ERROR)
 
         if source == Appointment.Source.WALKIN and (cleaned_data.get('owner_name') or '').strip():
-            owner_match = check_existing_owner_identity(
-                cleaned_data.get('owner_name'),
-                cleaned_data.get('owner_phone'),
-                cleaned_data.get('owner_email'),
+            from accounts.models import User
+
+            registered_portal_owners = User.objects.filter(
+                Q(assigned_role__is_staff_role=False)
+                | Q(assigned_role__isnull=True),
+                is_staff=False,
+                is_superuser=False,
             )
-            selected_returning_guest = self.data.get('selected_guest_owner') in (
-                '1', 'true', 'on',
-            )
-            if owner_match['identity_match'] and not selected_returning_guest:
-                self.add_error('owner_name', GUEST_DUPLICATE_OWNER_ERROR)
-            if owner_match['email_match'] and not (
-                selected_returning_guest and owner_match['identity_match']
-            ):
+            email = (cleaned_data.get('owner_email') or '').strip()
+            if email and registered_portal_owners.filter(
+                email__iexact=email,
+            ).exists():
                 self.add_error(
                     'owner_email',
-                    'This email address is already associated with an owner record. '
-                    'Select the returning guest or enter a different email address.',
+                    'This email belongs to a registered portal account. '
+                    'Use the registered client source or enter a different email address.',
                 )
-        
+
         time_str = self.data.get('appointment_time')
         _resolve_flexible_appointment_time(cleaned_data, time_str)
         _check_double_booking(cleaned_data)

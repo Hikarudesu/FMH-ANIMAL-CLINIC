@@ -268,6 +268,148 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertContains(response, "result.addEventListener('mousedown'")
         self.assertContains(response, 'name="owner_email"')
 
+    def test_medical_record_edit_prefills_clinical_tracking_from_first_entry(self):
+        first_status = ClinicalStatus.get_default()
+        later_status = ClinicalStatus.objects.create(
+            name='Later follow-up action',
+            code='LATER_FOLLOW_UP_ACTION',
+        )
+        pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Clinical Tracking Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_email='clinical-tracking-owner@example.com',
+            name='Clinical Tracking Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+            color='Brown',
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-18',
+            weight=20,
+            temperature=39,
+            history_clinical_signs='Latest visit signs',
+            treatment='Latest visit treatment',
+            rx='Latest visit prescription',
+        )
+        first_entry = RecordEntry.objects.create(
+            record=record,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+            weight=15,
+            temperature=38,
+            history_clinical_signs='First visit signs',
+            treatment='First visit treatment',
+            rx='First visit prescription',
+            action_required=first_status,
+        )
+        RecordEntry.objects.create(
+            record=record,
+            vet=self.vet,
+            date_recorded='2026-10-18',
+            weight=20,
+            temperature=39,
+            history_clinical_signs='Latest visit signs',
+            treatment='Latest visit treatment',
+            rx='Latest visit prescription',
+            action_required=later_status,
+        )
+
+        response = self.client.get(reverse('records:admin_edit', args=[record.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        self.assertEqual(
+            form['date_recorded'].value().isoformat(),
+            str(first_entry.date_recorded),
+        )
+        self.assertEqual(form['weight'].value(), first_entry.weight)
+        self.assertEqual(form['temperature'].value(), first_entry.temperature)
+        self.assertEqual(
+            form['history_clinical_signs'].value(),
+            first_entry.history_clinical_signs,
+        )
+        self.assertEqual(form['treatment'].value(), first_entry.treatment)
+        self.assertEqual(form['rx'].value(), first_entry.rx)
+        self.assertEqual(form['action_required'].value(), first_status.pk)
+
+    def test_medical_record_edit_updates_first_entry_not_later_entries(self):
+        first_status = ClinicalStatus.get_default()
+        later_status = ClinicalStatus.objects.create(
+            name='Later follow-up action',
+            code='LATER_FOLLOW_UP_ACTION',
+        )
+        pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Clinical Tracking Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_email='clinical-tracking-owner@example.com',
+            name='Clinical Tracking Patient',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+            color='Brown',
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-18',
+        )
+        first_entry = RecordEntry.objects.create(
+            record=record,
+            vet=self.vet,
+            date_recorded='2026-10-17',
+            history_clinical_signs='First visit signs',
+            treatment='First visit treatment',
+            rx='First visit prescription',
+            action_required=first_status,
+        )
+        later_entry = RecordEntry.objects.create(
+            record=record,
+            vet=self.vet,
+            date_recorded='2026-10-18',
+            history_clinical_signs='Later visit signs',
+            treatment='Later visit treatment',
+            rx='Later visit prescription',
+            action_required=later_status,
+        )
+
+        response = self.client.post(
+            reverse('records:admin_edit', args=[record.pk]),
+            {
+                'owner_name': pet.guest_owner_name,
+                'owner_contact': pet.guest_owner_phone,
+                'owner_address': '',
+                'owner_email': pet.guest_owner_email,
+                'pet_name': pet.name,
+                'pet_species': pet.species,
+                'pet_sex': pet.sex,
+                'pet_color': pet.color,
+                'branch': self.branch.pk,
+                'vet': self.vet.pk,
+                'date_recorded': '2026-10-19',
+                'weight': '16.5',
+                'temperature': '38.5',
+                'history_clinical_signs': 'Corrected first visit signs',
+                'treatment': 'Corrected first visit treatment',
+                'rx': 'Corrected first visit prescription',
+                'action_required': first_status.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        first_entry.refresh_from_db()
+        later_entry.refresh_from_db()
+        self.assertEqual(first_entry.date_recorded.isoformat(), '2026-10-19')
+        self.assertEqual(first_entry.history_clinical_signs, 'Corrected first visit signs')
+        self.assertEqual(first_entry.action_required_id, first_status.pk)
+        self.assertEqual(later_entry.date_recorded.isoformat(), '2026-10-18')
+        self.assertEqual(later_entry.history_clinical_signs, 'Later visit signs')
+        self.assertEqual(later_entry.action_required_id, later_status.pk)
+
     def test_create_rejects_duplicate_portal_pet_without_updating_owner_or_pet(self):
         owner = get_user_model().objects.create_user(
             username='duplicate-record-owner',

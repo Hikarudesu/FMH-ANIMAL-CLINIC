@@ -535,7 +535,7 @@
             {% if form.email.errors %}<small class="field-error">{{ form.email.errors.as_text }}</small>{% endif %}
             <small class="profile-duplicate-note is-blocking" data-duplicate-note="email" role="status" hidden>
               <i class='bx bx-error-circle' aria-hidden="true"></i>
-              <span>This email address is already in use. Enter a different email address to save your profile.</span>
+              <span data-email-conflict-message>This email address is already in use. Enter a different email address to save your profile.</span>
             </small>
             <small class="profile-duplicate-check-error" data-duplicate-check-error role="status" hidden>
               Unable to check for existing details right now. Your profile will still be validated when you save.

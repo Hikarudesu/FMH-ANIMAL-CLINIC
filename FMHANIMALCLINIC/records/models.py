@@ -111,6 +111,11 @@ class MedicalRecord(SoftDeleteModel):
         """Return the most recent RecordEntry for this record."""
         return self.entries.order_by('-date_recorded', '-created_at').first()
 
+    @property
+    def first_entry(self):
+        """Return the first chronological RecordEntry for this record."""
+        return self.entries.order_by('date_recorded', 'created_at').first()
+
 
 class RecordEntry(SoftDeleteModel):
     """

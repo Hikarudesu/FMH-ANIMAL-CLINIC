@@ -253,6 +253,8 @@ class AdminPetForm(forms.ModelForm):
                 # Portal patients: disable guest fields and hide transfer fields
                 for f in ['guest_owner_name', 'guest_owner_phone', 'guest_owner_email', 'guest_owner_address']:
                     self.fields[f].disabled = True
+                self.fields['owner'].required = True
+                self.fields['owner'].widget = forms.HiddenInput(attrs={'id': 'id_owner'})
                 self.fields['link_to_account'].widget = forms.HiddenInput()
                 self.fields['create_new_account'].widget = forms.HiddenInput()
             elif self.instance.source == Pet.Source.WALKIN:
@@ -304,6 +306,8 @@ class AdminPetForm(forms.ModelForm):
                 cleaned['guest_owner_phone'] = ''
                 cleaned['guest_owner_email'] = ''
                 cleaned['guest_owner_address'] = ''
+            elif not owner:
+                self.add_error('owner', 'Choose a registered portal owner for this patient.')
         elif source == Pet.Source.WALKIN:
             phone = cleaned.get('guest_owner_phone', '').strip()
             if not phone:
@@ -317,6 +321,26 @@ class AdminPetForm(forms.ModelForm):
             email = cleaned.get('guest_owner_email', '').strip()
             if not email:
                 self.add_error('guest_owner_email', 'Email address is required for walk-in patients.')
+            else:
+                from django.contrib.auth import get_user_model
+
+                linked_owner = cleaned.get('link_to_account')
+                registered_owners = get_user_model().objects.filter(
+                    Q(assigned_role__is_staff_role=False)
+                    | Q(assigned_role__isnull=True),
+                    is_staff=False,
+                    is_superuser=False,
+                )
+                if linked_owner:
+                    registered_owners = registered_owners.exclude(
+                        pk=linked_owner.pk,
+                    )
+                if registered_owners.filter(email__iexact=email).exists():
+                    self.add_error(
+                        'guest_owner_email',
+                        'This email address is already linked to a portal account (registered user). '
+                        'Use the portal-owner transfer option or enter a different email address.',
+                    )
 
             pet_name = (cleaned.get('name') or '').strip()
             identity_changed = not (self.instance and self.instance.pk) or (
@@ -350,16 +374,6 @@ class AdminPetForm(forms.ModelForm):
                         'name',
                         'A patient with this name is already recorded for the same owner details. '
                         'Review the existing patient profile instead of adding a duplicate.',
-                    )
-
-            if cleaned.get('create_new_account') and email:
-                from django.contrib.auth import get_user_model
-
-                if get_user_model().objects.filter(email__iexact=email).exists():
-                    self.add_error(
-                        'guest_owner_email',
-                        'This email address is already linked to a portal account. '
-                        'Select the registered owner to link this patient instead.',
                     )
 
             # Only validate and clear if this is a new record (not editing)

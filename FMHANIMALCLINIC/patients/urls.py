@@ -17,6 +17,11 @@ urlpatterns = [
         views.api_transfer_owner_search,
         name='api_transfer_owner_search',
     ),
+    path(
+        'admin/api/check-walkin-owner-identity/',
+        views.api_check_walkin_owner_identity,
+        name='api_check_walkin_owner_identity',
+    ),
     path('admin/<int:pk>/', views.admin_detail_view, name='admin_detail'),
     path('admin/<int:pk>/edit/', views.admin_edit_pet_view, name='admin_edit_pet'),
     path('admin/<int:pk>/delete/', views.admin_delete_pet_view, name='admin_delete_pet'),
