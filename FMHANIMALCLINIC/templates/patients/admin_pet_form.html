@@ -682,7 +682,8 @@
 
     <!-- Form Body -->
     <form method="POST" class="apf-form-body" autocomplete="off" enctype="multipart/form-data" id="apfForm"
-          {% if pet and pet.source == 'WALKIN' %}data-owner-identity-url="{% url 'patients:api_check_walkin_owner_identity' %}" data-current-pet-id="{{ pet.pk }}"{% endif %}>
+          data-owner-identity-url="{% url 'patients:api_check_walkin_owner_identity' %}"
+          {% if pet and pet.source == 'WALKIN' %}data-current-pet-id="{{ pet.pk }}"{% endif %}>
       {% csrf_token %}
 
       {% if form.non_field_errors %}
@@ -800,9 +801,7 @@
           <div class="apf-field {% if form.guest_owner_name.errors %}has-error{% endif %}">
             <label for="{{ form.guest_owner_name.id_for_label }}">Owner Name <span class="req">*</span></label>
             {{ form.guest_owner_name }}
-            {% if pet and pet.source == 'WALKIN' %}
             <div class="apf-identity-note" id="guestOwnerNameMatchNote" role="status" aria-live="polite" hidden></div>
-            {% endif %}
             {% if form.guest_owner_name.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_name.errors.0 }}</span>{% endif %}
           </div>
           <div class="apf-field {% if form.guest_owner_phone.errors %}has-error{% endif %}">
@@ -813,9 +812,7 @@
           <div class="apf-field {% if form.guest_owner_email.errors %}has-error{% endif %}">
             <label for="{{ form.guest_owner_email.id_for_label }}">Email Address <span class="req">*</span></label>
             {{ form.guest_owner_email }}
-            {% if pet and pet.source == 'WALKIN' %}
             <div class="apf-identity-note" id="guestOwnerEmailMatchNote" role="status" aria-live="polite" hidden></div>
-            {% endif %}
             {% if form.guest_owner_email.errors %}<span class="apf-field-error"><i class='bx bx-error-circle'></i> {{ form.guest_owner_email.errors.0 }}</span>{% endif %}
           </div>
           <div class="apf-field {% if form.guest_owner_address.errors %}has-error{% endif %}">
@@ -1052,6 +1049,7 @@
     document.getElementById('panel-walkin').classList.toggle('visible', val === 'WALKIN');
     document.getElementById('{{ form.guest_owner_phone.id_for_label }}').required = val === 'WALKIN';
     document.getElementById('{{ form.guest_owner_email.id_for_label }}').required = val === 'WALKIN';
+    if (selectEl) selectEl.dispatchEvent(new Event('change'));
   }
 
   // Initialise on page load — respects existing value (fresh form or re-display after error)
@@ -1123,12 +1121,12 @@
       const nameMessages = [];
       if (result.registered_name_match) {
         nameMessages.push(
-          'A registered portal owner has this name but different contact details. Verify the owner’s identity before updating.'
+          'A registered portal owner has this name but different contact details. Verify the owner’s identity before registering this guest.'
         );
       }
       if (result.guest_name_match) {
         nameMessages.push(
-          'A walk-in record has this name but different contact details. Confirm the owner’s identity before updating.'
+          'A guest record has this name but different phone, email, or address details. Verify these details to confirm this is a different owner.'
         );
       }
       showNote(nameNote, nameMessages);
@@ -1136,7 +1134,7 @@
       const emailMessages = [];
       if (result.registered_email_match) {
         emailMessages.push(
-          'This email belongs to a registered portal account. Walk-in details cannot use it; enter another email or use the portal-owner transfer option.'
+          'This email is already registered to a portal account and cannot be used for a walk-in pet. Enter another email or choose the registered portal owner.'
         );
         emailInput.setAttribute('aria-invalid', 'true');
       } else {
@@ -1144,7 +1142,7 @@
       }
       if (result.guest_email_match) {
         emailMessages.push(
-          'A walk-in record has this email but different owner details. Verify that this email belongs to the guest before updating.'
+          'A guest record uses this email with different owner details. Verify the phone number and other contact details; you can continue if this is the correct guest.'
         );
       }
       showNote(emailNote, emailMessages, Boolean(result.registered_email_match));
@@ -1153,6 +1151,10 @@
 
     async function checkIdentity() {
       const sequence = ++requestSequence;
+      if (!selectEl || selectEl.value !== 'WALKIN') {
+        clearNotes();
+        return true;
+      }
       const name = nameInput.value.trim();
       const phone = phoneInput ? phoneInput.value.trim() : '';
       const email = emailInput.value.trim();
@@ -1213,6 +1215,7 @@
     if (phoneInput) phoneInput.addEventListener('input', scheduleCheck);
     emailInput.addEventListener('input', scheduleCheck);
     if (addressInput) addressInput.addEventListener('input', scheduleCheck);
+    if (selectEl) selectEl.addEventListener('change', scheduleCheck);
     scheduleCheck();
 
     form.addEventListener('submit', async event => {

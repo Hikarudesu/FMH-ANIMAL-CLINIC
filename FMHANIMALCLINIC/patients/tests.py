@@ -147,6 +147,23 @@ class AdminPetWalkInContactTests(TestCase):
         self.assertIn('guest_owner_email', form.errors)
         self.assertIn('registered user', form.errors['guest_owner_email'][0])
 
+    def test_walkin_registration_rejects_email_used_by_registered_portal_account(self):
+        get_user_model().objects.create_user(
+            username='registered-walkin-registration-conflict',
+            first_name='Portal',
+            last_name='Owner',
+            email='portal-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        form_data = self.form_data.copy()
+        form_data['guest_owner_email'] = 'PORTAL-OWNER@example.com'
+
+        form = AdminPetForm(data=form_data)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('guest_owner_email', form.errors)
+        self.assertIn('registered user', form.errors['guest_owner_email'][0])
+
     def test_inactive_pet_requires_reason(self):
         form_data = self.form_data.copy()
         form_data['is_active'] = ''
@@ -321,6 +338,61 @@ class WalkInOwnerIdentityApiTests(TestCase):
         self.assertContains(response, 'data-owner-identity-url=')
         self.assertContains(response, 'guestOwnerNameMatchNote')
         self.assertContains(response, 'guestOwnerEmailMatchNote')
+
+    def test_walkin_pet_registration_renders_live_identity_notes(self):
+        response = self.client.get(reverse('patients:admin_add_pet'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-owner-identity-url=')
+        self.assertContains(response, 'guestOwnerNameMatchNote')
+        self.assertContains(response, 'guestOwnerEmailMatchNote')
+        self.assertContains(response, 'different phone, email, or address details')
+
+    def test_live_check_suppresses_guest_notes_for_same_owner_details_on_registration(self):
+        response = self.client.get(
+            reverse('patients:api_check_walkin_owner_identity'),
+            {
+                'name': 'Returning Guest',
+                'phone': '09987654321',
+                'email': 'RETURNING-GUEST@example.com',
+                'address': 'Returning Guest Address',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['guest_name_match'])
+        self.assertFalse(response.json()['guest_email_match'])
+
+    def test_create_permission_can_use_owner_identity_check(self):
+        module, _ = Module.objects.get_or_create(
+            code='patients',
+            defaults={'name': 'Patients'},
+        )
+        role = Role.objects.create(
+            name='Patient Registration Identity Check',
+            code='patient-registration-identity-check',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.CREATE,
+        )
+        creator = get_user_model().objects.create_user(
+            username='patient-registration-identity-check',
+            email='patient-registration-identity-check@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+        )
+        self.client.force_login(creator)
+
+        response = self.client.get(
+            reverse('patients:api_check_walkin_owner_identity'),
+            {'name': 'Returning Guest'},
+        )
+
+        self.assertEqual(response.status_code, 200)
 
 
 @override_settings(STORAGES={

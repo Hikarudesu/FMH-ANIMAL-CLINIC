@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse
 from django.views.decorators.http import require_GET
 
@@ -560,10 +560,17 @@ def api_transfer_owner_search(request):
 
 
 @login_required
-@module_permission_required('patients', 'EDIT')
 @require_GET
 def api_check_walkin_owner_identity(request):
     """Flag owner names/emails that match records with conflicting details."""
+    if not (
+        request.user.has_module_permission('patients', 'CREATE')
+        or request.user.has_module_permission('patients', 'EDIT')
+    ):
+        return HttpResponseForbidden(
+            'You do not have permission to check walk-in owner details.'
+        )
+
     from django.contrib.auth import get_user_model
     from appointments.models import Appointment
 
