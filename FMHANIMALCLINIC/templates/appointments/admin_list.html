@@ -2248,11 +2248,12 @@ function renderWalkinDropdown(guests, q) {
     const item = document.createElement('div');
     item.className = 'qc-walkin-item';
     const petsText = g.pets && g.pets.length ? g.pets.slice(0, 3).join(', ') : 'No pets recorded';
+    const contactText = [g.phone, g.email].filter(Boolean).join(' | ');
     item.innerHTML = `
       <div class="qc-walkin-item-icon"><i class='bx bx-user'></i></div>
       <div class="qc-walkin-item-info">
         <div class="qc-walkin-item-name">${escHtml(g.name)}</div>
-        <div class="qc-walkin-item-sub">${escHtml(g.phone || '')}${g.phone && petsText ? ' &bull; ' : ''}${escHtml(petsText)}</div>
+        <div class="qc-walkin-item-sub">${escHtml(contactText || 'No contact details')}${petsText ? ' &bull; ' + escHtml(petsText) : ''}</div>
       </div>
       <span class="qc-walkin-item-badge"><i class='bx bx-check'></i> Returning</span>
     `;
@@ -2286,24 +2287,34 @@ function selectWalkinGuest(g) {
   // Uncheck manual toggle since we selected a returning guest
   if (walkinManualToggle) walkinManualToggle.checked = false;
   if (selectedGuestOwnerField) selectedGuestOwnerField.value = '1';
+  if (selectedPetIdField) selectedPetIdField.value = '';
+  clearPetFields();
   checkDuplicateGuestOwner();
 
   // Load pets for this guest
-  loadWalkinGuestPets(g.name, g.phone);
+  loadWalkinGuestPets(g);
 }
 
-function loadWalkinGuestPets(name, phone) {
+let walkinPetsRequest = 0;
+function loadWalkinGuestPets(guest) {
   if (!walkinPetSelect) return;
+  const requestId = ++walkinPetsRequest;
   walkinPetGroup.style.display = '';
   walkinPetSelect.innerHTML = '<option value="">Loading pets...</option>';
 
-  let url = API_WALKIN_PET_URL + '?';
-  if (name)  url += 'name='  + encodeURIComponent(name);
-  if (phone) url += (name ? '&' : '') + 'phone=' + encodeURIComponent(phone);
-
-  fetch(url)
-    .then(r => r.json())
+  const params = new URLSearchParams({
+    name: guest.name || '',
+    phone: guest.phone || '',
+    email: guest.email || '',
+    address: guest.address || '',
+  });
+  fetch(API_WALKIN_PET_URL + '?' + params.toString(), {cache: 'no-store'})
+    .then(response => {
+      if (!response.ok) throw new Error('Unable to load pets for this guest.');
+      return response.json();
+    })
     .then(data => {
+      if (requestId !== walkinPetsRequest) return;
       walkinPetSelect.innerHTML = '<option value="">— Select Pet —</option>';
       if (data.pets && data.pets.length) {
         data.pets.forEach(p => {
@@ -2324,9 +2335,11 @@ function loadWalkinGuestPets(name, phone) {
       }
       updateDuplicatePetNameNote();
     })
-    .catch(() => {
+    .catch(error => {
+      if (requestId !== walkinPetsRequest) return;
       walkinPetSelect.innerHTML = '<option value="">— Error loading pets —</option>';
       updateDuplicatePetNameNote();
+      console.error('Unable to load returning guest pets:', error);
     });
 }
 

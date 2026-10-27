@@ -2296,19 +2296,26 @@ def api_walkin_guests(request):
         'owner_name', 'owner_phone', 'owner_email', 'owner_address', 'pet_name'
     ).distinct().order_by('owner_name')[:40]
 
-    # Deduplicate by name+phone combination and aggregate pet names
+    # Keep records with the same name separate when their contact details differ.
     seen = {}
     for g in guests_qs:
         owner_name_safe = (g['owner_name'] or '').strip()
         owner_phone_safe = (g['owner_phone'] or '').strip()
+        owner_email_safe = (g['owner_email'] or '').strip()
+        owner_address_safe = (g['owner_address'] or '').strip()
 
-        key = (owner_name_safe.lower(), owner_phone_safe.lower())
+        key = tuple(value.casefold() for value in (
+            owner_name_safe,
+            owner_phone_safe,
+            owner_email_safe,
+            owner_address_safe,
+        ))
         if key not in seen:
             seen[key] = {
                 'name': owner_name_safe or 'Unknown',
                 'phone': owner_phone_safe,
-                'email': (g['owner_email'] or '').strip(),
-                'address': (g['owner_address'] or '').strip(),
+                'email': owner_email_safe,
+                'address': owner_address_safe,
                 'pets': []
             }
 
@@ -2331,14 +2338,21 @@ def api_walkin_guests(request):
     for p in walkin_pets_qs:
         owner_name_safe = (p['guest_owner_name'] or '').strip()
         owner_phone_safe = (p['guest_owner_phone'] or '').strip()
+        owner_email_safe = (p['guest_owner_email'] or '').strip()
+        owner_address_safe = (p['guest_owner_address'] or '').strip()
 
-        key = (owner_name_safe.lower(), owner_phone_safe.lower())
+        key = tuple(value.casefold() for value in (
+            owner_name_safe,
+            owner_phone_safe,
+            owner_email_safe,
+            owner_address_safe,
+        ))
         if key not in seen:
             seen[key] = {
                 'name': owner_name_safe or 'Unknown',
                 'phone': owner_phone_safe,
-                'email': (p['guest_owner_email'] or '').strip(),
-                'address': (p['guest_owner_address'] or '').strip(),
+                'email': owner_email_safe,
+                'address': owner_address_safe,
                 'pets': []
             }
 
@@ -2353,15 +2367,17 @@ def api_walkin_guests(request):
 @login_required
 @module_permission_required('appointments', 'VIEW')
 def api_walkin_guest_pets(request):
-    """API: return pets for a walk-in guest owner, searched by name and/or phone.
+    """Return pets belonging to the selected walk-in owner's contact identity.
 
     Combines results from:
-    1. Pet model — guest_owner_name / guest_owner_phone fields (registered walk-in patients)
-    2. Appointment model — owner_name / owner_phone fields (walk-in appointment history)
+    1. Pet model — guest owner contact fields on walk-in patients
+    2. Appointment model — owner contact fields on walk-in appointment history
     """
     from patients.models import Pet as PetModel
     name = request.GET.get('name', '').strip()
     phone = request.GET.get('phone', '').strip()
+    email = request.GET.get('email', '').strip()
+    address = request.GET.get('address', '').strip()
 
     if not name and not phone:
         return JsonResponse({'pets': []})
@@ -2370,13 +2386,17 @@ def api_walkin_guest_pets(request):
     seen = set()  # (name_lower, species_lower) dedup key
 
     # ── Source 1: Pet model (registered walk-in patients) ──
-    pet_filter = Q()
+    pet_filter = Q(source=PetModel.Source.WALKIN)
     if name:
-        pet_filter |= Q(guest_owner_name__iexact=name)
+        pet_filter &= Q(guest_owner_name__iexact=name)
     if phone:
-        pet_filter |= Q(guest_owner_phone=phone)
+        pet_filter &= Q(guest_owner_phone=phone)
+    if email:
+        pet_filter &= Q(guest_owner_email__iexact=email)
+    if address:
+        pet_filter &= Q(guest_owner_address__iexact=address)
 
-    for pet in PetModel.objects.filter(pet_filter, source=PetModel.Source.WALKIN).order_by('name'):
+    for pet in PetModel.objects.filter(pet_filter).order_by('name'):
         key = (pet.name.lower(), (pet.species or '').lower())
         if key not in seen:
             seen.add(key)
@@ -2396,7 +2416,11 @@ def api_walkin_guest_pets(request):
     if name:
         appt_filter &= Q(owner_name__iexact=name)
     if phone:
-        appt_filter |= Q(source=Appointment.Source.WALKIN, owner_phone=phone)
+        appt_filter &= Q(owner_phone=phone)
+    if email:
+        appt_filter &= Q(owner_email__iexact=email)
+    if address:
+        appt_filter &= Q(owner_address__iexact=address)
 
     appt_pets = Appointment.objects.filter(appt_filter).exclude(
         pet_name=''

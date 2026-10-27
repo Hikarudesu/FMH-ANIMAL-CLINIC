@@ -865,6 +865,32 @@ class AdminQuickCreatePetNameValidationTests(TestCase):
         self.assertNotIn('pet_name', form.errors)
         self.assertNotIn('owner_name', form.errors)
 
+    def test_guest_cannot_select_pet_from_same_name_but_different_contact_identity(self):
+        another_guest_pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Returning Guest',
+            guest_owner_phone='09987654321',
+            guest_owner_email='different-returning-guest@example.com',
+            guest_owner_address='Different address',
+            name='Luna',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        form = AdminQuickCreateForm(data={
+            'source': Appointment.Source.WALKIN,
+            'selected_guest_owner': '1',
+            'owner_name': 'Returning Guest',
+            'owner_phone': self.guest_pet.guest_owner_phone,
+            'owner_email': self.guest_pet.guest_owner_email,
+            'owner_address': self.guest_pet.guest_owner_address,
+            'selected_pet_id': str(another_guest_pet.pk),
+            'pet_name': another_guest_pet.name,
+        })
+
+        form.is_valid()
+
+        self.assertIn('selected_pet_id', form.errors)
+
 
 class FlexibleAppointmentTimeTests(TestCase):
     def test_morning_booking_uses_first_available_time_not_fixed_eight_am(self):
@@ -1277,6 +1303,139 @@ class AdminQuickCreateOwnerApiTests(TestCase):
         self.assertFalse(guest_response.json()['identity_match'])
         self.assertFalse(guest_response.json()['registered_name_match'])
         self.assertFalse(guest_response.json()['registered_email_match'])
+
+    def test_walkin_guest_search_keeps_same_name_with_different_contacts_separate(self):
+        admin = User.objects.create_superuser(
+            username='walkin-guest-search-admin',
+            email='walkin-guest-search-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        first_pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Same Name Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='first-same-name@example.com',
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Same Name Guest',
+            guest_owner_phone='09987654321',
+            guest_owner_email='second-same-name@example.com',
+            guest_owner_address='Second address',
+            name='Luna',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        Appointment.objects.create(
+            source=Appointment.Source.WALKIN,
+            owner_name=first_pet.guest_owner_name,
+            owner_phone=first_pet.guest_owner_phone,
+            owner_email=first_pet.guest_owner_email,
+            owner_address=first_pet.guest_owner_address,
+            pet_name='Max',
+            pet_species='Dog',
+            appointment_date=timezone.localdate() + timedelta(days=1),
+            appointment_time=time(10),
+        )
+        Appointment.objects.create(
+            source=Appointment.Source.WALKIN,
+            owner_name=first_pet.guest_owner_name,
+            owner_phone='09987654321',
+            owner_email='second-same-name@example.com',
+            owner_address='Second address',
+            pet_name='Bella',
+            pet_species='Cat',
+            appointment_date=timezone.localdate() + timedelta(days=2),
+            appointment_time=time(10),
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(
+            reverse('appointments:api_walkin_guests'),
+            {'q': 'Same Name Guest'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        guests = response.json()['guests']
+        self.assertEqual(len(guests), 2)
+        self.assertEqual(
+            {guest['email'] for guest in guests},
+            {'first-same-name@example.com', 'second-same-name@example.com'},
+        )
+        self.assertEqual(
+            {frozenset(guest['pets']) for guest in guests},
+            {frozenset(('Milo', 'Max')), frozenset(('Luna', 'Bella'))},
+        )
+
+    def test_walkin_guest_pet_search_requires_matching_owner_details(self):
+        admin = User.objects.create_superuser(
+            username='walkin-guest-pet-search-admin',
+            email='walkin-guest-pet-search-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        first_pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Same Name Guest',
+            guest_owner_phone='09123456789',
+            guest_owner_email='first-same-name@example.com',
+            guest_owner_address='First address',
+            name='Milo',
+            species='Dog',
+            sex=Pet.Sex.MALE,
+        )
+        Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Same Name Guest',
+            guest_owner_phone='09987654321',
+            guest_owner_email='second-same-name@example.com',
+            guest_owner_address='Second address',
+            name='Luna',
+            species='Cat',
+            sex=Pet.Sex.FEMALE,
+        )
+        Appointment.objects.create(
+            source=Appointment.Source.WALKIN,
+            owner_name=first_pet.guest_owner_name,
+            owner_phone=first_pet.guest_owner_phone,
+            owner_email=first_pet.guest_owner_email,
+            owner_address=first_pet.guest_owner_address,
+            pet_name='Max',
+            pet_species='Dog',
+            appointment_date=timezone.localdate() + timedelta(days=1),
+            appointment_time=time(10),
+        )
+        Appointment.objects.create(
+            source=Appointment.Source.WALKIN,
+            owner_name=first_pet.guest_owner_name,
+            owner_phone='09987654321',
+            owner_email='second-same-name@example.com',
+            owner_address='Second address',
+            pet_name='Bella',
+            pet_species='Cat',
+            appointment_date=timezone.localdate() + timedelta(days=2),
+            appointment_time=time(10),
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(
+            reverse('appointments:api_walkin_guest_pets'),
+            {
+                'name': first_pet.guest_owner_name,
+                'phone': first_pet.guest_owner_phone,
+                'email': first_pet.guest_owner_email,
+                'address': first_pet.guest_owner_address,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        pets = response.json()['pets']
+        self.assertEqual(
+            {(pet['id'], pet['name']) for pet in pets},
+            {(first_pet.pk, 'Milo'), (None, 'Max')},
+        )
 
 
 class AppointmentEditVeterinarianOptionalTests(TestCase):

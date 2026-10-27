@@ -981,6 +981,35 @@ class AdminQuickCreateForm(FormControlMixin, forms.ModelForm):
                 if existing_pets.exists():
                     self.add_error('pet_name', PORTAL_DUPLICATE_PET_NAME_ERROR)
         elif pet_name and source == Appointment.Source.WALKIN:
+            if selected_pet_id:
+                from patients.models import Pet
+
+                selected_guest_pet = Pet.objects.filter(
+                    pk=selected_pet_id,
+                    source=Pet.Source.WALKIN,
+                    guest_owner_name__iexact=(cleaned_data.get('owner_name') or '').strip(),
+                )
+                owner_phone = (cleaned_data.get('owner_phone') or '').strip()
+                owner_email = (cleaned_data.get('owner_email') or '').strip()
+                owner_address = (cleaned_data.get('owner_address') or '').strip()
+                if owner_phone:
+                    selected_guest_pet = selected_guest_pet.filter(
+                        guest_owner_phone=owner_phone,
+                    )
+                if owner_email:
+                    selected_guest_pet = selected_guest_pet.filter(
+                        guest_owner_email__iexact=owner_email,
+                    )
+                if owner_address:
+                    selected_guest_pet = selected_guest_pet.filter(
+                        guest_owner_address__iexact=owner_address,
+                    )
+                if not selected_guest_pet.exists():
+                    self.add_error(
+                        'selected_pet_id',
+                        'The selected pet does not belong to the selected guest. '
+                        'Choose a pet from the matching owner details.',
+                    )
             if _guest_pet_name_exists(
                 pet_name,
                 (cleaned_data.get('owner_name') or '').strip(),
