@@ -943,8 +943,8 @@ document.addEventListener('DOMContentLoaded', function() {
             icon.setAttribute('aria-hidden', 'true');
             const text = document.createElement('span');
             text.textContent = duplicateOwnerIdentity
-                ? 'An owner with this name and contact number is already registered. Select the returning owner instead of registering a new guest.'
-                : 'An owner with this name may already exist. Confirm this is a different person before continuing; matching contact details will prevent duplicate registration.';
+                ? 'An owner with this name and matching contact details is already registered. Select the returning owner instead of registering a new guest.'
+                : 'A guest owner with this name has different phone or email details. Verify these details to confirm this is a different person.';
             duplicateOwnerNameNote.replaceChildren(icon, text);
         } else {
             duplicateOwnerNameNote.replaceChildren();
@@ -966,12 +966,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const name = ownerNameWalkin.value.trim();
         const phone = ownerContactInput.value.trim();
+        const email = ownerEmailInput.value.trim();
         if (name.length < 2) {
             updateDuplicateOwnerNameNote(null);
             return;
         }
         ownerIdentityCheckTimer = setTimeout(function() {
-            const params = new URLSearchParams({name: name, phone: phone});
+            const params = new URLSearchParams({name: name, phone: phone, email: email});
             fetch(ownerIdentityCheckUrl + '?' + params.toString(), {cache: 'no-store'})
                 .then(function(response) {
                     if (!response.ok) throw new Error('Owner identity check failed.');
@@ -981,8 +982,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (
                         name === ownerNameWalkin.value.trim()
                         && phone === ownerContactInput.value.trim()
+                        && email === ownerEmailInput.value.trim()
                     ) {
-                        updateDuplicateOwnerNameNote(result);
+                        updateDuplicateOwnerNameNote(result.same_guest ? null : result);
                     }
                 })
                 .catch(function(error) {
@@ -1167,6 +1169,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateDuplicatePetNameNote();
         checkDuplicateGuestOwner();
     });
+    ownerEmailInput.addEventListener('input', checkDuplicateGuestOwner);
     ownerNameWalkin.addEventListener('input', function() {
         updateDuplicatePetNameNote();
         checkDuplicateGuestOwner();

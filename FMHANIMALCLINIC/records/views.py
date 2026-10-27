@@ -1466,11 +1466,42 @@ def api_search_owners(request):
 @module_permission_required('medical_records', 'CREATE')
 def api_check_owner_identity(request):
     """Check owner identity while registering a new guest without exposing details."""
-    return JsonResponse(check_existing_owner_identity(
-        request.GET.get('name', ''),
-        request.GET.get('phone', ''),
-        request.GET.get('email', ''),
-    ))
+    owner_name = request.GET.get('name', '').strip()
+    phone = request.GET.get('phone', '').strip()
+    email = request.GET.get('email', '').strip()
+    result = check_existing_owner_identity(owner_name, phone, email)
+    result['same_guest'] = False
+
+    if owner_name:
+        from appointments.models import Appointment
+
+        guest_contacts = list(
+            Pet.objects.filter(
+                source=Pet.Source.WALKIN,
+                guest_owner_name__iexact=owner_name,
+            ).values_list('guest_owner_phone', 'guest_owner_email')
+        )
+        guest_contacts.extend(
+            Appointment.objects.filter(
+                source=Appointment.Source.WALKIN,
+                owner_name__iexact=owner_name,
+            ).values_list('owner_phone', 'owner_email')
+        )
+        def normalize_phone(value):
+            return ''.join(
+                character for character in (value or '') if character.isdigit()
+            )
+
+        normalized_phone = normalize_phone(phone)
+        normalized_email = email.casefold()
+        result['same_guest'] = any(
+            normalized_phone
+            and normalize_phone(existing_phone) == normalized_phone
+            and (existing_email or '').strip().casefold() == normalized_email
+            for existing_phone, existing_email in guest_contacts
+        )
+
+    return JsonResponse(result)
 
 
 @login_required

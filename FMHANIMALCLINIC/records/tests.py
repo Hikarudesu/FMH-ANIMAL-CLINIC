@@ -264,7 +264,8 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertContains(response, 'petData.branch_id && !serviceBranchId')
         self.assertContains(response, 'name="selected_pet_id"')
         self.assertContains(response, 'This pet is already registered for this owner.')
-        self.assertContains(response, 'An owner with this name may already exist.')
+        self.assertContains(response, 'A guest owner with this name has different phone or email details.')
+        self.assertContains(response, 'result.same_guest ? null : result')
         self.assertContains(response, 'name="selected_guest_owner"')
         self.assertContains(response, "result.addEventListener('mousedown'")
         self.assertContains(response, 'name="owner_email"')
@@ -337,6 +338,44 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'The selected pet does not match this owner.')
         self.assertFalse(MedicalRecord.objects.filter(pet=pet).exists())
+
+    def test_owner_identity_check_marks_same_guest_when_name_phone_and_email_match(self):
+        Pet.objects.create(
+            name='Milo',
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Alex Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_email='alex.owner@example.com',
+        )
+
+        response = self.client.get(reverse('records:api_check_owner_identity'), {
+            'name': 'Alex Owner',
+            'phone': '09123456789',
+            'email': 'alex.owner@example.com',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['same_guest'])
+
+    def test_owner_identity_check_warns_for_same_name_with_different_phone_and_email(self):
+        Pet.objects.create(
+            name='Milo',
+            source=Pet.Source.WALKIN,
+            guest_owner_name='Alex Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_email='alex.owner@example.com',
+        )
+
+        response = self.client.get(reverse('records:api_check_owner_identity'), {
+            'name': 'Alex Owner',
+            'phone': '09987654321',
+            'email': 'different.owner@example.com',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['name_match'])
+        self.assertFalse(response.json()['identity_match'])
+        self.assertFalse(response.json()['same_guest'])
 
     def test_medical_record_edit_prefills_clinical_tracking_from_first_entry(self):
         first_status = ClinicalStatus.get_default()
