@@ -317,6 +317,12 @@
             {% if can_edit %}
             <a href="{% url 'patients:admin_edit_pet' pet.id %}" class="action-btn" title="Edit Patient"><i class='bx bx-edit-alt'></i></a>
             {% endif %}
+            {% if can_delete %}
+            <form method="post" action="{% url 'patients:admin_delete_pet' pet.id %}" onsubmit="return confirm('Move {{ pet.name|escapejs }} to the archive?')">
+              {% csrf_token %}
+              <button type="submit" class="action-btn" title="Archive Patient" aria-label="Archive {{ pet.name }}"><i class='bx bx-trash'></i></button>
+            </form>
+            {% endif %}
           </div>
         </td>
       </tr>

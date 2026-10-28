@@ -149,6 +149,7 @@ def admin_list_view(request):
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('patients', 'CREATE')
     can_edit = request.user.has_module_permission('patients', 'EDIT')
+    can_delete = request.user.has_module_permission('patients', 'DELETE')
 
     return render(request, 'patients/admin_list.html', {
         'pets': page_obj,
@@ -166,6 +167,7 @@ def admin_list_view(request):
         'selected_source': source_filter,
         'can_create': can_create,
         'can_edit': can_edit,
+        'can_delete': can_delete,
         'is_branch_restricted': is_branch_restricted,
         'branch_assignment_required': is_branch_restricted and not user_branch,
     })

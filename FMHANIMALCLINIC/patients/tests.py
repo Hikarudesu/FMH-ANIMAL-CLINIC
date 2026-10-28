@@ -1061,17 +1061,88 @@ class PetDeleteConfirmationModalTests(TestCase):
         self.assertEqual(record_response.status_code, 200)
         self.assertContains(record_response, f"{self.pet.name}'s Records")
 
-    def test_admin_pet_list_does_not_render_delete_controls(self):
-        admin = get_user_model().objects.create_superuser(
-            username='patient-list-admin',
-            email='patient-list-admin@example.com',
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
+class PatientDeletePermissionTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(
+            username='patient-delete-owner',
+            email='patient-delete-owner@example.com',
             password='A-secure-test-password-923!',
         )
-        self.client.force_login(admin)
+        self.pet = Pet.objects.create(
+            owner=self.owner,
+            name='Delete Permission Patient',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        self.module = Module.objects.get(code='patients')
 
-        response = self.client.get(reverse('patients:admin_list'))
+    def create_staff_user(self, username, permissions):
+        role = Role.objects.create(
+            name=f'{username} role',
+            code=f'{username}-role',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        for permission in permissions:
+            ModulePermission.objects.create(
+                role=role,
+                module=self.module,
+                permission_type=permission,
+            )
+        return get_user_model().objects.create_user(
+            username=username,
+            email=f'{username}@example.com',
+            password='A-secure-test-password-923!',
+            assigned_role=role,
+        )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'admin_delete_pet')
-        self.assertNotContains(response, 'deletePetModal')
-        self.assertNotContains(response, 'bx-trash')
+    def test_patient_delete_permission_shows_control_and_archives_pet(self):
+        staff_user = self.create_staff_user(
+            'patient-delete-allowed',
+            [ModulePermission.PermissionType.VIEW, ModulePermission.PermissionType.DELETE],
+        )
+        self.client.force_login(staff_user)
+
+        list_response = self.client.get(reverse('patients:admin_list'))
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertContains(list_response, 'title="Archive Patient"')
+        self.assertContains(
+            list_response,
+            reverse('patients:admin_delete_pet', args=[self.pet.pk]),
+        )
+
+        delete_response = self.client.post(
+            reverse('patients:admin_delete_pet', args=[self.pet.pk]),
+        )
+
+        self.assertRedirects(delete_response, reverse('patients:admin_list'))
+        self.pet.refresh_from_db()
+        self.assertTrue(self.pet.is_deleted)
+
+    def test_patient_without_delete_permission_cannot_delete_pet(self):
+        staff_user = self.create_staff_user(
+            'patient-delete-denied',
+            [ModulePermission.PermissionType.VIEW],
+        )
+        self.client.force_login(staff_user)
+
+        list_response = self.client.get(reverse('patients:admin_list'))
+        self.assertEqual(list_response.status_code, 200)
+        self.assertNotContains(list_response, 'title="Archive Patient"')
+
+        delete_response = self.client.post(
+            reverse('patients:admin_delete_pet', args=[self.pet.pk]),
+        )
+
+        self.assertEqual(delete_response.status_code, 302)
+        self.pet.refresh_from_db()
+        self.assertFalse(self.pet.is_deleted)
