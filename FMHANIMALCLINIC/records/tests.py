@@ -444,6 +444,32 @@ class AttendingVeterinarianDefaultTests(TestCase):
         self.assertEqual(form['treatment'].value(), first_entry.treatment)
         self.assertEqual(form['rx'].value(), first_entry.rx)
         self.assertEqual(form['action_required'].value(), first_status.pk)
+        self.assertContains(
+            response,
+            "Save these changes to",
+        )
+        self.assertContains(
+            response,
+            "medical record? The record and its first visit information will be updated.",
+        )
+
+        entry_edit_response = self.client.get(
+            reverse('records:admin_entry_edit', args=[first_entry.pk]),
+        )
+        self.assertEqual(entry_edit_response.status_code, 200)
+        self.assertContains(
+            entry_edit_response,
+            "updated clinical notes and visit details will be saved.",
+        )
+
+        detail_response = self.client.get(
+            reverse('records:admin_detail', args=[record.pk]),
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(
+            detail_response,
+            "updated clinical notes and visit details will be saved.",
+        )
 
     def test_medical_record_edit_updates_first_entry_not_later_entries(self):
         first_status = ClinicalStatus.get_default()

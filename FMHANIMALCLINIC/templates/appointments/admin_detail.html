@@ -335,13 +335,23 @@
           <div class="appointment-manage__action">
             <h3>Cancel appointment</h3>
             <p>Cancellation requires a reason and will be recorded with the appointment.</p>
-            <form class="appointment-manage__form" method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'cancel' %}">
+            <form class="appointment-manage__form" id="cancelAppointmentForm" method="post" action="{% url 'appointments:admin_workflow_action' appointment.pk 'cancel' %}">
               {% csrf_token %}
               <label for="cancellationReason">Cancellation reason</label>
               <textarea id="cancellationReason" name="cancellation_reason" minlength="5" maxlength="2000" required></textarea>
               <button class="appointment-manage__button appointment-manage__button--danger" type="submit"><i class='bx bx-x-circle'></i> Cancel appointment</button>
             </form>
           </div>
+          <script>
+            document.getElementById('cancelAppointmentForm').addEventListener('submit', function(event) {
+              const petName = '{{ appointment.pet_name|escapejs }}';
+              if (!window.confirm(
+                `Cancel the appointment for ${petName}? It will be marked as cancelled, and the reason you entered will be saved with the appointment.`
+              )) {
+                event.preventDefault();
+              }
+            });
+          </script>
           {% endif %}
 
           {% if appointment.status == 'CHECKED_IN' and not is_veterinarian %}
@@ -355,7 +365,7 @@
 
         {% if can_edit_details or can_delete %}
         <div class="appointment-manage__toolbar">
-          {% if can_edit_details %}<a class="appointment-manage__button appointment-manage__button--secondary" href="{% url 'appointments:admin_edit' appointment.pk %}"><i class='bx bx-edit'></i> Edit details</a>{% endif %}
+          {% if can_edit_details and appointment.status != 'CANCELLED' %}<a class="appointment-manage__button appointment-manage__button--secondary" href="{% url 'appointments:admin_edit' appointment.pk %}"><i class='bx bx-edit'></i> Edit details</a>{% endif %}
           {% if can_delete and appointment.status == 'CANCELLED' %}
           <button class="appointment-manage__button appointment-manage__button--danger" type="button" id="openAppointmentDeleteDialog" aria-haspopup="dialog" aria-controls="appointmentDeleteDialog"><i class='bx bx-trash'></i> Delete appointment</button>
           {% endif %}

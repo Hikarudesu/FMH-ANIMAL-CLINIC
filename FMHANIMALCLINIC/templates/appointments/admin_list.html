@@ -821,7 +821,7 @@
       <button class="qc-close" id="closeQuickCreate"><i class='bx bx-x'></i></button>
     </div>
     
-    <form method="POST" action="{% url 'appointments:admin_quick_create' %}">
+    <form method="POST" action="{% url 'appointments:admin_quick_create' %}" id="quickCreateForm">
       {% csrf_token %}
       {{ quick_form.selected_user_id }}
       {{ quick_form.selected_pet_id }}
@@ -2000,6 +2000,27 @@ if (quickCreateForm) {
       event.preventDefault();
       if (duplicateOwnerEmail || duplicatePortalEmail) ownerEmailField?.focus();
       else petNameField?.focus();
+      return;
+    }
+
+    const ownerName = (ownerNameField?.value || ownerSearchInput?.value || '').trim();
+    const petName = (petNameField?.value || '').trim();
+    const date = document.getElementById('id_appointment_date')?.value || '';
+    const timeSelect = document.getElementById('id_quick_appointment_time');
+    const time = timeSelect?.selectedOptions[0]?.textContent.trim() || '';
+    const message = [
+      'Confirm appointment booking',
+      '',
+      `Owner: ${ownerName || 'Selected client'}`,
+      `Pet: ${petName || 'Selected pet'}`,
+      `Date: ${date || 'Selected date'}`,
+      `Time: ${time || 'Selected time'}`,
+      '',
+      'Book this appointment with the details shown above?',
+    ].join('\n');
+
+    if (!window.confirm(message)) {
+      event.preventDefault();
     }
   });
 }

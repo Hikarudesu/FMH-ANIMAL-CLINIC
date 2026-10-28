@@ -2001,6 +2001,27 @@ class FollowUpAppointmentBookingTests(TestCase):
         self.assertContains(response, 'qc-duplicate-owner-note')
         self.assertContains(response, 'An owner with this name may already exist.')
         self.assertContains(response, 'api/check-owner-identity/')
+        self.assertContains(response, 'id="quickCreateForm"')
+        self.assertContains(response, 'Confirm appointment booking')
+        self.assertContains(response, 'Book this appointment with the details shown above?')
+
+    def test_quick_create_prompts_before_booking_appointment(self):
+        staff = User.objects.create_superuser(
+            username='quick-create-confirmation-admin',
+            email='quick-create-confirmation-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(staff)
+
+        response = self.client.get(reverse('appointments:admin_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="quickCreateForm"')
+        self.assertContains(response, 'Confirm appointment booking')
+        self.assertContains(
+            response,
+            'Book this appointment with the details shown above?',
+        )
 
     @patch('appointments.views.notify_staff_appointment_status_change')
     @patch('appointments.views.notify_appointment_status_change')
@@ -2950,7 +2971,7 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(list_response, 'Walk-In / Guest User')
         self.assertNotContains(list_response, 'class="admin-badge')
         self.assertNotContains(list_response, 'Cancellation reason')
-        self.assertNotContains(list_response, 'Confirm appointment')
+        self.assertNotContains(list_response, 'Confirm appointment</button>')
 
         detail_response = self.client.get(
             reverse('appointments:admin_detail', args=[self.appointment.pk])
@@ -2960,6 +2981,11 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(detail_response, self.appointment.pet_name)
         self.assertContains(detail_response, 'Confirm appointment')
         self.assertContains(detail_response, 'Cancellation reason')
+        self.assertContains(detail_response, 'id="cancelAppointmentForm"')
+        self.assertContains(
+            detail_response,
+            'It will be marked as cancelled, and the reason you entered will be saved with the appointment.',
+        )
         self.assertContains(detail_response, 'Edit details')
         self.assertNotContains(detail_response, 'Delete appointment')
         edit_response = self.client.get(
@@ -2992,6 +3018,21 @@ class AppointmentWorkflowActionTests(TestCase):
         self.assertContains(post_response, 'Completed appointments are read-only')
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.owner_name, 'Workflow Owner')
+
+    def test_cancelled_appointment_hides_edit_details_button(self):
+        self.appointment.status = Appointment.Status.CANCELLED
+        self.appointment.cancellation_reason = 'Owner requested cancellation.'
+        self.appointment.save(update_fields=[
+            'status', 'cancellation_reason', 'updated_at',
+        ])
+
+        response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Edit details')
+        self.assertNotContains(response, 'id="cancelAppointmentForm"')
 
     @patch('notifications.email_utils.send_appointment_deletion_email', return_value=True)
     def test_staff_can_delete_cancelled_appointment_after_customer_notification(

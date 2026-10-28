@@ -51,7 +51,7 @@
         }
     </style>
 
-    <form method="post">
+    <form method="post" id="visit-entry-edit-form">
         {% csrf_token %}
 
         <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
@@ -118,4 +118,15 @@
         </div>
     </form>
 </div>
+<script>
+    document.getElementById('visit-entry-edit-form').addEventListener('submit', function(event) {
+        const petName = '{{ record.pet.name|escapejs }}';
+        const visitDate = '{{ entry.date_recorded|date:"F j, Y"|escapejs }}';
+        if (!window.confirm(
+            `Save these changes to ${petName}'s visit entry from ${visitDate}? The updated clinical notes and visit details will be saved.`
+        )) {
+            event.preventDefault();
+        }
+    });
+</script>
 {% endblock %}

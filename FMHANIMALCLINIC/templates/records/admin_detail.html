@@ -1989,6 +1989,16 @@ document.getElementById('emBranch').addEventListener('change', function() {
     emFilterVets(this.value);
 });
 
+document.getElementById('entryEditForm').addEventListener('submit', function(event) {
+    const petName = '{{ record.pet.name|escapejs }}';
+    const visitDate = document.getElementById('emDateLabel').textContent.trim();
+    if (!window.confirm(
+        `Save these changes to ${petName}'s visit entry from ${visitDate}? The updated clinical notes and visit details will be saved.`
+    )) {
+        event.preventDefault();
+    }
+});
+
 function decodeDjangoEscapeJS(str) {
     if (!str) return '';
     return str.replace(/\\u([0-9a-fA-F]{4})/g, function(match, hex) {
