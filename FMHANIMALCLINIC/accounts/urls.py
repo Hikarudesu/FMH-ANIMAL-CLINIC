@@ -21,6 +21,7 @@ urlpatterns = [
     path('activity/<int:activity_id>/delete/', views.delete_activity_view, name='delete_activity'),
     path('activity/clear-all/', views.clear_all_activities_view, name='clear_all_activities'),
     path('admin-dashboard/', views.admin_dashboard_view, name='admin_dashboard'),
+    path('staff-dashboard/', views.staff_dashboard_view, name='staff_dashboard'),
     path('vet-dashboard/', views.vet_dashboard_view, name='vet_dashboard'),
     path(
         'assistant-vet-dashboard/',
@@ -80,6 +81,7 @@ legacy_urlpatterns = [
     path('accounts/logout/', views.logout_view, name='logout'),
     path('accounts/dashboard/', views.user_dashboard_view, name='user_dashboard'),
     path('accounts/admin-dashboard/', views.admin_dashboard_view, name='admin_dashboard'),
+    path('accounts/staff-dashboard/', views.staff_dashboard_view, name='staff_dashboard'),
     path('accounts/vet-dashboard/', views.vet_dashboard_view, name='vet_dashboard'),
     path(
         'accounts/assistant-vet-dashboard/',

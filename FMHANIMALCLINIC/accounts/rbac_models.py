@@ -37,7 +37,7 @@ CRUD_MODULES = [
     'patients',
     'appointments',
     'medical_records',
-    'ai_diagnostics',    # Note: No EDIT for AI diagnostics
+    'ai_diagnostics',
     'inquiries',
     'clinic_services',
     'inventory',
@@ -215,6 +215,26 @@ class ModulePermission(models.Model):
         return f"{self.role.name} - {self.module.display_name} ({self.permission_type}){suffix}"
 
 
+MODULE_PERMISSION_OVERRIDES = {
+    # Inquiry submission is public; staff can view and update, but not create/delete inquiries.
+    'inquiries': {'VIEW', 'EDIT', 'MANAGE'},
+    # Reservations are created by customers; staff can view, release, or cancel them.
+    'reservations': {'VIEW', 'EDIT', 'DELETE', 'MANAGE'},
+}
+
+
+def get_module_permission_choices(module_code):
+    """Return the permission types supported by a module's staff workflows."""
+    supported_types = MODULE_PERMISSION_OVERRIDES.get(
+        module_code,
+        {permission_type for permission_type, _ in ModulePermission.PermissionType.choices},
+    )
+    return [
+        choice for choice in ModulePermission.PermissionType.choices
+        if choice[0] in supported_types
+    ]
+
+
 class Role(models.Model):
     """
     Custom role with configurable permissions.
@@ -293,7 +313,16 @@ class Role(models.Model):
         if self.hierarchy_level >= HierarchyLevels.ADMIN:
             return True
 
-        query = self.module_permissions.filter(module__code=module_code)
+        supported_permissions = {
+            code for code, _ in get_module_permission_choices(module_code)
+        }
+        if permission_type and permission_type not in supported_permissions:
+            return False
+
+        query = self.module_permissions.filter(
+            module__code=module_code,
+            permission_type__in=supported_permissions,
+        )
         if permission_type:
             query = query.filter(
                 models.Q(permission_type=permission_type)

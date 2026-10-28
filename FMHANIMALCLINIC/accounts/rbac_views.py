@@ -17,7 +17,16 @@ from django.views.decorators.http import require_POST
 
 from .decorators import module_permission_required, admin_only
 from .models import User
-from .rbac_models import Module, ModulePermission, Role, SpecialPermission, SpecialPermissionCodes, SUPERUSER_ONLY_MODULES, HIDDEN_FROM_MODULE_PERMISSIONS
+from .rbac_models import (
+    HIDDEN_FROM_MODULE_PERMISSIONS,
+    SUPERUSER_ONLY_MODULES,
+    Module,
+    ModulePermission,
+    Role,
+    SpecialPermission,
+    SpecialPermissionCodes,
+    get_module_permission_choices,
+)
 from .rbac_constants import HierarchyLevels
 from branches.models import Branch
 
@@ -60,6 +69,16 @@ def _module_permission_selected(post_data, module_code, permission_types):
         post_data.get(f'perm_{module_code}_{perm_type}')
         for perm_type, _ in permission_types
     )
+
+
+def _set_module_permission_choices(modules):
+    """Attach each module's supported permission types for the role form."""
+    for module in modules:
+        module.permission_choices = get_module_permission_choices(module.code)
+        module.permission_type_codes = {
+            permission_type for permission_type, _ in module.permission_choices
+        }
+    return list(modules)
 
 
 def _get_role_hierarchy_presets():
@@ -190,6 +209,7 @@ def role_create(request):
             output_field=models.IntegerField(),
         )
     ).order_by('custom_order', 'display_order', 'name')
+    modules = _set_module_permission_choices(modules)
 
     # Only show non-deprecated permission types (APPROVE/EXPORT removed)
     permission_types = ModulePermission.PermissionType.choices
@@ -234,8 +254,12 @@ def role_create(request):
                 'Please select only one.'
             )
 
-        has_inventory_perms = _module_permission_selected(request.POST, 'inventory', permission_types)
-        has_reservation_perms = _module_permission_selected(request.POST, 'reservations', permission_types)
+        has_inventory_perms = _module_permission_selected(
+            request.POST, 'inventory', get_module_permission_choices('inventory')
+        )
+        has_reservation_perms = _module_permission_selected(
+            request.POST, 'reservations', get_module_permission_choices('reservations')
+        )
         if has_reservation_perms and not has_inventory_perms:
             errors.append('Reservations cannot be enabled unless Inventory is selected first.')
 
@@ -267,7 +291,7 @@ def role_create(request):
             # Add module permissions with per-module branch restriction
             for module in modules:
                 branch_restrict = request.POST.get(f'branch_restrict_{module.code}') == 'on'
-                for perm_type, _ in permission_types:
+                for perm_type, _ in module.permission_choices:
                     if request.POST.get(f'perm_{module.code}_{perm_type}'):
                         ModulePermission.objects.create(
                             role=role,
@@ -351,6 +375,7 @@ def role_edit(request, role_id):
             output_field=models.IntegerField(),
         )
     ).order_by('custom_order', 'display_order', 'name')
+    modules = _set_module_permission_choices(modules)
 
     permission_types = ModulePermission.PermissionType.choices
     special_permissions = _get_special_permissions_ordered()
@@ -401,8 +426,12 @@ def role_edit(request, role_id):
                 'Please select only one.'
             )
 
-        has_inventory_perms = _module_permission_selected(request.POST, 'inventory', permission_types)
-        has_reservation_perms = _module_permission_selected(request.POST, 'reservations', permission_types)
+        has_inventory_perms = _module_permission_selected(
+            request.POST, 'inventory', get_module_permission_choices('inventory')
+        )
+        has_reservation_perms = _module_permission_selected(
+            request.POST, 'reservations', get_module_permission_choices('reservations')
+        )
         if has_reservation_perms and not has_inventory_perms:
             errors.append('Reservations cannot be enabled unless Inventory is selected first.')
 
@@ -422,7 +451,7 @@ def role_edit(request, role_id):
                 'role_presets_json': json.dumps(_get_role_hierarchy_presets()),
             })
 
-        editable_module_ids = list(modules.values_list('pk', flat=True))
+        editable_module_ids = [module.pk for module in modules]
         with transaction.atomic():
             role.name = name
             role.code = code
@@ -436,7 +465,7 @@ def role_edit(request, role_id):
             role.module_permissions.filter(module_id__in=editable_module_ids).delete()
             for module in modules:
                 branch_restrict = request.POST.get(f'branch_restrict_{module.code}') == 'on'
-                for perm_type, _ in permission_types:
+                for perm_type, _ in module.permission_choices:
                     if request.POST.get(f'perm_{module.code}_{perm_type}'):
                         ModulePermission.objects.create(
                             role=role,

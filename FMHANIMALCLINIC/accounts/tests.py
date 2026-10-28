@@ -1820,6 +1820,14 @@ class AdminDashboardQuickInsightsTests(TestCase):
         self.assertContains(response, 'Estimated at selling price')
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class RolePermissionManagementTests(TestCase):
     def setUp(self):
         self.admin = get_user_model().objects.create_superuser(
@@ -1856,6 +1864,35 @@ class RolePermissionManagementTests(TestCase):
                     self.role.has_module_permission('inventory', permission)
                 )
 
+    def test_manage_and_legacy_rows_cannot_grant_unsupported_actions(self):
+        inquiries, _ = Module.objects.get_or_create(
+            code='inquiries', defaults={'name': 'Inquiries'},
+        )
+        reservations, _ = Module.objects.get_or_create(
+            code='reservations', defaults={'name': 'Reservations'},
+        )
+        ModulePermission.objects.create(
+            role=self.role,
+            module=inquiries,
+            permission_type=ModulePermission.PermissionType.MANAGE,
+        )
+        ModulePermission.objects.create(
+            role=self.role,
+            module=reservations,
+            permission_type=ModulePermission.PermissionType.MANAGE,
+        )
+        ModulePermission.objects.create(
+            role=self.role,
+            module=inquiries,
+            permission_type=ModulePermission.PermissionType.CREATE,
+        )
+
+        self.assertTrue(self.role.has_module_permission('inquiries', 'EDIT'))
+        self.assertFalse(self.role.has_module_permission('inquiries', 'CREATE'))
+        self.assertFalse(self.role.has_module_permission('inquiries', 'DELETE'))
+        self.assertTrue(self.role.has_module_permission('reservations', 'DELETE'))
+        self.assertFalse(self.role.has_module_permission('reservations', 'CREATE'))
+
     def test_role_form_does_not_show_module_select_all_toggle(self):
         self.client.force_login(self.admin)
 
@@ -1864,8 +1901,32 @@ class RolePermissionManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="perm_inventory_VIEW"')
         self.assertContains(response, 'name="perm_inventory_MANAGE"')
+        self.assertContains(response, 'name="perm_ai_diagnostics_EDIT"')
+        self.assertNotContains(response, 'name="perm_inquiries_CREATE"')
+        self.assertNotContains(response, 'name="perm_inquiries_DELETE"')
+        self.assertNotContains(response, 'name="perm_reservations_CREATE"')
         self.assertNotContains(response, 'Select All for module')
         self.assertNotContains(response, 'all-perms-toggle')
+
+    def test_role_create_ignores_unsupported_module_permissions(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('accounts:role_create'), {
+            'name': 'Permission Matrix Validation',
+            'hierarchy_level': '2',
+            'perm_inquiries_CREATE': 'on',
+            'perm_inquiries_DELETE': 'on',
+            'perm_reservations_CREATE': 'on',
+        })
+
+        self.assertRedirects(response, reverse('accounts:role_list'))
+        role = Role.objects.get(code='permission_matrix_validation')
+        self.assertFalse(role.module_permissions.filter(
+            module__code='inquiries',
+        ).exists())
+        self.assertFalse(role.module_permissions.filter(
+            module__code='reservations',
+        ).exists())
 
     def test_role_creation_uses_sequential_levels_and_live_system_role_names(self):
         system_role_names = {}
@@ -3235,6 +3296,75 @@ class RoleDashboardAuthorizationTests(TestCase):
             with self.subTest(route=route_name):
                 response = self.client.get(reverse(route_name))
                 self.assertRedirects(response, reverse('accounts:profile'))
+
+    def test_staff_dashboard_special_permission_selects_and_allows_its_dashboard(self):
+        role = Role.objects.create(
+            name='Staff Dashboard Grant',
+            code='staff-dashboard-grant',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_staff_dashboard',
+            defaults={'name': 'Staff Dashboard Access'},
+        )
+        role.special_permissions.create(permission=permission)
+        branch = Branch.objects.create(
+            name='Staff Dashboard Grant Branch',
+            phone_number='09123456780',
+            address='1 Dashboard Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        user = get_user_model().objects.create_user(
+            username='staff-dashboard-grant-user',
+            password='A-secure-test-password-941!',
+            assigned_role=role,
+            branch=branch,
+        )
+        Pet.objects.create(
+            name='Staff Dashboard Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+            branch=branch,
+        )
+        self.client.force_login(user)
+
+        dashboard_response = self.client.get(reverse('accounts:user_dashboard'))
+        self.assertRedirects(
+            dashboard_response,
+            reverse('accounts:staff_dashboard'),
+        )
+        response = self.client.get(reverse('accounts:staff_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['active_patient_count'], 1)
+
+    def test_admin_dashboard_special_permission_overrides_clinical_default(self):
+        role = Role.objects.create(
+            name='Explicit Admin Dashboard Grant',
+            code='explicit-admin-dashboard-grant',
+            hierarchy_level=3,
+            is_staff_role=True,
+        )
+        permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_admin_dashboard',
+            defaults={'name': 'Admin Dashboard Access'},
+        )
+        role.special_permissions.create(permission=permission)
+        user = get_user_model().objects.create_user(
+            username='explicit-admin-dashboard-grant-user',
+            password='A-secure-test-password-942!',
+            assigned_role=role,
+        )
+
+        from accounts.views import _dashboard_for_user
+
+        self.assertEqual(
+            _dashboard_for_user(user),
+            'accounts:admin_dashboard',
+        )
 
     def test_staff_without_module_grants_cannot_open_module_urls_directly(self):
         role = Role.objects.create(

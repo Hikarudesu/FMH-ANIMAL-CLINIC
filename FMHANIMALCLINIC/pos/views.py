@@ -51,12 +51,14 @@ def checkout(request):
     """Main POS checkout interface."""
     branch = getattr(request.user, 'branch', None)
     if not branch:
-        branch = Branch.objects.filter(is_active=True).order_by('name').first()
+        messages.warning(request, 'Assign a branch before using the Point of Sale.')
+        return redirect('accounts:select_branch')
     appointment_id = request.GET.get('appointment', '').strip()
 
     # Discard abandoned carts, then restore only this cashier's active sale.
     Sale.objects.filter(
         cashier=request.user,
+        branch=branch,
         status=Sale.Status.PENDING,
         created_at__lt=timezone.now() - timedelta(hours=24),
     ).delete()
@@ -80,6 +82,7 @@ def checkout(request):
             if (
                 appointment.sale.status != Sale.Status.PENDING
                 or appointment.sale.cashier_id != request.user.pk
+                or appointment.sale.branch_id != branch.pk
             ):
                 messages.error(request, 'This appointment already has a POS sale assigned to another cashier or has been paid.')
                 return redirect('appointments:admin_detail', pk=appointment.pk)
@@ -159,7 +162,12 @@ def add_item(request):
         return JsonResponse({'success': False, 'error': 'Quantity must be at least one'}, status=400)
 
     try:
-        sale = Sale.objects.get(pk=sale_id, cashier=request.user, status=Sale.Status.PENDING)
+        sale = Sale.objects.get(
+            pk=sale_id,
+            cashier=request.user,
+            branch=request.user.branch,
+            status=Sale.Status.PENDING,
+        )
     except Sale.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
@@ -248,6 +256,7 @@ def remove_item(request):
         item = SaleItem.objects.get(
             pk=item_id,
             sale__cashier=request.user,
+            sale__branch=request.user.branch,
             sale__status=Sale.Status.PENDING,
         )
         sale = item.sale
@@ -286,6 +295,7 @@ def update_item_quantity(request):
         item = SaleItem.objects.get(
             pk=item_id,
             sale__cashier=request.user,
+            sale__branch=request.user.branch,
             sale__status=Sale.Status.PENDING,
         )
 
@@ -346,7 +356,12 @@ def update_sale_info(request):
     sale_id = request.POST.get('sale_id')
 
     try:
-        sale = Sale.objects.get(pk=sale_id, cashier=request.user, status=Sale.Status.PENDING)
+        sale = Sale.objects.get(
+            pk=sale_id,
+            cashier=request.user,
+            branch=request.user.branch,
+            status=Sale.Status.PENDING,
+        )
     except Sale.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
@@ -466,6 +481,7 @@ def _process_payment(request):
             sale = Sale.objects.select_for_update().get(
                 pk=sale_id,
                 cashier=request.user,
+                branch=request.user.branch,
                 status=Sale.Status.PENDING,
             )
         except Sale.DoesNotExist:
@@ -610,11 +626,13 @@ def _process_payment(request):
 @require_POST
 def void_sale(request, sale_id):
     """Void a sale."""
-    try:
-        sale = Sale.objects.get(pk=sale_id)
-    except Sale.DoesNotExist:
-        messages.error(request, 'Sale not found.')
+    if not request.user.has_special_permission('can_void_sales'):
+        messages.warning(request, 'You do not have permission to void sales.')
         return redirect('pos:sales_list')
+
+    sale = get_object_or_404(
+        Sale, pk=sale_id, branch=request.user.branch,
+    )
 
     reason = request.POST.get('reason', '')
     try:
@@ -635,6 +653,7 @@ def cancel_sale(request, sale_id):
         sale = Sale.objects.get(
             pk=sale_id,
             cashier=request.user,
+            branch=request.user.branch,
             status=Sale.Status.PENDING,
         )
         sale.delete()
@@ -653,6 +672,7 @@ def abandon_sale(request, sale_id):
     Sale.objects.filter(
         pk=sale_id,
         cashier=request.user,
+        branch=request.user.branch,
         status=Sale.Status.PENDING,
     ).delete()
     return JsonResponse({'success': True})
@@ -667,7 +687,7 @@ def abandon_sale(request, sale_id):
 def sales_list(request):
     """View list of sales - always restricted to user's branch (POS is branch-restricted)."""
     # POS is always branch-restricted - only show sales from user's branch
-    branch = getattr(request.user, 'branch', None) or Branch.objects.filter(is_active=True).order_by('name').first()
+    branch = getattr(request.user, 'branch', None)
     sales = Sale.objects.filter(branch=branch).exclude(
         status=Sale.Status.PENDING)
 
@@ -728,6 +748,7 @@ def sale_detail(request, sale_id):
         'items': sale.items.all(),
         'payments': sale.payments.all(),
         'refunds': sale.refunds.all(),
+        'can_void_sales': request.user.has_special_permission('can_void_sales'),
     }
     return render(request, 'pos/sale_detail.html', context)
 
@@ -736,7 +757,9 @@ def sale_detail(request, sale_id):
 @special_permission_required('can_access_pos')
 def receipt(request, sale_id):
     """Display receipt for printing."""
-    sale = get_object_or_404(Sale, pk=sale_id)
+    sale = get_object_or_404(
+        Sale, pk=sale_id, branch=request.user.branch,
+    )
 
     context = {
         'sale': sale,
@@ -758,8 +781,6 @@ def search_items(request):
     query = request.GET.get('q', '').strip()
     category = request.GET.get('category', 'all')
     branch = getattr(request.user, 'branch', None)
-    if not branch:
-        branch = Branch.objects.filter(is_active=True).order_by('name').first()
 
     results = []
 
@@ -788,6 +809,7 @@ def search_items(request):
             continue
 
         products = Product.objects.filter(
+            branch=branch,
             item_type=item_type,
             name__icontains=query,
         ).select_related('branch')[:10]
@@ -882,22 +904,20 @@ def search_customer_pets(request):
 def filter_items_by_branch(request):
     """Return configured inventory item types for the POS via AJAX."""
     branch_id = request.GET.get('branch_id', '').strip()
+    branch = getattr(request.user, 'branch', None)
+    if not branch:
+        return JsonResponse({'success': False, 'error': 'Branch assignment required'}, status=403)
+    if branch_id and branch_id != str(branch.pk):
+        return JsonResponse({'success': False, 'error': 'Branch access denied'}, status=403)
 
     results = []
 
-    if branch_id:
-        try:
-            branch = Branch.objects.get(pk=branch_id)
-        except Branch.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Branch not found'}, status=404)
-
     for item_type in get_inventory_item_type_options():
         products = Product.objects.filter(
+            branch=branch,
             item_type=item_type,
             is_available=True,
         ).select_related('branch')
-        if branch_id:
-            products = products.filter(branch=branch)
 
         for product in products.order_by('name'):
             results.append({
@@ -1093,6 +1113,9 @@ def refund_list(request):
         'refunds': refunds,
         'status_choices': Refund.Status.choices,
         'refund_type_choices': Refund.RefundType.choices,
+        'can_approve_refunds': request.user.has_special_permission(
+            'can_approve_refunds'
+        ),
         'branches': [],  # Empty - POS is always branch-restricted
         'is_branch_restricted': True,
     }
@@ -1109,7 +1132,9 @@ def refund_approve(request, refund_id):
         messages.warning(request, 'You do not have permission to approve refunds.')
         return redirect('pos:refund_list')
 
-    refund = get_object_or_404(Refund, pk=refund_id)
+    refund = get_object_or_404(
+        Refund, pk=refund_id, sale__branch=request.user.branch,
+    )
 
     if refund.status != Refund.Status.PENDING:
         messages.error(request, 'This refund is not pending.')
@@ -1132,7 +1157,9 @@ def refund_complete(request, refund_id):
         messages.warning(request, 'You do not have permission to complete refunds.')
         return redirect('pos:refund_list')
 
-    refund = get_object_or_404(Refund, pk=refund_id)
+    refund = get_object_or_404(
+        Refund, pk=refund_id, sale__branch=request.user.branch,
+    )
 
     try:
         refund.complete_refund(request.user)
@@ -1152,7 +1179,9 @@ def refund_reject(request, refund_id):
         messages.warning(request, 'You do not have permission to reject refunds.')
         return redirect('pos:refund_list')
 
-    refund = get_object_or_404(Refund, pk=refund_id)
+    refund = get_object_or_404(
+        Refund, pk=refund_id, sale__branch=request.user.branch,
+    )
 
     if refund.status != Refund.Status.PENDING:
         messages.error(request, 'This refund is not pending.')
@@ -1178,7 +1207,9 @@ def sale_soa(request, sale_id):
     Uses the billing app's SOA format for visual consistency.
     """
     import json
-    sale = get_object_or_404(Sale, pk=sale_id)
+    sale = get_object_or_404(
+        Sale, pk=sale_id, branch=request.user.branch,
+    )
 
     # Check for custom SOA data first
     soa_data = {}
@@ -1346,7 +1377,9 @@ def send_soa(request, sale_id):
     """
     Manually send Statement of Account notification to registered customer.
     """
-    sale = get_object_or_404(Sale, pk=sale_id)
+    sale = get_object_or_404(
+        Sale, pk=sale_id, branch=request.user.branch,
+    )
 
     if not sale.customer:
         messages.error(
@@ -1376,7 +1409,9 @@ def edit_soa(request, sale_id):
     Edit Statement of Account items and amounts for a Sale.
     Allows adding, editing, and removing individual items per category.
     """
-    sale = get_object_or_404(Sale, pk=sale_id)
+    sale = get_object_or_404(
+        Sale, pk=sale_id, branch=request.user.branch,
+    )
 
     if request.method == 'POST':
         import json

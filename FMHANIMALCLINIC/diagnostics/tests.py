@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts.rbac_models import Module, ModulePermission, Role
@@ -23,6 +23,14 @@ from .views import AI_DIAGNOSIS_REQUESTS_PER_HOUR
 User = get_user_model()
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class AIDiagnosticsSecurityTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(
@@ -53,6 +61,7 @@ class AIDiagnosticsSecurityTests(TestCase):
         for permission_type in (
             ModulePermission.PermissionType.VIEW,
             ModulePermission.PermissionType.CREATE,
+            ModulePermission.PermissionType.EDIT,
             ModulePermission.PermissionType.DELETE,
         ):
             ModulePermission.objects.create(
@@ -115,6 +124,85 @@ class AIDiagnosticsSecurityTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_view_permission_cannot_review_diagnosis_or_submit_review_form(self):
+        module = Module.objects.get(code='ai_diagnostics')
+        role = Role.objects.create(
+            name='AI View Only Staff',
+            code='ai-view-only-staff',
+            hierarchy_level=1,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=role,
+            module=module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        user = User.objects.create_user(
+            username='ai-view-only-staff',
+            password='A-secure-test-password-943!',
+            assigned_role=role,
+            branch=self.branch,
+        )
+        pet = Pet.objects.create(
+            name='View Only Diagnosis Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+            branch=self.branch,
+        )
+        diagnosis = AIDiagnosis.objects.create(
+            pet=pet,
+            primary_condition='Unreviewed condition',
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse('diagnostics:mark_reviewed', args=[diagnosis.pk]),
+            {
+                'selected_condition': 'Unreviewed condition',
+                'vet_prescription': 'Test prescription',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        diagnosis.refresh_from_db()
+        self.assertFalse(diagnosis.is_reviewed)
+        self.assertEqual(diagnosis.selected_condition, '')
+
+    def test_edit_permission_can_review_diagnosis_and_create_visit_record(self):
+        pet = Pet.objects.create(
+            name='Editable Diagnosis Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+            branch=self.branch,
+        )
+        diagnosis = AIDiagnosis.objects.create(
+            pet=pet,
+            primary_condition='Condition for review',
+        )
+        self.client.force_login(self.staff)
+
+        detail_response = self.client.get(
+            reverse('diagnostics:detail', args=[diagnosis.pk]),
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, 'id="reviewForm"')
+
+        response = self.client.post(
+            reverse('diagnostics:mark_reviewed', args=[diagnosis.pk]),
+            {
+                'selected_condition': 'Condition for review',
+                'vet_prescription': 'Test prescription',
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('diagnostics:detail', args=[diagnosis.pk]),
+        )
+        diagnosis.refresh_from_db()
+        self.assertTrue(diagnosis.is_reviewed)
+        self.assertIsNotNone(diagnosis.linked_record_entry_id)
 
     def test_ai_requests_are_limited_before_calling_groq(self):
         admin = User.objects.create_superuser(

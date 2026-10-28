@@ -1,7 +1,7 @@
 from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from unittest.mock import patch
@@ -15,6 +15,14 @@ from settings.forms import InventorySettingsForm
 from settings.utils import set_setting
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class InventoryWorkflowTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(

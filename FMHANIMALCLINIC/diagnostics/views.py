@@ -91,6 +91,7 @@ def dashboard(request):
     # Check permissions for CRUD buttons
     can_create = request.user.has_module_permission('ai_diagnostics', 'CREATE')
     can_delete = request.user.has_module_permission('ai_diagnostics', 'DELETE')
+    can_edit = request.user.has_module_permission('ai_diagnostics', 'EDIT')
     
     is_branch_restricted = request.user.is_module_branch_restricted('ai_diagnostics')
     accessible_pets = _accessible_pets(request.user)
@@ -244,17 +245,19 @@ def diagnosis_detail(request, pk):
 
     # Check delete permission
     can_delete = request.user.has_module_permission('ai_diagnostics', 'DELETE')
+    can_edit = request.user.has_module_permission('ai_diagnostics', 'EDIT')
 
     return render(request, 'diagnostics/detail.html', {
         'diagnosis': diagnosis,
         'all_conditions': all_conditions,
         'related_diagnoses': related_diagnoses,
         'can_delete': can_delete,
+        'can_edit': can_edit,
     })
 
 
 @login_required
-@module_permission_required('ai_diagnostics', 'VIEW')
+@module_permission_required('ai_diagnostics', 'EDIT')
 @require_http_methods(['POST'])
 def mark_reviewed(request, pk):
     """

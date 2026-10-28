@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.conf import settings
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -15,6 +15,14 @@ from employees.models import RecurringSchedule, StaffMember, VetSchedule
 from notifications.models import Notification
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class StaffBranchChangeTests(TestCase):
     def setUp(self):
         self.old_branch = self.create_branch('Point One')
@@ -262,7 +270,11 @@ class StaffBranchChangeTests(TestCase):
 
         first_response = self.client.post(
             reverse('accounts:select_branch'),
-            {'branch_id': self.new_branch.pk},
+            {
+                'branch_id': self.new_branch.pk,
+                'confirm_branch_first': 'on',
+                'confirm_branch_final': 'on',
+            },
         )
         self.assertEqual(first_response.status_code, 302)
         user.refresh_from_db()
@@ -270,7 +282,11 @@ class StaffBranchChangeTests(TestCase):
 
         second_response = self.client.post(
             reverse('accounts:select_branch'),
-            {'branch_id': self.old_branch.pk},
+            {
+                'branch_id': self.old_branch.pk,
+                'confirm_branch_first': 'on',
+                'confirm_branch_final': 'on',
+            },
         )
         self.assertEqual(second_response.status_code, 302)
         user.refresh_from_db()
@@ -290,7 +306,11 @@ class StaffBranchChangeTests(TestCase):
 
         response = self.client.post(
             reverse('accounts:select_branch'),
-            {'branch_id': self.new_branch.pk},
+            {
+                'branch_id': self.new_branch.pk,
+                'confirm_branch_first': 'on',
+                'confirm_branch_final': 'on',
+            },
         )
 
         self.assertEqual(response.status_code, 302)

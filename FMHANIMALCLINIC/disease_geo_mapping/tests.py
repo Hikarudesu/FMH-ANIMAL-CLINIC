@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.rbac_models import (
@@ -194,6 +194,14 @@ class DiseaseVisitAggregationTests(TestCase):
         self.assertEqual(result['total_cases'], 0)
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class DiseaseDashboardViewTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(

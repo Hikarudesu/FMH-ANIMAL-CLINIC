@@ -31,6 +31,7 @@ from django.utils.crypto import salted_hmac
 from branches.models import Branch
 from .models import User
 from .decorators import module_permission_required, admin_only, special_permission_required, staff_only
+from .rbac_models import SpecialPermissionCodes
 from .forms import PetOwnerRegistrationForm
 from .profile_conflicts import find_profile_conflicts
 from .rate_limits import clear_rate_limit, consume_rate_limit
@@ -48,6 +49,15 @@ def _dashboard_for_user(user):
     if not user.is_clinic_staff():
         return 'accounts:user_dashboard'
 
+    if user.is_admin_role():
+        return 'accounts:admin_dashboard'
+
+    if user.has_role_special_permission(SpecialPermissionCodes.STAFF_DASHBOARD):
+        return 'accounts:staff_dashboard'
+
+    if user.has_role_special_permission(SpecialPermissionCodes.ADMIN_DASHBOARD):
+        return 'accounts:admin_dashboard'
+
     role_code = getattr(user.assigned_role, 'code', '')
     if user.is_receptionist():
         return 'accounts:receptionist_dashboard'
@@ -56,9 +66,7 @@ def _dashboard_for_user(user):
     if role_code == 'veterinarian':
         return 'accounts:vet_dashboard'
     if (
-        user.is_admin_role()
-        or user.has_module_permission('dashboard', 'MANAGE')
-        or user.has_special_permission('can_access_admin_dashboard')
+        user.has_module_permission('dashboard', 'MANAGE')
     ):
         return 'accounts:admin_dashboard'
     return 'accounts:profile'
@@ -812,6 +820,38 @@ def verify_email_view(request):
 
 @login_required
 @staff_only
+@special_permission_required(SpecialPermissionCodes.STAFF_DASHBOARD)
+def staff_dashboard_view(request):
+    """Show basic clinic statistics to staff granted the staff dashboard."""
+    from appointments.models import Appointment
+    from patients.models import Pet
+
+    branch = request.user.branch
+    if not branch:
+        staff_profile = getattr(request.user, 'staff_profile', None)
+        branch = getattr(staff_profile, 'branch', None) if staff_profile else None
+
+    pets = Pet.objects.filter(is_active=True)
+    appointments = Appointment.objects.filter(
+        appointment_date=timezone.localdate(),
+    )
+    if branch:
+        pets = pets.filter(branch=branch)
+        appointments = appointments.filter(branch=branch)
+    else:
+        pets = pets.none()
+        appointments = appointments.none()
+
+    return render(request, 'accounts/staff_dashboard.html', {
+        'branch': branch,
+        'active_patient_count': pets.count(),
+        'today_appointment_count': appointments.count(),
+        'role_name': request.user.get_display_role(),
+    })
+
+
+@login_required
+@staff_only
 def admin_dashboard_view(request):
     """Admin portal dashboard — restricted to clinic staff roles."""
     from appointments.models import Appointment
@@ -823,18 +863,6 @@ def admin_dashboard_view(request):
     from billing.models import Service
     from inquiries.models import Inquiry
     from dateutil.relativedelta import relativedelta
-
-    # Check if user is a veterinarian and redirect to vet dashboard
-    if request.user.assigned_role and request.user.assigned_role.code == 'veterinarian':
-        return redirect('vet_dashboard')
-
-    # Check if user is a vet assistant and redirect to assistant dashboard
-    if request.user.assigned_role and request.user.assigned_role.code == 'assistant_veterinarian':
-        return redirect('assistant_vet_dashboard')
-
-    # Check if user is a receptionist and redirect to receptionist dashboard
-    if request.user.is_receptionist():
-        return redirect('receptionist_dashboard')
 
     if _dashboard_for_user(request.user) != 'accounts:admin_dashboard':
         return redirect(_dashboard_for_user(request.user))

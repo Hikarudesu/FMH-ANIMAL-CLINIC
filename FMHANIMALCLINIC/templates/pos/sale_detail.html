@@ -361,9 +361,11 @@
           <i class='bx bx-check-circle'></i> Refund Already Processed
         </div>
         {% endif %}
+        {% if can_void_sales %}
         <button type="button" class="sale-action-btn danger" onclick="openVoidSaleModal('{% url 'pos:void_sale' sale.pk %}')">
           <i class='bx bx-x-circle'></i> Void Sale
         </button>
+        {% endif %}
       </div>
     </div>
     {% endif %}
@@ -390,6 +392,7 @@
   </div>
 </div>
 
+{% if can_void_sales %}
 <!-- Void Sale Modal (single instance) -->
 <script>
 window.openVoidSaleModal = function(url) {
@@ -458,4 +461,5 @@ window.closeVoidSaleModal = function() {
   .modal-footer .btn-submit { display: inline-flex !important; align-items: center !important; gap: 6px !important; padding: 8px 16px !important; border-radius: var(--radius-sm, 6px) !important; font-size: 0.85rem !important; font-weight: 600 !important; cursor: pointer !important; border: 1px solid var(--accent) !important; background: var(--accent) !important; color: #fff !important; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important; text-decoration: none !important; box-shadow: 0 4px 12px rgba(230, 57, 70, 0.25) !important; }
   .modal-footer .btn-submit:hover { opacity: 0.95 !important; transform: translateY(-1px) !important; box-shadow: 0 6px 16px rgba(230, 57, 70, 0.35) !important; }
 </style>
+{% endif %}
 {% endblock %}

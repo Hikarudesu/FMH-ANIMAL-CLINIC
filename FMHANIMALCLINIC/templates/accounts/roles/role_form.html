@@ -108,7 +108,7 @@
                   <span>{{ module.display_name }}</span>
                 </div>
               </td>
-              {% for perm_type, perm_label in permission_types %}
+              {% for perm_type, perm_label in module.permission_choices %}
               {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
@@ -137,7 +137,7 @@
                   <span>{{ module.display_name }}</span>
                 </div>
               </td>
-              {% for perm_type, perm_label in permission_types %}
+              {% for perm_type, perm_label in module.permission_choices %}
               {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
@@ -166,7 +166,7 @@
                   <span>{{ module.display_name }}</span>
                 </div>
               </td>
-              {% for perm_type, perm_label in permission_types %}
+              {% for perm_type, perm_label in module.permission_choices %}
               {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
@@ -195,7 +195,7 @@
                   <span>{{ module.display_name }}</span>
                 </div>
               </td>
-              {% for perm_type, perm_label in permission_types %}
+              {% for perm_type, perm_label in module.permission_choices %}
               {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
@@ -225,13 +225,15 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type %}
+              {% if perm_type in module.permission_type_codes %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
                        data-module="{{ module.code }}"
                        {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
               </td>
+              {% else %}
+              <td></td>
               {% endif %}
               {% endfor %}
               <td>
@@ -253,7 +255,7 @@
                   <span>{{ module.display_name }}</span>
                 </div>
               </td>
-              {% for perm_type, perm_label in permission_types %}
+              {% for perm_type, perm_label in module.permission_choices %}
               {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
@@ -282,7 +284,7 @@
                   <span>{{ module.display_name }}</span>
                 </div>
               </td>
-              {% for perm_type, perm_label in permission_types %}
+              {% for perm_type, perm_label in module.permission_choices %}
               {% if perm_type %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
@@ -312,13 +314,15 @@
                 </div>
               </td>
               {% for perm_type, perm_label in permission_types %}
-              {% if perm_type %}
+              {% if perm_type in module.permission_type_codes %}
               <td>
                 <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"
                        class="perm-cb module-perm perm-{{ perm_type }}"
                        data-module="{{ module.code }}"
                        {% for cp_module, cp_type in current_perms %}{% if cp_module == module.code and cp_type == perm_type %}checked{% endif %}{% endfor %}>
               </td>
+              {% else %}
+              <td></td>
               {% endif %}
               {% endfor %}
               <td>
@@ -341,7 +345,7 @@
                     <span>{{ module.display_name }}</span>
                   </div>
                 </td>
-                {% for perm_type, perm_label in permission_types %}
+                {% for perm_type, perm_label in module.permission_choices %}
                 {% if perm_type %}
                 <td>
                   <input type="checkbox" name="perm_{{ module.code }}_{{ perm_type }}"

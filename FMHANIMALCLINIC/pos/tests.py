@@ -6,11 +6,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import User
+from accounts.rbac_models import Role, SpecialPermission
 from appointments.models import Appointment
 from billing.models import Service
 from branches.models import Branch
 from inventory.models import Product
-from pos.models import Payment, Sale, SaleItem
+from pos.models import Payment, Refund, Sale, SaleItem
 from settings.utils import set_setting
 
 
@@ -251,3 +252,201 @@ class AppointmentCheckoutTests(TestCase):
         self.assertContains(response, 'body.pos-printing .receipt')
         self.assertNotContains(response, 'window.open(')
         self.assertNotContains(response, 'Print Receipt')
+
+
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+})
+class SaleVoidPermissionTests(TestCase):
+    def setUp(self):
+        self.branch = Branch.objects.create(name='Sale Void Permission Branch')
+        self.role = Role.objects.create(
+            name='POS Access Without Void',
+            code='pos-access-without-void',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        pos_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_pos',
+            defaults={'name': 'Point of Sale Access'},
+        )
+        self.role.special_permissions.create(permission=pos_permission)
+        self.user = User.objects.create_user(
+            username='pos-access-without-void',
+            password='A-secure-test-password-944!',
+            assigned_role=self.role,
+            branch=self.branch,
+        )
+        self.sale = Sale.objects.create(
+            branch=self.branch,
+            cashier=self.user,
+            status=Sale.Status.COMPLETED,
+            subtotal=100,
+            total=100,
+            amount_paid=100,
+        )
+        self.client.force_login(self.user)
+
+    def test_pos_access_without_void_grant_hides_and_denies_void_action(self):
+        detail_response = self.client.get(
+            reverse('pos:sale_detail', args=[self.sale.pk]),
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertNotContains(detail_response, 'Void Sale')
+
+        response = self.client.post(
+            reverse('pos:void_sale', args=[self.sale.pk]),
+            {'reason': 'Test'},
+        )
+
+        self.assertRedirects(response, reverse('pos:sales_list'))
+        self.sale.refresh_from_db()
+        self.assertEqual(self.sale.status, Sale.Status.COMPLETED)
+
+    def test_void_sales_grant_allows_voiding_sale(self):
+        void_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_void_sales',
+            defaults={'name': 'Void Sales'},
+        )
+        self.role.special_permissions.create(permission=void_permission)
+
+        detail_response = self.client.get(
+            reverse('pos:sale_detail', args=[self.sale.pk]),
+        )
+        self.assertContains(detail_response, 'Void Sale')
+
+        response = self.client.post(
+            reverse('pos:void_sale', args=[self.sale.pk]),
+            {'reason': 'Authorized void'},
+        )
+
+        self.assertRedirects(response, reverse('pos:sales_list'))
+        self.sale.refresh_from_db()
+        self.assertEqual(self.sale.status, Sale.Status.VOIDED)
+        self.assertEqual(self.sale.void_reason, 'Authorized void')
+
+    def test_pos_user_cannot_void_or_view_sales_from_another_branch(self):
+        void_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_void_sales',
+            defaults={'name': 'Void Sales'},
+        )
+        self.role.special_permissions.create(permission=void_permission)
+        other_branch = Branch.objects.create(name='Other Sale Branch')
+        other_sale = Sale.objects.create(
+            branch=other_branch,
+            cashier=self.user,
+            status=Sale.Status.COMPLETED,
+            subtotal=50,
+            total=50,
+            amount_paid=50,
+        )
+
+        for route_name in ('pos:sale_detail', 'pos:receipt'):
+            with self.subTest(route=route_name):
+                response = self.client.get(
+                    reverse(route_name, args=[other_sale.pk]),
+                )
+                self.assertEqual(response.status_code, 404)
+
+        response = self.client.post(
+            reverse('pos:void_sale', args=[other_sale.pk]),
+            {'reason': 'Cross-branch attempt'},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        other_sale.refresh_from_db()
+        self.assertEqual(other_sale.status, Sale.Status.COMPLETED)
+
+    def test_refund_approval_actions_are_hidden_and_branch_scoped(self):
+        local_refund = Refund.objects.create(
+            sale=self.sale,
+            amount=50,
+            reason='Local refund control test',
+            requested_by=self.user,
+        )
+        other_branch = Branch.objects.create(name='Other Refund Branch')
+        other_sale = Sale.objects.create(
+            branch=other_branch,
+            cashier=self.user,
+            status=Sale.Status.COMPLETED,
+            subtotal=50,
+            total=50,
+            amount_paid=50,
+        )
+        refund = Refund.objects.create(
+            sale=other_sale,
+            amount=50,
+            reason='Cross-branch refund test',
+            requested_by=self.user,
+        )
+
+        list_response = self.client.get(reverse('pos:refund_list'))
+        self.assertEqual(list_response.status_code, 200)
+        self.assertContains(list_response, local_refund.refund_id)
+        self.assertNotContains(list_response, 'title="Approve"')
+
+        approve_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_approve_refunds',
+            defaults={'name': 'Approve Refunds'},
+        )
+        self.role.special_permissions.create(permission=approve_permission)
+
+        list_response = self.client.get(reverse('pos:refund_list'))
+        self.assertContains(list_response, 'title="Approve"')
+
+        for route_name in (
+            'pos:refund_approve',
+            'pos:refund_complete',
+            'pos:refund_reject',
+        ):
+            with self.subTest(route=route_name):
+                response = self.client.post(
+                    reverse(route_name, args=[refund.pk]),
+                )
+                self.assertEqual(response.status_code, 404)
+
+        refund.refresh_from_db()
+        self.assertEqual(refund.status, Refund.Status.PENDING)
+
+        local_response = self.client.post(
+            reverse('pos:refund_approve', args=[local_refund.pk]),
+        )
+        self.assertRedirects(local_response, reverse('pos:refund_list'))
+        local_refund.refresh_from_db()
+        self.assertEqual(local_refund.status, Refund.Status.APPROVED)
+
+    def test_pos_requires_assigned_branch_and_rejects_other_branch_item_filters(self):
+        other_branch = Branch.objects.create(name='Other POS Item Branch')
+        product = Product.objects.create(
+            name='Other Branch Product',
+            item_type='Product',
+            branch=other_branch,
+            price=10,
+            stock_quantity=5,
+        )
+
+        filter_response = self.client.get(
+            reverse('pos:filter_items'),
+            {'branch_id': other_branch.pk},
+        )
+        self.assertEqual(filter_response.status_code, 403)
+        self.assertNotContains(
+            self.client.get(reverse('pos:search_items'), {'q': product.name}),
+            product.name,
+        )
+
+        self.user.branch = None
+        self.user.save(update_fields=['branch'])
+
+        checkout_response = self.client.get(reverse('pos:checkout'))
+        self.assertRedirects(
+            checkout_response,
+            reverse('accounts:select_branch'),
+        )
+        unassigned_filter_response = self.client.get(
+            reverse('pos:filter_items'),
+        )
+        self.assertEqual(unassigned_filter_response.status_code, 403)

@@ -561,9 +561,11 @@
     <a href="{% url 'diagnostics:dashboard' %}" class="detail-action-btn">
       <i class="bx bx-arrow-back"></i> Back to Dashboard
     </a>
+    {% if can_create %}
     <a href="{% url 'diagnostics:run_diagnosis' diagnosis.pet.pk %}" class="detail-action-btn">
       <i class="bx bx-refresh"></i> Run New Diagnosis
     </a>
+    {% endif %}
     {% if can_delete %}
       <button type="button" class="delete-action-btn" onclick="openDiagnosisDeleteModal('{% url 'diagnostics:delete' diagnosis.pk %}', '{{ diagnosis.primary_condition|escapejs }}')" style="margin-left: auto;">
         <i class="bx bx-trash"></i> Delete Diagnosis
@@ -571,7 +573,7 @@
     {% endif %}
   </div>
 
-{% if not diagnosis.is_reviewed %}
+{% if not diagnosis.is_reviewed and can_edit %}
 <form method="post" action="{% url 'diagnostics:mark_reviewed' diagnosis.pk %}" id="reviewForm">
   {% csrf_token %}
 {% endif %}
@@ -618,13 +620,13 @@
         <div class="result-section-title">
           <i class="bx bx-target-lock"></i>
           Select Diagnosis
-          {% if not diagnosis.is_reviewed %}<span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">Choose one condition</span>{% endif %}
+          {% if not diagnosis.is_reviewed and can_edit %}<span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">Choose one condition</span>{% endif %}
         </div>
 
         {% for cond in all_conditions %}
         <div class="condition-card {% if cond.is_primary %}primary-condition{% endif %} {% if diagnosis.has_insufficient_data and cond.is_primary %}condition-card--warning{% endif %} {% if diagnosis.is_reviewed and diagnosis.selected_condition == cond.condition %}selected{% endif %}"
-             {% if not diagnosis.is_reviewed %}onclick="selectCondition(this, '{{ cond.condition|escapejs }}')"{% endif %}>
-          {% if not diagnosis.is_reviewed %}
+             {% if not diagnosis.is_reviewed and can_edit %}onclick="selectCondition(this, '{{ cond.condition|escapejs }}')"{% endif %}>
+           {% if not diagnosis.is_reviewed and can_edit %}
           <input type="radio" name="selected_condition" value="{{ cond.condition }}" id="cond_{{ forloop.counter }}" {% if forloop.first %}checked{% endif %}>
           {% endif %}
           <div class="condition-card-content">
@@ -642,7 +644,7 @@
           <strong style="font-size: 0.85rem; color: var(--text-primary);">Diagnosis Notes:</strong>
           <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-secondary);">{{ diagnosis.diagnosis_notes|linebreaksbr }}</p>
         </div>
-        {% elif not diagnosis.is_reviewed %}
+        {% elif not diagnosis.is_reviewed and can_edit %}
         <div style="margin-top: 15px;">
           <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
             Diagnosis Notes (Optional)
@@ -658,13 +660,13 @@
         <div class="result-section-title">
           <i class="bx bx-test-tube"></i>
           Recommended Tests
-          {% if not diagnosis.is_reviewed %}<span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">Select tests to include</span>{% endif %}
+          {% if not diagnosis.is_reviewed and can_edit %}<span style="font-weight:400;font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">Select tests to include</span>{% endif %}
         </div>
 
         {% for test in diagnosis.recommended_tests %}
         <div class="test-item {% if diagnosis.is_reviewed and test in diagnosis.selected_tests %}selected{% endif %}"
-             {% if not diagnosis.is_reviewed %}onclick="toggleTest(this)"{% endif %}>
-          {% if not diagnosis.is_reviewed %}
+             {% if not diagnosis.is_reviewed and can_edit %}onclick="toggleTest(this)"{% endif %}>
+           {% if not diagnosis.is_reviewed and can_edit %}
           <input type="checkbox" name="selected_tests" value="{{ test }}" id="test_{{ forloop.counter }}">
           {% else %}
           <i class="bx {% if test in diagnosis.selected_tests %}bx-check-circle{% else %}bx-circle{% endif %}" style="color: {% if test in diagnosis.selected_tests %}#009688{% else %}var(--text-secondary){% endif %};"></i>
@@ -678,7 +680,7 @@
           <strong style="font-size: 0.85rem; color: var(--text-primary);">Test Notes:</strong>
           <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-secondary);">{{ diagnosis.test_notes|linebreaksbr }}</p>
         </div>
-        {% elif not diagnosis.is_reviewed %}
+        {% elif not diagnosis.is_reviewed and can_edit %}
         <div style="margin-top: 15px;">
           <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
             Test Notes (Optional)
@@ -757,7 +759,7 @@
           <div class="reviewed-data-value" style="white-space: pre-line;">{{ diagnosis.vet_prescription }}</div>
         </div>
 
-        {% else %}
+        {% elif can_edit %}
         <!-- Review Form -->
         <div class="form-group">
           <label class="rx-label">
@@ -826,7 +828,7 @@ Example:
   </div>
 </div>
 
-{% if not diagnosis.is_reviewed %}
+{% if not diagnosis.is_reviewed and can_edit %}
 </form>
 {% endif %}
 

@@ -158,6 +158,7 @@
             ">{{ refund.get_status_display }}</span>
           </td>
           <td style="text-align: center;">
+            {% if can_approve_refunds %}
             {% if refund.status == 'PENDING' %}
             <form method="POST" action="{% url 'pos:refund_approve' refund.pk %}" style="display: inline;">
               {% csrf_token %}
@@ -178,6 +179,9 @@
                 <i class='bx bx-check-double'></i>
               </button>
             </form>
+            {% else %}
+            <span style="color: var(--text-secondary);">-</span>
+            {% endif %}
             {% else %}
             <span style="color: var(--text-secondary);">-</span>
             {% endif %}
