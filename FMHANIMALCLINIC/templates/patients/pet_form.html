@@ -166,10 +166,13 @@
     {% if action == 'Update' %}
     const petEditForm = document.querySelector('.pf-form');
     if (petEditForm) {
-      window.bindCenteredFormConfirmation(petEditForm, {
-        title: 'Confirm pet update',
-        message: `Save these changes to {{ pet.name|escapejs }}? The updated pet information and any selected photo will be saved to the pet's profile.`,
-        confirmText: 'Update Pet',
+      petEditForm.addEventListener('submit', event => {
+        const petName = '{{ pet.name|escapejs }}';
+        if (!window.confirm(
+          `Save these changes to ${petName}? The updated pet information and any selected photo will be saved to the pet's profile.`
+        )) {
+          event.preventDefault();
+        }
       });
     }
     {% endif %}
