@@ -1037,10 +1037,6 @@ class PublicAppointmentBookingConfirmationTests(TestCase):
         response = self.client.get(reverse('appointments:public_book'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Registered User')
-        self.assertContains(response, 'New User or Returning Guest User')
-        self.assertContains(response, 'id="guestBookingFields"')
-        self.assertContains(response, 'id="loginPromptAlert" hidden')
         self.assertContains(response, 'id="bookingConfirmationDialog"')
         self.assertContains(response, 'Review your appointment request')
         self.assertContains(
@@ -1048,20 +1044,6 @@ class PublicAppointmentBookingConfirmationTests(TestCase):
             'Your appointment is not confirmed until the clinic contacts you.',
         )
         self.assertContains(response, 'Send Request')
-
-    def test_registered_user_booking_selection_redirects_to_login(self):
-        response = self.client.post(
-            reverse('appointments:public_book'),
-            {'is_returning': 'yes'},
-        )
-
-        self.assertRedirects(
-            response,
-            f"{reverse('login_page')}?next="
-            f"{reverse('appointments:portal_book')}",
-            fetch_redirect_response=False,
-        )
-        self.assertEqual(Appointment.objects.count(), 0)
 
 
 class AppointmentPetNameUniquenessTests(TestCase):

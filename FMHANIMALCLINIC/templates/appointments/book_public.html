@@ -47,44 +47,45 @@
         </div>
         {% endif %}
 
-        <!-- Booking Account Type -->
+        <!-- Returning Client Question -->
         <div class="booking-step" style="background-color: #e0f2f1; border-left: 4px solid var(--teal); padding: 1.5rem;">
-          <div class="step-label" style="color: var(--teal); margin-bottom: 0.5rem;"><i class='bx bx-user-circle'></i> How would you like to book?</div>
-          <p style="font-size: 0.9rem; color: #555; margin-bottom: 1rem;">New and returning guests can book below. Registered users can sign in to book with their saved pet information.</p>
+          <div class="step-label" style="color: var(--teal); margin-bottom: 0.5rem;"><i class='bx bx-user-circle'></i> Are you an existing client?</div>
+          <p style="font-size: 0.9rem; color: #555; margin-bottom: 1rem;">Let us know if you've been to any of our branches before.</p>
           
           <div class="form-group-radio" style="display: flex; gap: 2rem;">
             <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500;">
-              <input type="radio" name="is_returning" value="yes" onchange="toggleLoginPrompt(true)" {% if form.data.is_returning == 'yes' %}checked{% endif %}>
-              Registered User
+              <input type="radio" name="is_returning" value="yes" onchange="toggleLoginPrompt(true)"> 
+              Yes, I am a returning client
             </label>
             <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500;">
-              <input type="radio" name="is_returning" value="no" onchange="toggleLoginPrompt(false)" {% if form.data.is_returning != 'yes' %}checked{% endif %}>
-              New User or Returning Guest User
+              <input type="radio" name="is_returning" value="no" onchange="toggleLoginPrompt(false)" checked> 
+              No, I'm a new user
             </label>
           </div>
 
-          <div id="loginPromptAlert" hidden style="margin-top: 1rem; padding: 1rem; background-color: #fff; border: 1px solid #b2dfdb; border-radius: 8px;">
+          <!-- Alert box that appears if they select Yes -->
+          <div id="loginPromptAlert" style="display: none; margin-top: 1rem; padding: 1rem; background-color: #fff; border: 1px solid #b2dfdb; border-radius: 8px;">
             <p style="margin: 0; font-size: 0.95rem; color: #00796b;">
-              <strong>Welcome back!</strong> Sign in to your account to book with your saved pet information.
+              <strong>Welcome back!</strong> For a faster booking experience and access to your pet's full medical history, we recommend logging into your portal account. 
               <br><br>
               <a href="{% url 'login_page' %}?next={% url 'appointments:portal_book' %}" class="btn btn-primary btn-sm" style="display: inline-block; text-decoration: none;">
-                <i class='bx bx-log-in'></i> Log In to Your Account
+                <i class='bx bx-log-in'></i> Log In to Portal
               </a>
             </p>
           </div>
         </div>
 
         <script>
-          function toggleLoginPrompt(isRegisteredUser) {
+          function toggleLoginPrompt(show) {
             const alertBox = document.getElementById('loginPromptAlert');
-            const guestBookingFields = document.getElementById('guestBookingFields');
-            alertBox.hidden = !isRegisteredUser;
-            guestBookingFields.hidden = isRegisteredUser;
-            guestBookingFields.disabled = isRegisteredUser;
+            if (show) {
+              alertBox.style.display = 'block';
+            } else {
+              alertBox.style.display = 'none';
+            }
           }
         </script>
 
-        <fieldset id="guestBookingFields" style="border: 0; margin: 0; padding: 0; min-width: 0;">
         <!-- Step 1: Owner Info -->
         <div class="booking-step">
           <div class="step-label"><span class="step-number">1</span> Owner Information</div>
@@ -188,14 +189,7 @@
             <i class='bx bx-arrow-back'></i> Go Back
           </a>
         </div>
-        </fieldset>
       </form>
-
-      <script>
-        toggleLoginPrompt(
-          document.querySelector('input[name="is_returning"]:checked').value === 'yes'
-        );
-      </script>
 
       <dialog class="public-booking-confirmation" id="bookingConfirmationDialog" aria-labelledby="bookingConfirmationTitle">
         <div class="public-booking-confirmation__content">
