@@ -119,14 +119,13 @@
     </form>
 </div>
 <script>
-    document.getElementById('visit-entry-edit-form').addEventListener('submit', function(event) {
-        const petName = '{{ record.pet.name|escapejs }}';
-        const visitDate = '{{ entry.date_recorded|date:"F j, Y"|escapejs }}';
-        if (!window.confirm(
-            `Save these changes to ${petName}'s visit entry from ${visitDate}? The updated clinical notes and visit details will be saved.`
-        )) {
-            event.preventDefault();
-        }
-    });
+    window.bindCenteredFormConfirmation(
+        document.getElementById('visit-entry-edit-form'),
+        {
+            title: 'Confirm visit update',
+            message: "Save these changes to {{ record.pet.name|escapejs }}'s visit entry from {{ entry.date_recorded|date:'F j, Y'|escapejs }}? The updated clinical notes and visit details will be saved.",
+            confirmText: 'Save Changes',
+        },
+    );
 </script>
 {% endblock %}

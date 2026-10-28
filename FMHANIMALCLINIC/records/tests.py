@@ -456,6 +456,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
             response,
             "medical record? The record and its first visit information will be updated.",
         )
+        self.assertContains(response, 'bindCenteredFormConfirmation')
 
         entry_edit_response = self.client.get(
             reverse('records:admin_entry_edit', args=[first_entry.pk]),
@@ -465,6 +466,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
             entry_edit_response,
             "updated clinical notes and visit details will be saved.",
         )
+        self.assertContains(entry_edit_response, 'bindCenteredFormConfirmation')
 
         detail_response = self.client.get(
             reverse('records:admin_detail', args=[record.pk]),
@@ -474,6 +476,7 @@ class AttendingVeterinarianDefaultTests(TestCase):
             detail_response,
             "updated clinical notes and visit details will be saved.",
         )
+        self.assertContains(detail_response, 'bindCenteredFormConfirmation')
 
     @patch('records.views.pisa.pisaDocument')
     def test_pdf_download_allows_missing_weight_and_temperature(self, render_pdf):

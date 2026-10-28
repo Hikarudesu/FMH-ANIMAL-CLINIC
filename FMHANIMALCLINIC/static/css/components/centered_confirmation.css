@@ -1,0 +1,105 @@
+.centered-confirmation {
+  position: fixed;
+  inset: 0;
+  width: min(440px, calc(100% - 32px));
+  max-width: 440px;
+  max-height: calc(100% - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--border, #d7e0e0);
+  border-radius: 18px;
+  background: var(--surface, #fff);
+  color: var(--text-primary, #1f2937);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .3);
+}
+
+.centered-confirmation::backdrop {
+  background: rgba(15, 23, 42, .58);
+  backdrop-filter: blur(3px);
+}
+
+.centered-confirmation__content {
+  padding: 28px;
+  text-align: center;
+}
+
+.centered-confirmation__icon {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 15px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--primary-light, #e6f5f3);
+  color: var(--primary, #087f75);
+  font-size: 1.8rem;
+}
+
+.centered-confirmation--danger .centered-confirmation__icon {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.centered-confirmation__title {
+  margin: 0;
+  color: var(--text-primary, #1f2937);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.centered-confirmation__message {
+  margin: 10px 0 0;
+  color: var(--text-secondary, #5b6472);
+  font-size: .92rem;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.centered-confirmation__actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.centered-confirmation__button {
+  min-width: 112px;
+  min-height: 42px;
+  padding: 9px 16px;
+  border: 1px solid var(--border, #d7e0e0);
+  border-radius: 9px;
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.centered-confirmation__button--cancel {
+  background: var(--surface, #fff);
+  color: var(--text-primary, #1f2937);
+}
+
+.centered-confirmation__button--confirm {
+  border-color: var(--primary, #087f75);
+  background: var(--primary, #087f75);
+  color: #fff;
+}
+
+.centered-confirmation--danger .centered-confirmation__button--confirm {
+  border-color: #dc2626;
+  background: #dc2626;
+}
+
+.centered-confirmation__button:focus-visible {
+  outline: 3px solid var(--primary-light, #99f6e4);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .centered-confirmation__content {
+    padding: 24px 20px;
+  }
+}

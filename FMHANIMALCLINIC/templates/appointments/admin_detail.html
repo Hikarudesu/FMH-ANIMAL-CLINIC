@@ -343,14 +343,15 @@
             </form>
           </div>
           <script>
-            document.getElementById('cancelAppointmentForm').addEventListener('submit', function(event) {
-              const petName = '{{ appointment.pet_name|escapejs }}';
-              if (!window.confirm(
-                `Cancel the appointment for ${petName}? It will be marked as cancelled, and the reason you entered will be saved with the appointment.`
-              )) {
-                event.preventDefault();
-              }
-            });
+            window.bindCenteredFormConfirmation(
+              document.getElementById('cancelAppointmentForm'),
+              {
+                title: 'Confirm appointment cancellation',
+                message: 'Cancel the appointment for {{ appointment.pet_name|escapejs }}? It will be marked as cancelled, and the reason you entered will be saved with the appointment.',
+                confirmText: 'Cancel Appointment',
+                tone: 'danger',
+              },
+            );
           </script>
           {% endif %}
 

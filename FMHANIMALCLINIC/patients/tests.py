@@ -597,6 +597,7 @@ class PortalPetNameUniquenessTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Save these changes to')
         self.assertContains(response, 'updated pet information and any selected photo')
+        self.assertContains(response, 'bindCenteredFormConfirmation')
 
     @override_settings(STORAGES={
         **settings.STORAGES,

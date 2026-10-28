@@ -505,13 +505,13 @@
     </form>
 </div>
 <script>
-    document.getElementById('medical-record-edit-form').addEventListener('submit', function(event) {
-        const petName = '{{ record.pet.name|escapejs }}';
-        if (!window.confirm(
-            `Save these changes to ${petName}'s medical record? The record and its first visit information will be updated.`
-        )) {
-            event.preventDefault();
-        }
-    });
+    window.bindCenteredFormConfirmation(
+        document.getElementById('medical-record-edit-form'),
+        {
+            title: 'Confirm medical record update',
+            message: "Save these changes to {{ record.pet.name|escapejs }}'s medical record? The record and its first visit information will be updated.",
+            confirmText: 'Update Record',
+        },
+    );
 </script>
 {% endblock %}

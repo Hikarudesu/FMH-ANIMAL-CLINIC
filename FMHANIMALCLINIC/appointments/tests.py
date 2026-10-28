@@ -2022,6 +2022,7 @@ class FollowUpAppointmentBookingTests(TestCase):
             response,
             'Book this appointment with the details shown above?',
         )
+        self.assertContains(response, 'showCenteredConfirmation')
 
     @patch('appointments.views.notify_staff_appointment_status_change')
     @patch('appointments.views.notify_appointment_status_change')
@@ -2986,6 +2987,7 @@ class AppointmentWorkflowActionTests(TestCase):
             detail_response,
             'It will be marked as cancelled, and the reason you entered will be saved with the appointment.',
         )
+        self.assertContains(detail_response, 'bindCenteredFormConfirmation')
         self.assertContains(detail_response, 'Edit details')
         self.assertNotContains(detail_response, 'Delete appointment')
         edit_response = self.client.get(

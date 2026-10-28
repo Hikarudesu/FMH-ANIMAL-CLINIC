@@ -72,10 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function resubmitAfterCheck(submitter) {
-    if (!window.confirm(
-      'Save these profile changes? Your personal information and profile photo will be updated for your account.'
-    )) return;
+  async function resubmitAfterCheck(submitter) {
+    const confirmed = await window.showCenteredConfirmation({
+      title: 'Confirm profile changes',
+      message: 'Save these profile changes? Your personal information and profile photo will be updated for your account.',
+      confirmText: 'Save Changes',
+    });
+    if (!confirmed) return;
 
     allowConfirmedSubmit = true;
     if (typeof form.requestSubmit === 'function') {
@@ -120,10 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      resubmitAfterCheck(event.submitter);
+      await resubmitAfterCheck(event.submitter);
     } catch (error) {
       checkError.hidden = false;
-      resubmitAfterCheck(event.submitter);
+      await resubmitAfterCheck(event.submitter);
     } finally {
       submissionPending = false;
     }

@@ -1991,13 +1991,21 @@ if (walkinManualToggle) walkinManualToggle.addEventListener('change', function()
 });
 const quickCreateForm = quickCreateModal?.querySelector('form');
 if (quickCreateForm) {
-  quickCreateForm.addEventListener('submit', event => {
+  let approvedSubmit = false;
+  let confirmationPending = false;
+  quickCreateForm.addEventListener('submit', async event => {
+    if (approvedSubmit) {
+      approvedSubmit = false;
+      return;
+    }
+
+    event.preventDefault();
+    if (confirmationPending) return;
     if (
       updateDuplicatePetNameNote()
       || duplicateOwnerEmail
       || duplicatePortalEmail
     ) {
-      event.preventDefault();
       if (duplicateOwnerEmail || duplicatePortalEmail) ownerEmailField?.focus();
       else petNameField?.focus();
       return;
@@ -2008,19 +2016,27 @@ if (quickCreateForm) {
     const date = document.getElementById('id_appointment_date')?.value || '';
     const timeSelect = document.getElementById('id_quick_appointment_time');
     const time = timeSelect?.selectedOptions[0]?.textContent.trim() || '';
-    const message = [
-      'Confirm appointment booking',
-      '',
-      `Owner: ${ownerName || 'Selected client'}`,
-      `Pet: ${petName || 'Selected pet'}`,
-      `Date: ${date || 'Selected date'}`,
-      `Time: ${time || 'Selected time'}`,
-      '',
-      'Book this appointment with the details shown above?',
-    ].join('\n');
-
-    if (!window.confirm(message)) {
-      event.preventDefault();
+    confirmationPending = true;
+    try {
+      const confirmed = await window.showCenteredConfirmation({
+        title: 'Confirm appointment booking',
+        message: [
+          `Owner: ${ownerName || 'Selected client'}`,
+          `Pet: ${petName || 'Selected pet'}`,
+          `Date: ${date || 'Selected date'}`,
+          `Time: ${time || 'Selected time'}`,
+          '',
+          'Book this appointment with the details shown above?',
+        ].join('\n'),
+        confirmText: 'Book Appointment',
+      });
+      if (confirmed) {
+        approvedSubmit = true;
+        if (event.submitter) quickCreateForm.requestSubmit(event.submitter);
+        else quickCreateForm.requestSubmit();
+      }
+    } finally {
+      confirmationPending = false;
     }
   });
 }
