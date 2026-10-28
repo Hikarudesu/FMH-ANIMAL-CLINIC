@@ -1026,6 +1026,26 @@ class PublicAppointmentContactRequiredTests(TestCase):
         self.assertIn('owner_phone', form.errors)
 
 
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+})
+class PublicAppointmentBookingConfirmationTests(TestCase):
+    def test_public_booking_page_displays_centered_confirmation(self):
+        response = self.client.get(reverse('appointments:public_book'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="bookingConfirmationDialog"')
+        self.assertContains(response, 'Review your appointment request')
+        self.assertContains(
+            response,
+            'Your appointment is not confirmed until the clinic contacts you.',
+        )
+        self.assertContains(response, 'Send Request')
+
+
 class AppointmentPetNameUniquenessTests(TestCase):
     def setUp(self):
         self.owner = User.objects.create_user(

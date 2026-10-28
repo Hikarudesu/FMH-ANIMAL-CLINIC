@@ -99,6 +99,88 @@ function initScheduleDropdowns() {
 document.addEventListener("DOMContentLoaded", function () {
   initScheduleDropdowns();
 
+  const publicBookingForm = document.getElementById("bookingForm");
+  const bookingConfirmationDialog = document.getElementById("bookingConfirmationDialog");
+  const bookingConfirmationSummary = document.getElementById("bookingConfirmationSummary");
+  if (publicBookingForm && bookingConfirmationDialog && bookingConfirmationSummary) {
+    const cancelConfirmationButton = bookingConfirmationDialog.querySelector(
+      "[data-booking-confirmation-cancel]"
+    );
+    const submitConfirmationButton = bookingConfirmationDialog.querySelector(
+      "[data-booking-confirmation-submit]"
+    );
+    let approvedBookingSubmit = false;
+    let confirmationPending = false;
+    let originalSubmitter = null;
+
+    function getBookingFieldValue(fieldName) {
+      const field = publicBookingForm.querySelector(`[name="${fieldName}"]`);
+      if (!field) return "";
+      if (field.tagName === "SELECT") {
+        return field.selectedOptions[0]?.textContent.trim() || "";
+      }
+      return field.value.trim();
+    }
+
+    function renderBookingSummary() {
+      const summaryFields = [
+        ["Owner", "owner_name"],
+        ["Pet", "pet_name"],
+        ["Branch", "branch"],
+        ["Date", "appointment_date"],
+        ["Time", "appointment_time"],
+      ];
+      bookingConfirmationSummary.replaceChildren();
+      summaryFields.forEach(([label, fieldName]) => {
+        const row = document.createElement("div");
+        row.className = "public-booking-confirmation__summary-row";
+        const term = document.createElement("dt");
+        term.textContent = label;
+        const value = document.createElement("dd");
+        value.textContent = getBookingFieldValue(fieldName) || "Not selected";
+        row.append(term, value);
+        bookingConfirmationSummary.appendChild(row);
+      });
+    }
+
+    publicBookingForm.addEventListener("submit", (event) => {
+      if (approvedBookingSubmit) {
+        approvedBookingSubmit = false;
+        return;
+      }
+
+      event.preventDefault();
+      if (confirmationPending) return;
+
+      originalSubmitter = event.submitter;
+      renderBookingSummary();
+      bookingConfirmationDialog.showModal();
+      confirmationPending = true;
+    });
+
+    cancelConfirmationButton?.addEventListener("click", () => {
+      bookingConfirmationDialog.close("cancel");
+    });
+    bookingConfirmationDialog.addEventListener("cancel", () => {
+      confirmationPending = false;
+      originalSubmitter = null;
+    });
+    bookingConfirmationDialog.addEventListener("close", () => {
+      if (bookingConfirmationDialog.returnValue !== "confirm") {
+        confirmationPending = false;
+        originalSubmitter = null;
+      }
+    });
+    submitConfirmationButton?.addEventListener("click", () => {
+      bookingConfirmationDialog.close("confirm");
+      confirmationPending = false;
+      approvedBookingSubmit = true;
+      if (originalSubmitter) publicBookingForm.requestSubmit(originalSubmitter);
+      else publicBookingForm.requestSubmit();
+      originalSubmitter = null;
+    });
+  }
+
   const branchSelect = document.querySelector('[name="branch"]');
   const dateInput = document.querySelector('[name="appointment_date"]');
   const vetSelect = document.querySelector('[name="preferred_vet"]');

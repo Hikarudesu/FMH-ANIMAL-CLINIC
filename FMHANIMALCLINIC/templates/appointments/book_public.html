@@ -190,6 +190,31 @@
           </a>
         </div>
       </form>
+
+      <dialog class="public-booking-confirmation" id="bookingConfirmationDialog" aria-labelledby="bookingConfirmationTitle">
+        <div class="public-booking-confirmation__content">
+          <div class="public-booking-confirmation__icon" aria-hidden="true">
+            <i class='bx bx-calendar-check'></i>
+          </div>
+          <h2 id="bookingConfirmationTitle">Review your appointment request</h2>
+          <p class="public-booking-confirmation__message">
+            Please check these details before sending your request. The clinic will contact you to confirm the appointment.
+          </p>
+          <dl class="public-booking-confirmation__summary" id="bookingConfirmationSummary"></dl>
+          <p class="public-booking-confirmation__note">
+            <i class='bx bx-info-circle' aria-hidden="true"></i>
+            Your appointment is not confirmed until the clinic contacts you.
+          </p>
+          <div class="public-booking-confirmation__actions">
+            <button type="button" class="public-booking-confirmation__button public-booking-confirmation__button--cancel" data-booking-confirmation-cancel>
+              Go Back
+            </button>
+            <button type="button" class="public-booking-confirmation__button public-booking-confirmation__button--confirm" data-booking-confirmation-submit>
+              Send Request
+            </button>
+          </div>
+        </div>
+      </dialog>
     </div>
 
     <!-- Already have an account? -->
