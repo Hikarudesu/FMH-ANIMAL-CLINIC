@@ -89,6 +89,12 @@ def public_book(request):
     Appointment.cleanup_expired()
 
     if request.method == 'POST':
+        if request.POST.get('is_returning') == 'yes':
+            return redirect(
+                f"{reverse('login_page')}?next="
+                f"{reverse('appointments:portal_book')}"
+            )
+
         with transaction.atomic():
             AppointmentService.lock_booking_schedule(
                 request.POST.get('branch'),
