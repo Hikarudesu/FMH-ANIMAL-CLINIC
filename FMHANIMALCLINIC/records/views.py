@@ -1022,6 +1022,7 @@ def admin_record_detail(request, pk):
         'record': record,
         'entries': entries,
         'missing_fields': missing_fields,
+        'pdf_blocking_fields': get_record_pdf_blocking_fields(record, entries),
         'generated_date': timezone.now(),
         'vets': vets,
         'branches': branches,
@@ -1421,6 +1422,22 @@ def get_record_missing_fields(record, entries):
     return warnings
 
 
+def get_record_pdf_blocking_fields(record, entries):
+    """Return missing record details that must be completed before PDF export."""
+    optional_vital_warnings = (
+        ': Weight is missing.',
+        ': Temperature is missing.',
+    )
+    return [
+        warning
+        for warning in get_record_missing_fields(record, entries)
+        if not (
+            warning.startswith('Visit entry #')
+            and warning.endswith(optional_vital_warnings)
+        )
+    ]
+
+
 @login_required
 @module_permission_required('medical_records', 'VIEW')
 def api_search_owners(request):
@@ -1636,13 +1653,13 @@ def download_pdf_view(request, pk):
 
     entries = record.entries.order_by('date_recorded', 'created_at')
 
-    # Block PDF download if there are missing details (excluding follow-up)
-    missing_fields = get_record_missing_fields(record, entries)
-    if missing_fields:
+    # Missing weight or temperature can be shown as blank on the PDF.
+    blocking_fields = get_record_pdf_blocking_fields(record, entries)
+    if blocking_fields:
         messages.warning(
             request,
             'Cannot download PDF. Please complete all required fields first: '
-            + ' '.join(missing_fields),
+            + ' '.join(blocking_fields),
         )
 
         fallback_view = (
@@ -1710,6 +1727,7 @@ def user_record_detail(request, pk):
         'record': record,
         'entries': entries,
         'missing_fields': missing_fields,
+        'pdf_blocking_fields': get_record_pdf_blocking_fields(record, entries),
         'generated_date': timezone.now(),
         'clinic_profile': clinic_profile,
     })

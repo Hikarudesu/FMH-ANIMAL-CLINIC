@@ -23,7 +23,11 @@ from patients.models import Pet
 from settings.models import ClinicalStatus
 from .models import MedicalFile, MedicalRecord, RecordEntry
 from .models import validate_laboratory_image, validate_medical_file
-from .views import _get_pdf_styles, _pdf_link_callback
+from .views import (
+    _get_pdf_styles,
+    _pdf_link_callback,
+    get_record_pdf_blocking_fields,
+)
 from settings.forms import MedicalRecordsSettingsForm
 
 
@@ -470,6 +474,100 @@ class AttendingVeterinarianDefaultTests(TestCase):
             detail_response,
             "updated clinical notes and visit details will be saved.",
         )
+
+    @patch('records.views.pisa.pisaDocument')
+    def test_pdf_download_allows_missing_weight_and_temperature(self, render_pdf):
+        pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='PDF Test Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_address='1 Clinic Road',
+            name='PDF Test Patient',
+            species='Dog',
+            breed='Mixed',
+            sex=Pet.Sex.MALE,
+            color='Brown',
+            date_of_birth='2020-01-01',
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-18',
+        )
+        entries = [
+            RecordEntry.objects.create(
+                record=record,
+                vet=self.vet,
+                date_recorded='2026-10-18',
+                history_clinical_signs='Routine examination',
+                treatment='Examination completed',
+                rx='None',
+            ),
+        ]
+        def fake_pdf_renderer(_source, destination, **_kwargs):
+            destination.write(b'%PDF-test')
+            return SimpleNamespace(err=0)
+
+        render_pdf.side_effect = fake_pdf_renderer
+
+        detail_response = self.client.get(
+            reverse('records:admin_detail', args=[record.pk]),
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(
+            detail_response.context['pdf_blocking_fields'],
+            [],
+        )
+        self.assertContains(detail_response, 'PDF is available')
+
+        pdf_response = self.client.get(
+            reverse('records:download_pdf', args=[record.pk]),
+        )
+
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response['Content-Type'], 'application/pdf')
+        self.assertEqual(pdf_response.content, b'%PDF-test')
+        self.assertEqual(get_record_pdf_blocking_fields(record, entries), [])
+
+    def test_missing_clinical_notes_still_block_pdf_download(self):
+        pet = Pet.objects.create(
+            source=Pet.Source.WALKIN,
+            guest_owner_name='PDF Test Owner',
+            guest_owner_phone='09123456789',
+            guest_owner_address='1 Clinic Road',
+            name='PDF Test Patient',
+            species='Dog',
+            breed='Mixed',
+            sex=Pet.Sex.MALE,
+            color='Brown',
+            date_of_birth='2020-01-01',
+        )
+        record = MedicalRecord.objects.create(
+            pet=pet,
+            branch=self.branch,
+            vet=self.vet,
+            date_recorded='2026-10-18',
+        )
+        entry = RecordEntry.objects.create(
+            record=record,
+            vet=self.vet,
+            date_recorded='2026-10-18',
+            treatment='Examination completed',
+            rx='None',
+        )
+
+        blocking_fields = get_record_pdf_blocking_fields(
+            record,
+            [entry],
+        )
+
+        self.assertIn(
+            'Visit entry #1: History/Clinical Signs is missing.',
+            blocking_fields,
+        )
+        self.assertNotIn('Visit entry #1: Weight is missing.', blocking_fields)
+        self.assertNotIn('Visit entry #1: Temperature is missing.', blocking_fields)
 
     def test_medical_record_edit_updates_first_entry_not_later_entries(self):
         first_status = ClinicalStatus.get_default()
@@ -1302,6 +1400,8 @@ class PdfAssetResolutionTests(SimpleTestCase):
 
         self.assertIn('.section-header', stylesheet)
         self.assertIn('background-color: #333', stylesheet)
+        self.assertIn('.owner-info-table .section-header', stylesheet)
+        self.assertIn('.owner-info-table {\n    table-layout: fixed;\n    width: 100%;', stylesheet)
 
     def test_media_assets_are_resolved_to_local_files(self):
         with tempfile.TemporaryDirectory() as media_root:

@@ -74,6 +74,17 @@ body {
 
 .owner-info-table {
     table-layout: fixed;
+    width: 100%;
+}
+
+.owner-info-table .section-header {
+    width: 100%;
+    text-align: left;
+    border: 0;
+}
+
+.owner-info-table .label {
+    width: auto;
 }
 
 .owner-info-table .value {

@@ -535,7 +535,7 @@
       <a href="{% url 'patients:my_pets' %}" class="page-hero-btn records-hero-btn">
         <i class='bx bx-arrow-back'></i> <span>Back to My Pets</span>
       </a>
-      {% if missing_fields %}
+      {% if pdf_blocking_fields %}
       <span class="page-hero-btn records-hero-btn is-disabled" title="Complete all required fields before downloading PDF">
         <i class='bx bx-download'></i> <span>Download PDF</span>
       </span>
@@ -552,7 +552,12 @@
 {% if missing_fields %}
 <div class="rv-warnings-banner">
     <div class="rv-warnings-banner-title">
-        <i class='bx bx-error-circle'></i> Missing Details &mdash; PDF download is disabled
+        <i class='bx bx-error-circle'></i>
+        {% if pdf_blocking_fields %}
+        Missing Details &mdash; PDF download is disabled until required information is complete
+        {% else %}
+        Some details are missing &mdash; PDF is available; weight and temperature may be blank if not recorded
+        {% endif %}
     </div>
     <ul class="rv-warnings-list">
         {% for warning in missing_fields %}
