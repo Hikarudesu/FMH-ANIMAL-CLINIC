@@ -1232,7 +1232,6 @@
         return;
       }
       approvedSubmit = true;
-      form.dataset.ownerIdentityApproved = 'true';
       if (submitter) form.requestSubmit(submitter);
       else form.requestSubmit();
     });
@@ -1383,7 +1382,7 @@
     });
   })();
 
-  // ── Confirm patient updates and walk-in account transfers ──
+  // ── Confirmation modal for both Link Existing and Create New ──
   (function initConfirmModal() {
     const linkSelect = document.getElementById('id_link_to_account');
     const createFlag = document.getElementById('id_create_new_account');
@@ -1397,21 +1396,8 @@
 
       const isCreateMode = createFlag && createFlag.value === 'True';
       const isLinkMode = linkSelect && linkSelect.value;
-      const isUpdateMode = {% if action == 'Update' %}true{% else %}false{% endif %};
-      const isGuestOwnerUpdate = {% if action == 'Update' and pet.source == 'WALKIN' %}true{% else %}false{% endif %};
-      const ownerPicker = document.getElementById('ownerPicker');
-      const ownerField = document.getElementById('id_owner');
-      const isOwnerTransfer = ownerPicker
-        && ownerPicker.dataset.confirmOwnerChange === 'true'
-        && ownerField
-        && ownerField.value !== ownerPicker.dataset.originalOwnerId;
 
-      if (!isCreateMode && !isLinkMode && (!isUpdateMode || isOwnerTransfer)) return;
-      if (
-        isGuestOwnerUpdate
-        && form.dataset.ownerIdentityApproved !== 'true'
-      ) return;
-      if (isGuestOwnerUpdate) delete form.dataset.ownerIdentityApproved;
+      if (!isCreateMode && !isLinkMode) return; // Normal save, no modal needed
 
       e.preventDefault();
 
@@ -1437,14 +1423,6 @@
            `The walk-in owner details will be cleared. This transfer cannot be undone.`;
          btnText = '<i class="bx bx-transfer-alt"></i> Transfer to This Account';
         iconClass = 'bx-transfer-alt';
-      } else {
-        const petName = escapeHtml('{{ pet.name|escapejs }}');
-        title = 'Confirm Patient Update';
-        body = isGuestOwnerUpdate
-          ? `Are you sure you want to save these changes to <strong>${petName}</strong> and its guest owner information? Please review the updated details before continuing.`
-          : `Are you sure you want to save these changes to <strong>${petName}</strong>'s patient information? Please review the updated details before continuing.`;
-        btnText = '<i class="bx bx-check"></i> Update Patient';
-        iconClass = 'bx-edit-alt';
       }
 
       // Build modal using system modal structure
