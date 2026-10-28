@@ -29,6 +29,8 @@
   .appointment-manage__notice { display: flex; align-items: flex-start; gap: 10px; padding: 13px 15px; border: 1px solid #bfdbfe; border-radius: 11px; background: #eff6ff; color: #1e40af; line-height: 1.45; }
   .appointment-manage__notice--warning { border-color: #fed7aa; background: #fff7ed; color: #9a3412; }
   .appointment-manage__notice--success { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+  .appointment-manage__overdue-note { margin: 0 0 16px; }
+  .appointment-manage__overdue-note i { flex: 0 0 auto; margin-top: 2px; font-size: 1.1rem; }
   .appointment-manage__actions { display: grid; gap: 12px; }
   .appointment-manage__action { padding: 15px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg, #f8fafc); }
   .appointment-manage__action h3 { margin: 0 0 5px; color: var(--text-1); font-size: .92rem; }
@@ -112,6 +114,18 @@
         <i class='bx bx-calendar-check'></i> {{ appointment.get_status_display }}
       </span>
     </div>
+    {% if appointment.is_past and appointment.status == 'PENDING' or appointment.is_past and appointment.status == 'CONFIRMED' %}
+    <div class="appointment-manage__notice appointment-manage__notice--warning appointment-manage__overdue-note" role="note">
+      <i class='bx bx-time-five' aria-hidden="true"></i>
+      <div>
+        <strong>Scheduled appointment time has passed</strong>
+        <div>
+          The scheduled time was {{ appointment.appointment_date|date:"M j, Y" }} at {{ appointment.appointment_time_display }}.
+          This is an informational reminder only; the appointment status has not changed. Please contact the owner or guest and update the visit progress as appropriate.
+        </div>
+      </div>
+    </div>
+    {% endif %}
     {% include "components/appointment_workflow_progress.html" with appt=appointment %}
   </section>
 

@@ -3015,6 +3015,53 @@ class AppointmentWorkflowActionTests(TestCase):
         )
         self.assertEqual(edit_response.status_code, 200)
 
+    @patch('appointments.models.timezone.now')
+    def test_visit_progress_shows_note_for_past_pending_appointment(
+        self, mocked_now,
+    ):
+        scheduled_date = date(2026, 10, 28)
+        mocked_now.return_value = timezone.make_aware(
+            datetime(2026, 10, 28, 10, 1),
+        )
+        self.appointment.appointment_date = scheduled_date
+        self.appointment.appointment_time = time(10)
+        self.appointment.status = Appointment.Status.PENDING
+        self.appointment.save(update_fields=[
+            'appointment_date', 'appointment_time', 'status', 'updated_at',
+        ])
+
+        response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Scheduled appointment time has passed')
+        self.assertContains(response, 'This is an informational reminder only')
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, Appointment.Status.PENDING)
+
+    @patch('appointments.models.timezone.now')
+    def test_visit_progress_hides_overdue_note_before_scheduled_time(
+        self, mocked_now,
+    ):
+        scheduled_date = date(2026, 10, 28)
+        mocked_now.return_value = timezone.make_aware(
+            datetime(2026, 10, 28, 9, 59),
+        )
+        self.appointment.appointment_date = scheduled_date
+        self.appointment.appointment_time = time(10)
+        self.appointment.status = Appointment.Status.CONFIRMED
+        self.appointment.save(update_fields=[
+            'appointment_date', 'appointment_time', 'status', 'updated_at',
+        ])
+
+        response = self.client.get(
+            reverse('appointments:admin_detail', args=[self.appointment.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Scheduled appointment time has passed')
+
     def test_completed_appointment_is_read_only_to_receptionist(self):
         self.appointment.status = Appointment.Status.COMPLETED
         self.appointment.save(update_fields=['status', 'updated_at'])
