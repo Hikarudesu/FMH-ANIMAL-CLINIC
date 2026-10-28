@@ -338,6 +338,8 @@ class WalkInOwnerIdentityApiTests(TestCase):
         self.assertContains(response, 'data-owner-identity-url=')
         self.assertContains(response, 'guestOwnerNameMatchNote')
         self.assertContains(response, 'guestOwnerEmailMatchNote')
+        self.assertContains(response, 'Confirm Patient Update')
+        self.assertContains(response, 'guest owner information')
 
     def test_walkin_pet_registration_renders_live_identity_notes(self):
         response = self.client.get(reverse('patients:admin_add_pet'))
@@ -451,6 +453,7 @@ class RegisteredOwnerPetEditTests(TestCase):
         self.assertContains(response, 'current-owner@example.com')
         self.assertContains(response, 'data-confirm-owner-change="true"')
         self.assertContains(response, 'id="ownerChangeDialog"')
+        self.assertContains(response, 'Confirm Patient Update')
         self.assertNotRegex(
             response.content.decode(),
             r'<select[^>]+name="owner"',
@@ -577,6 +580,23 @@ class PortalPetNameUniquenessTests(TestCase):
         form = PetForm(data=self.form_data, instance=self.pet, user=self.owner)
 
         self.assertTrue(form.is_valid(), form.errors)
+
+    @override_settings(STORAGES={
+        **settings.STORAGES,
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    })
+    def test_edit_pet_view_prompts_before_saving_changes(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse('patients:edit_pet', args=[self.pet.pk]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Save these changes to')
+        self.assertContains(response, 'updated pet information and any selected photo')
 
     @override_settings(STORAGES={
         **settings.STORAGES,

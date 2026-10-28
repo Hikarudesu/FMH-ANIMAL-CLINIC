@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const guest = walkinPetsMap[ownerKey];
             const opt = document.createElement('option');
             opt.value = ownerKey;
-            opt.textContent = [guest.name, guest.phone, guest.email].filter(Boolean).join(' | ');
+            opt.textContent = guest.name;
             opt.dataset.name = guest.name;
             opt.dataset.phone = guest.phone;
             opt.dataset.email = guest.email;
@@ -652,8 +652,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         if (!option) return;
         walkinSelect.value = ownerKey;
-        walkinSearch.value = [option.dataset.name, option.dataset.phone, option.dataset.email]
-            .filter(Boolean).join(' | ');
+        walkinSearch.value = option.dataset.name;
         walkinSearch.setCustomValidity('');
         walkinResults.innerHTML = '';
         walkinResults.style.display = 'none';
@@ -701,13 +700,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const ownerLabel = document.createElement('strong');
                 ownerLabel.textContent = guest.name;
                 result.appendChild(ownerLabel);
-                const contactDetails = [guest.phone, guest.email].filter(Boolean).join(' | ');
-                if (contactDetails) {
-                    result.appendChild(document.createElement('br'));
-                    const contactLabel = document.createElement('small');
-                    contactLabel.textContent = contactDetails;
-                    result.appendChild(contactLabel);
-                }
                 result.appendChild(document.createElement('br'));
                 const petOwnerLabel = document.createElement('small');
                 petOwnerLabel.textContent = guest.pets.map(pet => pet.name).filter(Boolean).join(', ');
@@ -847,13 +839,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const opt = document.createElement('option');
                 opt.value = pet.id;
                 const petLabel = pet.name + (pet.pet_species ? ' (' + pet.pet_species + ')' : '');
-                if (source === 'WALKIN') {
-                    const guest = walkinPetsMap[ownerKey];
-                    const ownerDetails = [guest.phone, guest.email].filter(Boolean).join(' | ');
-                    opt.textContent = ownerDetails ? petLabel + ' | ' + ownerDetails : petLabel;
-                } else {
-                    opt.textContent = petLabel;
-                }
+                opt.textContent = petLabel;
                 opt.dataset.petData = JSON.stringify(pet);
                 petSelect.appendChild(opt);
             });

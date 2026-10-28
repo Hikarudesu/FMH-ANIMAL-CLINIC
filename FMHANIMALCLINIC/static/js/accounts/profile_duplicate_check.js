@@ -73,6 +73,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function resubmitAfterCheck(submitter) {
+    if (!window.confirm(
+      'Save these profile changes? Your personal information and profile photo will be updated for your account.'
+    )) return;
+
     allowConfirmedSubmit = true;
     if (typeof form.requestSubmit === 'function') {
       if (submitter) form.requestSubmit(submitter);
