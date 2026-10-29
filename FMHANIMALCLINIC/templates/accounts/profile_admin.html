@@ -173,7 +173,7 @@
         {% csrf_token %}
         <div style="display: flex; flex-direction: column; gap: 16px; max-width: 400px;">
           <div class="auth-form-group">
-            <label for="currentPassword" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">Current Password</label>
+            <label for="currentPassword" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">Current Password <span aria-hidden="true" style="color: var(--error, #dc2626);">*</span></label>
             <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
               <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
               <input type="password" id="currentPassword" name="current_password" placeholder="Enter current password" required
@@ -185,7 +185,7 @@
             </div>
           </div>
           <div class="auth-form-group">
-            <label for="newPassword1" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">New Password</label>
+            <label for="newPassword1" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">New Password <span aria-hidden="true" style="color: var(--error, #dc2626);">*</span></label>
             <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
               <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
               <input type="password" id="newPassword1" name="new_password1" placeholder="Enter new password" required minlength="8"
@@ -194,7 +194,7 @@
             </div>
           </div>
           <div class="auth-form-group">
-            <label for="newPassword2" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">Confirm New Password</label>
+            <label for="newPassword2" style="font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: block;">Confirm New Password <span aria-hidden="true" style="color: var(--error, #dc2626);">*</span></label>
             <div class="auth-input-wrapper" style="display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: var(--surface);">
               <i class='bx bx-lock-alt' style="color: var(--text-3);"></i>
               <input type="password" id="newPassword2" name="new_password2" placeholder="Confirm new password" required minlength="8"
@@ -213,6 +213,16 @@
           </div>
         </div>
       </form>
+      <script>
+        window.bindCenteredFormConfirmation(
+          document.getElementById('state1Form'),
+          {
+            title: 'Confirm password change',
+            message: 'Your current password will be replaced with the new password you entered. You will remain signed in, but your current password will no longer work. Continue only if you are ready to save this change.',
+            confirmText: 'Update Password',
+          },
+        );
+      </script>
 
       <!-- State 2: Send OTP -->
       <div id="state2OtpPrompt" style="display: none; flex-direction: column; gap: 16px; max-width: 400px; padding: 15px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
