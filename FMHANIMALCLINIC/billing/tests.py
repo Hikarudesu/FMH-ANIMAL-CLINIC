@@ -28,6 +28,49 @@ class ClinicServiceTaxRemovalTests(TestCase):
         },
     }
 )
+class ClinicServiceDeleteConfirmationTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username='clinic-service-delete-admin',
+            email='clinic-service-delete-admin@example.com',
+            password='A-secure-test-password-947!',
+        )
+        self.service = Service.objects.create(
+            name='Confirmation Test Service',
+            price=500,
+        )
+        self.client.force_login(self.admin)
+
+    def test_service_delete_uses_shared_confirmation_and_requires_post(self):
+        response = self.client.get(reverse('billing:billable_items'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'window.showCenteredConfirmation')
+        self.assertContains(response, 'Yes, Delete Service')
+        self.assertContains(response, 'id="deleteServiceForm" method="post"')
+        self.assertContains(response, 'csrfmiddlewaretoken')
+
+        get_response = self.client.get(
+            reverse('billing:billable_item_delete', args=[self.service.pk]),
+        )
+        self.assertRedirects(get_response, reverse('billing:billable_items'))
+        self.assertTrue(Service.objects.filter(pk=self.service.pk).exists())
+
+        post_response = self.client.post(
+            reverse('billing:billable_item_delete', args=[self.service.pk]),
+        )
+        self.assertRedirects(post_response, reverse('billing:billable_items'))
+        self.assertFalse(Service.objects.filter(pk=self.service.pk).exists())
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class CustomerStatementPortalTests(TestCase):
     def test_pet_owner_cannot_open_service_management_url(self):
         owner = get_user_model().objects.create_user(
