@@ -6,6 +6,7 @@ app_name = 'notifications'
 urlpatterns = [
     path('', views.user_notifications, name='notification_list'),
     path('admin/', views.admin_notification_list, name='admin_notifications'),
+    path('api/search/', views.api_search_notifications, name='api_search'),
     path('<int:pk>/open/', views.open_notification, name='open_notification'),
     path('<int:pk>/read/', views.mark_read, name='mark_read'),
     path('<int:pk>/delete/', views.delete_notification, name='delete_notification'),

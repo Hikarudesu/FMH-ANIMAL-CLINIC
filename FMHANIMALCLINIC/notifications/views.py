@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse
@@ -207,6 +207,41 @@ def user_notifications(request):
         'tab_list': tab_list,
         'search_value': search_value,
     })
+
+
+@login_required
+@require_GET
+def api_search_notifications(request):
+    """Return globally scoped notification search suggestions for the current user."""
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    notifications = Notification.scoped_for_user(request.user)
+    current_filter = request.GET.get('filter', 'all')
+    if current_filter == 'unread':
+        notifications = notifications.filter(is_read=False)
+    elif current_filter == 'read':
+        notifications = notifications.filter(is_read=True)
+
+    notif_type = request.GET.get('type', '')
+    if notif_type and notif_type != 'all':
+        notifications = notifications.filter(notification_type=notif_type)
+
+    results = [
+        {
+            'title': notification.title,
+            'message': notification.message,
+            'type': notification.get_notification_type_display(),
+            'status': 'read' if notification.is_read else 'unread',
+        }
+        for notification in notifications.filter(
+            Q(title__icontains=query)
+            | Q(message__icontains=query)
+            | Q(notification_type__icontains=query)
+        ).order_by('-created_at')[:8]
+    ]
+    return JsonResponse({'results': results})
 
 
 @login_required

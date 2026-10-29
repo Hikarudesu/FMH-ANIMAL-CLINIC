@@ -80,7 +80,7 @@
 <!-- ══════ FILTER BAR ══════ -->
 <div class="c-filter-bar" id="recordFilterBar">
   <div class="c-filter-bar__glow"></div>
-  <form method="get" action="{% url 'records:admin_list' %}" class="c-filter-bar__form" id="recordFilterForm" autocomplete="off">
+  <form method="get" action="{% url 'records:admin_list' %}" class="c-filter-bar__form" id="recordFilterForm" data-search-url="{% url 'records:api_search_records' %}" autocomplete="off">
 
     <!-- Search Row -->
     <div class="c-filter-bar__search">
@@ -272,44 +272,21 @@
   const filterForm = document.getElementById('recordFilterForm');
   if (!searchInput || !dropdown || !filterForm) return;
 
-  function buildData() {
-    return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
-      pet   : row.dataset.pet    || '',
-      owner : row.dataset.owner  || '',
-      branch: row.dataset.branch || '',
-      source: row.dataset.source || '',
-      source_display: row.dataset.source_display || '',
-      href  : row.dataset.href   || '#',
-      row   : row
-    }));
-  }
-
-  let records = buildData();
   let dropdownResults = [];
+  let searchTimer;
+  let activeRequest = 0;
 
-  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-  function highlight(text, q) {
-    if (!q) return text;
-    return text.replace(new RegExp('(' + esc(q) + ')', 'gi'),
-      '<span class="search-dropdown-highlight">$1</span>');
-  }
-
-  function renderDropdown(results, q) {
+  function renderDropdown(results) {
     dropdownResults = results.slice(0, 8);
     if (!results.length) {
-      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No match on this page. Press Enter to search all medical records.</div>';
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No matching medical records found.</div>';
     } else {
       dropdown.innerHTML = dropdownResults.map((r, idx) => `
         <div class="search-dropdown-item" data-index="${idx}">
           <i class='bx bx-file-blank'></i>
           <div class="item-info">
-            <div class="record-meta-item source-badge ${r.source == 'PORTAL' ? 'portal' : 'walkin'}">
-              <i class='bx ${r.source == "PORTAL" ? 'bx-user-check' : 'bx-walk'}'></i>
-              ${r.source_display}
-            </div>
-            <div class="item-name">${highlight(r.pet, q)}</div>
-            <div class="item-sub">${highlight(r.owner, q)} &bull; ${r.branch || '—'}</div>
+            <div class="item-name">${r.pet}</div>
+            <div class="item-sub">${r.owner} &bull; ${r.branch || '—'}</div>
           </div>
           <i class='bx bx-chevron-right' style="color:var(--text-secondary);"></i>
         </div>`).join('');
@@ -332,17 +309,40 @@
   function selectResult(index) {
     const result = dropdownResults[index];
     if (!result) return;
-    searchInput.value = result.pet;
     hideDropdown();
     filterForm.requestSubmit();
   }
 
+  function searchRecords(query) {
+    const requestId = ++activeRequest;
+    const params = new URLSearchParams(new FormData(filterForm));
+    params.set('q', query);
+    params.delete('page');
+    fetch(`${filterForm.dataset.searchUrl}?${params.toString()}`, { cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw new Error(`Medical record search failed (${response.status}).`);
+        return response.json();
+      })
+      .then(data => {
+        if (requestId === activeRequest && searchInput.value.trim() === query) {
+          renderDropdown(data.results);
+        }
+      })
+      .catch(error => {
+        console.error(error);
+        if (requestId === activeRequest) {
+          dropdown.innerHTML = '<div class="search-dropdown-empty">Unable to load suggestions. Press Enter to search.</div>';
+          dropdown.style.display = 'block';
+          dropdown.classList.add('active');
+        }
+      });
+  }
+
   searchInput.addEventListener('input', function () {
-    const q = this.value.toLowerCase().trim();
-    if (!q) { hideDropdown(); return; }
-    const results = records.filter(r =>
-      r.pet.toLowerCase().includes(q) || r.owner.toLowerCase().includes(q) || r.branch.toLowerCase().includes(q));
-    renderDropdown(results, q);
+    const query = this.value.trim();
+    clearTimeout(searchTimer);
+    if (query.length < 2) { hideDropdown(); return; }
+    searchTimer = setTimeout(() => searchRecords(query), 250);
   });
 
   searchInput.addEventListener('focus', function () {

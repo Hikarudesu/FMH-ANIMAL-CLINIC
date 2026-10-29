@@ -61,6 +61,11 @@ urlpatterns = [
     # Admin management
     path('admin/', views.admin_list, name='admin_list'),
     path(
+        'admin/search/',
+        views.api_search_admin_appointments,
+        name='api_search_admin',
+    ),
+    path(
         'admin/history/',
         views.admin_appointment_history,
         name='admin_appointment_history',

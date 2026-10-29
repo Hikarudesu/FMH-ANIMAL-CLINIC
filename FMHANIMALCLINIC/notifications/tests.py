@@ -563,7 +563,7 @@ class NotificationGlobalSearchTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['page_obj'].paginator.count, 1)
         self.assertEqual(response.context['page_obj'][0].pk, target.pk)
-        self.assertContains(response, 'Press Enter to search all notifications.')
+        self.assertContains(response, 'data-search-url="/notifications/api/search/"')
 
     def test_customer_notification_search_finds_results_beyond_first_page(self):
         self.assert_search_finds_page_two_notification(

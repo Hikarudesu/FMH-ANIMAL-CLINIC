@@ -487,7 +487,7 @@ class AppointmentGroupedSearchTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['appointments'].paginator.count, 1)
         self.assertEqual(response.context['appointments'][0].pk, target.pk)
-        self.assertContains(response, 'Press Enter to search all appointments.')
+        self.assertContains(response, 'data-search-url="/appointments/admin/search/"')
 
 
 class AppointmentVeterinarianOptionsTests(TestCase):

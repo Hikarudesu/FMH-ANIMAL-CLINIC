@@ -204,6 +204,63 @@ def admin_records_list(request):
 
 
 @login_required
+@module_permission_required('medical_records', 'VIEW')
+@require_GET
+def api_search_records(request):
+    """Return globally scoped medical-record search suggestions."""
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    is_branch_restricted = request.user.is_module_branch_restricted(
+        'medical_records'
+    )
+    user_branch = getattr(request.user, 'branch', None)
+    if not user_branch:
+        staff_profile = getattr(request.user, 'staff_profile', None)
+        user_branch = getattr(staff_profile, 'branch', None) if staff_profile else None
+
+    records = MedicalRecord.objects.all().select_related(
+        'pet', 'pet__owner', 'branch',
+    ).prefetch_related('entries')
+    if is_branch_restricted:
+        records = records.filter(branch=user_branch) if user_branch else records.none()
+
+    records = records.filter(
+        Q(pet__name__icontains=query) |
+        Q(pet__owner__first_name__icontains=query) |
+        Q(pet__owner__last_name__icontains=query) |
+        Q(pet__species__icontains=query) |
+        Q(pet__breed__icontains=query) |
+        Q(entries__history_clinical_signs__icontains=query) |
+        Q(entries__treatment__icontains=query) |
+        Q(entries__rx__icontains=query) |
+        Q(branch__name__icontains=query)
+    ).distinct()
+
+    branch_id = request.GET.get('branch', '')
+    if branch_id and not is_branch_restricted:
+        records = records.filter(branch_id=branch_id)
+    vet_id = request.GET.get('vet', '')
+    if vet_id:
+        records = records.filter(vet_id=vet_id)
+    source = request.GET.get('source', '')
+    if source:
+        records = records.filter(pet__source=source)
+
+    results = []
+    for record in records.order_by('-date_recorded', '-created_at')[:8]:
+        results.append({
+            'pet': record.pet.name,
+            'owner': record.pet.owner_display_name,
+            'branch': record.branch.name if record.branch else '',
+            'source': record.pet.get_source_display(),
+            'url': reverse('records:admin_detail', args=[record.pk]),
+        })
+    return JsonResponse({'results': results})
+
+
+@login_required
 @module_permission_required('medical_records', 'CREATE')
 def admin_record_create(request):
     """View to create a new visit entry, reusing the pet's existing record card if one exists."""

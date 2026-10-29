@@ -609,7 +609,7 @@
 <!-- ══════ SEARCH & FILTER BAR ══════ -->
 <div class="c-filter-bar" id="apptFilterBar">
   <div class="c-filter-bar__glow"></div>
-  <form method="GET" id="apptFilterForm" class="c-filter-bar__form" autocomplete="off">
+  <form method="GET" id="apptFilterForm" class="c-filter-bar__form" data-search-url="{% url 'appointments:api_search_admin' %}" autocomplete="off">
     <input type="hidden" name="view" value="{{ current_view|default:'table' }}">
     <input type="hidden" name="search_owner" id="apptSearchOwner" value="{{ search_owner }}">
     <input type="hidden" name="search_pet" id="apptSearchPet" value="{{ search_pet }}">
@@ -2468,25 +2468,9 @@ if (followupBookingElement && quickCreateModal) {
   if (!searchInput || !dropdown || !filterForm || !ownerFilter || !petFilter) return;
 
   // Collect data from data-* attributes on each searchable row
-  function buildData() {
-    const list = [];
-    document.querySelectorAll('tr.searchable-row').forEach(row => {
-      const editLink = row.querySelector('a[href*="edit"]');
-      list.push({
-        owner : row.dataset.owner  || '',
-        email : row.dataset.email || '',
-        pet   : row.dataset.pet    || '',
-        branch: row.dataset.branch || '',
-        vet   : row.dataset.vet    || '',
-        href  : editLink ? editLink.getAttribute('href') : '#',
-        row   : row,
-        detailsId: row.dataset.detailsId || ''
-      });
-    });
-    return list;
-  }
-
-  let appts = buildData();
+  let appts = [];
+  let searchTimer;
+  let activeRequest = 0;
 
   function appendHighlightedText(container, text, query) {
     const lowerText = text.toLocaleLowerCase();
@@ -2510,7 +2494,7 @@ if (followupBookingElement && quickCreateModal) {
     if (!results.length) {
       const empty = document.createElement('div');
       empty.className = 'search-dropdown-empty';
-      empty.textContent = 'No appointments found';
+      empty.textContent = 'No appointments found.';
       dropdown.append(empty);
     } else {
       results.slice(0, 8).forEach((appointment) => {
@@ -2557,35 +2541,42 @@ if (followupBookingElement && quickCreateModal) {
     dropdown.style.display = '';
   }
 
-  function uniqueAppointments(matches) {
-    const groups = new Map();
-    matches.forEach(appointment => {
-      const key = `${appointment.owner.trim().toLocaleLowerCase()}\u0000${appointment.pet.trim().toLocaleLowerCase()}`;
-      const group = groups.get(key);
-      if (!group) groups.set(key, appointment);
-    });
-    return Array.from(groups.values());
+  function searchAppointments(query) {
+    const requestId = ++activeRequest;
+    const params = new URLSearchParams(new FormData(filterForm));
+    params.set('q', query);
+    params.delete('page');
+    fetch(`${filterForm.dataset.searchUrl}?${params.toString()}`, { cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw new Error(`Appointment search failed (${response.status}).`);
+        return response.json();
+      })
+      .then(data => {
+        if (requestId === activeRequest && searchInput.value.trim() === query) {
+          renderDropdown(data.results, query);
+        }
+      })
+      .catch(error => {
+        console.error(error);
+        if (requestId === activeRequest) {
+          dropdown.replaceChildren();
+          const message = document.createElement('div');
+          message.className = 'search-dropdown-empty';
+          message.textContent = 'Unable to load suggestions. Press Enter to search.';
+          dropdown.append(message);
+          dropdown.style.display = 'block';
+          dropdown.classList.add('active');
+        }
+      });
   }
 
   searchInput.addEventListener('input', function () {
     ownerFilter.value = '';
     petFilter.value = '';
-    const q = this.value.toLowerCase().trim();
-    if (!q) { hideDropdown(); return; }
-    const results = uniqueAppointments(appts.filter(a =>
-      a.owner.toLowerCase().includes(q) || a.email.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q) ||
-      a.branch.toLowerCase().includes(q) || a.vet.toLowerCase().includes(q)));
-    if (!results.length) {
-      dropdown.replaceChildren();
-      const empty = document.createElement('div');
-      empty.className = 'search-dropdown-empty';
-      empty.textContent = 'No match on this page. Press Enter to search all appointments.';
-      dropdown.append(empty);
-      dropdown.style.display = 'block';
-      dropdown.classList.add('active');
-      return;
-    }
-    renderDropdown(results, q);
+    const query = this.value.trim();
+    clearTimeout(searchTimer);
+    if (query.length < 2) { hideDropdown(); return; }
+    searchTimer = setTimeout(() => searchAppointments(query), 250);
   });
 
   searchInput.addEventListener('focus', function () {

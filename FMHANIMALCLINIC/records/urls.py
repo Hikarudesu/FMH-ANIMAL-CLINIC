@@ -8,6 +8,7 @@ app_name = 'records'  # pylint: disable=invalid-name
 
 urlpatterns = [
     path('admin/', views.admin_records_list, name='admin_list'),
+    path('api/search-records/', views.api_search_records, name='api_search_records'),
     path('admin/create/', views.admin_record_create, name='admin_create'),
     path('admin/<int:pk>/', views.admin_record_detail, name='admin_detail'),
     path('admin/<int:pk>/edit/', views.admin_record_edit, name='admin_edit'),

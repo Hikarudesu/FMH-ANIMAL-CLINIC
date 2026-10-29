@@ -82,6 +82,80 @@ def _scope_view_only_appointments(user, appointments, *, include_unassigned=Fals
     return appointments.filter(preferred_vet=staff)
 
 
+@login_required
+@module_permission_required('appointments', 'VIEW')
+@require_GET
+def api_search_admin_appointments(request):
+    """Return globally scoped appointment search suggestions for staff."""
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    appointments = Appointment.objects.select_related(
+        'branch', 'preferred_vet', 'user',
+    ).all()
+    role_code = getattr(getattr(request.user, 'assigned_role', None), 'code', '')
+    is_veterinarian = role_code in (
+        'veterinarian',
+        'assistant_veterinarian',
+    )
+    appointments = _scope_view_only_appointments(
+        request.user,
+        appointments,
+        include_unassigned=is_veterinarian,
+    )
+
+    is_branch_restricted = (
+        request.user.is_module_branch_restricted('appointments')
+        or is_veterinarian
+    )
+    user_branch = request.user.branch
+    if is_branch_restricted and user_branch:
+        appointments = appointments.filter(branch=user_branch)
+    if is_veterinarian:
+        try:
+            staff_profile = request.user.staff_profile
+        except StaffMember.DoesNotExist:
+            appointments = appointments.none()
+        else:
+            if not user_branch:
+                appointments = appointments.none()
+            else:
+                appointments = appointments.filter(
+                    Q(preferred_vet=staff_profile)
+                    | Q(preferred_vet__isnull=True)
+                )
+
+    appointments = appointments.filter(
+        Q(owner_name__icontains=query)
+        | Q(pet_name__icontains=query)
+        | Q(owner_email__icontains=query)
+    )
+    status = request.GET.get('status', '')
+    if status:
+        appointments = appointments.filter(status=status)
+    branch_id = request.GET.get('branch', '')
+    if branch_id and not is_branch_restricted:
+        appointments = appointments.filter(branch_id=branch_id)
+    source = request.GET.get('source', '')
+    if source:
+        appointments = appointments.filter(source=source)
+    vet_id = request.GET.get('vet', '')
+    if vet_id:
+        appointments = appointments.filter(preferred_vet_id=vet_id)
+
+    results = [
+        {
+            'owner': appointment.owner_name,
+            'email': appointment.owner_email,
+            'pet': appointment.pet_name,
+            'branch': appointment.branch.name if appointment.branch else '',
+        }
+        for appointment in appointments[:8]
+    ]
+    return JsonResponse({'results': results})
+
+
 
 def public_book(request):
     """Public appointment booking — no login required."""

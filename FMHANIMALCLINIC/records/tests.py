@@ -262,7 +262,7 @@ class MedicalRecordGlobalSearchTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['records'].paginator.count, 1)
         self.assertEqual(response.context['records'][0].pet_id, target_pet.pk)
-        self.assertContains(response, 'Press Enter to search all medical records.')
+        self.assertContains(response, 'data-search-url="/records/api/search-records/"')
 
 
 @override_settings(

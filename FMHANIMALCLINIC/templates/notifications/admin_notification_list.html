@@ -35,7 +35,7 @@
 <!-- Filter Bar with Search and Dropdowns -->
 <div class="c-filter-bar" style="margin-bottom: 22px;">
   <div class="c-filter-bar__glow"></div>
-  <form method="GET" action="{% url 'notifications:admin_notifications' %}" class="c-filter-bar__form" id="notifFilterForm" autocomplete="off">
+  <form method="GET" action="{% url 'notifications:admin_notifications' %}" class="c-filter-bar__form" id="notifFilterForm" data-search-url="{% url 'notifications:api_search' %}" autocomplete="off">
     <input type="hidden" name="filter" value="{{ current_filter }}">
     <!-- Search Input -->
     <div class="c-filter-bar__search">
@@ -205,18 +205,9 @@
   const filterForm = document.getElementById('notifFilterForm');
   if (!searchInput || !dropdown || !filterForm) return;
 
-  function buildData() {
-    return Array.from(document.querySelectorAll('div.searchable-row')).map(row => ({
-      title: row.dataset.title || '',
-      message: row.dataset.message || '',
-      type: row.dataset.type || '',
-      status: row.dataset.status || '',
-      row: row
-    }));
-  }
-
-  let items = buildData();
   let dropdownResults = [];
+  let searchTimer;
+  let activeRequest = 0;
 
   function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
@@ -229,7 +220,7 @@
   function renderDropdown(results, q) {
     dropdownResults = results.slice(0, 8);
     if (!results.length) {
-      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No match on this page. Press Enter to search all notifications.</div>';
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No notifications found.</div>';
     } else {
       dropdown.innerHTML = dropdownResults.map(item => `
         <div class="search-dropdown-item" data-title="${item.title}">
@@ -258,14 +249,36 @@
     dropdown.style.display = '';
   }
 
+  function searchNotifications(query) {
+    const requestId = ++activeRequest;
+    const params = new URLSearchParams(new FormData(filterForm));
+    params.set('q', query);
+    params.delete('page');
+    fetch(`${filterForm.dataset.searchUrl}?${params.toString()}`, { cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw new Error(`Notification search failed (${response.status}).`);
+        return response.json();
+      })
+      .then(data => {
+        if (requestId === activeRequest && searchInput.value.trim() === query) {
+          renderDropdown(data.results, query);
+        }
+      })
+      .catch(error => {
+        console.error(error);
+        if (requestId === activeRequest) {
+          dropdown.innerHTML = '<div class="search-dropdown-empty">Unable to load suggestions. Press Enter to search.</div>';
+          dropdown.style.display = 'block';
+          dropdown.classList.add('active');
+        }
+      });
+  }
+
   searchInput.addEventListener('input', function () {
-    const q = this.value.toLowerCase().trim();
-    if (!q) { hideDropdown(); return; }
-    const results = items.filter(item =>
-      item.title.toLowerCase().includes(q) ||
-      item.message.toLowerCase().includes(q) ||
-      item.type.toLowerCase().includes(q));
-    renderDropdown(results, q);
+    const query = this.value.trim();
+    clearTimeout(searchTimer);
+    if (query.length < 2) { hideDropdown(); return; }
+    searchTimer = setTimeout(() => searchNotifications(query), 250);
   });
 
   searchInput.addEventListener('focus', function () {
