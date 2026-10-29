@@ -217,7 +217,7 @@ def notify_inquiry_received(inquiry):
     
     # Notify branch cashiers/receptionists. If no branch was selected, notify
     # all active cashiers so the inquiry is not left unowned.
-    for role_code in ('cashier', 'executive_officer'):
+    for role_code in (('cashier', 'receptionist'), 'executive_officer'):
         notify_role_users(
             role_code=role_code,
             branch=inquiry.branch,
@@ -261,7 +261,7 @@ def notify_inquiry_responded(inquiry, responder=None):
             lambda: send_inquiry_response_email(inquiry)
         )
     
-    for role_code in ('cashier', 'executive_officer'):
+    for role_code in (('cashier', 'receptionist'), 'executive_officer'):
         notify_role_users(
             role_code=role_code,
             branch=inquiry.branch,
@@ -287,7 +287,7 @@ def notify_inquiry_archived(inquiry, actor=None):
         related_object_id=inquiry.id,
     )
     
-    for role_code in ('cashier', 'executive_officer'):
+    for role_code in (('cashier', 'receptionist'), 'executive_officer'):
         notify_role_users(
             role_code=role_code,
             branch=inquiry.branch,

@@ -156,18 +156,13 @@ class Notification(models.Model):
     @classmethod
     def visible_module_contexts_for_user(cls, user):
         """Return module contexts that should be visible to the given user."""
-        from accounts.models import OVERSEER_HIDDEN_NAV_MODULES
-        from accounts.rbac_models import Module
-
         if user.is_superuser:
-            # Sidebar modules hidden from superadmins are still valid system
-            # event scopes. Notification visibility must cover the whole
-            # system, not only the navigation modules shown in the portal.
-            visible_module_codes = set(
-                Module.objects.filter(is_active=True).values_list('code', flat=True)
-            )
-            visible_module_codes.update(['notifications', cls.ModuleContext.GENERAL])
-            return visible_module_codes
+            # Superadmins must see system events even when a module is hidden
+            # from navigation or its RBAC row is not present.
+            return {
+                context.value
+                for context in cls.ModuleContext
+            } | {'notifications'}
 
         if user.is_pet_owner():
             return {
