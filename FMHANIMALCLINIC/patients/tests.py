@@ -338,6 +338,8 @@ class WalkInOwnerIdentityApiTests(TestCase):
         self.assertContains(response, 'data-owner-identity-url=')
         self.assertContains(response, 'guestOwnerNameMatchNote')
         self.assertContains(response, 'guestOwnerEmailMatchNote')
+        self.assertContains(response, 'Confirm Patient Update')
+        self.assertContains(response, 'Update Patient')
 
     def test_walkin_pet_registration_renders_live_identity_notes(self):
         response = self.client.get(reverse('patients:admin_add_pet'))

@@ -1396,14 +1396,21 @@
 
       const isCreateMode = createFlag && createFlag.value === 'True';
       const isLinkMode = linkSelect && linkSelect.value;
+      const isEditMode = '{{ action|escapejs }}' === 'Update';
 
-      if (!isCreateMode && !isLinkMode) return; // Normal save, no modal needed
+      if (!isCreateMode && !isLinkMode && !isEditMode) return;
 
       e.preventDefault();
 
       let title, body, btnText, iconClass;
 
-      if (isCreateMode) {
+      if (isEditMode && !isCreateMode && !isLinkMode) {
+        const petName = escapeHtml('{{ pet.name|escapejs }}');
+        title = 'Confirm Patient Update';
+        body = `Are you sure you want to save the changes to <strong>${petName}</strong>'s information?`;
+        btnText = '<i class="bx bx-check"></i> Update Patient';
+        iconClass = 'bx-edit-alt';
+      } else if (isCreateMode) {
         const nameInput = document.querySelector('[name="guest_owner_name"]');
          const guestName = escapeHtml(nameInput ? nameInput.value.trim() : 'this guest');
          const petName = escapeHtml('{{ pet.name|escapejs }}');
