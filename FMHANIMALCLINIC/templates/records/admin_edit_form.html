@@ -356,11 +356,16 @@
                 }, 250);
             }
 
-            nameField.addEventListener('input', checkOwnerConflicts);
-            emailField.addEventListener('input', checkOwnerConflicts);
+            nameField.addEventListener('input', function () {
+                conflictCheckPassed = false;
+                checkOwnerConflicts();
+            });
+            emailField.addEventListener('input', function () {
+                conflictCheckPassed = false;
+                checkOwnerConflicts();
+            });
             editForm.addEventListener('submit', function (event) {
                 if (conflictCheckPassed) {
-                    conflictCheckPassed = false;
                     return;
                 }
                 if (submissionPending) {
