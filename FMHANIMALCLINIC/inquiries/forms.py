@@ -67,6 +67,6 @@ class InquiryResponseForm(forms.ModelForm):
             'internal_notes': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 4,
-                'placeholder': 'Internal notes (not visible to customer)'
+                'placeholder': 'Add any additional notes for the customer...'
             }),
         }

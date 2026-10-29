@@ -213,7 +213,7 @@
         
         {% if adjustments %}
         <div id="inv-movements-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
-          {% include "components/modern_pagination.html" with page_obj=adjustments page_param="movements_page" url_fragment="inv-movements-section" %}
+          {% include "components/modern_pagination.html" with page_obj=adjustments page_param="movements_page" url_fragment="inv-movements-pagination" %}
         </div>
         {% endif %}
       </div>
@@ -331,6 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const sectionByHash = {
         '#inv-items-section': 'items',
         '#inv-movements-section': 'movements',
+        '#inv-movements-pagination': 'movements',
         '#inv-reservations-section': 'reservations',
     };
     const activeMode = sectionByHash[window.location.hash];
@@ -608,4 +609,3 @@ window.closeReleaseReservationModal = function() {
 /* Removed old tab-bar styles */
 </style>
 {% endblock %}
-

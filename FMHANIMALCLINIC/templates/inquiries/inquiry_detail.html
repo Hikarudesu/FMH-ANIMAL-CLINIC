@@ -89,17 +89,17 @@
         
         <!-- Status Management -->
         <div class="control-group">
-          <label><i class='bx bx-sync'></i> Update Status</label>
+          <label><i class='bx bx-sync'></i> Update Status <small>Quick actions</small></label>
           {{ form.status }}
           
           <div class="quick-status-actions">
-            <button type="button" class="quick-btn {% if inquiry.status == 'READ' %}active{% endif %}" onclick="updateStatus('READ')" title="Mark Read">
+            <button type="button" class="quick-btn {% if inquiry.status == 'READ' %}active{% endif %}" onclick="updateStatus('READ')" title="Click to mark this inquiry as read" aria-pressed="{% if inquiry.status == 'READ' %}true{% else %}false{% endif %}">
               <i class='bx bx-envelope-open'></i> Read
             </button>
-            <button type="button" class="quick-btn {% if inquiry.status == 'RESPONDED' %}active{% endif %}" onclick="updateStatus('RESPONDED')" title="Mark Responded">
+            <button type="button" class="quick-btn {% if inquiry.status == 'RESPONDED' %}active{% endif %}" onclick="updateStatus('RESPONDED')" title="Click to mark this inquiry as responded" aria-pressed="{% if inquiry.status == 'RESPONDED' %}true{% else %}false{% endif %}">
               <i class='bx bx-check-circle'></i> Responded
             </button>
-            <button type="button" class="quick-btn {% if inquiry.status == 'ARCHIVED' %}active{% endif %}" onclick="updateStatus('ARCHIVED')" title="Archive">
+            <button type="button" class="quick-btn {% if inquiry.status == 'ARCHIVED' %}active{% endif %}" onclick="updateStatus('ARCHIVED')" title="Click to archive this inquiry" aria-pressed="{% if inquiry.status == 'ARCHIVED' %}true{% else %}false{% endif %}">
               <i class='bx bx-archive'></i> Archive
             </button>
           </div>
@@ -111,9 +111,9 @@
           {{ form.priority }}
         </div>
 
-        <!-- Internal Notes -->
+        <!-- Additional Notes -->
         <div class="control-group">
-          <label><i class='bx bx-notepad'></i> Internal Notes <small>(Staff only)</small></label>
+          <label><i class='bx bx-notepad'></i> Additional Notes</label>
           {{ form.internal_notes }}
         </div>
 
@@ -121,7 +121,9 @@
 
       <!-- Action Footer -->
       <div class="management-footer">
-        <a href="{% url 'inquiries:list' %}" class="btn-cancel">Cancel</a>
+        <a href="{% url 'inquiries:list' %}" class="btn-cancel">
+          <i class='bx bx-arrow-back' aria-hidden="true"></i> Cancel
+        </a>
         <button type="submit" class="btn-save"><i class='bx bx-check'></i> Save Changes</button>
       </div>
     </form>
@@ -384,6 +386,10 @@ function updateStatus(status) {
   display: flex;
   gap: 8px;
   margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--surface);
 }
 
 .quick-btn {
@@ -392,26 +398,37 @@ function updateStatus(status) {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px;
-  background: var(--bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  min-height: 42px;
+  padding: 9px 10px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 9px;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+  transition: background-color .2s, border-color .2s, color .2s, box-shadow .2s, transform .2s;
 }
 
 .quick-btn:hover {
-  background: var(--surface);
-  border-color: var(--text-secondary);
+  background: var(--bg);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 3px 8px rgba(var(--primary-rgb), .14);
+  transform: translateY(-1px);
 }
 
 .quick-btn.active {
-  background: rgba(var(--primary-rgb), 0.1);
+  background: rgba(var(--primary-rgb), 0.12);
   color: var(--primary);
   border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(var(--primary-rgb), .08);
+}
+
+.quick-btn:focus-visible {
+  outline: 3px solid rgba(var(--primary-rgb), .25);
+  outline-offset: 2px;
 }
 
 /* Management Footer */
@@ -440,12 +457,27 @@ function updateStatus(status) {
 
 .btn-cancel {
   background: var(--surface);
-  border: 1px solid var(--border-color);
+  border: 1.5px solid var(--text-secondary);
   color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .1);
 }
 
 .btn-cancel:hover {
-  background: var(--border-color);
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--surface);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 12px rgba(15, 23, 42, .18);
+}
+
+.btn-cancel:focus-visible {
+  outline: 3px solid rgba(var(--primary-rgb), .25);
+  outline-offset: 3px;
+}
+
+.btn-cancel:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 5px rgba(15, 23, 42, .12);
 }
 
 .btn-save {

@@ -233,7 +233,18 @@ def notify_inquiry_responded(inquiry, responder=None):
     """Create a notification when an inquiry is responded to."""
     responder_name = ((responder.get_full_name() or responder.username) if responder else 'a staff member')
     message = f'Inquiry from {inquiry.full_name} was marked responded by {responder_name}.'
-    
+
+    response_tracking_updates = []
+    if responder is not None and inquiry.responded_by_id != responder.pk:
+        inquiry.responded_by = responder
+        response_tracking_updates.append('responded_by')
+    if inquiry.response and inquiry.response_date is None:
+        inquiry.response_date = timezone.now()
+        response_tracking_updates.append('response_date')
+    if response_tracking_updates:
+        response_tracking_updates.append('updated_at')
+        inquiry.save(update_fields=response_tracking_updates)
+
     # Notify superadmins
     _notify_superadmins(
         title='Inquiry Responded',
@@ -242,6 +253,13 @@ def notify_inquiry_responded(inquiry, responder=None):
         module_context=Notification.ModuleContext.INQUIRIES,
         related_object_id=inquiry.id,
     )
+
+    if inquiry.response and inquiry.email:
+        from inquiries.email_service import send_inquiry_response_email
+
+        transaction.on_commit(
+            lambda: send_inquiry_response_email(inquiry)
+        )
     
     for role_code in ('cashier', 'executive_officer'):
         notify_role_users(
