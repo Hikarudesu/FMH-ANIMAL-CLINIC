@@ -504,6 +504,9 @@
       <a href="{% url 'records:admin_create' %}?pet={{ pet.pk }}&from_patients=1" class="admin-btn secondary"><i class='bx bx-plus'></i> New Record</a>
       {% endif %}
       <a href="{% url 'patients:admin_edit_pet' pet.pk %}" class="admin-btn secondary"><i class='bx bx-edit-alt'></i> Edit</a>
+      {% if can_delete %}
+      <button type="button" class="admin-btn secondary" title="Archive Patient" onclick="openPatientDeleteModal('{% url 'patients:admin_delete_pet' pet.pk %}', '{{ pet.name|escapejs }}')"><i class='bx bx-trash'></i> Archive</button>
+      {% endif %}
     </div>
     <div class="pd-header-actions">
       {% with first_record=medical_records.first %}
@@ -844,6 +847,43 @@
     }
   }
 </script>
+
+{% if can_delete %}
+<script>
+  window.openPatientDeleteModal = function(url, petName) {
+    document.getElementById('deletePatientName').textContent = petName;
+    document.getElementById('deletePatientForm').action = url;
+    document.getElementById('deletePatientModal').classList.add('active');
+  };
+
+  window.closePatientDeleteModal = function() {
+    document.getElementById('deletePatientModal').classList.remove('active');
+  };
+</script>
+
+<div class="modal-overlay" id="deletePatientModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Archive Patient</h3>
+      <button type="button" class="modal-close" onclick="closePatientDeleteModal()">&times;</button>
+    </div>
+    <form id="deletePatientForm" method="post" action="">
+      {% csrf_token %}
+      <div class="modal-body" style="text-align: center; padding-top: 30px;">
+        <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Archive <span id="deletePatientName"></span>?</h4>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+          This will move the patient and linked clinical history to the archive. You can restore them for 30 days.
+        </p>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+        <button type="button" class="btn-cancel" onclick="closePatientDeleteModal()">Cancel</button>
+        <button type="submit" class="btn-submit">Yes, Archive Patient</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 {% if created_credentials %}
 <style>

@@ -234,6 +234,7 @@ def admin_detail_view(request, pk):
     can_create_medical_record = request.user.has_module_permission('medical_records', 'CREATE')
     can_view_appointments = request.user.has_module_permission('appointments', 'VIEW')
     can_create_appointments = request.user.has_module_permission('appointments', 'CREATE')
+    can_delete = request.user.has_module_permission('patients', 'DELETE')
 
     # Check for credentials from a walk-in → portal conversion
     created_credentials = request.session.pop('created_credentials', None)
@@ -248,6 +249,7 @@ def admin_detail_view(request, pk):
         'can_create_medical_record': can_create_medical_record,
         'can_view_appointments': can_view_appointments,
         'can_create_appointments': can_create_appointments,
+        'can_delete': can_delete,
         'created_credentials': created_credentials,
     })
 

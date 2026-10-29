@@ -1124,6 +1124,14 @@ class PatientDeletePermissionTests(TestCase):
         self.assertContains(list_response, 'Yes, Archive Patient')
         self.assertNotContains(list_response, 'window.showCenteredConfirmation({')
 
+        detail_response = self.client.get(
+            reverse('patients:admin_detail', args=[self.pet.pk]),
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, 'title="Archive Patient"')
+        self.assertContains(detail_response, 'id="deletePatientModal"')
+        self.assertContains(detail_response, 'Yes, Archive Patient')
+
         delete_response = self.client.post(
             reverse('patients:admin_delete_pet', args=[self.pet.pk]),
         )
@@ -1142,6 +1150,13 @@ class PatientDeletePermissionTests(TestCase):
         list_response = self.client.get(reverse('patients:admin_list'))
         self.assertEqual(list_response.status_code, 200)
         self.assertNotContains(list_response, 'title="Archive Patient"')
+
+        detail_response = self.client.get(
+            reverse('patients:admin_detail', args=[self.pet.pk]),
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertNotContains(detail_response, 'title="Archive Patient"')
+        self.assertNotContains(detail_response, 'id="deletePatientModal"')
 
         delete_response = self.client.post(
             reverse('patients:admin_delete_pet', args=[self.pet.pk]),
