@@ -41,12 +41,15 @@ class ClinicServiceDeleteConfirmationTests(TestCase):
         )
         self.client.force_login(self.admin)
 
-    def test_service_delete_uses_shared_confirmation_and_requires_post(self):
+    def test_service_delete_uses_inventory_confirmation_flow_and_requires_post(self):
         response = self.client.get(reverse('billing:billable_items'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'window.showCenteredConfirmation')
-        self.assertContains(response, 'Yes, Delete Service')
+        self.assertContains(response, 'id="deleteServiceModal"')
+        self.assertContains(response, 'id="finalDeleteServiceModal"')
+        self.assertContains(response, 'requestFinalServiceDeleteConfirmation(event)')
+        self.assertContains(response, 'confirmFinalServiceDelete()')
+        self.assertNotContains(response, 'window.showCenteredConfirmation')
         self.assertContains(response, 'id="deleteServiceForm" method="post"')
         self.assertContains(response, 'csrfmiddlewaretoken')
 

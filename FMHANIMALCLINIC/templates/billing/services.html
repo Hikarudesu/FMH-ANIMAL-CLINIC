@@ -384,23 +384,129 @@ if (window.SearchableDropdown) {
 }
 
 window.openDeleteModal = async function(url, name) {
-  const confirmed = await window.showCenteredConfirmation({
-    title: 'Delete service?',
-    message: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-    confirmText: 'Yes, Delete Service',
-    tone: 'danger',
-  });
-  if (!confirmed) return;
+  document.getElementById('deleteServiceName').textContent = name;
+  document.getElementById('deleteServiceForm').action = url;
+  document.getElementById('deleteServiceModal').classList.add('active');
+};
 
+window.closeDeleteServiceModal = function() {
+  document.getElementById('deleteServiceModal').classList.remove('active');
+};
+
+window.requestFinalServiceDeleteConfirmation = function(event) {
+  const form = event.currentTarget;
+  if (form.dataset.finalConfirmation === 'confirmed') {
+    delete form.dataset.finalConfirmation;
+    return true;
+  }
+
+  event.preventDefault();
+  document.getElementById('deleteServiceModal').classList.remove('active');
+  document.getElementById('finalDeleteServiceName').textContent =
+    document.getElementById('deleteServiceName').textContent;
+  document.getElementById('finalDeleteServiceModal').classList.add('active');
+  return false;
+};
+
+window.closeFinalServiceDeleteModal = function() {
+  document.getElementById('finalDeleteServiceModal').classList.remove('active');
+  document.getElementById('deleteServiceModal').classList.add('active');
+};
+
+window.confirmFinalServiceDelete = function() {
   const form = document.getElementById('deleteServiceForm');
-  if (!form) return;
-  form.action = url;
+  form.dataset.finalConfirmation = 'confirmed';
   form.requestSubmit();
 };
 </script>
 
-<form id="deleteServiceForm" method="post" action="" hidden>
-  {% csrf_token %}
-</form>
+<div class="modal-overlay" id="deleteServiceModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Delete Service</h3>
+      <button type="button" class="modal-close" onclick="closeDeleteServiceModal()">&times;</button>
+    </div>
+    <form id="deleteServiceForm" method="post" action="" onsubmit="return requestFinalServiceDeleteConfirmation(event)">
+      {% csrf_token %}
+      <div class="modal-body" style="text-align: center; padding-top: 30px;">
+        <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="deleteServiceName"></span>?</h4>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+          Are you completely sure you want to delete this service? This action cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeDeleteServiceModal()">Cancel</button>
+        <button type="submit" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;">Continue</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="finalDeleteServiceModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Final Confirmation</h3>
+      <button type="button" class="modal-close" onclick="closeFinalServiceDeleteModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-error' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Delete <span id="finalDeleteServiceName"></span>?</h4>
+      <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+        This will permanently remove the service from the clinic service list. Are you really sure?
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeFinalServiceDeleteModal()">Go Back</button>
+      <button type="button" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;" onclick="confirmFinalServiceDelete()">Permanently Delete</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+  }
+
+  .btn-cancel:hover {
+    border-color: var(--border-hover);
+    background: var(--bg);
+  }
+
+  .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25);
+  }
+
+  .btn-submit:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 150, 136, 0.35);
+  }
+</style>
 
 {% endblock %}
