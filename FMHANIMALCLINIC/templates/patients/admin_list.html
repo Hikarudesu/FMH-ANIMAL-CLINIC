@@ -431,28 +431,39 @@
 
   window.openPatientDeleteModal = function(url, petName) {
     document.getElementById('deletePatientName').textContent = petName;
-    document.querySelectorAll('.confirmDeletePatientName').forEach(function(element) {
-      element.textContent = petName;
-    });
-    document.getElementById('confirmDeletePatientForm').action = url;
-    document.getElementById('deletePatientModal').showModal();
+    document.getElementById('deletePatientForm').action = url;
+    document.getElementById('deletePatientModal').classList.add('active');
   };
 
-  window.openFinalPatientDeleteModal = function() {
-    document.getElementById('deletePatientModal').close();
-    document.getElementById('confirmDeletePatientModal').showModal();
+  window.requestFinalPatientArchiveConfirmation = function(event) {
+    const form = event.currentTarget;
+    if (form.dataset.finalConfirmation === 'confirmed') {
+      delete form.dataset.finalConfirmation;
+      return true;
+    }
+
+    event.preventDefault();
+    document.getElementById('deletePatientModal').classList.remove('active');
+    document.getElementById('finalDeletePatientName').textContent =
+      document.getElementById('deletePatientName').textContent;
+    document.getElementById('finalDeletePatientModal').classList.add('active');
+    return false;
   };
 
-  window.returnToPatientDeleteModal = function() {
-    document.getElementById('confirmDeletePatientModal').close();
-    document.getElementById('deletePatientModal').showModal();
+  window.closeFinalPatientArchiveModal = function() {
+    document.getElementById('finalDeletePatientModal').classList.remove('active');
+    document.getElementById('deletePatientModal').classList.add('active');
+  };
+
+  window.confirmFinalPatientArchive = function() {
+    const form = document.getElementById('deletePatientForm');
+    form.dataset.finalConfirmation = 'confirmed';
+    form.requestSubmit();
   };
 
   window.closePatientDeleteModal = function() {
-    document.querySelectorAll('.patient-delete-dialog[open]').forEach(function(dialog) {
-      dialog.close();
-    });
-  }
+    document.getElementById('deletePatientModal').classList.remove('active');
+  };
 
   // ══════ PATIENT SEARCH AUTOCOMPLETE ══════
   (function initPatientSearch() {
@@ -614,13 +625,14 @@
 </script>
 
 <!-- Archive Patient Modal -->
-<dialog class="patient-delete-dialog" id="deletePatientModal" aria-labelledby="archivePatientTitle">
+<div class="modal-overlay" id="deletePatientModal">
   <div class="modal-content" style="max-width: 480px;">
     <div class="modal-header">
-      <h3 id="archivePatientTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Archive Patient</h3>
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Archive Patient</h3>
       <button type="button" class="modal-close" onclick="closePatientDeleteModal()">&times;</button>
     </div>
-    <div>
+    <form id="deletePatientForm" method="post" action="" onsubmit="return requestFinalPatientArchiveConfirmation(event)">
+      {% csrf_token %}
       <div class="modal-body" style="text-align: center; padding-top: 30px;">
         <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
         <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Archive <span id="deletePatientName"></span>?</h4>
@@ -630,64 +642,33 @@
       </div>
       <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
         <button type="button" class="btn-cancel" onclick="closePatientDeleteModal()">Cancel</button>
-        <button type="button" class="btn-submit" onclick="openFinalPatientDeleteModal()">Continue</button>
-      </div>
-    </div>
-  </div>
-</dialog>
-
-<dialog class="patient-delete-dialog" id="confirmDeletePatientModal" aria-labelledby="confirmArchivePatientTitle">
-  <div class="modal-content" style="max-width: 480px;">
-    <div class="modal-header">
-      <h3 id="confirmArchivePatientTitle" style="color: var(--accent);"><i class='bx bx-error-circle'></i> Confirm Archive</h3>
-      <button type="button" class="modal-close" onclick="closePatientDeleteModal()">&times;</button>
-    </div>
-    <form id="confirmDeletePatientForm" method="post" action="">
-      {% csrf_token %}
-      <div class="modal-body" style="text-align: center; padding-top: 30px;">
-        <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
-        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Confirm archiving <span class="confirmDeletePatientName"></span>?</h4>
-        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
-          The patient and linked clinical history will be archived. You can restore them for 30 days.
-        </p>
-      </div>
-      <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
-        <button type="button" class="btn-cancel" onclick="returnToPatientDeleteModal()">Back</button>
-        <button type="submit" class="btn-submit">Yes, Archive Patient</button>
+        <button type="submit" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;">Continue</button>
       </div>
     </form>
   </div>
-</dialog>
+</div>
+
+<div class="modal-overlay" id="finalDeletePatientModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Final Confirmation</h3>
+      <button type="button" class="modal-close" onclick="closeFinalPatientArchiveModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-error' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+      <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Archive <span id="finalDeletePatientName"></span>?</h4>
+      <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+        This will move the patient and linked clinical history to the archive. You can restore them for 30 days. Are you sure?
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+      <button type="button" class="btn-cancel" onclick="closeFinalPatientArchiveModal()">Go Back</button>
+      <button type="button" class="btn-submit" style="background-color: var(--accent); border-color: var(--accent); color: white;" onclick="confirmFinalPatientArchive()">Archive Patient</button>
+    </div>
+  </div>
+</div>
 
 <style>
-  .patient-delete-dialog:not([open]) {
-    display: none;
-  }
-
-  .patient-delete-dialog[open] {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    max-height: none;
-    margin: 0;
-    padding: 16px;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    overflow: auto;
-    box-sizing: border-box;
-  }
-
-  .patient-delete-dialog::backdrop {
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(4px);
-  }
-
   #patientSearchDropdown .search-dropdown-item {
     width: 100%;
     border: 0;
@@ -714,45 +695,45 @@
 </style>
 
 <style>
-  .modal-footer .btn-cancel {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    padding: 8px 16px !important;
-    border-radius: var(--radius-sm, 6px) !important;
-    font-size: 0.85rem !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-    border: 1px solid var(--border) !important;
-    background: var(--surface) !important;
-    color: var(--text-1) !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    text-decoration: none !important;
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
   }
-  .modal-footer .btn-cancel:hover {
-    border-color: var(--border-hover) !important;
-    background: var(--bg) !important;
+  .btn-cancel:hover {
+    border-color: var(--border-hover);
+    background: var(--bg);
   }
-  .modal-footer .btn-submit {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    padding: 8px 16px !important;
-    border-radius: var(--radius-sm, 6px) !important;
-    font-size: 0.85rem !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-    border: 1px solid var(--accent) !important;
-    background: var(--accent) !important;
-    color: #fff !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    text-decoration: none !important;
-    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.25) !important;
+  .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25);
   }
-  .modal-footer .btn-submit:hover {
-    opacity: 0.95 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 16px rgba(230, 57, 70, 0.35) !important;
+  .btn-submit:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 150, 136, 0.35);
   }
 </style>
 
