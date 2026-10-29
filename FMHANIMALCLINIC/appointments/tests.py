@@ -1044,6 +1044,11 @@ class PublicAppointmentBookingConfirmationTests(TestCase):
             'Your appointment is not confirmed until the clinic contacts you.',
         )
         self.assertContains(response, 'Send Request')
+        self.assertContains(response, 'Registered user')
+        self.assertContains(response, 'New client')
+        self.assertContains(response, 'Login to Portal')
+        self.assertContains(response, 'id="bookingForm"')
+        self.assertContains(response, 'bookingForm.hidden = isRegisteredUser')
 
 
 class AppointmentPetNameUniquenessTests(TestCase):
