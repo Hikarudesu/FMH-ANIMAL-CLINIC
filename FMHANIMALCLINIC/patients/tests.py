@@ -1116,6 +1116,10 @@ class PatientDeletePermissionTests(TestCase):
         list_response = self.client.get(reverse('patients:admin_list'))
 
         self.assertEqual(list_response.status_code, 200)
+        self.assertNotContains(
+            list_response,
+            '<th style="text-align: center;">Date of Birth</th>',
+        )
         self.assertContains(list_response, 'title="Archive Patient"')
         self.assertContains(
             list_response,
@@ -1124,6 +1128,10 @@ class PatientDeletePermissionTests(TestCase):
         self.assertContains(list_response, 'id="deletePatientModal"')
         self.assertContains(list_response, 'onclick="openPatientDeleteModal(')
         self.assertContains(list_response, 'Yes, Archive Patient')
+        self.assertContains(list_response, 'id="confirmDeletePatientModal"')
+        self.assertContains(list_response, 'openFinalPatientDeleteModal()')
+        self.assertContains(list_response, "getElementById('deletePatientModal').showModal()")
+        self.assertContains(list_response, 'onclick="closePatientDeleteModal()"')
         self.assertNotContains(list_response, 'window.showCenteredConfirmation({')
 
         detail_response = self.client.get(
@@ -1132,6 +1140,7 @@ class PatientDeletePermissionTests(TestCase):
         self.assertEqual(detail_response.status_code, 200)
         self.assertContains(detail_response, 'title="Archive Patient"')
         self.assertContains(detail_response, 'id="deletePatientModal"')
+        self.assertContains(detail_response, 'id="confirmDeletePatientModal"')
         self.assertContains(detail_response, 'Yes, Archive Patient')
 
         delete_response = self.client.post(
