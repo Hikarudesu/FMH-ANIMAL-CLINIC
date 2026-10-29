@@ -328,6 +328,14 @@ function switchInvMode(mode) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    const sectionByHash = {
+        '#inv-items-section': 'items',
+        '#inv-movements-section': 'movements',
+        '#inv-reservations-section': 'reservations',
+    };
+    const activeMode = sectionByHash[window.location.hash];
+    if (activeMode) switchInvMode(activeMode);
+
     // Make sure indicator moves immediately on load
     setTimeout(() => {
         const activeBtn = document.querySelector('.c-tab-btn.active');
