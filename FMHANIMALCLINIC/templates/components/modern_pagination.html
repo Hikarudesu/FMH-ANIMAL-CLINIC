@@ -11,14 +11,15 @@
 {% endcomment %}
 
 {% if page_obj.has_other_pages %}
+{% with param_name=page_param|default:'page' %}
 <div class="modern-pagination">
   <div class="pagination-controls">
     
     {% if page_obj.has_previous %}
-      <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-btn pagination-btn-first" title="First Page">
+      <a href="?{{ param_name }}=1{% for key, value in request.GET.items %}{% if key != param_name and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-btn pagination-btn-first" title="First Page">
         <i class='bx bx-chevrons-left'></i>
       </a>
-      <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-btn pagination-btn-prev" title="Previous">
+      <a href="?{{ param_name }}={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != param_name and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-btn pagination-btn-prev" title="Previous">
         <i class='bx bx-chevron-left'></i>
       </a>
     {% else %}
@@ -31,7 +32,7 @@
         {% if page_obj.number == num %}
           <span class="pagination-page active">{{ num }}</span>
         {% elif num > page_obj.number|add:'-2' and num < page_obj.number|add:'2' %}
-          <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-page">
+          <a href="?{{ param_name }}={{ num }}{% for key, value in request.GET.items %}{% if key != param_name and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-page">
             {{ num }}
           </a>
         {% endif %}
@@ -39,10 +40,10 @@
     </div>
 
     {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-btn pagination-btn-next" title="Next">
+      <a href="?{{ param_name }}={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != param_name and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-btn pagination-btn-next" title="Next">
         <i class='bx bx-chevron-right'></i>
       </a>
-      <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-btn pagination-btn-last" title="Last Page">
+      <a href="?{{ param_name }}={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != param_name and value %}&{{ key }}={{ value|urlencode }}{% endif %}{% endfor %}{% if url_fragment %}#{{ url_fragment }}{% endif %}" class="pagination-btn pagination-btn-last" title="Last Page">
         <i class='bx bx-chevrons-right'></i>
       </a>
     {% else %}
@@ -52,4 +53,5 @@
     
   </div>
 </div>
+{% endwith %}
 {% endif %}

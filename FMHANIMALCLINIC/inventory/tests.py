@@ -868,6 +868,44 @@ class InventoryWorkflowTests(TestCase):
         )
         self.assertEqual(response.context['products'].paginator.count, 1)
 
+    def test_inventory_items_and_movements_paginate_independently(self):
+        for index in range(21):
+            product = Product.objects.create(
+                branch=self.branch,
+                item_type='Product',
+                name=f'Pagination Item {index}',
+                price=20,
+                stock_quantity=1,
+            )
+            StockAdjustment.objects.create(
+                branch=self.branch,
+                product=product,
+                adjustment_type='ADD',
+                date=timezone.localdate(),
+                quantity=1,
+                reason='Pagination test movement',
+            )
+        self.client.force_login(self.admin)
+
+        items_page_response = self.client.get(
+            reverse('inventory:management'),
+            {'items_page': 2},
+        )
+        self.assertEqual(items_page_response.status_code, 200)
+        self.assertEqual(items_page_response.context['products'].number, 2)
+        self.assertEqual(items_page_response.context['adjustments'].number, 1)
+        self.assertContains(items_page_response, '?items_page=1')
+        self.assertContains(items_page_response, '?movements_page=2&items_page=2')
+
+        movements_page_response = self.client.get(
+            reverse('inventory:management'),
+            {'movements_page': 2},
+        )
+        self.assertEqual(movements_page_response.status_code, 200)
+        self.assertEqual(movements_page_response.context['products'].number, 1)
+        self.assertEqual(movements_page_response.context['adjustments'].number, 2)
+        self.assertContains(movements_page_response, '?items_page=2&movements_page=2')
+
     def test_superadmin_cannot_create_a_stock_transfer_request(self):
         self.admin.branch = self.branch
         self.admin.save(update_fields=['branch'])

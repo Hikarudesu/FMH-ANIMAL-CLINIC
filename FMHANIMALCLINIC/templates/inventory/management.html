@@ -146,7 +146,7 @@
         
         {% if products %}
         <div id="inv-items-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
-          {% include "components/modern_pagination.html" with page_obj=products url_fragment="inv-items-section" %}
+          {% include "components/modern_pagination.html" with page_obj=products page_param="items_page" url_fragment="inv-items-section" %}
         </div>
         {% endif %}
       </div>
@@ -213,7 +213,7 @@
         
         {% if adjustments %}
         <div id="inv-movements-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
-          {% include "components/modern_pagination.html" with page_obj=adjustments url_fragment="inv-movements-section" %}
+          {% include "components/modern_pagination.html" with page_obj=adjustments page_param="movements_page" url_fragment="inv-movements-section" %}
         </div>
         {% endif %}
       </div>
@@ -296,7 +296,7 @@
 
         {% if pending_reservations %}
         <div id="inv-reservations-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
-          {% include "components/modern_pagination.html" with page_obj=pending_reservations url_fragment="inv-reservations-section" %}
+          {% include "components/modern_pagination.html" with page_obj=pending_reservations page_param="reservations_page" url_fragment="inv-reservations-section" %}
         </div>
         {% endif %}
       </div>

@@ -403,17 +403,21 @@ def inventory_management_view(request):
         )
     )
 
-    # Pagination for 20 items per page across all 3 lists
-    page_number = request.GET.get('page', 1)
-    
+    # Each inventory section keeps its own pagination position.
     paginator_products = Paginator(products, 20)
-    page_products = paginator_products.get_page(page_number)
+    page_products = paginator_products.get_page(
+        request.GET.get('items_page', request.GET.get('page', 1))
+    )
     
     paginator_adjustments = Paginator(adjustments, 20)
-    page_adjustments = paginator_adjustments.get_page(page_number)
+    page_adjustments = paginator_adjustments.get_page(
+        request.GET.get('movements_page', request.GET.get('page', 1))
+    )
     
     paginator_reservations = Paginator(pending_reservations, 20)
-    page_reservations = paginator_reservations.get_page(page_number)
+    page_reservations = paginator_reservations.get_page(
+        request.GET.get('reservations_page', request.GET.get('page', 1))
+    )
 
     return render(request, 'inventory/management.html', {
         'adjustments': page_adjustments,
