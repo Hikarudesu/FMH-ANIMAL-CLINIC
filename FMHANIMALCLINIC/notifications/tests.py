@@ -501,6 +501,83 @@ class InventoryExpiryEmailTests(TestCase):
         self.assertEqual(email_mock.call_count, 1)
 
 
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+})
+class NotificationGlobalSearchTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='notification-global-search-user',
+            email='notification-global-search@example.com',
+        )
+        self.admin = User.objects.create_superuser(
+            username='notification-global-search-admin',
+            email='notification-global-search-admin@example.com',
+            password='A-secure-test-password-923!',
+        )
+
+    def create_notifications(self, user):
+        target = Notification.objects.create(
+            user=user,
+            title='Page Two Searchable Notification',
+            message='A notification placed beyond the first page.',
+            module_context=Notification.ModuleContext.GENERAL,
+        )
+        Notification.objects.filter(pk=target.pk).update(
+            created_at=timezone.now() - timedelta(days=2),
+        )
+        for index in range(10):
+            Notification.objects.create(
+                user=user,
+                title=f'Other notification {index}',
+                message='A different notification.',
+                module_context=Notification.ModuleContext.GENERAL,
+            )
+        return target
+
+    def assert_search_finds_page_two_notification(self, user, url_name):
+        target = self.create_notifications(user)
+        self.client.force_login(user)
+
+        unfiltered_response = self.client.get(reverse(url_name))
+        self.assertEqual(
+            unfiltered_response.context['page_obj'].paginator.num_pages,
+            2,
+        )
+        self.assertNotIn(
+            target.pk,
+            [
+                notification.pk
+                for notification in unfiltered_response.context['page_obj']
+            ],
+        )
+
+        response = self.client.get(
+            reverse(url_name),
+            {'q': 'Page Two Searchable Notification'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['page_obj'].paginator.count, 1)
+        self.assertEqual(response.context['page_obj'][0].pk, target.pk)
+        self.assertContains(response, 'Press Enter to search all notifications.')
+
+    def test_customer_notification_search_finds_results_beyond_first_page(self):
+        self.assert_search_finds_page_two_notification(
+            self.user,
+            'notifications:notification_list',
+        )
+
+    def test_staff_notification_search_finds_results_beyond_first_page(self):
+        self.assert_search_finds_page_two_notification(
+            self.admin,
+            'notifications:admin_notifications',
+        )
+
+
 class NotificationRoutingTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(name='Test Branch')

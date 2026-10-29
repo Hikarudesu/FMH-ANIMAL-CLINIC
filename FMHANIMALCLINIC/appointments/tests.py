@@ -402,6 +402,12 @@ class ViewOnlyAppointmentScopeTests(TestCase):
         self.assertEqual(visible_calendar_ids, [self.own_appointment.pk])
 
 
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+})
 class AppointmentGroupedSearchTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(name='Grouped Search Branch')
@@ -444,6 +450,44 @@ class AppointmentGroupedSearchTests(TestCase):
             {appointment.pk for appointment in matching_appointments},
         )
         self.assertEqual(response.context['appointments'].paginator.count, 3)
+
+    def test_search_finds_appointment_outside_first_page(self):
+        target = Appointment.objects.create(
+            owner_name='Page Two Searchable Owner',
+            pet_name='Page Two Searchable Pet',
+            branch=self.branch,
+            appointment_date=self.appointment_date,
+            appointment_time=time(8),
+        )
+        for minute in range(10):
+            Appointment.objects.create(
+                owner_name=f'Other Appointment Owner {minute}',
+                pet_name=f'Other Appointment Pet {minute}',
+                branch=self.branch,
+                appointment_date=self.appointment_date,
+                appointment_time=time(9, minute),
+            )
+        self.client.force_login(self.user)
+
+        unfiltered_response = self.client.get(reverse('appointments:admin_list'))
+        self.assertEqual(
+            unfiltered_response.context['appointments'].paginator.num_pages,
+            2,
+        )
+        self.assertNotIn(
+            target.pk,
+            [appointment.pk for appointment in unfiltered_response.context['appointments']],
+        )
+
+        response = self.client.get(
+            reverse('appointments:admin_list'),
+            {'q': 'Page Two Searchable Owner'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['appointments'].paginator.count, 1)
+        self.assertEqual(response.context['appointments'][0].pk, target.pk)
+        self.assertContains(response, 'Press Enter to search all appointments.')
 
 
 class AppointmentVeterinarianOptionsTests(TestCase):

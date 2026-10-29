@@ -217,6 +217,62 @@ class BranchRestrictedMedicalRecordListTests(TestCase):
         },
     }
 )
+class MedicalRecordGlobalSearchTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(
+            username='medical-record-global-search-admin',
+            email='medical-record-global-search@example.com',
+            password='A-secure-test-password-923!',
+        )
+        self.client.force_login(self.user)
+
+    def test_search_finds_record_outside_first_page(self):
+        target_pet = Pet.objects.create(
+            name='Page Two Searchable Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        MedicalRecord.objects.create(
+            pet=target_pet,
+            date_recorded=date(2026, 1, 1),
+        )
+        for day in range(2, 12):
+            pet = Pet.objects.create(
+                name=f'Other Record Pet {day}',
+                species='Cat',
+                sex=Pet.Sex.FEMALE,
+            )
+            MedicalRecord.objects.create(
+                pet=pet,
+                date_recorded=date(2026, 1, day),
+            )
+
+        unfiltered_response = self.client.get(reverse('records:admin_list'))
+        self.assertEqual(unfiltered_response.context['records'].paginator.num_pages, 2)
+        self.assertNotIn(
+            target_pet.name,
+            [record.pet.name for record in unfiltered_response.context['records']],
+        )
+
+        response = self.client.get(
+            reverse('records:admin_list'),
+            {'q': 'Page Two Searchable Pet'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['records'].paginator.count, 1)
+        self.assertEqual(response.context['records'][0].pet_id, target_pet.pk)
+        self.assertContains(response, 'Press Enter to search all medical records.')
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+)
 class AttendingVeterinarianDefaultTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(name='Attending Vet Default Branch')

@@ -80,7 +80,7 @@
 <!-- ══════ FILTER BAR ══════ -->
 <div class="c-filter-bar" id="recordFilterBar">
   <div class="c-filter-bar__glow"></div>
-  <form method="get" action="{% url 'records:admin_list' %}" class="c-filter-bar__form" autocomplete="off">
+  <form method="get" action="{% url 'records:admin_list' %}" class="c-filter-bar__form" id="recordFilterForm" autocomplete="off">
 
     <!-- Search Row -->
     <div class="c-filter-bar__search">
@@ -269,7 +269,8 @@
 (function initRecordSearch() {
   const searchInput = document.getElementById('recordSearch');
   const dropdown    = document.getElementById('recordSearchDropdown');
-  if (!searchInput || !dropdown) return;
+  const filterForm = document.getElementById('recordFilterForm');
+  if (!searchInput || !dropdown || !filterForm) return;
 
   function buildData() {
     return Array.from(document.querySelectorAll('tr.searchable-row')).map(row => ({
@@ -284,6 +285,7 @@
   }
 
   let records = buildData();
+  let dropdownResults = [];
 
   function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
@@ -294,10 +296,11 @@
   }
 
   function renderDropdown(results, q) {
+    dropdownResults = results.slice(0, 8);
     if (!results.length) {
-      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No records found</div>';
+      dropdown.innerHTML = '<div class="search-dropdown-empty"><i class="bx bx-search-alt"></i> No match on this page. Press Enter to search all medical records.</div>';
     } else {
-      dropdown.innerHTML = results.slice(0, 8).map((r, idx) => `
+      dropdown.innerHTML = dropdownResults.map((r, idx) => `
         <div class="search-dropdown-item" data-index="${idx}">
           <i class='bx bx-file-blank'></i>
           <div class="item-info">
@@ -313,9 +316,7 @@
       dropdown.querySelectorAll('.search-dropdown-item').forEach((item, idx) => {
         item.addEventListener('mousedown', e => {
           e.preventDefault();
-          searchInput.value = results[idx].pet;
-          filterRows(results[idx].pet.toLowerCase());
-          hideDropdown();
+          selectResult(idx);
         });
       });
     }
@@ -328,17 +329,16 @@
     dropdown.style.display = '';
   }
 
-  function filterRows(q) {
-    records.forEach(r => {
-      const pl = r.pet.toLowerCase(); const ol = r.owner.toLowerCase(); const bl = r.branch.toLowerCase();
-      const matches = !q || pl.includes(q) || ol.includes(q) || bl.includes(q);
-      r.row.style.display = matches ? '' : 'none';
-    });
+  function selectResult(index) {
+    const result = dropdownResults[index];
+    if (!result) return;
+    searchInput.value = result.pet;
+    hideDropdown();
+    filterForm.requestSubmit();
   }
 
   searchInput.addEventListener('input', function () {
     const q = this.value.toLowerCase().trim();
-    filterRows(q);
     if (!q) { hideDropdown(); return; }
     const results = records.filter(r =>
       r.pet.toLowerCase().includes(q) || r.owner.toLowerCase().includes(q) || r.branch.toLowerCase().includes(q));
@@ -367,9 +367,12 @@
       idx = (idx - 1 + items.length) % items.length;
       items[idx]?.classList.add('active');
     } else if (e.key === 'Enter') {
-      e.preventDefault();
       if (idx >= 0) {
-        items[idx]?.click();
+        e.preventDefault();
+        selectResult(Number(items[idx].dataset.index));
+      } else {
+        e.preventDefault();
+        filterForm.requestSubmit();
       }
       hideDropdown();
     } else if (e.key === 'Escape') {

@@ -2557,20 +2557,6 @@ if (followupBookingElement && quickCreateModal) {
     dropdown.style.display = '';
   }
 
-  function filterRows(q) {
-    appts.forEach(a => {
-      const ol = a.owner.toLowerCase(); const pl = a.pet.toLowerCase();
-      const el = a.email.toLowerCase();
-      const bl = a.branch.toLowerCase(); const vl = a.vet.toLowerCase();
-      const matches = !q || ol.includes(q) || el.includes(q) || pl.includes(q) || bl.includes(q) || vl.includes(q);
-      a.row.style.display = matches ? '' : 'none';
-      if (!matches && a.detailsId) {
-        const detailRow = document.getElementById(a.detailsId);
-        if (detailRow) detailRow.style.display = 'none';
-      }
-    });
-  }
-
   function uniqueAppointments(matches) {
     const groups = new Map();
     matches.forEach(appointment => {
@@ -2585,11 +2571,20 @@ if (followupBookingElement && quickCreateModal) {
     ownerFilter.value = '';
     petFilter.value = '';
     const q = this.value.toLowerCase().trim();
-    filterRows(q);
     if (!q) { hideDropdown(); return; }
     const results = uniqueAppointments(appts.filter(a =>
       a.owner.toLowerCase().includes(q) || a.email.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q) ||
       a.branch.toLowerCase().includes(q) || a.vet.toLowerCase().includes(q)));
+    if (!results.length) {
+      dropdown.replaceChildren();
+      const empty = document.createElement('div');
+      empty.className = 'search-dropdown-empty';
+      empty.textContent = 'No match on this page. Press Enter to search all appointments.';
+      dropdown.append(empty);
+      dropdown.style.display = 'block';
+      dropdown.classList.add('active');
+      return;
+    }
     renderDropdown(results, q);
   });
 
@@ -2620,6 +2615,9 @@ if (followupBookingElement && quickCreateModal) {
       if (idx >= 0) {
         e.preventDefault();
         items[idx]?.click();
+      } else {
+        e.preventDefault();
+        filterForm.requestSubmit();
       }
       hideDropdown();
     } else if (e.key === 'Escape') {
