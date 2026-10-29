@@ -49,15 +49,6 @@ def _dashboard_for_user(user):
     if not user.is_clinic_staff():
         return 'accounts:user_dashboard'
 
-    if user.is_admin_role():
-        return 'accounts:admin_dashboard'
-
-    if user.has_role_special_permission(SpecialPermissionCodes.STAFF_DASHBOARD):
-        return 'accounts:staff_dashboard'
-
-    if user.has_role_special_permission(SpecialPermissionCodes.ADMIN_DASHBOARD):
-        return 'accounts:admin_dashboard'
-
     role_code = getattr(user.assigned_role, 'code', '')
     if user.is_receptionist():
         return 'accounts:receptionist_dashboard'
@@ -65,10 +56,15 @@ def _dashboard_for_user(user):
         return 'accounts:assistant_vet_dashboard'
     if role_code == 'veterinarian':
         return 'accounts:vet_dashboard'
+
     if (
-        user.has_module_permission('dashboard', 'MANAGE')
+        user.is_admin_role()
+        or user.has_module_permission('dashboard', 'MANAGE')
+        or user.has_special_permission(SpecialPermissionCodes.ADMIN_DASHBOARD)
     ):
         return 'accounts:admin_dashboard'
+    if user.has_role_special_permission(SpecialPermissionCodes.STAFF_DASHBOARD):
+        return 'accounts:staff_dashboard'
     return 'accounts:profile'
 
 
@@ -863,6 +859,14 @@ def admin_dashboard_view(request):
     from billing.models import Service
     from inquiries.models import Inquiry
     from dateutil.relativedelta import relativedelta
+
+    role_code = getattr(request.user.assigned_role, 'code', '')
+    if role_code == 'veterinarian':
+        return redirect('accounts:vet_dashboard')
+    if role_code in {'assistant_veterinarian', 'vet_assistant'}:
+        return redirect('accounts:assistant_vet_dashboard')
+    if request.user.is_receptionist():
+        return redirect('accounts:receptionist_dashboard')
 
     if _dashboard_for_user(request.user) != 'accounts:admin_dashboard':
         return redirect(_dashboard_for_user(request.user))

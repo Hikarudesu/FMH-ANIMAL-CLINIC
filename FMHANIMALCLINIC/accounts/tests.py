@@ -3341,6 +3341,42 @@ class RoleDashboardAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['active_patient_count'], 1)
 
+    def test_staff_dashboard_grant_does_not_replace_system_role_dashboards(self):
+        permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_staff_dashboard',
+            defaults={'name': 'Staff Dashboard Access'},
+        )
+        role_dashboards = {
+            'receptionist': 'accounts:receptionist_dashboard',
+            'veterinarian': 'accounts:vet_dashboard',
+            'assistant_veterinarian': 'accounts:assistant_vet_dashboard',
+        }
+
+        for role_code, dashboard in role_dashboards.items():
+            with self.subTest(role=role_code):
+                role, _ = Role.objects.get_or_create(
+                    code=role_code,
+                    defaults={
+                        'name': role_code.replace('_', ' ').title(),
+                        'hierarchy_level': 2,
+                        'is_staff_role': True,
+                    },
+                )
+                role.special_permissions.get_or_create(permission=permission)
+                user = get_user_model().objects.create_user(
+                    username=f'{role_code}-staff-dashboard-priority',
+                    password='A-secure-test-password-943!',
+                    assigned_role=role,
+                )
+
+                from accounts.views import _dashboard_for_user
+
+                self.assertEqual(_dashboard_for_user(user), dashboard)
+
+                self.client.force_login(user)
+                response = self.client.get(reverse('accounts:admin_dashboard'))
+                self.assertRedirects(response, reverse(dashboard))
+
     def test_admin_dashboard_special_permission_overrides_clinical_default(self):
         role = Role.objects.create(
             name='Explicit Admin Dashboard Grant',
