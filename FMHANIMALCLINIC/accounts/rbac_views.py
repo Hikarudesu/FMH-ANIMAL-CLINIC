@@ -248,6 +248,8 @@ def role_create(request):
         # Dashboard mutual exclusivity validation
         has_staff_dash = bool(request.POST.get('special_can_access_staff_dashboard'))
         has_admin_dash = bool(request.POST.get('special_can_access_admin_dashboard'))
+        if not has_staff_dash and not has_admin_dash:
+            errors.append('Select either Staff Dashboard or Admin Dashboard for this role.')
         if has_staff_dash and has_admin_dash:
             errors.append(
                 'A role cannot have both Staff Dashboard and Admin Dashboard access. '

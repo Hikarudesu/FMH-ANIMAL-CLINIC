@@ -912,20 +912,67 @@ def admin_dashboard_view(request):
     last_month_end = month_start - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)
 
+    dashboard_is_all_branches = request.user.is_admin_role()
+    dashboard_branch = request.user.branch
+    branches = Branch.objects.filter(is_active=True)
+    if not dashboard_is_all_branches:
+        branches = (
+            branches.filter(pk=dashboard_branch.pk)
+            if dashboard_branch else branches.none()
+        )
+        dashboard_scope_label = dashboard_branch.name if dashboard_branch else 'No Branch Assigned'
+    else:
+        dashboard_scope_label = f'Across {branches.count()} Active Branches'
+
+    if dashboard_is_all_branches:
+        patient_branch_scope = (
+            Q(branch__in=branches)
+            | Q(owner__branch__in=branches)
+            | Q(appointments__branch__in=branches)
+            | Q(medical_records__branch__in=branches)
+        )
+        appointment_scope = Appointment.objects.filter(branch__in=branches)
+        revenue_scope = {'branch__in': branches}
+        inventory_products = Product.objects.filter(branch__in=branches)
+    elif dashboard_branch and branches.exists():
+        patient_branch_scope = (
+            Q(branch=dashboard_branch)
+            | Q(owner__branch=dashboard_branch)
+            | Q(appointments__branch=dashboard_branch)
+            | Q(medical_records__branch=dashboard_branch)
+        )
+        appointment_scope = Appointment.objects.filter(branch=dashboard_branch)
+        revenue_scope = {'branch': dashboard_branch}
+        inventory_products = Product.objects.filter(branch=dashboard_branch)
+    else:
+        patient_branch_scope = None
+        appointment_scope = Appointment.objects.none()
+        revenue_scope = {'branch__in': branches}
+        inventory_products = Product.objects.none()
+    patient_scope = (
+        Pet.objects.filter(patient_branch_scope).distinct()
+        if patient_branch_scope is not None
+        else Pet.objects.none()
+    )
+    scoped_sales = Sale.objects.filter(**revenue_scope)
+
     # ── Active patients ──
-    patient_count = Pet.objects.count()
+    patient_count = patient_scope.count()
 
     # ── Staff ──
-    total_staff = StaffMember.objects.count()
-    active_staff = StaffMember.objects.filter(is_active=True).count()
-    total_users = User.objects.count()
-
-    # ── Branches ──
-    branches = Branch.objects.filter(is_active=True)
+    staff_scope = StaffMember.objects.filter(branch__in=branches)
+    user_scope = (
+        User.objects.all()
+        if dashboard_is_all_branches
+        else User.objects.filter(branch__in=branches)
+    )
+    total_staff = staff_scope.count()
+    active_staff = staff_scope.filter(is_active=True).count()
+    total_users = user_scope.count()
 
     # ── Recent appointments (activity) ──
     # Filter out appointments where the pet has been deleted (pet=NULL)
-    recent_appointments = Appointment.objects.filter(
+    recent_appointments = appointment_scope.filter(
         pet__isnull=False
     ).select_related(
         'branch', 'preferred_vet'
@@ -943,12 +990,10 @@ def admin_dashboard_view(request):
     for i in range(7):
         day = today - timedelta(days=6-i)
         
-        sales_q = Sale.objects.filter(
+        sales_q = scoped_sales.filter(
             created_at__range=get_day_bounds(day),
             status='COMPLETED'
         )
-        if not request.user.is_admin_role():
-            sales_q = sales_q.filter(branch=request.user.branch)
             
         daily_revenue = sales_q.aggregate(total=Sum('total'))['total'] or 0
         
@@ -959,62 +1004,49 @@ def admin_dashboard_view(request):
 
     # Appointment by status breakdown
     appointment_status_breakdown = [
-        {'status': 'Pending', 'count': Appointment.objects.filter(status='PENDING', pet__isnull=False).count()},
-        {'status': 'Confirmed', 'count': Appointment.objects.filter(status='CONFIRMED', pet__isnull=False).count()},
-        {'status': 'Checked In', 'count': Appointment.objects.filter(status='CHECKED_IN', pet__isnull=False).count()},
-        {'status': 'In Progress', 'count': Appointment.objects.filter(status='IN_PROGRESS', pet__isnull=False).count()},
-        {'status': 'Awaiting Payment', 'count': Appointment.objects.filter(status='AWAITING_PAYMENT', pet__isnull=False).count()},
-        {'status': 'Completed', 'count': Appointment.objects.filter(status='COMPLETED', pet__isnull=False).count()},
-        {'status': 'Cancelled', 'count': Appointment.objects.filter(status='CANCELLED', pet__isnull=False).count()},
+        {
+            'status': label,
+            'count': appointment_scope.filter(
+                status=status,
+                pet__isnull=False,
+            ).count(),
+        }
+        for status, label in (
+            ('PENDING', 'Pending'),
+            ('CONFIRMED', 'Confirmed'),
+            ('CHECKED_IN', 'Checked In'),
+            ('IN_PROGRESS', 'In Progress'),
+            ('AWAITING_PAYMENT', 'Awaiting Payment'),
+            ('COMPLETED', 'Completed'),
+            ('CANCELLED', 'Cancelled'),
+        )
     ]
 
     # Branch-wise appointment statistics
-    branch_appointments = Branch.objects.filter(is_active=True).annotate(
-        appointment_count=Count('appointments', filter=Q(appointments__pet__isnull=False)),
+    branch_appointments = branches.annotate(
+        appointment_count=Count(
+            'appointments',
+            filter=Q(appointments__pet__isnull=False)
+            & Q(appointments__branch__in=branches),
+        ),
         completed_count=Count('appointments', filter=Q(
             appointments__pet__isnull=False,
             appointments__status='COMPLETED'
-        ))
+        ) & Q(appointments__branch__in=branches)),
     ).values('name', 'appointment_count', 'completed_count')
 
     # Staff performance metrics
-    staff_performance = StaffMember.objects.filter(is_active=True).annotate(
-        total_appointments=Count('appointments', filter=Q(appointments__pet__isnull=False)),
+    staff_performance = staff_scope.filter(is_active=True).annotate(
+        total_appointments=Count(
+            'appointments',
+            filter=Q(appointments__pet__isnull=False)
+            & Q(appointments__branch__in=branches),
+        ),
         completed_appointments=Count('appointments', filter=Q(
             appointments__pet__isnull=False,
-            appointments__status='COMPLETED'
-        ))
+            appointments__status='COMPLETED',
+        ) & Q(appointments__branch__in=branches)),
     ).values('first_name', 'last_name', 'total_appointments', 'completed_appointments')
-
-    # HQ admins see active-branch totals; other staff remain limited to their branch.
-    dashboard_is_all_branches = request.user.is_admin_role()
-    inventory_products = Product.objects.all()
-    if dashboard_is_all_branches:
-        inventory_products = inventory_products.filter(branch__in=branches)
-        dashboard_scope_label = f'Across {branches.count()} Active Branches'
-    elif request.user.branch_id:
-        inventory_products = inventory_products.filter(branch=request.user.branch)
-        dashboard_scope_label = request.user.branch.name
-    else:
-        inventory_products = inventory_products.none()
-        dashboard_scope_label = 'No Branch Assigned'
-
-    if dashboard_is_all_branches:
-        patient_branch_scope = (
-            Q(branch__in=branches)
-            | Q(owner__branch__in=branches)
-            | Q(appointments__branch__in=branches)
-            | Q(medical_records__branch__in=branches)
-        )
-    elif request.user.branch_id:
-        patient_branch_scope = (
-            Q(branch=request.user.branch)
-            | Q(owner__branch=request.user.branch)
-            | Q(appointments__branch=request.user.branch)
-            | Q(medical_records__branch=request.user.branch)
-        )
-    else:
-        patient_branch_scope = None
 
     monthly_performance_data = {
         'labels': [],
@@ -1085,11 +1117,6 @@ def admin_dashboard_view(request):
         or Decimal('0.00')
     )
 
-    revenue_scope = (
-        {'branch__in': branches}
-        if dashboard_is_all_branches
-        else {'branch': request.user.branch}
-    )
     monthly_revenue = Sale.objects.filter(
         created_at__range=(get_day_bounds(month_start)[0], get_day_bounds(today)[1]),
         status='COMPLETED',
@@ -1109,24 +1136,22 @@ def admin_dashboard_view(request):
         **revenue_scope,
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-    completed_visits_this_month = Appointment.objects.filter(
+    completed_visits_this_month = appointment_scope.filter(
         appointment_date__range=[month_start, today],
         status='COMPLETED',
         pet__isnull=False,
-        branch__in=branches if dashboard_is_all_branches else [request.user.branch_id],
     ).count()
-    scheduled_appointments_this_month = Appointment.objects.filter(
+    scheduled_appointments_this_month = appointment_scope.filter(
         appointment_date__range=[today, month_start + relativedelta(months=1) - timedelta(days=1)],
         status__in=[
             'PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS',
             'AWAITING_PAYMENT',
         ],
         pet__isnull=False,
-        branch__in=branches if dashboard_is_all_branches else [request.user.branch_id],
     ).count()
 
     # Expiring products list (next 30 days)
-    expiring_products = Product.objects.filter(
+    expiring_products = inventory_products.filter(
         expiration_date__isnull=False,
         expiration_date__gte=today,
         expiration_date__lte=today + timedelta(days=30),
@@ -1134,7 +1159,7 @@ def admin_dashboard_view(request):
     ).order_by('expiration_date')[:10]
 
     # Pet species breakdown
-    pet_species_breakdown_query = Pet.objects.values('species').annotate(
+    pet_species_breakdown_query = patient_scope.values('species').annotate(
         count=Count('id')
     ).order_by('-count')
     
@@ -1148,21 +1173,21 @@ def admin_dashboard_view(request):
 
     # Appointment sources (WALKIN vs PORTAL)
     appointment_sources = {
-        'WALKIN': Appointment.objects.filter(
+        'WALKIN': appointment_scope.filter(
             source='WALKIN', pet__isnull=False
         ).count(),
-        'PORTAL': Appointment.objects.filter(
+        'PORTAL': appointment_scope.filter(
             source='PORTAL', pet__isnull=False
         ).count(),
     }
 
     # Business metrics
-    total_revenue_this_week = Sale.objects.filter(
+    total_revenue_this_week = scoped_sales.filter(
         created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(week_end)[1]),
         status='COMPLETED'
     ).aggregate(total=Sum('total'))['total'] or 0
 
-    total_revenue_last_week = Sale.objects.filter(
+    total_revenue_last_week = scoped_sales.filter(
         created_at__range=(get_day_bounds(week_start - timedelta(days=7))[0], get_day_bounds(week_start - timedelta(days=1))[1]),
         status='COMPLETED'
     ).aggregate(total=Sum('total'))['total'] or 0
@@ -1172,10 +1197,10 @@ def admin_dashboard_view(request):
         if total_revenue_last_week > 0 else 0
     )
 
-    total_cancelled = Appointment.objects.filter(
+    total_cancelled = appointment_scope.filter(
         status='CANCELLED', pet__isnull=False
     ).count()
-    total_appointments = Appointment.objects.filter(
+    total_appointments = appointment_scope.filter(
         pet__isnull=False
     ).count()
     cancellation_rate = (
@@ -1184,14 +1209,14 @@ def admin_dashboard_view(request):
     )
 
     # New patients this week
-    new_patients_this_week = Pet.objects.filter(
+    new_patients_this_week = patient_scope.filter(
         created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(today)[1])
     ).count()
 
     # Customer analytics (new vs returning)
     # Count new user registrations (customers) this week
     # Include users with no role or non-staff roles (pet owners)
-    new_customers_this_week = User.objects.filter(
+    new_customers_this_week = user_scope.filter(
         date_joined__date__range=[week_start, today],
         is_superuser=False
     ).exclude(
@@ -1199,7 +1224,7 @@ def admin_dashboard_view(request):
     ).count()
 
     # Count returning customers (users who booked appointments this week but joined before this week)
-    returning_customers_this_week = Appointment.objects.filter(
+    returning_customers_this_week = appointment_scope.filter(
         created_at__range=(get_day_bounds(week_start)[0], get_day_bounds(today)[1]),
         user__date_joined__date__lt=week_start,
         pet__isnull=False
@@ -1207,13 +1232,17 @@ def admin_dashboard_view(request):
 
     # Top services and products in completed sales, scoped to this admin.
     sales_scope_filter = (
-        {} if request.user.is_admin_role() else {'sale__branch': request.user.branch}
+        {'sale__branch__in': branches}
+        if dashboard_is_all_branches
+        else {'sale__branch': dashboard_branch}
+        if dashboard_branch and branches.exists()
+        else {'sale__branch__in': branches}
     )
     sales_insights_scope_label = (
         'All branches'
-        if request.user.is_admin_role()
-        else request.user.branch.name if request.user.branch_id
-        else 'No branch assigned'
+        if dashboard_is_all_branches
+        else dashboard_branch.name if dashboard_branch and branches.exists()
+        else 'No Branch Assigned'
     )
     service_sales_scope_filter = {
         f'sale_items__{field}': value
@@ -1256,6 +1285,8 @@ def admin_dashboard_view(request):
     # Payment method statistics
     payment_method_stats = Payment.objects.filter(
         sale__status='COMPLETED'
+    ).filter(
+        **sales_scope_filter
     ).values('method').annotate(
         count=Count('id'),
         total=Sum('amount')
@@ -1263,24 +1294,25 @@ def admin_dashboard_view(request):
 
     # Pet health status distribution
     pet_health_stats = [
-        {'status': 'HEALTHY', 'count': Pet.objects.filter(clinical_status__code='HEALTHY').count()},
-        {'status': 'MONITOR', 'count': Pet.objects.filter(clinical_status__code='MONITOR').count()},
-        {'status': 'TREATMENT', 'count': Pet.objects.filter(clinical_status__code='TREATMENT').count()},
-        {'status': 'SURGERY', 'count': Pet.objects.filter(clinical_status__code='SURGERY').count()},
-        {'status': 'DIAGNOSTICS', 'count': Pet.objects.filter(clinical_status__code='DIAGNOSTICS').count()},
-        {'status': 'CRITICAL', 'count': Pet.objects.filter(clinical_status__code='CRITICAL').count()},
+        {
+            'status': status,
+            'count': patient_scope.filter(clinical_status__code=status).count(),
+        }
+        for status in (
+            'HEALTHY', 'MONITOR', 'TREATMENT', 'SURGERY', 'DIAGNOSTICS', 'CRITICAL'
+        )
     ]
 
     # Low stock alerts and refunds
     low_stock_threshold = get_inventory_low_stock_threshold()
-    low_stock_products = Product.objects.filter(
+    low_stock_products = inventory_products.filter(
         stock_quantity__lte=low_stock_threshold,
         is_available=True
     ).order_by('stock_quantity')[:10]
     
     low_stock_count = low_stock_products.count()
 
-    refunds_today = Sale.objects.filter(
+    refunds_today = scoped_sales.filter(
         created_at__range=get_day_bounds(today),
         status='REFUNDED'
     ).aggregate(total=Sum('total'))['total'] or 0
@@ -1292,8 +1324,9 @@ def admin_dashboard_view(request):
             new_inquiry_count = 0
             recent_inquiries = []
         else:
-            new_inquiry_count = Inquiry.objects.filter(status='NEW').count()
-            recent_inquiries = Inquiry.objects.filter(
+            inquiry_scope = Inquiry.objects.filter(branch__in=branches)
+            new_inquiry_count = inquiry_scope.filter(status='NEW').count()
+            recent_inquiries = inquiry_scope.filter(
                 status='NEW'
             ).select_related('branch').order_by('-created_at')[:5]
     except Exception:

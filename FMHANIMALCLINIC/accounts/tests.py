@@ -1709,6 +1709,113 @@ class AdminDashboardQuickInsightsTests(TestCase):
         )
         self.assertEqual(response.context['sales_insights_scope_label'], 'All branches')
 
+    def test_admin_dashboard_permission_is_scoped_to_the_users_branch(self):
+        from inquiries.models import Inquiry
+
+        branches = [
+            Branch.objects.create(
+                name=f'Branch Dashboard Scope {index}',
+                phone_number=f'0912345678{index}',
+                address=f'{index} Dashboard Street',
+                city='Manila',
+                state='NCR',
+                zip_code='1000',
+            )
+            for index in (1, 2)
+        ]
+        role = Role.objects.create(
+            name='Branch Scoped Admin Dashboard',
+            code='branch-scoped-admin-dashboard',
+            hierarchy_level=3,
+            is_staff_role=True,
+        )
+        admin_dashboard_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_admin_dashboard',
+            defaults={'name': 'Admin Dashboard Access'},
+        )
+        role.special_permissions.create(permission=admin_dashboard_permission)
+        user = get_user_model().objects.create_user(
+            username='branch-scoped-admin-dashboard-user',
+            password='A-secure-test-password-945!',
+            assigned_role=role,
+            branch=branches[0],
+        )
+        get_user_model().objects.create_user(
+            username='other-branch-dashboard-account',
+            password='A-secure-test-password-946!',
+            branch=branches[1],
+        )
+
+        pets = [
+            Pet.objects.create(
+                name=f'Branch Dashboard Pet {index}',
+                species='Dog',
+                sex=Pet.Sex.FEMALE,
+                branch=branch,
+            )
+            for index, branch in enumerate(branches, start=1)
+        ]
+        for index, (branch, pet) in enumerate(zip(branches, pets), start=1):
+            Appointment.objects.create(
+                owner_name=f'Branch Dashboard Owner {index}',
+                pet_name=pet.name,
+                pet=pet,
+                branch=branch,
+                appointment_date=date.today(),
+                appointment_time=time(10, 0),
+                status=Appointment.Status.COMPLETED,
+            )
+            Sale.objects.create(
+                branch=branch,
+                status=Sale.Status.COMPLETED,
+                subtotal=100 * index,
+                total=100 * index,
+            )
+            Product.objects.create(
+                name=f'Branch Dashboard Product {index}',
+                item_type='Product',
+                branch=branch,
+                price=10,
+                unit_cost=5,
+                stock_quantity=2,
+            )
+            Inquiry.objects.create(
+                full_name=f'Branch Dashboard Inquiry {index}',
+                email=f'branch-dashboard-{index}@example.com',
+                phone='09123456789',
+                message='Branch dashboard scope test',
+                branch=branch,
+            )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('accounts:admin_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['patient_count'], 1)
+        self.assertEqual(response.context['total_users'], 1)
+        self.assertEqual(response.context['total_inventory_value'], 10)
+        self.assertEqual(response.context['yearly_sales_revenue'], 100)
+        self.assertEqual(response.context['completed_visits_this_month'], 1)
+        appointment_statuses = json.loads(
+            response.context['appointment_status_breakdown']
+        )
+        completed_status = next(
+            status for status in appointment_statuses
+            if status['status'] == 'Completed'
+        )
+        self.assertEqual(completed_status['count'], 1)
+        self.assertEqual(response.context['new_inquiry_count'], 1)
+        self.assertEqual(
+            list(response.context['branches'].values_list('pk', flat=True)),
+            [branches[0].pk],
+        )
+        self.assertEqual(
+            response.context['dashboard_scope_label'],
+            branches[0].name,
+        )
+        self.assertContains(response, branches[0].name)
+        self.assertNotContains(response, 'All registered users across the clinic')
+
     def test_inventory_hero_stat_sums_stock_value_across_active_branches(self):
         admin = get_user_model().objects.create_superuser(
             username='inventory-value-admin',
@@ -1914,6 +2021,7 @@ class RolePermissionManagementTests(TestCase):
         response = self.client.post(reverse('accounts:role_create'), {
             'name': 'Permission Matrix Validation',
             'hierarchy_level': '2',
+            'special_can_access_staff_dashboard': 'on',
             'perm_inquiries_CREATE': 'on',
             'perm_inquiries_DELETE': 'on',
             'perm_reservations_CREATE': 'on',
@@ -1927,6 +2035,30 @@ class RolePermissionManagementTests(TestCase):
         self.assertFalse(role.module_permissions.filter(
             module__code='reservations',
         ).exists())
+
+    def test_role_create_requires_either_staff_or_admin_dashboard(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('accounts:role_create'), {
+            'name': 'Role Missing Dashboard',
+            'hierarchy_level': '2',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Select either Staff Dashboard or Admin Dashboard')
+        self.assertFalse(Role.objects.filter(code='role_missing_dashboard').exists())
+
+    def test_role_create_requires_exactly_one_dashboard_permission(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('accounts:role_create'), {
+            'name': 'Role Without Dashboard',
+            'hierarchy_level': '2',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Select either Staff Dashboard or Admin Dashboard')
+        self.assertFalse(Role.objects.filter(code='role_without_dashboard').exists())
 
     def test_role_creation_uses_sequential_levels_and_live_system_role_names(self):
         system_role_names = {}
@@ -1963,6 +2095,7 @@ class RolePermissionManagementTests(TestCase):
         create_response = self.client.post(reverse('accounts:role_create'), {
             'name': 'Custom Support Specialist',
             'hierarchy_level': '1',
+            'special_can_access_staff_dashboard': 'on',
         })
         self.assertEqual(create_response.status_code, 302)
         custom_role = Role.objects.get(code='custom_support_specialist')

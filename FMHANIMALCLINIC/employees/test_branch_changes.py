@@ -105,6 +105,7 @@ class StaffBranchChangeTests(TestCase):
             {
                 'name': 'Permanent Position UI Test Role',
                 'hierarchy_level': '2',
+                'special_can_access_staff_dashboard': 'on',
                 'special_permanent_position': 'on',
             },
         )
