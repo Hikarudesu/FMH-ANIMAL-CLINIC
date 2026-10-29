@@ -3339,7 +3339,85 @@ class RoleDashboardAuthorizationTests(TestCase):
         response = self.client.get(reverse('accounts:staff_dashboard'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['active_patient_count'], 1)
+        self.assertEqual(
+            [card['module'] for card in response.context['module_cards']],
+            [],
+        )
+
+    def test_custom_staff_dashboard_shows_only_viewable_modules_and_branch_data(self):
+        role = Role.objects.create(
+            name='Patients and Appointments Dashboard',
+            code='patients-appointments-dashboard',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        for module_code in ('patients', 'appointments'):
+            module = Module.objects.get(code=module_code)
+            ModulePermission.objects.create(
+                role=role,
+                module=module,
+                permission_type=ModulePermission.PermissionType.VIEW,
+                restrict_to_branch=True,
+            )
+        permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_staff_dashboard',
+            defaults={'name': 'Staff Dashboard Access'},
+        )
+        role.special_permissions.create(permission=permission)
+        branch = Branch.objects.create(
+            name='Permission Dashboard Branch',
+            phone_number='09123456781',
+            address='1 Module Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        other_branch = Branch.objects.create(
+            name='Other Permission Dashboard Branch',
+            phone_number='09123456782',
+            address='2 Module Street',
+            city='Manila',
+            state='NCR',
+            zip_code='1000',
+        )
+        user = get_user_model().objects.create_user(
+            username='patients-appointments-dashboard-user',
+            password='A-secure-test-password-944!',
+            assigned_role=role,
+            branch=branch,
+        )
+        Pet.objects.create(
+            name='Visible Module Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+            branch=branch,
+        )
+        Pet.objects.create(
+            name='Hidden Branch Pet',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+            branch=other_branch,
+        )
+        today = timezone.localdate()
+        for appointment_branch in (branch, other_branch):
+            Appointment.objects.create(
+                owner_name='Dashboard Appointment Owner',
+                pet_name='Dashboard Appointment Pet',
+                branch=appointment_branch,
+                appointment_date=today,
+                appointment_time=time(10, 0),
+                status=Appointment.Status.PENDING,
+            )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('accounts:staff_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [(card['module'], card['count']) for card in response.context['module_cards']],
+            [('patients', 1), ('appointments', 1)],
+        )
+        self.assertNotContains(response, 'Low-stock products')
 
     def test_staff_dashboard_grant_does_not_replace_system_role_dashboards(self):
         permission, _ = SpecialPermission.objects.get_or_create(
@@ -3360,8 +3438,12 @@ class RoleDashboardAuthorizationTests(TestCase):
                         'name': role_code.replace('_', ' ').title(),
                         'hierarchy_level': 2,
                         'is_staff_role': True,
+                        'is_system_role': True,
                     },
                 )
+                if not role.is_system_role:
+                    role.is_system_role = True
+                    role.save(update_fields=['is_system_role'])
                 role.special_permissions.get_or_create(permission=permission)
                 user = get_user_model().objects.create_user(
                     username=f'{role_code}-staff-dashboard-priority',
@@ -3376,6 +3458,8 @@ class RoleDashboardAuthorizationTests(TestCase):
                 self.client.force_login(user)
                 response = self.client.get(reverse('accounts:admin_dashboard'))
                 self.assertRedirects(response, reverse(dashboard))
+                staff_response = self.client.get(reverse('accounts:staff_dashboard'))
+                self.assertRedirects(staff_response, reverse(dashboard))
 
     def test_admin_dashboard_special_permission_overrides_clinical_default(self):
         role = Role.objects.create(

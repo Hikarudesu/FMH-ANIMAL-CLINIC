@@ -818,30 +818,64 @@ def verify_email_view(request):
 @staff_only
 @special_permission_required(SpecialPermissionCodes.STAFF_DASHBOARD)
 def staff_dashboard_view(request):
-    """Show basic clinic statistics to staff granted the staff dashboard."""
+    """Show module-scoped statistics for custom roles granted this dashboard."""
+    role = request.user.assigned_role
+    if role and role.is_system_role:
+        dashboard = _dashboard_for_user(request.user)
+        return redirect(
+            'accounts:profile'
+            if dashboard == 'accounts:staff_dashboard'
+            else dashboard
+        )
+
+    dashboard = _dashboard_for_user(request.user)
+    if dashboard != 'accounts:staff_dashboard':
+        return redirect(dashboard)
+
     from appointments.models import Appointment
+    from billing.models import Service
+    from diagnostics.models import AIDiagnosis
+    from inquiries.models import Inquiry
+    from inventory.models import Product, Reservation
     from patients.models import Pet
+    from records.models import MedicalRecord
 
     branch = request.user.branch
     if not branch:
         staff_profile = getattr(request.user, 'staff_profile', None)
         branch = getattr(staff_profile, 'branch', None) if staff_profile else None
 
-    pets = Pet.objects.filter(is_active=True)
-    appointments = Appointment.objects.filter(
-        appointment_date=timezone.localdate(),
+    today = timezone.localdate()
+    module_queries = (
+        ('patients', 'Active patients', 'bxs-dog', Pet.objects.filter(is_active=True), 'branch', 'patients:admin_list'),
+        ('appointments', "Today's appointments", 'bx-calendar-check', Appointment.objects.filter(appointment_date=today).exclude(status=Appointment.Status.CANCELLED), 'branch', 'appointments:admin_list'),
+        ('medical_records', 'Active medical records', 'bx-file', MedicalRecord.objects.filter(status='Active'), 'branch', 'records:admin_list'),
+        ('ai_diagnostics', 'Unreviewed AI diagnoses', 'bx-brain', AIDiagnosis.objects.filter(is_reviewed=False), 'pet__branch', 'diagnostics:dashboard'),
+        ('inquiries', 'New inquiries', 'bx-envelope', Inquiry.objects.filter(status='NEW'), 'branch', 'inquiries:list'),
+        ('clinic_services', 'Active clinic services', 'bx-briefcase', Service.objects.filter(active=True), None, 'billing:billable_items'),
+        ('inventory', 'Low-stock products', 'bx-package', Product.objects.filter(stock_quantity__lte=get_inventory_low_stock_threshold()), 'branch', 'inventory:management'),
+        ('reservations', 'Pending reservations', 'bx-calendar-check', Reservation.objects.filter(status=Reservation.Status.PENDING), 'product__branch', None),
     )
-    if branch:
-        pets = pets.filter(branch=branch)
-        appointments = appointments.filter(branch=branch)
-    else:
-        pets = pets.none()
-        appointments = appointments.none()
+    module_cards = []
+    for module_code, title, icon, queryset, branch_lookup, url_name in module_queries:
+        if not request.user.has_module_permission(module_code, 'VIEW'):
+            continue
+        if branch_lookup and request.user.is_module_branch_restricted(module_code):
+            if branch:
+                queryset = queryset.filter(**{branch_lookup: branch})
+            else:
+                queryset = queryset.none()
+        module_cards.append({
+            'module': module_code,
+            'title': title,
+            'icon': icon,
+            'count': queryset.count(),
+            'url': reverse(url_name) if url_name else None,
+        })
 
     return render(request, 'accounts/staff_dashboard.html', {
         'branch': branch,
-        'active_patient_count': pets.count(),
-        'today_appointment_count': appointments.count(),
+        'module_cards': module_cards,
         'role_name': request.user.get_display_role(),
     })
 
