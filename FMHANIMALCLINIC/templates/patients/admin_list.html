@@ -318,10 +318,7 @@
             <a href="{% url 'patients:admin_edit_pet' pet.id %}" class="action-btn" title="Edit Patient"><i class='bx bx-edit-alt'></i></a>
             {% endif %}
             {% if can_delete %}
-            <form method="post" action="{% url 'patients:admin_delete_pet' pet.id %}">
-              {% csrf_token %}
-              <button type="button" class="action-btn" title="Archive Patient" aria-label="Archive {{ pet.name }}" data-pet-name="{{ pet.name|escape }}" onclick="confirmPatientDeletion(this)"><i class='bx bx-trash'></i></button>
-            </form>
+            <button type="button" class="action-btn" title="Archive Patient" aria-label="Archive {{ pet.name }}" onclick="openPatientDeleteModal('{% url 'patients:admin_delete_pet' pet.id %}', '{{ pet.name|escapejs }}')"><i class='bx bx-trash'></i></button>
             {% endif %}
           </div>
         </td>
@@ -434,24 +431,14 @@
     }
   });
 
-  async function confirmPatientDeletion(button) {
-    const form = button.closest('form');
-    const petName = button.dataset.petName || 'this patient';
-    const initialConfirmed = await window.showCenteredConfirmation({
-      title: 'Archive patient?',
-      message: `Move ${petName} to the archive?`,
-      confirmText: 'Continue',
-      tone: 'danger',
-    });
-    if (!initialConfirmed) return;
+  window.openPatientDeleteModal = function(url, petName) {
+    document.getElementById('deletePatientName').textContent = petName;
+    document.getElementById('deletePatientForm').action = url;
+    document.getElementById('deletePatientModal').classList.add('active');
+  };
 
-    const finalConfirmed = await window.showCenteredConfirmation({
-      title: 'Final confirmation',
-      message: `Archive ${petName} and its linked clinical history? The archived patient can be restored from the archive for 30 days.`,
-      confirmText: 'Archive Patient',
-      tone: 'danger',
-    });
-    if (finalConfirmed) form.requestSubmit();
+  window.closePatientDeleteModal = function() {
+    document.getElementById('deletePatientModal').classList.remove('active');
   }
 
   // ══════ PATIENT SEARCH AUTOCOMPLETE ══════
@@ -612,6 +599,30 @@
     });
   }());
 </script>
+
+<!-- Archive Patient Modal -->
+<div class="modal-overlay" id="deletePatientModal">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="color: var(--accent);"><i class='bx bx-error-circle'></i> Archive Patient</h3>
+      <button type="button" class="modal-close" onclick="closePatientDeleteModal()">&times;</button>
+    </div>
+    <form id="deletePatientForm" method="post" action="">
+      {% csrf_token %}
+      <div class="modal-body" style="text-align: center; padding-top: 30px;">
+        <i class='bx bx-info-circle' style="font-size: 4rem; color: var(--accent); margin-bottom: 16px;"></i>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Archive <span id="deletePatientName"></span>?</h4>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
+          This will move the patient and linked clinical history to the archive. You can restore them for 30 days.
+        </p>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end; gap: 12px;">
+        <button type="button" class="btn-cancel" onclick="closePatientDeleteModal()">Cancel</button>
+        <button type="submit" class="btn-submit">Yes, Archive Patient</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <style>
   #patientSearchDropdown .search-dropdown-item {
