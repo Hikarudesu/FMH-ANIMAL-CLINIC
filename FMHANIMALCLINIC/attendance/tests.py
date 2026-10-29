@@ -408,7 +408,7 @@ Date,Week,(IN),(OUT),(IN),(OUT),(IN),(OUT),Date,Week,(IN),(OUT),(IN),(OUT),(IN),
 
     self.assertEqual((imported, matched, errors), (1, 1, 0))
     summary = MonthlyAttendanceSummary.objects.get(staff=self.staff)
-    self.assertEqual(summary.working_days, 31)
+    self.assertEqual(summary.working_days, 27)
     self.assertEqual(summary.attendance_days, 1)
     self.assertEqual(summary.absence_days, 30)
     self.assertEqual(summary.real_pay, 0)
@@ -439,7 +439,7 @@ Date,Week,(IN),(OUT),(IN),(OUT),(IN),(OUT),Date,Week,(IN),(OUT),(IN),(OUT),(IN),
     AttendanceImportService().import_summary_records(updated)
 
     summary = MonthlyAttendanceSummary.objects.get(staff=self.staff)
-    self.assertEqual(summary.working_days, 20)
+    self.assertEqual(summary.working_days, 27)
     self.assertEqual(summary.attendance_days, 10)
     self.assertEqual(summary.absence_days, 11)
 

@@ -3,7 +3,6 @@ Payslip computation utilities for the employees app.
 """
 from datetime import date
 from decimal import Decimal
-import calendar
 
 
 class PayslipData:
@@ -38,11 +37,15 @@ def compute_payslip(staff_member, month, year):
     base_salary = Decimal(str(staff_member.salary or 0))
     payslip.base_salary = base_salary
 
-    # Calculate working days in the month (excluding weekends)
-    _, days_in_month = calendar.monthrange(year, month)
-    working_days = sum(
-        1 for d in range(1, days_in_month + 1)
-        if date(year, month, d).weekday() < 5  # Mon-Fri
+    # Payroll working days follow the configured monthly rest-day policy.
+    from attendance.calculation_engine import WorkingDaysCalculator
+    from settings.utils import get_setting
+
+    working_days = WorkingDaysCalculator.calculate_required_working_days(
+        year,
+        month,
+        'FULL_MONTH',
+        int(get_setting('payroll_default_rest_days', 4)),
     )
 
     # Count actual days worked from schedule
@@ -97,6 +100,7 @@ def compute_payslip(staff_member, month, year):
     payslip.net_pay = round(payslip.gross_pay - payslip.total_deductions, 2)
 
     from attendance.models import DailyAttendance, MonthlyAttendanceSummary
+    from attendance.services import count_attendance_days_for_payroll
 
     raw_rows = DailyAttendance.objects.filter(
         staff=staff_member,
@@ -117,25 +121,36 @@ def compute_payslip(staff_member, month, year):
         afternoon_out__isnull=False,
     ).exists()
 
-    if not has_raw_time_metadata:
-        monthly_summary = MonthlyAttendanceSummary.objects.filter(
-            staff=staff_member,
-            period_start__year=year,
-            period_start__month=month,
-        ).order_by('-period_end').first()
-        if monthly_summary:
-            payslip.working_days = monthly_summary.working_days
-            payslip.attendance_days = monthly_summary.attendance_days
-            payslip.days_worked = monthly_summary.attendance_days
-            payslip.absence_days = monthly_summary.absence_days
-            payslip.days_absent = monthly_summary.absence_days
-            payslip.overtime_hours = monthly_summary.overtime_hours
-            payslip.sick_hours = monthly_summary.sick_hours
-            payslip.leave_hours = monthly_summary.leave_hours
-            payslip.daily_salary = daily_rate
-            payslip.overtime_pay = monthly_summary.overtime_pay
-            payslip.charges = monthly_summary.charges
-            if monthly_summary.real_pay:
-                payslip.net_pay = monthly_summary.real_pay
+    monthly_summary = MonthlyAttendanceSummary.objects.filter(
+        staff=staff_member,
+        period_start__year=year,
+        period_start__month=month,
+    ).order_by('-period_end').first()
+    if has_raw_time_metadata:
+        attendance_days = count_attendance_days_for_payroll(
+            raw_rows,
+            raw_rows,
+            monthly_summary,
+        )
+        payslip.days_worked = min(attendance_days, working_days)
+        payslip.attendance_days = payslip.days_worked
+        payslip.days_absent = max(0, working_days - payslip.days_worked)
+        payslip.absence_days = payslip.days_absent
+        payslip.gross_pay = round(daily_rate * Decimal(payslip.days_worked), 2)
+        payslip.net_pay = round(payslip.gross_pay - payslip.total_deductions, 2)
+    elif monthly_summary:
+        payslip.attendance_days = min(monthly_summary.attendance_days, working_days)
+        payslip.days_worked = payslip.attendance_days
+        payslip.absence_days = max(0, working_days - payslip.days_worked)
+        payslip.days_absent = payslip.absence_days
+        payslip.overtime_hours = monthly_summary.overtime_hours
+        payslip.sick_hours = monthly_summary.sick_hours
+        payslip.leave_hours = monthly_summary.leave_hours
+        payslip.overtime_pay = monthly_summary.overtime_pay
+        payslip.charges = monthly_summary.charges
+        payslip.gross_pay = round(daily_rate * Decimal(payslip.days_worked), 2)
+        payslip.net_pay = round(payslip.gross_pay - payslip.total_deductions, 2)
+        if monthly_summary.real_pay:
+            payslip.net_pay = monthly_summary.real_pay
 
     return payslip

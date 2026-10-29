@@ -25,7 +25,11 @@ from .forms import (
     DailyAttendanceForm,
     AttendanceFilterForm,
 )
-from .services import AttendanceImportService, AttendanceProcessor
+from .services import (
+    AttendanceImportService,
+    AttendanceProcessor,
+    count_attendance_days_for_payroll,
+)
 from .calculation_engine import WorkingDaysCalculator
 from settings.utils import get_setting
 from payroll.models import PayrollPeriod, Payslip
@@ -71,22 +75,11 @@ def _system_overtime_pay(overtime_hours):
 
 def _report_present_days(monthly_summary, attendance_records):
     """Count complete four-punch days when detailed punch data is available."""
-    has_detailed_punches = attendance_records.filter(
-        Q(morning_in__isnull=False)
-        | Q(morning_out__isnull=False)
-        | Q(afternoon_in__isnull=False)
-        | Q(afternoon_out__isnull=False)
-    ).exists()
-    if has_detailed_punches:
-        return attendance_records.filter(
-            morning_in__isnull=False,
-            morning_out__isnull=False,
-            afternoon_in__isnull=False,
-            afternoon_out__isnull=False,
-        ).count()
-    if monthly_summary:
-        return monthly_summary.attendance_days
-    return attendance_records.filter(is_present=True).count()
+    return count_attendance_days_for_payroll(
+        attendance_records,
+        attendance_records,
+        monthly_summary,
+    )
 
 logger = logging.getLogger(__name__)
 

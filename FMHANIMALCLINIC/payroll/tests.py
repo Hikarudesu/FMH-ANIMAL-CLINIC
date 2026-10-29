@@ -570,6 +570,59 @@ class PayrollRulesTests(TestCase):
         self.assertEqual(payslip.days_absent, 13)
         self.assertEqual(payslip.rest_days_actual, 4)
 
+    def test_imported_two_punch_attendance_uses_calendar_working_days(self):
+        set_setting('payroll_default_rest_days', 4)
+        staff = StaffMember.objects.create(
+            first_name='Calendar',
+            last_name='Attendance',
+            biometric_id='BIO-CALENDAR-ATTENDANCE',
+            salary=30000,
+            position=StaffMember.Position.RECEPTIONIST,
+            is_active=True,
+        )
+        records = [{
+            'Summary': 'MONTHLY',
+            'Biometric ID': staff.biometric_id,
+            'Report Start': '2026-08-01',
+            'Report End': '2026-08-31',
+            'Working days': '31',
+            'Attendance days': '11',
+            'Absences days': '20',
+        }]
+        records.extend({
+            'Biometric ID': staff.biometric_id,
+            'Date': f'2026-08-{day:02d}',
+            'Time In': '08:00' if day <= 13 else None,
+            'Time Out': '17:00' if day <= 13 else None,
+        } for day in range(1, 16))
+
+        imported, matched, errors = AttendanceImportService().import_summary_records(records)
+        summary = MonthlyAttendanceSummary.objects.get(staff=staff)
+        period = PayrollPeriod.objects.create(
+            month=8,
+            year=2026,
+            period_type=PayrollPeriod.PeriodType.SEMI_FIRST,
+        )
+        payslip = Payslip.objects.create(
+            payroll_period=period,
+            employee=staff,
+            base_salary=Decimal('15000'),
+        )
+
+        payslip.generate_from_employee()
+
+        self.assertEqual((imported, matched, errors), (16, 16, 0))
+        self.assertEqual(summary.working_days, 27)
+        self.assertEqual(summary.required_working_days_first_half, 13)
+        self.assertEqual(summary.required_working_days_second_half, 14)
+        self.assertEqual(payslip.working_days, 13)
+        self.assertEqual(payslip.days_worked, 13)
+
+        from employees.payslip_utils import compute_payslip
+        employee_payslip = compute_payslip(staff, 8, 2026)
+        self.assertEqual(employee_payslip.working_days, 27)
+        self.assertEqual(employee_payslip.days_worked, 13)
+
     def test_october_20_attendance_counts_only_in_second_half_when_monthly_summary_exists(self):
         set_setting('payroll_default_rest_days', 4)
         staff = StaffMember.objects.create(

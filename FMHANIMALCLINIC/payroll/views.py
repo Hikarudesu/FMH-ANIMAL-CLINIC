@@ -797,6 +797,7 @@ def payslip_edit(request, payslip_id):
         return redirect('payroll:payslips', period_id=period.id)
 
     from attendance.models import MonthlyAttendanceSummary
+    from attendance.services import count_attendance_days_for_payroll
     from attendance.calculation_engine import WorkingDaysCalculator
     from attendance.models import DailyAttendance
     attendance_summary = MonthlyAttendanceSummary.objects.filter(
@@ -819,21 +820,16 @@ def payslip_edit(request, payslip_id):
         staff=payslip.employee,
         attendance_date__range=[period_start, period_end],
     )
-    has_detailed_punches = daily_records.filter(
-        Q(morning_in__isnull=False)
-        | Q(morning_out__isnull=False)
-        | Q(afternoon_in__isnull=False)
-        | Q(afternoon_out__isnull=False)
-    ).exists()
-    if has_detailed_punches:
-        payslip.days_worked = daily_records.filter(
-            morning_in__isnull=False,
-            morning_out__isnull=False,
-            afternoon_in__isnull=False,
-            afternoon_out__isnull=False,
-        ).count()
-    else:
-        payslip.days_worked = attendance_summary.attendance_days if attendance_summary else 0
+    monthly_daily_records = DailyAttendance.objects.filter(
+        staff=payslip.employee,
+        attendance_date__year=period.year,
+        attendance_date__month=period.month,
+    )
+    payslip.days_worked = count_attendance_days_for_payroll(
+        daily_records,
+        monthly_daily_records,
+        attendance_summary,
+    )
     payslip.days_worked = min(payslip.days_worked, payslip.working_days)
     payslip.days_absent = max(0, payslip.working_days - payslip.days_worked)
     if payslip.base_salary > 0 and payslip.working_days > 0:
@@ -847,8 +843,6 @@ def payslip_edit(request, payslip_id):
             period.period_type,
             payslip.rest_days_mandatory,
         )
-        payslip.days_worked = 0
-        payslip.days_absent = payslip.working_days
         payslip.rest_days_actual = 0
         payslip.absent_deduction = (
             Decimal(str(payslip.days_absent)) * payslip.daily_salary

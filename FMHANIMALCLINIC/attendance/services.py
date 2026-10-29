@@ -5,14 +5,45 @@ import logging
 import re
 
 from dateutil import parser as date_parser
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from employees.models import StaffMember
 from settings.utils import get_setting
 from .models import AttendanceUpload, DailyAttendance, MonthlyAttendanceSummary
-from .calculation_engine import OvertimeCalculator
+from .calculation_engine import OvertimeCalculator, WorkingDaysCalculator
 
 logger = logging.getLogger(__name__)
+
+
+def count_attendance_days_for_payroll(period_records, month_records, monthly_summary=None):
+    """Count complete attendance days using the punch format present in the upload."""
+    has_four_punch_data = month_records.filter(
+        Q(morning_in__isnull=False)
+        | Q(morning_out__isnull=False)
+        | Q(afternoon_in__isnull=False)
+        | Q(afternoon_out__isnull=False)
+    ).exists()
+    if has_four_punch_data:
+        return period_records.filter(
+            morning_in__isnull=False,
+            morning_out__isnull=False,
+            afternoon_in__isnull=False,
+            afternoon_out__isnull=False,
+        ).count()
+
+    has_two_punch_data = month_records.filter(
+        check_in__isnull=False,
+        check_out__isnull=False,
+    ).exists()
+    if has_two_punch_data:
+        return period_records.filter(
+            check_in__isnull=False,
+            check_out__isnull=False,
+        ).count()
+
+    if monthly_summary:
+        return monthly_summary.attendance_days
+    return period_records.filter(is_present=True).count()
 
 
 class AttendanceImportService:
@@ -214,6 +245,20 @@ class AttendanceImportService:
                     if not period_start or not period_end:
                         errors += 1
                         continue
+                    rest_days = int(get_setting('payroll_default_rest_days', 4))
+                    monthly_working_days = WorkingDaysCalculator.calculate_required_working_days(
+                        period_start.year,
+                        period_start.month,
+                        'FULL_MONTH',
+                        rest_days,
+                    )
+                    first_half_working_days, second_half_working_days = (
+                        WorkingDaysCalculator.calculate_working_days_for_full_month(
+                            period_start.year,
+                            period_start.month,
+                            rest_days,
+                        )
+                    )
                     detailed_dates = detailed_dates_by_staff.get(staff.pk, set())
                     if period_start.day > 1 and any(
                         period_start <= detailed_date <= period_end
@@ -225,12 +270,13 @@ class AttendanceImportService:
                         period_start=period_start,
                         period_end=period_end,
                         defaults={
-                            'working_days': int(self._coerce_decimal(self._get_first_matching_value(record, {
-                                'working days', 'work days', 'scheduled days',
-                            }))),
+                            'working_days': monthly_working_days,
                             'attendance_days': int(self._coerce_decimal(self._get_first_matching_value(record, {
                                 'attendance days', 'attended days', 'days present', 'present days',
                             }))),
+                            'required_working_days': monthly_working_days,
+                            'required_working_days_first_half': first_half_working_days,
+                            'required_working_days_second_half': second_half_working_days,
                             'absence_days': int(self._coerce_decimal(self._get_first_matching_value(record, {
                                 'absences days', 'absence days', 'absent days', 'days absent',
                             }))),

@@ -480,6 +480,7 @@ class Payslip(models.Model):
         """
         from settings.utils import get_setting
         from attendance.models import DailyAttendance, MonthlyAttendanceSummary
+        from attendance.services import count_attendance_days_for_payroll
         from attendance.calculation_engine import WorkingDaysCalculator
         
         # Employee salary is monthly and each payroll period pays one half.
@@ -517,17 +518,11 @@ class Payslip(models.Model):
             | Q(afternoon_in__isnull=False)
             | Q(afternoon_out__isnull=False)
         ).exists()
-        if has_monthly_detailed_punches:
-            complete_attendance_days = daily_records.filter(
-                morning_in__isnull=False,
-                morning_out__isnull=False,
-                afternoon_in__isnull=False,
-                afternoon_out__isnull=False,
-            ).count()
-        else:
-            complete_attendance_days = (
-                attendance_summary.attendance_days if attendance_summary else 0
-            )
+        complete_attendance_days = count_attendance_days_for_payroll(
+            daily_records,
+            monthly_daily_records,
+            attendance_summary,
+        )
 
         self.working_days = working_days_for_half
         self.days_worked = min(complete_attendance_days, working_days_for_half)
@@ -657,25 +652,17 @@ class Payslip(models.Model):
     @property
     def daily_rate(self):
         """
-        Calculate daily rate based only on actual working days from biometric data.
-        If no attendance summary exists, this must stay at zero.
+        Calculate daily rate using the configured required days for this period.
         """
-        from attendance.models import MonthlyAttendanceSummary
+        from attendance.calculation_engine import WorkingDaysCalculator
+        from settings.utils import get_setting
 
-        attendance_summary = MonthlyAttendanceSummary.objects.filter(
-            staff=self.employee,
-            period_start__year=self.payroll_period.year,
-            period_start__month=self.payroll_period.month,
-        ).first()
-
-        working_days = attendance_summary.working_days if attendance_summary and attendance_summary.working_days > 0 else 0
-
-        if self.payroll_period.period_type in [
-            self.payroll_period.PeriodType.SEMI_FIRST,
-            self.payroll_period.PeriodType.SEMI_SECOND,
-        ] and working_days > 0:
-            working_days = max(1, working_days // 2)
-
+        working_days = WorkingDaysCalculator.calculate_required_working_days(
+            self.payroll_period.year,
+            self.payroll_period.month,
+            self.payroll_period.period_type,
+            int(get_setting('payroll_default_rest_days', 4)),
+        )
         if self.base_salary > 0 and working_days > 0:
             return self.base_salary / Decimal(str(working_days))
         return Decimal('0')
