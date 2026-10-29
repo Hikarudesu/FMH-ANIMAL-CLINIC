@@ -1,4 +1,4 @@
-{% extends 'base/portal_admin.html' %}
+ {% extends 'base/portal_admin.html' %}
 {% load static %}
 
 {% block title %}{{ action }} Patient{% endblock %}
@@ -1429,6 +1429,11 @@
       const hasEditChanges = !isEditMode || getFormState() !== initialFormState;
 
       if ((!isCreateMode && !isLinkMode && !isEditMode) || (isEditMode && !hasEditChanges)) return;
+
+      if (document.getElementById('apfConfirmModal')) {
+        e.preventDefault();
+        return;
+      }
 
       e.preventDefault();
 

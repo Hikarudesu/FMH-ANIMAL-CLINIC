@@ -17,6 +17,13 @@
       const content = document.createElement('div');
       content.className = 'centered-confirmation__content';
 
+      const closeButton = document.createElement('button');
+      closeButton.type = 'button';
+      closeButton.className = 'centered-confirmation__close';
+      closeButton.setAttribute('aria-label', 'Close confirmation');
+      closeButton.innerHTML = "<i class='bx bx-x'></i>";
+      closeButton.addEventListener('click', () => dialog.close('cancel'));
+
       const icon = document.createElement('span');
       icon.className = 'centered-confirmation__icon';
       icon.setAttribute('aria-hidden', 'true');
@@ -49,7 +56,7 @@
       confirmButton.addEventListener('click', () => dialog.close('confirm'));
 
       actions.append(cancelButton, confirmButton);
-      content.append(icon, heading, description, actions);
+      content.append(closeButton, icon, heading, description, actions);
       dialog.appendChild(content);
       dialog.addEventListener('click', event => {
         if (event.target === dialog) dialog.close('cancel');
