@@ -14,7 +14,7 @@
     </div>
     {% if appointment.auto_cancel_countdown_active %}
     <div class="portal-appointment-card__countdown appointment-auto-cancel-countdown" data-auto-cancel-at="{{ appointment.auto_cancel_at|date:'c' }}">
-      <i class='bx bx-hourglass'></i> Auto-cancels in <time data-countdown-value>24:00:00</time>
+      <i class='bx bx-hourglass'></i> Auto-cancels when the appointment date ends in <time data-countdown-value>00:00:00</time>
     </div>
     {% endif %}
     {% include "components/appointment_workflow_progress.html" with appt=appointment %}

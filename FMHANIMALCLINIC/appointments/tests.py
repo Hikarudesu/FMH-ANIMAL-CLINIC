@@ -63,13 +63,18 @@ class ExpiredAppointmentCleanupTests(TestCase):
         )
 
     @patch('appointments.models.timezone.now')
-    def test_cancels_pending_appointments_at_24_hour_deadline(self, mocked_now):
+    def test_cancels_pending_and_confirmed_appointments_after_scheduled_date(self, mocked_now):
         mocked_now.return_value = self.now
-        overdue = self.create_appointment(self.now - timedelta(hours=24, minutes=1))
-        at_deadline = self.create_appointment(self.now - timedelta(hours=24))
-        recent = self.create_appointment(self.now - timedelta(hours=23, minutes=59))
+        yesterday_late = timezone.make_aware(
+            datetime.combine(self.now.date() - timedelta(days=1), time(23, 59))
+        )
+        overdue = self.create_appointment(yesterday_late)
+        today_pending = self.create_appointment(self.now - timedelta(minutes=1))
         confirmed = self.create_appointment(
             self.now - timedelta(days=3), status=Appointment.Status.CONFIRMED,
+        )
+        today_confirmed = self.create_appointment(
+            self.now - timedelta(minutes=1), status=Appointment.Status.CONFIRMED,
         )
         followup = FollowUp.objects.create(
             appointment=confirmed,
@@ -82,13 +87,21 @@ class ExpiredAppointmentCleanupTests(TestCase):
 
         self.assertEqual(cancelled_count, 2)
         overdue.refresh_from_db()
-        at_deadline.refresh_from_db()
-        recent.refresh_from_db()
+        today_pending.refresh_from_db()
         confirmed.refresh_from_db()
+        today_confirmed.refresh_from_db()
         self.assertEqual(overdue.status, Appointment.Status.CANCELLED)
-        self.assertEqual(at_deadline.status, Appointment.Status.CANCELLED)
-        self.assertEqual(recent.status, Appointment.Status.PENDING)
-        self.assertEqual(confirmed.status, Appointment.Status.CONFIRMED)
+        self.assertEqual(
+            overdue.cancellation_reason,
+            'Automatically cancelled because the appointment date passed without confirmation.',
+        )
+        self.assertEqual(today_pending.status, Appointment.Status.PENDING)
+        self.assertEqual(confirmed.status, Appointment.Status.CANCELLED)
+        self.assertEqual(
+            confirmed.cancellation_reason,
+            'Automatically cancelled because the client did not attend the scheduled appointment.',
+        )
+        self.assertEqual(today_confirmed.status, Appointment.Status.CONFIRMED)
         followup.refresh_from_db()
         self.assertTrue(followup.is_expired)
         self.assertIn('automatically cancelled', followup.expiration_reason)
@@ -112,7 +125,7 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertTrue(Appointment.objects.filter(pk=appointment.pk).exists())
 
     @patch('appointments.models.timezone.now')
-    def test_countdown_is_active_only_during_pending_24_hour_window(self, mocked_now):
+    def test_countdown_is_active_for_pending_and_confirmed_until_date_ends(self, mocked_now):
         mocked_now.return_value = self.now
         started = self.create_appointment(self.now - timedelta(minutes=1))
         future = self.create_appointment(self.now + timedelta(minutes=1))
@@ -124,7 +137,7 @@ class ExpiredAppointmentCleanupTests(TestCase):
         self.assertTrue(started.auto_cancel_countdown_active)
         self.assertFalse(future.auto_cancel_countdown_active)
         self.assertFalse(expired.auto_cancel_countdown_active)
-        self.assertFalse(confirmed.auto_cancel_countdown_active)
+        self.assertTrue(confirmed.auto_cancel_countdown_active)
 
 
 class GuestPatientRecordLifecycleTests(TestCase):
@@ -1045,7 +1058,7 @@ class PublicAppointmentBookingConfirmationTests(TestCase):
         )
         self.assertContains(response, 'Send Request')
         self.assertContains(response, 'Registered user')
-        self.assertContains(response, 'New client')
+        self.assertContains(response, 'New Client or Returning Guest User')
         self.assertContains(response, 'Login to Portal')
         self.assertContains(response, 'id="bookingForm"')
         self.assertContains(response, 'bookingForm.hidden = isRegisteredUser')

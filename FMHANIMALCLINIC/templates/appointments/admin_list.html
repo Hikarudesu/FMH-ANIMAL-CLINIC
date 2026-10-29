@@ -748,7 +748,7 @@
             {% endif %}
             {% if appt.auto_cancel_countdown_active %}
               <span class="appointment-auto-cancel-countdown" data-auto-cancel-at="{{ appt.auto_cancel_at|date:'c' }}">
-                <i class='bx bx-hourglass'></i> <time data-countdown-value>24:00:00</time>
+                <i class='bx bx-hourglass'></i> Auto-cancels when the appointment date ends in <time data-countdown-value>00:00:00</time>
               </span>
             {% endif %}
             {% if appt.status == 'AWAITING_PAYMENT' %}

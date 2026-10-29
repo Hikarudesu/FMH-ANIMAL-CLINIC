@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from django.db import models, transaction
 from django.utils import timezone
 from branches.models import Branch
@@ -7,8 +7,6 @@ from employees.models import StaffMember
 
 class Appointment(models.Model):
     """Represents a pet appointment / reservation."""
-
-    AUTO_CANCEL_AFTER_HOURS = 24
 
     class Source(models.TextChoices):
         WALKIN = 'WALKIN', 'Walk-In / Guest User'
@@ -306,15 +304,18 @@ class Appointment(models.Model):
 
     @property
     def auto_cancel_at(self):
-        """Return when an unconfirmed appointment becomes eligible for cancellation."""
-        return self.scheduled_datetime + timedelta(hours=self.AUTO_CANCEL_AFTER_HOURS)
+        """Return midnight after the appointment date, when overdue visits expire."""
+        return timezone.make_aware(
+            datetime.combine(self.appointment_date + timedelta(days=1), time.min),
+            timezone.get_current_timezone(),
+        )
 
     @property
     def auto_cancel_countdown_active(self):
-        """Show the countdown only while a pending appointment is in its 24-hour window."""
+        """Show the countdown after the appointment time until its date ends."""
         now = timezone.now()
         return (
-            self.status == self.Status.PENDING
+            self.status in (self.Status.PENDING, self.Status.CONFIRMED)
             and self.scheduled_datetime <= now < self.auto_cancel_at
         )
 
@@ -401,35 +402,35 @@ class Appointment(models.Model):
 
     @classmethod
     def cleanup_expired(cls):
-        """Cancel pending appointments more than 24 hours past their scheduled time."""
+        """Cancel pending or confirmed appointments whose scheduled date has passed."""
         now = timezone.now()
-        cutoff_date = timezone.localdate(now - timedelta(hours=24))
+        today = timezone.localdate(now)
         candidates = cls.objects.filter(
-            appointment_date__lte=cutoff_date,
-            status=cls.Status.PENDING,
+            appointment_date__lt=today,
+            status__in=(cls.Status.PENDING, cls.Status.CONFIRMED),
         ).select_related('branch', 'user')
 
         cancelled_count = 0
         for appointment in candidates.iterator():
-            scheduled_at = timezone.make_aware(
-                datetime.combine(appointment.appointment_date, appointment.appointment_time),
-                timezone.get_current_timezone(),
-            )
-            if scheduled_at + timedelta(hours=cls.AUTO_CANCEL_AFTER_HOURS) > now:
-                continue
-
             with transaction.atomic():
                 appointment = cls.objects.select_for_update().filter(
                     pk=appointment.pk,
-                    status=cls.Status.PENDING,
+                    status__in=(cls.Status.PENDING, cls.Status.CONFIRMED),
                 ).first()
                 if not appointment:
                     continue
+                previous_status = appointment.status
                 appointment.status = cls.Status.CANCELLED
-                appointment.cancellation_reason = (
-                    'Automatically cancelled because the appointment was not '
-                    'confirmed within 24 hours after its scheduled time.'
-                )
+                if previous_status == cls.Status.PENDING:
+                    appointment.cancellation_reason = (
+                        'Automatically cancelled because the appointment date '
+                        'passed without confirmation.'
+                    )
+                else:
+                    appointment.cancellation_reason = (
+                        'Automatically cancelled because the client did not '
+                        'attend the scheduled appointment.'
+                    )
                 appointment.save(update_fields=[
                     'status',
                     'cancellation_reason',
