@@ -20,12 +20,12 @@
 {% endif %}
 
 <!-- Filter Bar -->
-<div class="c-filter-bar" style="margin-bottom: 22px;">
+<div class="c-filter-bar" id="stockMonitorFilterBar" style="margin-bottom: 22px;">
   <div class="c-filter-bar__glow"></div>
   <form method="GET" action="{% url 'inventory:super_admin_stock_monitoring' %}" class="c-filter-bar__form" autocomplete="off">
     <div class="c-filter-bar__filters">
       <!-- Status Filter -->
-      <div class="c-filter-dropdown">
+      <div class="c-filter-dropdown stock-monitor-status-filter">
         <div class="c-filter-dropdown__trigger{% if selected_status %} active{% endif %}">
           <i class='bx bx-pulse c-filter-dropdown__icon'></i>
           <span class="c-filter-dropdown__label">
@@ -400,23 +400,21 @@
   color: white;
 }
 
-/* Keep dropdowns above cards but below sidebar */
-.c-filter-bar {
+/* Keep this filter above the sidebar and anchor its only menu to the trigger. */
+#stockMonitorFilterBar {
   position: relative;
-  z-index: 20;
+  z-index: 130;
 }
 
-.c-filter-dropdown {
+#stockMonitorFilterBar .stock-monitor-status-filter {
   position: relative;
-  z-index: 30;
+  z-index: 140;
 }
 
-.c-filter-dropdown:focus-within {
-  z-index: 80;
-}
-
-.c-filter-dropdown .sd-dropdown {
-  z-index: 90 !important;
+#stockMonitorFilterBar .stock-monitor-status-filter .sd-dropdown {
+  left: 0 !important;
+  right: auto !important;
+  z-index: 141 !important;
 }
 </style>
 

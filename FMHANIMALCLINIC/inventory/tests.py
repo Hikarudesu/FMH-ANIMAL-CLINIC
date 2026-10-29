@@ -269,6 +269,29 @@ class InventoryWorkflowTests(TestCase):
         self.assertEqual(response.context['low_stock'][0].stock_shortfall, 2)
         self.assertContains(response, '10 Piece')
 
+    def test_branch_restricted_stock_monitor_status_filter_is_not_hidden_by_sidebar(self):
+        user = self.create_branch_restricted_user(self.branch)
+        stock_monitor_module, _ = Module.objects.get_or_create(
+            code='stock_monitor',
+            defaults={'name': 'Stock Monitor'},
+        )
+        ModulePermission.objects.create(
+            role=user.assigned_role,
+            module=stock_monitor_module,
+            permission_type='VIEW',
+            restrict_to_branch=True,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('inventory:super_admin_stock_monitoring'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['is_branch_restricted'])
+        self.assertContains(response, 'id="stockMonitorFilterBar"')
+        self.assertContains(response, 'stock-monitor-status-filter')
+        self.assertContains(response, 'right: auto !important')
+        self.assertContains(response, 'z-index: 130')
+
     def test_branchless_restricted_staff_sees_assignment_notice_not_other_inventory(self):
         other_branch = Branch.objects.create(
             name='Unassigned Staff Other Branch',
