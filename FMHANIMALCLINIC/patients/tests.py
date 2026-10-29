@@ -1119,6 +1119,13 @@ class PatientDeletePermissionTests(TestCase):
             list_response,
             reverse('patients:admin_delete_pet', args=[self.pet.pk]),
         )
+        self.assertContains(list_response, 'onclick="confirmPatientDeletion(this)"')
+        self.assertContains(list_response, 'Final confirmation')
+        self.assertEqual(
+            list_response.content.decode().count('window.showCenteredConfirmation({'),
+            2,
+        )
+        self.assertNotContains(list_response, 'onsubmit="return confirm(')
 
         delete_response = self.client.post(
             reverse('patients:admin_delete_pet', args=[self.pet.pk]),
