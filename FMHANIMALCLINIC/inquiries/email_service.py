@@ -12,7 +12,7 @@ logger = logging.getLogger('fmh')
 
 def send_inquiry_response_email(inquiry):
     """Email the complete inquiry details and staff response to the customer."""
-    if not inquiry.email or not inquiry.response.strip():
+    if not inquiry.email or not (inquiry.response or '').strip():
         return False
 
     branch_name = inquiry.branch.name if inquiry.branch else 'FMH Animal Clinic'
@@ -25,7 +25,10 @@ def send_inquiry_response_email(inquiry):
     submitted_date = inquiry.created_at.astimezone(
         timezone.get_current_timezone()
     )
-    internal_notes = inquiry.internal_notes.strip() or 'No additional notes.'
+    additional_information = (
+        (inquiry.internal_notes or '').strip()
+        or 'No additional information.'
+    )
 
     message = (
         f'Dear {inquiry.full_name},\n\n'
@@ -41,10 +44,10 @@ def send_inquiry_response_email(inquiry):
         f'Priority: {inquiry.get_priority_display()}\n\n'
         'YOUR MESSAGE\n'
         f'{inquiry.message.strip()}\n\n'
-        'STAFF RESPONSE\n'
+        'YOUR RESPONSE FROM FMH ANIMAL CLINIC\n'
         f'{inquiry.response.strip()}\n\n'
-        'ADDITIONAL NOTES\n'
-        f'{internal_notes}\n\n'
+        'ADDITIONAL INFORMATION\n'
+        f'{additional_information}\n\n'
         f'Responded by: {responder_name}\n'
         f'Responded: {response_date.astimezone(timezone.get_current_timezone()):%B %d, %Y at %I:%M %p}\n\n'
         'If you need further assistance, please reply to this email or '

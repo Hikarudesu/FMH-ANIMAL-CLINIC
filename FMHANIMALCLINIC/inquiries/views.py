@@ -236,6 +236,8 @@ def inquiry_detail(request, pk):
         return redirect('inquiries:list')
 
     was_responded = inquiry.status == 'RESPONDED'
+    original_response = inquiry.response or ''
+    original_additional_information = inquiry.internal_notes or ''
 
     # Mark as READ if it's NEW
     if inquiry.status == 'NEW':
@@ -255,9 +257,28 @@ def inquiry_detail(request, pk):
                     inquiry.status = 'RESPONDED'
 
             inquiry.save()
-            if not was_responded and inquiry.status == 'RESPONDED':
-                notify_inquiry_responded(inquiry, request.user)
-            messages.success(request, 'Inquiry updated successfully.')
+            response_changed = (
+                (inquiry.response or '').strip() != original_response.strip()
+                or (inquiry.internal_notes or '').strip()
+                != original_additional_information.strip()
+            )
+            email_sent = True
+            if inquiry.response and (
+                response_changed
+                or (not was_responded and inquiry.status == 'RESPONDED')
+            ):
+                email_sent = notify_inquiry_responded(inquiry, request.user)
+            if email_sent:
+                messages.success(
+                    request,
+                    'Inquiry updated successfully and the client email was sent.'
+                )
+            else:
+                messages.warning(
+                    request,
+                    'Inquiry updated, but the client email could not be sent. '
+                    'Check the email configuration and try again.'
+                )
             return redirect('inquiries:detail', pk=pk)
     else:
         form = InquiryResponseForm(instance=inquiry)

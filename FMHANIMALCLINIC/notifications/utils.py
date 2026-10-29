@@ -230,7 +230,7 @@ def notify_inquiry_received(inquiry):
 
 
 def notify_inquiry_responded(inquiry, responder=None):
-    """Create a notification when an inquiry is responded to."""
+    """Create a notification and deliver the client response email."""
     responder_name = ((responder.get_full_name() or responder.username) if responder else 'a staff member')
     message = f'Inquiry from {inquiry.full_name} was marked responded by {responder_name}.'
 
@@ -254,12 +254,11 @@ def notify_inquiry_responded(inquiry, responder=None):
         related_object_id=inquiry.id,
     )
 
+    email_sent = False
     if inquiry.response and inquiry.email:
         from inquiries.email_service import send_inquiry_response_email
 
-        transaction.on_commit(
-            lambda: send_inquiry_response_email(inquiry)
-        )
+        email_sent = send_inquiry_response_email(inquiry)
     
     for role_code in (('cashier', 'receptionist'), 'executive_officer'):
         notify_role_users(
@@ -271,6 +270,7 @@ def notify_inquiry_responded(inquiry, responder=None):
             module_context=Notification.ModuleContext.INQUIRIES,
             related_object_id=inquiry.id,
         )
+    return email_sent
 
 
 def notify_inquiry_archived(inquiry, actor=None):

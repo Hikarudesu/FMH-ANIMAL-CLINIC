@@ -106,14 +106,33 @@
         </div>
 
         <!-- Priority Management -->
-        <div class="control-group">
-          <label><i class='bx bx-star'></i> Priority Level</label>
+        <div class="control-group priority-control-group">
+          <div class="priority-heading">
+            <label for="{{ form.priority.id_for_label }}">
+              <i class='bx bx-star'></i> Priority Level
+            </label>
+            <span class="priority-current priority-{{ inquiry.priority|lower }}">
+              <i class='bx bx-flag'></i> {{ inquiry.get_priority_display }}
+            </span>
+          </div>
+          <p class="field-help">Set how urgently the clinic should handle this inquiry.</p>
           {{ form.priority }}
         </div>
 
-        <!-- Additional Notes -->
+        <!-- Client Communication -->
         <div class="control-group">
-          <label><i class='bx bx-notepad'></i> Additional Notes</label>
+          <label for="{{ form.response.id_for_label }}">
+            <i class='bx bx-message-rounded-detail'></i> Your Response to the Client
+          </label>
+          <p class="field-help">Write the main message the client will receive by email.</p>
+          {{ form.response }}
+        </div>
+
+        <div class="control-group">
+          <label for="{{ form.internal_notes.id_for_label }}">
+            <i class='bx bx-notepad'></i> Additional Information for the Client
+          </label>
+          <p class="field-help">Optional helpful details, instructions, or next steps. This is also emailed to the client.</p>
           {{ form.internal_notes }}
         </div>
 
@@ -354,6 +373,36 @@ function updateStatus(status) {
   font-weight: normal;
   opacity: 0.7;
   margin-left: auto;
+}
+
+.priority-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.priority-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid currentColor;
+}
+
+.priority-low { color: #64748b; background: #f1f5f9; }
+.priority-normal { color: #2563eb; background: #eff6ff; }
+.priority-high { color: #c2410c; background: #fff7ed; }
+.priority-urgent { color: #b91c1c; background: #fef2f2; }
+
+.field-help {
+  margin: -4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .control-group select, 
