@@ -2019,6 +2019,9 @@ def admin_edit(request, pk):
                 )
                 return redirect('appointments:admin_detail', pk=pk)
             original_status = appointment.status
+            original_date = appointment.appointment_date
+            original_time = appointment.appointment_time
+            original_branch_id = appointment.branch_id
             AppointmentService.lock_booking_schedule(
                 request.POST.get('branch'),
                 request.POST.get('appointment_date'),
@@ -2032,20 +2035,38 @@ def admin_edit(request, pk):
             from appointments.utils import sync_pet_from_appointment
             sync_pet_from_appointment(updated_appointment)
 
-            # Check if status changed and notify user
+            rescheduled = (
+                updated_appointment.appointment_date != original_date
+                or updated_appointment.appointment_time != original_time
+                or updated_appointment.branch_id != original_branch_id
+            )
+
+            # Check if status or appointment time changed and notify the owner.
             if updated_appointment.status != original_status and updated_appointment.user:
                 notify_appointment_status_change(
                     updated_appointment,
                     updated_appointment.status,
                     actor=request.user,
                 )
+            elif rescheduled and updated_appointment.user:
+                notify_appointment_status_change(
+                    updated_appointment,
+                    'RESCHEDULED',
+                    actor=request.user,
+                )
             
-            # Also notify vet assistants about the appointment status change
+            # Notify appointment staff about status changes and rescheduling.
             if updated_appointment.status != original_status:
                 notify_staff_appointment_status_change(
                     updated_appointment,
                     updated_appointment.status,
                     actor=request.user,
+                )
+            elif rescheduled:
+                notify_staff_appointment_status_change(
+                updated_appointment,
+                'RESCHEDULED',
+                actor=request.user,
                 )
                 if updated_appointment.status == Appointment.Status.COMPLETED:
                     notify_veterinarian_medical_record_required(

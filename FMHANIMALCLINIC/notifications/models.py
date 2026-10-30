@@ -96,6 +96,8 @@ class Notification(models.Model):
         PRODUCT_RESERVATION = 'PRODUCT_RESERVATION', 'Product Reservation'
         STATEMENT_RELEASED = 'STATEMENT_RELEASED', 'Statement Released'
         MEDICAL_RECORD_UPDATE = 'MEDICAL_RECORD_UPDATE', 'Medical Record Update'
+        PATIENT_UPDATED = 'PATIENT_UPDATED', 'Pet Profile Updated'
+        PATIENT_ARCHIVED = 'PATIENT_ARCHIVED', 'Pet Profile Archived'
         INQUIRY_NEW = 'INQUIRY_NEW', 'New Inquiry'
         INQUIRY_RESPONDED = 'INQUIRY_RESPONDED', 'Inquiry Responded'
         INQUIRY_ARCHIVED = 'INQUIRY_ARCHIVED', 'Inquiry Archived'

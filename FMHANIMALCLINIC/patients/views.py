@@ -900,6 +900,7 @@ def admin_edit_pet_view(request, pk):
     are transferred automatically.
     """
     pet = get_object_or_404(Pet, pk=pk)
+    previous_owner = pet.owner
 
     # Check if we need to show credentials from a previous create action
     created_credentials = request.session.pop('created_credentials', None)
@@ -985,6 +986,13 @@ def admin_edit_pet_view(request, pk):
                 form.save()
                 messages.success(request, f'{pet.name} has been updated!')
 
+            from notifications.utils import notify_pet_owner_profile_change
+            notify_pet_owner_profile_change(
+                pet,
+                event='updated',
+                previous_owner=previous_owner,
+                actor=request.user,
+            )
             return redirect('patients:admin_detail', pk=pet.pk)
     else:
         form = AdminPetForm(instance=pet, user=request.user)
@@ -1013,6 +1021,12 @@ def admin_delete_pet_view(request, pk):
 
     if request.method == 'POST':
         name = pet.name
+        from notifications.utils import notify_pet_owner_profile_change
+        notify_pet_owner_profile_change(
+            pet,
+            event='archived',
+            actor=request.user,
+        )
         pet.delete()
         messages.success(request, f'{name} was moved to the archive for 30 days.')
         return redirect('patients:admin_list')

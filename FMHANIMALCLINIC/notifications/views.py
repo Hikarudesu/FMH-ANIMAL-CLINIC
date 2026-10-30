@@ -35,6 +35,10 @@ def get_notification_type_to_module_mapping():
         
         # Medical Records module
         Notification.NotificationType.MEDICAL_RECORD_UPDATE: Notification.ModuleContext.MEDICAL_RECORDS,
+
+        # Pet profile notifications
+        Notification.NotificationType.PATIENT_UPDATED: Notification.ModuleContext.PATIENTS,
+        Notification.NotificationType.PATIENT_ARCHIVED: Notification.ModuleContext.PATIENTS,
         
         # Inventory module - low stock and expiry alerts for staff with inventory access
         Notification.NotificationType.INVENTORY_RESTOCK: Notification.ModuleContext.INVENTORY,
@@ -261,7 +265,17 @@ def open_notification(request, pk):
 
     if module_context == Notification.ModuleContext.INVENTORY:
         if user.is_pet_owner():
-            target = reverse('inventory:catalog')
+            reservation_types = {
+                Notification.NotificationType.PRODUCT_RESERVATION,
+                Notification.NotificationType.RESERVATION_APPROVED,
+                Notification.NotificationType.RESERVATION_REJECTED,
+                Notification.NotificationType.RESERVATION_READY,
+            }
+            target = (
+                reverse('inventory:my_reservations')
+                if notification.notification_type in reservation_types
+                else reverse('inventory:catalog')
+            )
         elif user.has_navigation_module_access('inventory'):
             target = reverse('inventory:management')
     elif module_context == Notification.ModuleContext.INQUIRIES:
@@ -274,7 +288,11 @@ def open_notification(request, pk):
         if user.is_pet_owner():
             target = reverse('appointments:my_appointments')
         elif user.has_navigation_module_access('appointments'):
-            target = reverse('appointments:admin_list')
+            target = (
+                reverse('appointments:admin_detail', args=[notification.related_object_id])
+                if notification.related_object_id
+                else reverse('appointments:admin_list')
+            )
     elif module_context == Notification.ModuleContext.PATIENTS:
         if user.is_clinic_staff() and user.has_navigation_module_access('patients'):
             target = reverse('patients:admin_list')
@@ -282,7 +300,11 @@ def open_notification(request, pk):
             target = reverse('patients:my_pets')
     elif module_context == Notification.ModuleContext.MEDICAL_RECORDS:
         if user.is_pet_owner():
-            target = reverse('patients:my_pets')
+            target = (
+                reverse('records:user_detail', args=[notification.related_object_id])
+                if notification.related_object_id
+                else reverse('patients:my_pets')
+            )
         elif user.has_navigation_module_access('medical_records'):
             if notification.related_object_id:
                 target = reverse('records:admin_detail', args=[notification.related_object_id])
