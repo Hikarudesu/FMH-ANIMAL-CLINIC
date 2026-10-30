@@ -1954,9 +1954,13 @@ def admin_quick_create(request):
             # Send email confirmation
             send_appointment_confirmation(appointment)
 
-            # Notify user if appointment is confirmed and has a linked user
-            if appointment.status == 'CONFIRMED' and appointment.user:
-                notify_appointment_status_change(appointment, 'CONFIRMED', actor=request.user)
+            # Notify a registered owner about the initial appointment status.
+            if appointment.user:
+                notify_appointment_status_change(
+                    appointment,
+                    appointment.status,
+                    actor=request.user,
+                )
             
             # Also notify vet assistants about the appointment status
             notify_staff_appointment_status_change(appointment, appointment.status, actor=request.user)
