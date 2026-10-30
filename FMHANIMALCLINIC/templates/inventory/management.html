@@ -48,8 +48,8 @@
   <button class="c-tab-btn" data-tab="reservations" type="button" onclick="switchInvMode('reservations')">
     <i class='bx bx-cart c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Reservations</span>
-    {% if pending_reservations %}
-    <span class="c-tab-btn__badge">{{ pending_reservations|length }}</span>
+    {% if pending_reservation_count %}
+    <span class="c-tab-btn__badge">{{ pending_reservation_count }}</span>
     {% endif %}
   </button>
   {% endif %}

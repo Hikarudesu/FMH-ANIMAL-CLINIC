@@ -281,15 +281,18 @@ def inventory_management_view(request):
     )
 
     # pylint: disable=no-member
-    pending_reservations = Reservation.objects.filter(
-        status=Reservation.Status.PENDING
-    ).select_related('product', 'user')
+    reservations = Reservation.objects.all().select_related('product', 'user')
+    pending_reservations = reservations.filter(status=Reservation.Status.PENDING)
 
     if is_branch_restricted and user_branch:
-        pending_reservations = pending_reservations.filter(
+        reservations = reservations.filter(
             product__branch=user_branch
         )
+        pending_reservations = pending_reservations.filter(product__branch=user_branch)
     elif selected_branch_id:
+        reservations = reservations.filter(
+            product__branch_id=selected_branch_id
+        )
         pending_reservations = pending_reservations.filter(
             product__branch_id=selected_branch_id
         )
@@ -415,7 +418,7 @@ def inventory_management_view(request):
         request.GET.get('movements_page', request.GET.get('page', 1))
     )
     
-    paginator_reservations = Paginator(pending_reservations, 20)
+    paginator_reservations = Paginator(reservations, 20)
     page_reservations = paginator_reservations.get_page(
         request.GET.get('reservations_page', request.GET.get('page', 1))
     )
@@ -436,6 +439,7 @@ def inventory_management_view(request):
         'low_stock_count': low_stock_count,
         'out_of_stock_count': out_of_stock_count,
         'pending_reservations': page_reservations,
+        'pending_reservation_count': pending_reservations.count(),
         'today': timezone.localdate(),
         'can_create': can_create,
         'can_edit': can_edit,
