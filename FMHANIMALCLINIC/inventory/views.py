@@ -22,6 +22,7 @@ from notifications.models import Notification
 from notifications.utils import (
     notify_module_users,
     notify_reservation_status,
+    notify_reservation_ready,
     notify_stock_transfer_approved,
     notify_stock_transfer_completed,
     notify_stock_transfer_rejected,
@@ -739,16 +740,7 @@ def confirm_reservation_view(request, pk):
     reservation.status = Reservation.Status.RELEASED
     reservation.save()
 
-    notify_reservation_status(
-        reservation,
-        title="Reservation Released",
-        message=(
-            f"Your reservation for {reservation.quantity}x "
-            f"{reservation.product.name} ({reservation.product.sale_type_label}, {reservation.product.unit_display}) has been released. "
-            f"Thank you for your purchase!"
-        ),
-        notification_type=Notification.NotificationType.RESERVATION_READY,
-    )
+    notify_reservation_ready(reservation, actor=request.user)
 
     messages.success(
         request,
