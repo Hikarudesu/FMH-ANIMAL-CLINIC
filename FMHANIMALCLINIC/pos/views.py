@@ -725,9 +725,12 @@ def sales_list(request):
     paginator = Paginator(sales.order_by('-created_at'), 10)
     page = request.GET.get('page', 1)
     sales = paginator.get_page(page)
+    pagination_query = request.GET.copy()
+    pagination_query.pop('page', None)
 
     context = {
         'sales': sales,
+        'pagination_query': pagination_query.urlencode(),
         'totals': totals,
         'status_choices': Sale.Status.choices,
         'customer_type_choices': Sale.CustomerType.choices,
@@ -1108,9 +1111,12 @@ def refund_list(request):
     paginator = Paginator(refunds, 10)
     page = request.GET.get('page', 1)
     refunds = paginator.get_page(page)
+    pagination_query = request.GET.copy()
+    pagination_query.pop('page', None)
 
     context = {
         'refunds': refunds,
+        'pagination_query': pagination_query.urlencode(),
         'status_choices': Refund.Status.choices,
         'refund_type_choices': Refund.RefundType.choices,
         'can_approve_refunds': request.user.has_special_permission(

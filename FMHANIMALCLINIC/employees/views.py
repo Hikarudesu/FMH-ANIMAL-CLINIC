@@ -465,6 +465,8 @@ def schedule_view(request):
 @special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def schedule_api(request):
     """JSON API — returns schedule entries for a given month/branch."""
+    from appointments.models import Appointment
+
     user = request.user
     perms = _get_schedule_permissions(user)
     user_branch = getattr(user, 'branch', None)
@@ -531,6 +533,10 @@ def schedule_api(request):
             'shiftTypeDisplay': s.get_shift_type_display(),
             'notes': s.notes,
             'canEdit': can_edit,  # Add permission flag
+            'hasAppointment': Appointment.objects.filter(
+                preferred_vet=s.staff,
+                appointment_date=s.date,
+            ).exclude(status=Appointment.Status.CANCELLED).exists(),
         })
 
     return JsonResponse({'events': events, 'year': year, 'month': month})
@@ -744,6 +750,8 @@ def schedule_edit(request, pk):
 @special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def schedule_delete(request, pk):
     """Delete a schedule entry."""
+    from appointments.models import Appointment
+
     entry = get_object_or_404(VetSchedule, pk=pk)
     user = request.user
 
@@ -754,6 +762,20 @@ def schedule_delete(request, pk):
     
     if not can_delete_this:
         messages.error(request, 'You do not have permission to delete this schedule entry.')
+        return redirect('employees:schedule')
+
+    appointment_exists = Appointment.objects.filter(
+        preferred_vet=entry.staff,
+        appointment_date=entry.date,
+    ).exclude(status=Appointment.Status.CANCELLED).exists()
+    if appointment_exists:
+        messages.error(
+            request,
+            f'Cannot delete {entry.staff.full_name}\'s schedule on '
+            f'{entry.date.strftime("%B %d, %Y")}: '
+            'this veterinarian has an appointment scheduled for that date. '
+            'Complete, cancel, or reassign the appointment before removing the schedule.',
+        )
         return redirect('employees:schedule')
 
     if request.method == 'POST':

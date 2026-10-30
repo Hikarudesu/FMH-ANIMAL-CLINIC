@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="{% static 'css/components/appointment_workflow.css' %}">
 <style>
   .appointment-manage { max-width: 1240px; margin: 0 auto; padding-bottom: 36px; }
-  .appointment-manage__back { display: inline-flex; align-items: center; gap: 7px; margin: 4px 0 18px; color: var(--text-2); text-decoration: none; font-weight: 600; }
   .appointment-manage__hero, .appointment-manage__card { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 8px 24px rgba(15, 23, 42, .045); }
   .appointment-manage__hero { padding: 24px 28px; margin-bottom: 18px; }
   .appointment-manage__hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -95,11 +94,14 @@
   }
 </style>
 
-<main class="appointment-manage">
-  <a href="{% url 'appointments:admin_list' %}" class="appointment-manage__back">
-    <i class='bx bx-left-arrow-alt'></i> Back to appointments
-  </a>
+{% url 'appointments:admin_list' as appointments_url %}
+{% if is_veterinarian %}
+{% include "components/page_hero.html" with title="Open Consultation" icon="bx-first-aid" subtitle="Review the appointment details and continue the consultation workflow" action_url=appointments_url action_label="Appointments" action_icon="bx-calendar-event" %}
+{% else %}
+{% include "components/page_hero.html" with title="Manage Appointment" icon="bx-calendar-check" subtitle="Review appointment details and manage the visit workflow" action_url=appointments_url action_label="Appointments" action_icon="bx-calendar-event" %}
+{% endif %}
 
+<main class="appointment-manage">
   <section class="appointment-manage__hero">
     <div class="appointment-manage__hero-top">
       <div>

@@ -378,7 +378,7 @@ function getLocalYMD(d) {
             <button type="button" class="pet-action-btn outline btn-edit-schedule" title="Edit schedule" data-events='${JSON.stringify(e).replace(/'/g, "&#39;")}'>
               <i class='bx bx-pencil'></i>
             </button>
-            <button type="button" class="pet-action-btn danger" title="Delete schedule" onclick="openDeleteModal('/employees/schedule/${e.id}/delete/', '${e.staffName.replace(/'/g, "\\'")}', 'This permanently removes only this individual schedule entry.')">
+            <button type="button" class="pet-action-btn danger" title="Delete schedule" onclick="${e.hasAppointment ? `openScheduleConflictModal('${e.staffName.replace(/'/g, "\\'")}', '${e.date}')` : `openDeleteModal('/employees/schedule/${e.id}/delete/', '${e.staffName.replace(/'/g, "\\'")}', 'This permanently removes only this individual schedule entry.')`}">
               <i class='bx bx-trash-alt'></i>
             </button>
           </div>
@@ -471,6 +471,27 @@ function getLocalYMD(d) {
 
   window.closeDeleteModal = function() {
     const modal = document.getElementById('deleteScheduleModal');
+    if (modal) modal.classList.remove('active');
+  };
+
+  window.openScheduleConflictModal = function(staffName, dateValue) {
+    const modal = document.getElementById('scheduleConflictModal');
+    const nameEl = document.getElementById('scheduleConflictName');
+    const dateEl = document.getElementById('scheduleConflictDate');
+    if (!modal || !nameEl || !dateEl) return;
+    const dateObj = new Date(`${dateValue}T00:00:00`);
+    nameEl.textContent = staffName;
+    dateEl.textContent = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    modal.classList.add('active');
+  };
+
+  window.closeScheduleConflictModal = function() {
+    const modal = document.getElementById('scheduleConflictModal');
     if (modal) modal.classList.remove('active');
   };
 
