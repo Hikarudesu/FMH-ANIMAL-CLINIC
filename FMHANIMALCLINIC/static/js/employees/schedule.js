@@ -101,6 +101,27 @@ function getLocalYMD(d) {
     CHECKUP: "#f57c00",
   };
 
+  window.openScheduleEditConflictModal = function(staffName, dateValue) {
+    const modal = document.getElementById('scheduleEditConflictModal');
+    const nameEl = document.getElementById('scheduleEditConflictName');
+    const dateEl = document.getElementById('scheduleEditConflictDate');
+    if (!modal || !nameEl || !dateEl) return;
+    const dateObj = new Date(`${dateValue}T00:00:00`);
+    nameEl.textContent = staffName;
+    dateEl.textContent = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    modal.classList.add('active');
+  };
+
+  window.closeScheduleEditConflictModal = function() {
+    const modal = document.getElementById('scheduleEditConflictModal');
+    if (modal) modal.classList.remove('active');
+  };
+
   // Vet color palette for distinguishing multiple vets
   const VET_COLORS = [
     "#009688",
@@ -409,6 +430,11 @@ function getLocalYMD(d) {
         editEndTime.value = ev.endTime;
         editIsAvailable.checked = ev.isAvailable;
         editNotes.value = ev.notes || "";
+        editScheduleForm.dataset.hasAppointment = ev.hasAppointment ? "1" : "0";
+        editScheduleForm.dataset.staffName = ev.staffName;
+        editScheduleForm.dataset.scheduleDate = ev.date;
+        editScheduleForm.dataset.originalStartTime = ev.startTime;
+        editScheduleForm.dataset.originalEndTime = ev.endTime;
 
         editScheduleForm.action = `/employees/schedule/${ev.id}/edit/`;
         openModal(editModal);
@@ -498,6 +524,21 @@ function getLocalYMD(d) {
   const closeDeleteScheduleModalBtn = document.getElementById('closeDeleteScheduleModal');
   const cancelDeleteScheduleModalBtn = document.getElementById('cancelDeleteScheduleModal');
   const deleteScheduleForm = document.getElementById('deleteScheduleForm');
+  if (editScheduleForm) {
+    editScheduleForm.addEventListener('submit', (event) => {
+      const timeChanged = (
+        editStartTime.value !== editScheduleForm.dataset.originalStartTime
+        || editEndTime.value !== editScheduleForm.dataset.originalEndTime
+      );
+      if (editScheduleForm.dataset.hasAppointment === '1' && timeChanged) {
+        event.preventDefault();
+        openScheduleEditConflictModal(
+          editScheduleForm.dataset.staffName,
+          editScheduleForm.dataset.scheduleDate,
+        );
+      }
+    });
+  }
   const finalRecurringDeleteModal = document.getElementById('finalRecurringDeleteModal');
   const closeFinalRecurringDeleteModalBtn = document.getElementById('closeFinalRecurringDeleteModal');
   const cancelFinalRecurringDeleteModalBtn = document.getElementById('cancelFinalRecurringDeleteModal');

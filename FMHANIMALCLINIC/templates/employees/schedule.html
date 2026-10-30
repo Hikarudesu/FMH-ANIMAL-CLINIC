@@ -430,6 +430,28 @@
   </div>
 </div>
 
+<div class="schedule-modal-overlay" id="scheduleEditConflictModal" role="dialog" aria-modal="true" aria-labelledby="scheduleEditConflictTitle">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3 id="scheduleEditConflictTitle" style="color: var(--accent);"><i class='bx bx-time-five'></i> Schedule Time Cannot Be Changed</h3>
+      <button type="button" class="schedule-modal-close" onclick="closeScheduleEditConflictModal()" aria-label="Close"><i class='bx bx-x'></i></button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding-top: 30px;">
+      <i class='bx bx-calendar-exclamation' style="font-size: 4rem; color: #e63946; margin-bottom: 16px;"></i>
+      <p style="color: var(--text-1); font-size: 0.95rem; line-height: 1.6; margin-bottom: 10px;">
+        <strong id="scheduleEditConflictName"></strong> has an appointment on
+        <strong id="scheduleEditConflictDate"></strong>.
+      </p>
+      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
+        The schedule time cannot be changed while an appointment is assigned to this veterinarian on that date. Complete, cancel, or reassign the appointment first.
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content: flex-end;">
+      <button type="button" class="btn-cancel" onclick="closeScheduleEditConflictModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="schedule-modal-overlay" id="finalRecurringDeleteModal" role="dialog" aria-modal="true" aria-labelledby="finalRecurringDeleteTitle">
   <div class="modal-content" style="max-width: 480px;">
     <div class="modal-header">

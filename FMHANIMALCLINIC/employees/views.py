@@ -705,6 +705,8 @@ def schedule_add(request):
 @special_permission_required(('can_manage_own_schedule', 'can_manage_others_schedule'))
 def schedule_edit(request, pk):
     """Edit an existing schedule entry."""
+    from appointments.models import Appointment
+
     entry = get_object_or_404(VetSchedule, pk=pk)
     user = request.user
 
@@ -727,6 +729,22 @@ def schedule_edit(request, pk):
             )
         except ValueError:
             messages.error(request, 'Enter valid schedule start and end times.')
+            return redirect('employees:schedule')
+
+        times_changed = (
+            start_time != entry.start_time or end_time != entry.end_time
+        )
+        if times_changed and Appointment.objects.filter(
+            preferred_vet=entry.staff,
+            appointment_date=entry.date,
+        ).exclude(status=Appointment.Status.CANCELLED).exists():
+            messages.error(
+                request,
+                f'Cannot change {entry.staff.full_name}\'s schedule time on '
+                f'{entry.date.strftime("%B %d, %Y")}: '
+                'this veterinarian has an appointment scheduled for that date. '
+                'Keep the current time, or complete, cancel, or reassign the appointment first.',
+            )
             return redirect('employees:schedule')
 
         if not is_valid_clinic_schedule(start_time, end_time):
