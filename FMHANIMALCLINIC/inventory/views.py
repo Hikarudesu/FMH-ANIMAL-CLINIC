@@ -435,6 +435,7 @@ def inventory_management_view(request):
         'low_stock_count': low_stock_count,
         'out_of_stock_count': out_of_stock_count,
         'pending_reservations': page_reservations,
+        'today': timezone.localdate(),
         'can_create': can_create,
         'can_edit': can_edit,
         'can_delete': can_delete,
@@ -723,6 +724,16 @@ def confirm_reservation_view(request, pk):
 
     if reservation.status != Reservation.Status.PENDING:
         messages.warning(request, "This reservation is no longer pending.")
+        return redirect('inventory:management')
+
+    if reservation.pickup_date and reservation.pickup_date > timezone.localdate():
+        messages.warning(
+            request,
+            (
+                f"This reservation can only be released on its pickup date "
+                f"({reservation.pickup_date.strftime('%B %d, %Y')})."
+            ),
+        )
         return redirect('inventory:management')
 
     reservation.status = Reservation.Status.RELEASED

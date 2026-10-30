@@ -233,7 +233,7 @@
                 <th style="text-align: center;">Customer</th>
                 <th style="text-align: center;">Product</th>
                 <th style="text-align: center;">Qty</th>
-                <th style="text-align: center;">Date</th>
+                <th style="text-align: center;">Pickup Date</th>
                 <th style="text-align: center;">Notes</th>
                 <th style="text-align: center;">Status</th>
                 {% if can_manage_reservations %}
@@ -251,7 +251,13 @@
                 </td>
                 <td style="text-align: center;">{{ rsv.product.name }}</td>
                 <td style="text-align: center; font-weight: 700;">{{ rsv.quantity }}</td>
-                <td style="text-align: center; white-space: nowrap;" class="cell-secondary">{{ rsv.created_at|date:"M j, Y g:i A" }}</td>
+                <td style="text-align: center; white-space: nowrap;" class="cell-secondary">
+                  {% if rsv.pickup_date %}
+                    {{ rsv.pickup_date|date:"M j, Y" }}
+                  {% else %}
+                    To be arranged
+                  {% endif %}
+                </td>
                 <td style="text-align: center; font-size: 0.85rem; color: var(--text-2); max-width: 200px;">{{ rsv.notes|default:"-" }}</td>
                 <td style="text-align: center;">
                     <span style="
@@ -265,11 +271,19 @@
                 {% if can_manage_reservations %}
                 <td style="text-align: center;">
                   {% if rsv.status == 'Pending' %}
-                    <button type="button"
-                       class="btn-action primary" style="padding: 5px 14px; font-size: 0.78rem;"
-                       onclick="openReleaseReservationModal('{% url 'inventory:confirm_reservation' rsv.pk %}', 'RSV-{{ rsv.pk }}', '{{ rsv.product.name|escapejs }}')">
-                      <i class='bx bx-check'></i> Released
-                    </button>
+                    {% if not rsv.pickup_date or rsv.pickup_date <= today %}
+                      <button type="button"
+                         class="btn-action primary" style="padding: 5px 14px; font-size: 0.78rem;"
+                         onclick="openReleaseReservationModal('{% url 'inventory:confirm_reservation' rsv.pk %}', 'RSV-{{ rsv.pk }}', '{{ rsv.product.name|escapejs }}')">
+                        <i class='bx bx-check'></i> Released
+                      </button>
+                    {% else %}
+                      <button type="button"
+                         class="btn-action outline" style="padding: 5px 14px; font-size: 0.78rem; opacity: .6; cursor: not-allowed;"
+                         title="Can be released on {{ rsv.pickup_date|date:'M j, Y' }}" disabled>
+                        <i class='bx bx-time-five'></i> Release on {{ rsv.pickup_date|date:"M j" }}
+                      </button>
+                    {% endif %}
                     <button type="button"
                        class="btn-action outline"
                        style="padding: 5px 14px; font-size: 0.78rem; color: var(--danger);"

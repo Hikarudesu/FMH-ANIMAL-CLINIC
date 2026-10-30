@@ -571,9 +571,14 @@ def notify_appointment_status_change(appointment, status, actor=None, actor_labe
     else:
         return
 
-    if appointment.user:
+    notification_user = appointment.user or (
+        appointment.pet.owner
+        if appointment.pet_id and appointment.pet and appointment.pet.owner_id
+        else None
+    )
+    if notification_user:
         create_notification(
-            user=appointment.user,
+            user=notification_user,
             title=title,
             message=message,
             notification_type=_appointment_notification_type(status),
