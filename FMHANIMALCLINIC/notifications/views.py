@@ -265,7 +265,7 @@ def open_notification(request, pk):
         elif user.has_navigation_module_access('inventory'):
             target = reverse('inventory:management')
     elif module_context == Notification.ModuleContext.INQUIRIES:
-        if not user.is_superuser and user.has_module_permission('inquiries', 'VIEW'):
+        if user.is_superuser or user.has_module_permission('inquiries', 'VIEW'):
             if notification.related_object_id:
                 target = reverse('inquiries:detail', args=[notification.related_object_id])
             else:
