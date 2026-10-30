@@ -39,6 +39,7 @@ def get_notification_type_to_module_mapping():
         # Pet profile notifications
         Notification.NotificationType.PATIENT_UPDATED: Notification.ModuleContext.PATIENTS,
         Notification.NotificationType.PATIENT_ARCHIVED: Notification.ModuleContext.PATIENTS,
+        Notification.NotificationType.PATIENT_CREATED: Notification.ModuleContext.PATIENTS,
         
         # Inventory module - low stock and expiry alerts for staff with inventory access
         Notification.NotificationType.INVENTORY_RESTOCK: Notification.ModuleContext.INVENTORY,
@@ -143,6 +144,7 @@ def get_allowed_notification_types_for_user(user):
             Notification.NotificationType.MEDICAL_RECORD_UPDATE,
             Notification.NotificationType.PATIENT_UPDATED,
             Notification.NotificationType.PATIENT_ARCHIVED,
+            Notification.NotificationType.PATIENT_CREATED,
             Notification.NotificationType.PRODUCT_RESERVATION,
             Notification.NotificationType.STATEMENT_RELEASED,
             Notification.NotificationType.GENERAL,

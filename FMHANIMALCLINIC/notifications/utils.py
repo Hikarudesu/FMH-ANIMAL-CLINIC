@@ -470,7 +470,12 @@ def notify_statement_released(statement):
         if branch:
             customer_name = statement.customer.get_full_name() or statement.customer.username
             notify_role_users(
-                role_code='cashier',
+                role_code=(
+                    'cashier',
+                    'receptionist',
+                    'assistant_veterinarian',
+                    'veterinarian',
+                ),
                 branch=branch,
                 title='Customer Statement Released',
                 message=f"Statement released for {customer_name}. Amount due: ₱{statement.total_amount}",
@@ -481,7 +486,7 @@ def notify_statement_released(statement):
 
 
 def notify_pet_owner_profile_change(pet, *, event, previous_owner=None, actor=None):
-    """Notify registered owners when staff change or archive a pet profile."""
+    """Notify owners and branch clinic staff about a pet profile event."""
     from notifications.models import Notification
 
     owner = pet.owner
@@ -502,6 +507,13 @@ def notify_pet_owner_profile_change(pet, *, event, previous_owner=None, actor=No
             'Its medical history is retained in the archive.'
         )
         notification_type = Notification.NotificationType.PATIENT_ARCHIVED
+    elif event == 'created':
+        title = f'Pet Profile Added: {pet.name}'
+        message = (
+            f'A pet profile for {pet.name} was added by '
+            f'{actor_name}. Sign in to review the latest pet information.'
+        )
+        notification_type = Notification.NotificationType.PATIENT_CREATED
     else:
         title = f'Pet Profile Updated: {pet.name}'
         message = (
@@ -513,6 +525,17 @@ def notify_pet_owner_profile_change(pet, *, event, previous_owner=None, actor=No
     for recipient in owners:
         create_notification(
             user=recipient,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.PATIENTS,
+            related_object_id=pet.id,
+        )
+
+    if pet.branch:
+        notify_module_users(
+            module_code='patients',
+            branch=pet.branch,
             title=title,
             message=message,
             notification_type=notification_type,
