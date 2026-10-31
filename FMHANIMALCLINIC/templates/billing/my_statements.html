@@ -90,23 +90,11 @@
       letter-spacing: 0.015em;
     }
 
-    .soa-date {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      color: var(--text-2);
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .soa-date i {
-      font-size: 14px;
-    }
-
     .soa-status {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 5px;
       flex: 0 0 auto;
       border-radius: 999px;
       padding: 6px 10px;
@@ -408,7 +396,6 @@
               <div class="soa-heading">
               <h2 class="soa-title">STATEMENT OF ACCOUNT</h2>
               <p class="soa-number">{{ statement.statement_number }}</p>
-              <span class="soa-date"><i class='bx bx-calendar'></i> Issued {{ statement.date|date:"M d, Y" }}</span>
               </div>
             </div>
             <span class="soa-status"><i class='bx bx-check-circle'></i> {{ statement.get_status_display }}</span>

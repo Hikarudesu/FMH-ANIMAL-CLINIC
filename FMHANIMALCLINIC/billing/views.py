@@ -146,7 +146,7 @@ def my_statements(request):
         .order_by('-created_at')
     )
 
-    paginator = Paginator(statements_list, 9)
+    paginator = Paginator(statements_list, 8)
     page_number = request.GET.get('page')
     statements = paginator.get_page(page_number)
 
