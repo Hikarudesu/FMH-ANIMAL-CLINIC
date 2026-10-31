@@ -794,6 +794,106 @@ def confirm_reservation_view(request, pk):
 
 @login_required
 @require_POST
+def update_reservation_quantity_view(request, pk):
+    """Adjust a pending reservation and synchronize its reserved stock and sale."""
+    from pos.models import Sale
+
+    try:
+        new_quantity = int(request.POST.get('quantity', ''))
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Enter a valid quantity.'}, status=400)
+
+    if new_quantity < 1:
+        return JsonResponse({'success': False, 'error': 'Quantity must be at least 1.'}, status=400)
+
+    can_manage_reservation = request.user.has_module_permission('reservations', 'EDIT')
+    reservation_queryset = Reservation.objects.select_for_update().select_related(
+        'product', 'product__branch', 'user'
+    )
+    if not can_manage_reservation:
+        reservation_queryset = reservation_queryset.filter(user=request.user)
+
+    with transaction.atomic():
+        reservation = get_object_or_404(reservation_queryset, pk=pk)
+        if reservation.status != Reservation.Status.PENDING:
+            return JsonResponse({
+                'success': False,
+                'error': 'Only pending reservations can be changed.',
+            }, status=409)
+
+        if can_manage_reservation and request.user.is_module_branch_restricted('reservations'):
+            user_branch = _get_user_branch(request.user)
+            if not user_branch or reservation.product.branch_id != user_branch.pk:
+                return JsonResponse({'success': False, 'error': 'Reservation is outside your branch.'}, status=403)
+
+        sale = reservation.sale
+        if sale and not can_manage_reservation and sale.cashier_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'This reservation is already being processed at the clinic.',
+            }, status=409)
+        if sale and sale.status != Sale.Status.PENDING:
+            return JsonResponse({
+                'success': False,
+                'error': 'This reservation can no longer be changed because payment has started or completed.',
+            }, status=409)
+
+        old_quantity = reservation.quantity
+        quantity_delta = new_quantity - old_quantity
+        product = Product.objects.select_for_update().get(pk=reservation.product_id)
+
+        if quantity_delta > 0 and product.stock_quantity < quantity_delta:
+            return JsonResponse({
+                'success': False,
+                'error': f'Only {product.stock_quantity} additional item(s) are available.',
+            }, status=400)
+
+        if quantity_delta:
+            adjustment_type = 'REMOVE' if quantity_delta > 0 else 'ADD'
+            StockAdjustment.objects.create(
+                branch=product.branch,
+                product=product,
+                adjustment_type=adjustment_type,
+                reference=f'RSV-{reservation.pk}-QTY',
+                date=date.today(),
+                quantity=abs(quantity_delta),
+                cost_per_unit=product.unit_cost,
+                reason=(
+                    f'Reservation quantity changed from {old_quantity} to {new_quantity} '
+                    f'by {request.user.get_full_name() or request.user.username}'
+                ),
+            )
+
+        reservation.quantity = new_quantity
+        reservation.save(update_fields=['quantity', 'updated_at'])
+
+        sale_item = None
+        if sale:
+            sale_item = sale.items.filter(product_id=product.pk).first()
+            if sale_item is None:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'The linked POS item could not be found.',
+                }, status=409)
+            sale_item.quantity = new_quantity
+            sale_item.save()
+            sale.refresh_from_db()
+        product.refresh_from_db()
+
+    return JsonResponse({
+        'success': True,
+        'quantity': new_quantity,
+        'stock_quantity': product.stock_quantity,
+        'sale': {
+            'subtotal': str(sale.subtotal),
+            'total': str(sale.total),
+        } if sale else None,
+        'line_total': str(sale_item.line_total) if sale_item else None,
+    })
+
+
+@login_required
+@require_POST
 def cancel_reservation_view(request, pk):
     """Cancel a reservation — allowed by reservations DELETE module permission."""
     # Permission check: must have reservations module access with DELETE permission

@@ -99,7 +99,19 @@ Reservations{% endblock %} {% block content %}
         <span class="time-left">Calculating...</span>
       </div>
       {% endif %}
-      <div class="rsv-card-qty">x{{ rsv.quantity }}</div>
+      <div class="rsv-card-qty">
+        {% if rsv.status == 'Pending' %}
+        <div class="rsv-quantity-controls">
+          <button type="button" class="rsv-quantity-btn" title="Decrease quantity"
+                  onclick="openReservationQuantityModal('{% url 'inventory:update_reservation_quantity' rsv.pk %}', {{ rsv.quantity }}, {{ rsv.quantity|add:'-1' }})">−</button>
+          <span class="rsv-quantity-value" data-reservation-id="{{ rsv.pk }}">{{ rsv.quantity }}</span>
+          <button type="button" class="rsv-quantity-btn" title="Increase quantity"
+                  onclick="openReservationQuantityModal('{% url 'inventory:update_reservation_quantity' rsv.pk %}', {{ rsv.quantity }}, {{ rsv.quantity|add:'1' }})">+</button>
+        </div>
+        {% else %}
+        x{{ rsv.quantity }}
+        {% endif %}
+      </div>
       <div class="rsv-card-price">&#8369;{{ rsv.product.price|peso }}</div>
       <span
         class="rsv-card-status {% if rsv.status == 'Pending' %}pending {% elif rsv.status == 'Released' %}released {% else %}cancelled{% endif %}"
@@ -201,6 +213,74 @@ Reservations{% endblock %} {% block content %}
     font-weight: 600;
     color: var(--text-2);
   }
+  .rsv-quantity-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .rsv-quantity-btn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--primary);
+    font-size: 1.1rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .rsv-quantity-btn:hover {
+    background: var(--primary);
+    color: #fff;
+  }
+  .rsv-quantity-value {
+    min-width: 24px;
+    text-align: center;
+  }
+  .rsv-quantity-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, .62);
+    backdrop-filter: blur(4px);
+  }
+  .rsv-quantity-modal.active { display: flex; }
+  .rsv-quantity-dialog {
+    width: min(420px, 100%);
+    padding: 28px;
+    border-radius: 18px;
+    background: var(--surface);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, .25);
+    text-align: center;
+  }
+  .rsv-quantity-dialog-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 14px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #e0f2f1;
+    color: #00796b;
+    font-size: 1.8rem;
+  }
+  .rsv-quantity-dialog h2 { margin: 0 0 10px; color: var(--text-1); font-size: 1.2rem; }
+  .rsv-quantity-dialog p { margin: 0 0 22px; color: var(--text-2); line-height: 1.5; }
+  .rsv-quantity-dialog-actions { display: flex; gap: 10px; justify-content: center; }
+  .rsv-quantity-dialog-actions button {
+    min-width: 120px;
+    padding: 10px 16px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .rsv-quantity-cancel { background: var(--surface); color: var(--text-2); }
+  .rsv-quantity-confirm { background: var(--primary); color: #fff; border-color: var(--primary) !important; }
   .rsv-card-status {
     padding: 4px 14px;
     border-radius: 20px;
@@ -247,7 +327,69 @@ Reservations{% endblock %} {% block content %}
   .rsv-countdown[hidden] { display: none; }
 </style>
 
+<div class="rsv-quantity-modal" id="reservationQuantityModal" role="dialog" aria-modal="true" aria-labelledby="reservationQuantityTitle">
+  <div class="rsv-quantity-dialog">
+    <div class="rsv-quantity-dialog-icon"><i class="bx bx-transfer-alt"></i></div>
+    <h2 id="reservationQuantityTitle">Update reservation quantity?</h2>
+    <p id="reservationQuantityMessage"></p>
+    <div class="rsv-quantity-dialog-actions">
+      <button type="button" class="rsv-quantity-cancel" onclick="closeReservationQuantityModal()">Cancel</button>
+      <button type="button" class="rsv-quantity-confirm" onclick="confirmReservationQuantity()">Confirm change</button>
+    </div>
+  </div>
+</div>
+
 <script>
+  let reservationQuantityChange = null;
+
+  function openReservationQuantityModal(url, oldQuantity, newQuantity) {
+    if (newQuantity < 1) {
+      document.getElementById("reservationQuantityMessage").textContent =
+        "A reservation must contain at least one item.";
+      document.querySelector(".rsv-quantity-confirm").hidden = true;
+    } else {
+      const action = newQuantity > oldQuantity ? "deduct" : "return";
+      document.getElementById("reservationQuantityMessage").textContent =
+        `Change the quantity from ${oldQuantity} to ${newQuantity}? The system will ${action} the inventory difference automatically.`;
+      document.querySelector(".rsv-quantity-confirm").hidden = false;
+    }
+    reservationQuantityChange = {url, newQuantity};
+    document.getElementById("reservationQuantityModal").classList.add("active");
+  }
+
+  function closeReservationQuantityModal() {
+    reservationQuantityChange = null;
+    document.getElementById("reservationQuantityModal").classList.remove("active");
+  }
+
+  async function confirmReservationQuantity() {
+    if (!reservationQuantityChange) return;
+    const button = document.querySelector(".rsv-quantity-confirm");
+    button.disabled = true;
+    try {
+      const response = await fetch(reservationQuantityChange.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": getCookie("csrftoken"),
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: `quantity=${reservationQuantityChange.newQuantity}`
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Quantity update failed.");
+      window.location.reload();
+    } catch (error) {
+      document.getElementById("reservationQuantityMessage").textContent = error.message;
+      button.disabled = false;
+    }
+  }
+
+  function getCookie(name) {
+    const match = document.cookie.split("; ").find(row => row.startsWith(`${name}=`));
+    return match ? decodeURIComponent(match.split("=")[1]) : "";
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     const countdowns = document.querySelectorAll(".rsv-countdown");
 

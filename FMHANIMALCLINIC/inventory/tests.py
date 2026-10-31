@@ -671,6 +671,51 @@ class InventoryWorkflowTests(TestCase):
         reservation.refresh_from_db()
         self.assertEqual(reservation.status, Reservation.Status.PENDING)
 
+    def test_pending_reservation_quantity_syncs_inventory(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Adjustable Reserved Item',
+            price=20,
+            stock_quantity=8,
+        )
+        reservation = Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            quantity=2,
+            status=Reservation.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+
+        increase_response = self.client.post(
+            reverse('inventory:update_reservation_quantity', args=[reservation.pk]),
+            {'quantity': 3},
+        )
+
+        self.assertEqual(increase_response.status_code, 200)
+        reservation.refresh_from_db()
+        product.refresh_from_db()
+        self.assertEqual(reservation.quantity, 3)
+        self.assertEqual(product.stock_quantity, 7)
+        self.assertEqual(
+            StockAdjustment.objects.filter(
+                reference=f'RSV-{reservation.pk}-QTY',
+                adjustment_type='REMOVE',
+            ).count(),
+            1,
+        )
+
+        decrease_response = self.client.post(
+            reverse('inventory:update_reservation_quantity', args=[reservation.pk]),
+            {'quantity': 1},
+        )
+
+        self.assertEqual(decrease_response.status_code, 200)
+        reservation.refresh_from_db()
+        product.refresh_from_db()
+        self.assertEqual(reservation.quantity, 1)
+        self.assertEqual(product.stock_quantity, 9)
+
     def test_stock_adjustment_reaching_zero_marks_item_unavailable(self):
         product = Product.objects.create(
             branch=self.branch,

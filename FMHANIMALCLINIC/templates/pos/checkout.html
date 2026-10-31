@@ -1317,6 +1317,20 @@
   </div>
 </div>
 
+<div class="pos-modal" id="quantityChangeModal" role="dialog" aria-modal="true" aria-labelledby="quantityChangeTitle">
+  <div class="pos-modal-content">
+    <div class="pos-modal-icon" style="background: #e0f2f1; color: #00796b;">
+      <i class='bx bx-transfer-alt'></i>
+    </div>
+    <div class="pos-modal-title" id="quantityChangeTitle">Update reserved quantity?</div>
+    <p id="quantityChangeText"></p>
+    <div class="pos-modal-actions">
+      <button type="button" class="pos-modal-btn secondary" onclick="closeQuantityChangeModal()">Cancel</button>
+      <button type="button" class="pos-modal-btn primary" onclick="confirmQuantityChange()">Confirm change</button>
+    </div>
+  </div>
+</div>
+
 <!-- Discount Modal -->
 <div class="pos-modal" id="discountModal">
   <div class="pos-modal-content">
@@ -1394,6 +1408,8 @@
 
 const saleId = {{ sale.pk }};
 const reservationLinked = {% if reservation %}true{% else %}false{% endif %};
+const reservationQuantityUrl = '{% if reservation %}{% url "inventory:update_reservation_quantity" reservation.pk %}{% endif %}';
+let pendingQuantityChange = null;
 let currentSubtotal = {{ sale.subtotal|default:0 }};
 let currentTotal = {{ sale.total|default:0 }};
 let paymentMethod = 'CASH';
@@ -1701,8 +1717,21 @@ function updateQty(itemId, delta) {
       console.error('updateQty: Quantity span not found');
       return;
     }
-    let qty = parseInt(qtySpan.textContent) + delta;
-    if (qty < 1) qty = 1;
+    const currentQty = parseInt(qtySpan.textContent);
+    let qty = currentQty + delta;
+    if (qty < 1) {
+      if (reservationLinked) {
+        showPosMessage('Minimum quantity reached', 'A reservation must contain at least one item.');
+      }
+      qty = 1;
+    }
+
+    if (reservationLinked) {
+      if (qty !== currentQty) {
+        showQuantityChangeConfirm(itemId, qty, currentQty);
+      }
+      return;
+    }
 
     fetch('{% url "pos:update_quantity" %}', {
       method: 'POST',
@@ -1724,6 +1753,49 @@ function updateQty(itemId, delta) {
         updateTotals(data.sale);
       } else {
         alert(data.error || 'Error updating quantity');
+      }
+
+      function showQuantityChangeConfirm(itemId, newQuantity, oldQuantity) {
+        pendingQuantityChange = {itemId, newQuantity};
+        const direction = newQuantity > oldQuantity ? 'deduct' : 'return';
+        document.getElementById('quantityChangeText').textContent =
+          `Change reserved quantity from ${oldQuantity} to ${newQuantity}? ` +
+          `The system will ${direction} the inventory difference automatically.`;
+        document.getElementById('quantityChangeModal').classList.add('active');
+      }
+
+      function closeQuantityChangeModal() {
+        pendingQuantityChange = null;
+        document.getElementById('quantityChangeModal').classList.remove('active');
+      }
+
+      async function confirmQuantityChange() {
+        if (!pendingQuantityChange) return;
+        const {itemId, newQuantity} = pendingQuantityChange;
+        const item = document.querySelector(`.pos-cart-item[data-item-id="${itemId}"]`);
+        const button = document.querySelector('#quantityChangeModal .pos-modal-btn.primary');
+        button.disabled = true;
+        try {
+          const response = await fetch(reservationQuantityUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-CSRFToken': getCsrfToken(),
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: `quantity=${newQuantity}`
+          });
+          const data = await response.json();
+          if (!response.ok || !data.success) throw new Error(data.error || 'Quantity update failed.');
+          item.querySelector('.pos-qty-value').textContent = data.quantity;
+          item.querySelector('.pos-cart-item-total').textContent = '₱' + Number(data.line_total).toFixed(2);
+          updateTotals(data.sale);
+          closeQuantityChangeModal();
+        } catch (error) {
+          document.getElementById('quantityChangeText').textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
       }
     })
     .catch(err => {
