@@ -31,15 +31,6 @@ Catalog{% endblock %} {% block content %}
 </div>
 
 <div id="catProductsSection">
-  {% if can_select_catalog_branch %}
-  <div class="catalog-branch-guidance" role="note">
-    <div class="catalog-branch-guidance__icon"><i class="bx bx-map-pin"></i></div>
-    <div>
-      <strong>Choose where you want to reserve</strong>
-      <p>Reservations are tied to the branch where the product is stocked. Select a branch below to see its available products, then reserve from that branch. To reserve from a different branch, choose that branch first.</p>
-    </div>
-  </div>
-  {% endif %}
   <!-- ── Filter & Search Bar ── -->
   <div class="c-filter-bar" style="margin-bottom: 22px;">
     <div class="c-filter-bar__glow"></div>
@@ -72,11 +63,6 @@ Catalog{% endblock %} {% block content %}
             <option value="{{ branch.pk }}" {% if selected_catalog_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
             {% endfor %}
           </select>
-          {% if selected_catalog_branch %}
-          <small>Currently viewing {{ selected_catalog_branch.name }}. Products reserved here will be prepared at this branch.</small>
-          {% else %}
-          <small>Select a specific branch before reserving if you already know where you want to pick up.</small>
-          {% endif %}
         </div>
         {% endif %}
       </div>
@@ -502,43 +488,11 @@ Catalog{% endblock %} {% block content %}
   </script>
 
   <style>
-    .catalog-branch-guidance {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      margin-bottom: 14px;
-      padding: 14px 16px;
-      border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
-      border-radius: 14px;
-      background: color-mix(in srgb, var(--primary-light) 70%, var(--surface));
-      color: var(--text-1);
-    }
-    .catalog-branch-guidance__icon {
-      display: grid;
-      width: 34px;
-      height: 34px;
-      flex: 0 0 34px;
-      place-items: center;
-      border-radius: 10px;
-      background: var(--primary);
-      color: #fff;
-      font-size: 1.15rem;
-    }
-    .catalog-branch-guidance strong {
-      display: block;
-      margin-bottom: 3px;
-      font-size: .9rem;
-    }
-    .catalog-branch-guidance p {
-      margin: 0;
-      color: var(--text-2);
-      font-size: .82rem;
-      line-height: 1.45;
-    }
     .catalog-branch-selector {
-      display: grid;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       min-width: min(100%, 340px);
-      gap: 5px;
       padding: 10px 12px;
       border: 2px solid var(--primary);
       border-radius: 12px;
@@ -549,6 +503,7 @@ Catalog{% endblock %} {% block content %}
       display: flex;
       align-items: center;
       gap: 5px;
+      flex: 0 0 auto;
       color: var(--primary);
       font-size: .75rem;
       font-weight: 800;
@@ -557,7 +512,8 @@ Catalog{% endblock %} {% block content %}
     }
     .catalog-branch-selector .c-filter-dropdown__select {
       position: static;
-      width: 100%;
+      width: auto;
+      min-width: 180px;
       min-height: 38px;
       border: 0;
       background: transparent;
@@ -565,13 +521,14 @@ Catalog{% endblock %} {% block content %}
       font-size: .92rem;
       font-weight: 700;
     }
-    .catalog-branch-selector small {
-      color: var(--text-2);
-      font-size: .72rem;
-      line-height: 1.35;
-    }
-    [data-theme="dark"] .catalog-branch-guidance {
-      background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+    @media (max-width: 640px) {
+      .catalog-branch-selector {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .catalog-branch-selector .c-filter-dropdown__select {
+        width: 100%;
+      }
     }
     /* Reserve button on catalog cards */
     .cat-reserve-btn {
