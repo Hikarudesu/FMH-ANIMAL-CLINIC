@@ -172,19 +172,20 @@
     }
 
     .soa-totals {
-      width: 240px;
-      margin: 14px 0 0 auto;
+      width: 280px;
+      margin: 18px 0 0 auto;
+      padding-top: 6px;
       border-collapse: collapse;
       font-size: .82rem;
     }
 
     .soa-totals td {
-      padding: 5px 0 5px 14px;
+      padding: 6px 0 6px 14px;
       text-align: right;
     }
 
     .soa-totals tr:last-child {
-      border-top: 2px solid #374151;
+      border-top: 2px solid #1f2937;
       font-size: 1rem;
       font-weight: 800;
     }
@@ -192,6 +193,11 @@
     .soa-totals tr:last-child td:last-child {
       color: #047857;
       font-size: 1.2rem;
+    }
+
+    .soa-totals tr:last-child td:first-child {
+      color: #1f2937;
+      letter-spacing: .03em;
     }
 
     .soa-meta-item {
@@ -425,7 +431,7 @@
               <thead>
                 <tr>
                   <th>Particulars</th>
-                  <th>Amount</th>
+                  <th>Charge</th>
                 </tr>
               </thead>
               <tbody>
@@ -461,8 +467,8 @@
 
             <table class="soa-totals">
               <tr><td>Total Charges</td><td>₱{{ statement.total_amount|floatformat:2 }}</td></tr>
-              <tr><td>Deposit / Payments</td><td>₱{{ statement.deposit|floatformat:2 }}</td></tr>
-              <tr><td>AMOUNT DUE</td><td>₱{{ statement.balance|floatformat:2 }}</td></tr>
+              <tr><td>Payments Applied</td><td>₱{{ statement.deposit|floatformat:2 }}</td></tr>
+              <tr><td>Balance Due</td><td>₱{{ statement.balance|floatformat:2 }}</td></tr>
             </table>
           </div>
 
