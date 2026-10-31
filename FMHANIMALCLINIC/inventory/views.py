@@ -44,6 +44,8 @@ from settings.utils import (
     get_inventory_item_type_options,
 )
 
+CATALOG_PAGE_SIZE = 10
+
 
 def _get_user_branch(user):
     """Return the user's assigned branch, if available."""
@@ -164,7 +166,7 @@ def catalog_view(request):
 
     # Pagination for products
     page_number = request.GET.get('page', 1)
-    paginator = Paginator(products, 12)
+    paginator = Paginator(products, CATALOG_PAGE_SIZE)
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'inventory/catalog.html', {

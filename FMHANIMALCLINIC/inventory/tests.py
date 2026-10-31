@@ -278,6 +278,32 @@ class InventoryWorkflowTests(TestCase):
             'switchCatalogTab("reservations")',
         )
 
+    def test_catalog_uses_modern_pagination_after_ten_products(self):
+        for index in range(11):
+            Product.objects.create(
+                branch=self.branch,
+                item_type='Product',
+                name=f'Catalog Page Item {index}',
+                price=20,
+            )
+        self.client.force_login(self.admin)
+
+        first_page = self.client.get(
+            reverse('inventory:catalog'),
+            {'branch': str(self.branch.pk), 'tab': 'products'},
+        )
+        second_page = self.client.get(
+            reverse('inventory:catalog'),
+            {'branch': str(self.branch.pk), 'tab': 'products', 'page': 2},
+        )
+
+        self.assertEqual(first_page.status_code, 200)
+        self.assertEqual(first_page.context['page_obj'].paginator.per_page, 10)
+        self.assertEqual(len(first_page.context['page_obj']), 10)
+        self.assertContains(first_page, '?page=2&branch=' + str(self.branch.pk) + '&tab=products')
+        self.assertEqual(second_page.context['page_obj'].number, 2)
+        self.assertEqual(len(second_page.context['page_obj']), 1)
+
     @patch('inventory.views.get_inventory_low_stock_threshold', return_value=10)
     @patch('inventory.models.get_inventory_low_stock_threshold', return_value=10)
     def test_stock_monitor_uses_global_threshold_and_reports_shortfall(self, _model_threshold, _view_threshold):
