@@ -21,7 +21,7 @@
 
     .soa-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
       gap: 18px;
     }
 
@@ -30,7 +30,7 @@
       overflow: hidden;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 4px;
       box-shadow: var(--shadow-card);
       transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
       display: flex;
@@ -39,51 +39,44 @@
     }
 
     .soa-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(var(--primary-rgb), 0.35);
-      box-shadow: var(--shadow-card-hover);
+      border-color: var(--border-hover);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, .1);
     }
 
     .soa-card::before {
       content: "";
       position: absolute;
       inset: 0 0 auto;
-      height: 5px;
-      background: #0f766e;
+      height: 3px;
+      background: #1f2937;
     }
 
     .soa-card-top {
-      padding: 20px 20px 17px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 14px;
+      padding: 24px 26px 18px;
+      display: block;
+      text-align: center;
       border-bottom: 1px solid var(--border);
-      background: var(--surface-light);
+      background: var(--surface);
     }
 
     .soa-identity {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      display: block;
       min-width: 0;
     }
 
     .soa-icon {
-      width: 38px;
-      height: 38px;
-      flex: 0 0 38px;
-      display: grid;
-      place-items: center;
-      border: 1px solid rgba(var(--primary-rgb), 0.15);
-      border-radius: 8px;
-      background: var(--surface);
-      color: #0f766e;
-      font-size: 18px;
+      display: none;
     }
 
     .soa-heading {
       min-width: 0;
+    }
+
+    .soa-title {
+      margin: 0 0 8px;
+      color: #1f2937;
+      font-size: 1.15rem;
+      letter-spacing: .08em;
     }
 
     .soa-number {
@@ -126,11 +119,91 @@
     }
 
     .soa-summary {
-      padding: 18px 20px 20px;
+      padding: 18px 26px 20px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
       flex-grow: 1;
+    }
+
+    .soa-account-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .soa-account-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: .82rem;
+    }
+
+    .soa-account-row .label {
+      color: var(--text-2);
+      font-weight: 700;
+    }
+
+    .soa-account-row .value {
+      color: var(--text-1);
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .soa-particulars {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+    }
+
+    .soa-particulars th {
+      padding: 8px 0;
+      border-bottom: 2px solid #374151;
+      color: var(--text-1);
+      font-size: .7rem;
+      letter-spacing: .04em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    .soa-particulars th:last-child,
+    .soa-particulars td:last-child {
+      text-align: right;
+    }
+
+    .soa-particulars td {
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-1);
+    }
+
+    .soa-particulars .category td {
+      font-weight: 700;
+    }
+
+    .soa-totals {
+      width: 240px;
+      margin: 14px 0 0 auto;
+      border-collapse: collapse;
+      font-size: .82rem;
+    }
+
+    .soa-totals td {
+      padding: 5px 0 5px 14px;
+      text-align: right;
+    }
+
+    .soa-totals tr:last-child {
+      border-top: 2px solid #374151;
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .soa-totals tr:last-child td:last-child {
+      color: #047857;
+      font-size: 1.2rem;
     }
 
     .soa-meta-item {
@@ -294,6 +367,12 @@
       .soa-summary {
         padding: 14px 16px;
       }
+      .soa-account-header {
+        grid-template-columns: 1fr;
+      }
+      .soa-totals {
+        width: 100%;
+      }
       .soa-actions {
         padding: 12px 16px 16px;
       }
@@ -327,33 +406,78 @@
             <div class="soa-identity">
               <span class="soa-icon" aria-hidden="true"><i class='bx bx-receipt'></i></span>
               <div class="soa-heading">
+              <h2 class="soa-title">STATEMENT OF ACCOUNT</h2>
               <p class="soa-number">{{ statement.statement_number }}</p>
               <span class="soa-date"><i class='bx bx-calendar'></i> Issued {{ statement.date|date:"M d, Y" }}</span>
               </div>
             </div>
-            <span class="soa-status"><i class='bx bx-check-circle'></i> Released</span>
+            <span class="soa-status"><i class='bx bx-check-circle'></i> {{ statement.get_status_display }}</span>
           </div>
 
-          <aside class="soa-summary">
-            <div class="soa-meta-item">
-              <span class="label">Patient</span>
-              <span class="value">{{ statement.patient_name|default:"-" }}</span>
+          <div class="soa-summary">
+            <div class="soa-account-header">
+              <div class="soa-account-row">
+                <span class="label">Patient</span>
+                <span class="value">{{ statement.patient_name|default:"-" }}</span>
+              </div>
+              <div class="soa-account-row">
+                <span class="label">Account Date</span>
+                <span class="value">{{ statement.date|date:"M d, Y" }}</span>
+              </div>
+              <div class="soa-account-row">
+                <span class="label">Account Holder</span>
+                <span class="value">{{ statement.owner_name|default:"-" }}</span>
+              </div>
+              <div class="soa-account-row">
+                <span class="label">Statement No.</span>
+                <span class="value">{{ statement.statement_number }}</span>
+              </div>
             </div>
-            <div class="soa-finance-strip">
-              <div class="soa-finance-chip">
-                <span class="label">Total Charges</span>
-                <span class="value">₱{{ statement.total_amount|floatformat:2 }}</span>
-              </div>
-              <div class="soa-finance-chip">
-                <span class="label">Deposit / Payments</span>
-                <span class="value">₱{{ statement.deposit|floatformat:2 }}</span>
-              </div>
-              <div class="soa-finance-chip balance">
-                <span class="label">Amount Due</span>
-                <span class="value">₱{{ statement.balance|floatformat:2 }}</span>
-              </div>
-            </div>
-          </aside>
+
+            <table class="soa-particulars">
+              <thead>
+                <tr>
+                  <th>Particulars</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if statement.consultation_fee %}
+                <tr class="category"><td>{{ statement.consultation_description|default:"Professional / Consultation Fee" }}</td><td>₱{{ statement.consultation_fee|floatformat:2 }}</td></tr>
+                {% endif %}
+                {% if statement.treatment %}
+                <tr class="category"><td>{{ statement.treatment_description|default:"Treatment" }}</td><td>₱{{ statement.treatment|floatformat:2 }}</td></tr>
+                {% endif %}
+                {% if statement.boarding %}
+                <tr class="category"><td>{{ statement.boarding_description|default:"Boarding / Confinement" }}</td><td>₱{{ statement.boarding|floatformat:2 }}</td></tr>
+                {% endif %}
+                {% if statement.vaccination %}
+                <tr class="category"><td>{{ statement.vaccination_description|default:"Vaccination" }}</td><td>₱{{ statement.vaccination|floatformat:2 }}</td></tr>
+                {% endif %}
+                {% if statement.surgery %}
+                <tr class="category"><td>{{ statement.surgery_description|default:"Surgery" }}</td><td>₱{{ statement.surgery|floatformat:2 }}</td></tr>
+                {% endif %}
+                {% if statement.laboratory %}
+                <tr class="category"><td>{{ statement.laboratory_description|default:"Laboratory Exam" }}</td><td>₱{{ statement.laboratory|floatformat:2 }}</td></tr>
+                {% endif %}
+                {% if statement.grooming %}
+                <tr class="category"><td>{{ statement.grooming_description|default:"Grooming" }}</td><td>₱{{ statement.grooming|floatformat:2 }}</td></tr>
+                {% endif %}
+                {% if statement.others %}
+                <tr class="category"><td>{{ statement.others_description|default:"Other Services" }}</td><td>₱{{ statement.others|floatformat:2 }}</td></tr>
+                {% endif %}
+                {% if not statement.consultation_fee and not statement.treatment and not statement.boarding and not statement.vaccination and not statement.surgery and not statement.laboratory and not statement.grooming and not statement.others %}
+                <tr><td>Clinic services and charges</td><td>₱{{ statement.total_amount|floatformat:2 }}</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+
+            <table class="soa-totals">
+              <tr><td>Total Charges</td><td>₱{{ statement.total_amount|floatformat:2 }}</td></tr>
+              <tr><td>Deposit / Payments</td><td>₱{{ statement.deposit|floatformat:2 }}</td></tr>
+              <tr><td>AMOUNT DUE</td><td>₱{{ statement.balance|floatformat:2 }}</td></tr>
+            </table>
+          </div>
 
           <div class="soa-actions">
             <a href="{% url 'billing:my_statement_detail' statement.pk %}" class="soa-btn soa-btn-primary">
