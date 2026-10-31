@@ -30,7 +30,7 @@
       overflow: hidden;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 12px;
       box-shadow: var(--shadow-card);
       transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
       display: flex;
@@ -48,17 +48,18 @@
       content: "";
       position: absolute;
       inset: 0 0 auto;
-      height: 4px;
-      background: var(--primary-gradient);
+      height: 5px;
+      background: #0f766e;
     }
 
     .soa-card-top {
-      padding: 20px 20px 16px;
+      padding: 20px 20px 17px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 14px;
       border-bottom: 1px solid var(--border);
+      background: var(--surface-light);
     }
 
     .soa-identity {
@@ -69,16 +70,16 @@
     }
 
     .soa-icon {
-      width: 42px;
-      height: 42px;
-      flex: 0 0 42px;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
       display: grid;
       place-items: center;
       border: 1px solid rgba(var(--primary-rgb), 0.15);
-      border-radius: 13px;
-      background: rgba(var(--primary-rgb), 0.09);
-      color: var(--primary);
-      font-size: 20px;
+      border-radius: 8px;
+      background: var(--surface);
+      color: #0f766e;
+      font-size: 18px;
     }
 
     .soa-heading {
@@ -118,14 +119,14 @@
       padding: 6px 10px;
       font-size: 0.68rem;
       font-weight: 700;
-      color: #087f5b;
-      background: rgba(16, 185, 129, 0.1);
-      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: #166534;
+      background: #dcfce7;
+      border: 1px solid #bbf7d0;
       white-space: nowrap;
     }
 
     .soa-summary {
-      padding: 16px 20px;
+      padding: 18px 20px 20px;
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -163,16 +164,20 @@
 
     .soa-finance-strip {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      gap: 8px;
     }
 
     .soa-finance-chip {
       min-width: 0;
-      border-radius: 14px;
-      padding: 13px 14px;
-      background: var(--surface-light);
-      border: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid var(--border);
     }
 
     .soa-finance-chip .label {
@@ -182,24 +187,38 @@
       color: var(--text-2);
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 6px;
+      margin: 0;
     }
 
     .soa-finance-chip .value {
       display: block;
       overflow-wrap: anywhere;
-      font-size: 0.96rem;
-      font-weight: 800;
+      font-size: 0.9rem;
+      font-weight: 700;
       color: var(--text-1);
     }
 
     .soa-finance-chip.balance {
-      background: rgba(var(--primary-rgb), 0.08);
-      border-color: rgba(var(--primary-rgb), 0.18);
+      display: block;
+      margin-top: 6px;
+      padding: 16px;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-left: 4px solid #059669;
+      border-radius: 10px;
+    }
+
+    .soa-finance-chip.balance .label {
+      color: #047857;
+      font-size: 0.74rem;
     }
 
     .soa-finance-chip.balance .value {
-      color: var(--primary);
+      display: block;
+      margin-top: 5px;
+      color: #047857;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
     }
 
     .soa-actions {
@@ -286,6 +305,9 @@
       .soa-finance-chip {
         padding: 11px;
       }
+      .soa-finance-chip.balance {
+        padding: 14px;
+      }
     }
   </style>
 
@@ -309,7 +331,7 @@
               <span class="soa-date"><i class='bx bx-calendar'></i> Issued {{ statement.date|date:"M d, Y" }}</span>
               </div>
             </div>
-            <span class="soa-status">{{ statement.get_status_display }}</span>
+            <span class="soa-status"><i class='bx bx-check-circle'></i> Released</span>
           </div>
 
           <aside class="soa-summary">
@@ -319,11 +341,15 @@
             </div>
             <div class="soa-finance-strip">
               <div class="soa-finance-chip">
-                <span class="label">Total</span>
+                <span class="label">Total Charges</span>
                 <span class="value">₱{{ statement.total_amount|floatformat:2 }}</span>
               </div>
+              <div class="soa-finance-chip">
+                <span class="label">Deposit / Payments</span>
+                <span class="value">₱{{ statement.deposit|floatformat:2 }}</span>
+              </div>
               <div class="soa-finance-chip balance">
-                <span class="label">Balance</span>
+                <span class="label">Amount Due</span>
                 <span class="value">₱{{ statement.balance|floatformat:2 }}</span>
               </div>
             </div>
