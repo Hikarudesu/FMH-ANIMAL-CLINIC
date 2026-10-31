@@ -725,6 +725,33 @@ class InventoryWorkflowTests(TestCase):
         reservation.refresh_from_db()
         self.assertEqual(reservation.status, Reservation.Status.CANCELLED)
 
+    def test_confirming_reservation_uses_explicit_pos_checkout_route(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='POS Redirect Item',
+            price=20,
+            stock_quantity=5,
+        )
+        reservation = Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            quantity=1,
+            status=Reservation.Status.PENDING,
+        )
+        manager = self.create_reservation_manager(self.branch)
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            reverse('inventory:confirm_reservation', args=[reservation.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            f"{reverse('pos:checkout_alt')}?reservation={reservation.pk}",
+        )
+
     def test_pending_reservation_quantity_syncs_inventory(self):
         product = Product.objects.create(
             branch=self.branch,

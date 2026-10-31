@@ -802,7 +802,7 @@ def confirm_reservation_view(request, pk):
         request,
         f"Reservation RSV-{reservation.pk} is ready for payment. Review the prefilled POS sale before accepting payment.",
     )
-    return redirect(f"{reverse('pos:checkout')}?reservation={reservation.pk}")
+    return redirect(f"{reverse('pos:checkout_alt')}?reservation={reservation.pk}")
 
 
 @login_required
