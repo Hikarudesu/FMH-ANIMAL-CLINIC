@@ -515,21 +515,21 @@ window.closeReleaseReservationModal = function() {
 <div class="modal-overlay" id="releaseReservationModal">
   <div class="modal-content" style="max-width: 480px;">
     <div class="modal-header">
-      <h3 style="color: #059669;"><i class='bx bx-info-circle'></i> Release Reservation</h3>
+      <h3 style="color: #059669;"><i class='bx bx-wallet'></i> Proceed to Payment</h3>
       <button type="button" class="modal-close" onclick="closeReleaseReservationModal()">&times;</button>
     </div>
     <form id="releaseReservationForm" method="post" action="">
       {% csrf_token %}
       <div class="modal-body" style="text-align: center; padding-top: 30px;">
         <i class='bx bx-check-circle' style="font-size: 4rem; color: #059669; margin-bottom: 16px;"></i>
-        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Release <span id="releaseReservationId"></span>?</h4>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Proceed with <span id="releaseReservationId"></span>?</h4>
         <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
-          Are you completely sure you want to mark the reservation for <strong id="releaseReservationProduct"></strong> as released? This action cannot be undone.
+        This will open the reservation in the Point of Sale with the customer, product, quantity, and reservation details filled in automatically. The reservation will only be released after payment is successfully recorded.
         </p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-cancel" onclick="closeReleaseReservationModal()">Cancel</button>
-        <button type="submit" class="btn-submit" style="background:#059669; border-color:#059669; color:white;">Yes, Release Reservation</button>
+        <button type="submit" class="btn-submit" style="background:#059669; border-color:#059669; color:white;">Proceed to POS Payment</button>
       </div>
     </form>
   </div>

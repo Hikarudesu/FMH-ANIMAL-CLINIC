@@ -305,6 +305,14 @@ class Reservation(models.Model):
     )
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name='reservations')
+    sale = models.ForeignKey(
+        'pos.Sale',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='product_reservation',
+        help_text='POS sale created for reservation payment',
+    )
     quantity = models.PositiveIntegerField(default=1)
     status = models.CharField(
         max_length=20,

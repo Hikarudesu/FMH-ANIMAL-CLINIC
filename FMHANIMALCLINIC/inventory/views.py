@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -725,32 +726,70 @@ def confirm_reservation_view(request, pk):
         messages.warning(request, 'You do not have permission to confirm reservations.')
         return redirect('inventory:management')
 
-    reservation = get_object_or_404(_reservations_for_user(request.user), pk=pk)
+    from pos.models import Sale, SaleItem
 
-    if reservation.status != Reservation.Status.PENDING:
-        messages.warning(request, "This reservation is no longer pending.")
-        return redirect('inventory:management')
-
-    if reservation.pickup_date and reservation.pickup_date > timezone.localdate():
-        messages.warning(
-            request,
-            (
-                f"This reservation can only be released on its pickup date "
-                f"({reservation.pickup_date.strftime('%B %d, %Y')})."
-            ),
+    with transaction.atomic():
+        reservation = get_object_or_404(
+            _reservations_for_user(request.user).select_for_update(), pk=pk
         )
-        return redirect('inventory:management')
 
-    reservation.status = Reservation.Status.RELEASED
-    reservation.save()
+        if reservation.status != Reservation.Status.PENDING:
+            messages.warning(request, "This reservation is no longer pending.")
+            return redirect('inventory:management')
 
-    notify_reservation_ready(reservation, actor=request.user)
+        if reservation.pickup_date and reservation.pickup_date > timezone.localdate():
+            messages.warning(
+                request,
+                (
+                    f"This reservation can only be released on its pickup date "
+                    f"({reservation.pickup_date.strftime('%B %d, %Y')})."
+                ),
+            )
+            return redirect('inventory:management')
 
-    messages.success(
+        sale = reservation.sale
+        if sale and sale.status == Sale.Status.COMPLETED:
+            messages.warning(request, "This reservation has already been paid.")
+            return redirect('inventory:management')
+
+        if sale and (
+            sale.cashier_id != request.user.pk
+            or sale.branch_id != reservation.product.branch_id
+        ):
+            messages.warning(request, "This reservation is already being processed by another cashier.")
+            return redirect('inventory:management')
+
+        if sale is None:
+            sale = Sale.objects.create(
+                branch=reservation.product.branch,
+                cashier=request.user,
+                customer_type=Sale.CustomerType.REGISTERED,
+                customer=reservation.user,
+                guest_name=reservation.user.get_full_name() or reservation.user.username,
+                guest_phone=getattr(reservation.user, 'phone_number', '') or '',
+                guest_email=reservation.user.email or '',
+                notes=f"Reservation RSV-{reservation.pk}",
+            )
+            SaleItem.objects.create(
+                sale=sale,
+                item_type=(
+                    SaleItem.ItemType.MEDICATION
+                    if reservation.product.item_type.casefold() == 'medication'
+                    else SaleItem.ItemType.PRODUCT
+                ),
+                product=reservation.product,
+                name=reservation.product.name,
+                unit_price=reservation.product.price,
+                quantity=reservation.quantity,
+            )
+            reservation.sale = sale
+            reservation.save(update_fields=['sale', 'updated_at'])
+
+    messages.info(
         request,
-        f"Reservation RSV-{reservation.pk} released."
+        f"Reservation RSV-{reservation.pk} is ready for payment. Review the prefilled POS sale before accepting payment.",
     )
-    return redirect('inventory:management')
+    return redirect(f"{reverse('pos:checkout')}?reservation={reservation.pk}")
 
 
 @login_required

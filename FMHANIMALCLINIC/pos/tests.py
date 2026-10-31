@@ -10,7 +10,7 @@ from accounts.rbac_models import Role, SpecialPermission
 from appointments.models import Appointment
 from billing.models import Service
 from branches.models import Branch
-from inventory.models import Product
+from inventory.models import Product, Reservation
 from pos.models import Payment, Refund, Sale, SaleItem
 from settings.utils import set_setting
 
@@ -212,6 +212,58 @@ class AppointmentCheckoutTests(TestCase):
         self.assertEqual(Payment.objects.filter(sale=sale).count(), 0)
         sale.refresh_from_db()
         self.assertEqual(sale.status, Sale.Status.PENDING)
+
+    @patch('pos.views.create_or_release_soa_for_sale')
+    def test_reservation_checkout_prefills_and_releases_after_payment(self, _release_soa):
+        customer = User.objects.create_user(
+            username='reservation-pos-customer',
+            email='reservation-pos-customer@example.com',
+            password='A-secure-test-password-923!',
+        )
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Reserved Food',
+            price=35,
+            stock_quantity=3,
+        )
+        reservation = Reservation.objects.create(
+            user=customer,
+            product=product,
+            quantity=2,
+            status=Reservation.Status.PENDING,
+        )
+
+        checkout_response = self.client.get(
+            reverse('pos:checkout'),
+            {'reservation': reservation.pk},
+        )
+
+        self.assertEqual(checkout_response.status_code, 200)
+        sale = checkout_response.context['sale']
+        self.assertEqual(sale.customer_id, customer.pk)
+        self.assertEqual(sale.items.get().quantity, 2)
+        self.assertContains(checkout_response, 'Reservation payment')
+
+        payment_response = self.client.post(
+            reverse('pos:process_payment'),
+            {
+                'sale_id': sale.pk,
+                'amount': '70.00',
+                'method': 'CASH',
+                'customer_type': Sale.CustomerType.WALKIN,
+            },
+        )
+
+        self.assertEqual(payment_response.status_code, 200)
+        self.assertTrue(payment_response.json()['completed'])
+        reservation.refresh_from_db()
+        product.refresh_from_db()
+        sale.refresh_from_db()
+        self.assertEqual(reservation.status, Reservation.Status.RELEASED)
+        self.assertEqual(reservation.sale_id, sale.pk)
+        self.assertEqual(product.stock_quantity, 3)
+        self.assertEqual(sale.status, Sale.Status.COMPLETED)
 
     def test_receipt_autoprints_only_after_checkout_and_has_no_manual_print_action(self):
         sale = Sale.objects.create(

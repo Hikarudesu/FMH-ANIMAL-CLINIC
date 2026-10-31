@@ -1179,7 +1179,14 @@
       </div>
     </div>
 
-    {% if appointment %}
+    {% if reservation %}
+    <div class="pos-customer-section" style="background:var(--primary-light); padding:12px; border-radius:12px;">
+      <strong><i class='bx bx-package'></i> Reservation payment</strong>
+      <div>RSV-{{ reservation.pk }} · {{ reservation.product.name }} × {{ reservation.quantity }}</div>
+      <div>{{ reservation.user.get_full_name|default:reservation.user.username }}</div>
+      <small>Customer, product, and quantity were filled automatically and are locked until payment is completed.</small>
+    </div>
+    {% elif appointment %}
     <div class="pos-customer-section" style="background:var(--primary-light); padding:12px; border-radius:12px;">
       <strong><i class='bx bx-calendar-check'></i> Appointment payment</strong>
       <div>{{ appointment.pet_name }} · {{ appointment.owner_name }}</div>
@@ -1188,7 +1195,7 @@
     {% endif %}
 
     <!-- Customer Section -->
-    <div class="pos-customer-section" {% if appointment %}style="display:none"{% endif %}>
+    <div class="pos-customer-section" {% if appointment or reservation %}style="display:none"{% endif %}>
       <div class="pos-customer-toggle">
         <button class="pos-customer-btn active" onclick="setCustomerType('WALKIN')">Walk-in</button>
         <button class="pos-customer-btn" onclick="setCustomerType('REGISTERED')">Registered</button>
@@ -1386,6 +1393,7 @@
 <script>
 
 const saleId = {{ sale.pk }};
+const reservationLinked = {% if reservation %}true{% else %}false{% endif %};
 let currentSubtotal = {{ sale.subtotal|default:0 }};
 let currentTotal = {{ sale.total|default:0 }};
 let paymentMethod = 'CASH';
@@ -1398,7 +1406,7 @@ let petSearchController = null;
 let skipCartAbandonment = false;
 
 window.addEventListener('pagehide', function() {
-  if (skipCartAbandonment || !navigator.sendBeacon) return;
+  if (skipCartAbandonment || reservationLinked || !navigator.sendBeacon) return;
   const formData = new FormData();
   formData.append('csrfmiddlewaretoken', getCsrfToken());
   navigator.sendBeacon('{% url "pos:abandon_sale" sale.pk %}', formData);
