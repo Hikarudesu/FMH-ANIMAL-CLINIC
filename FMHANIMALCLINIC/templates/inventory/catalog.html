@@ -35,6 +35,7 @@ Catalog{% endblock %} {% block content %}
   <div class="c-filter-bar" style="margin-bottom: 22px;">
     <div class="c-filter-bar__glow"></div>
     <form method="GET" action="{% url 'inventory:catalog' %}" class="c-filter-bar__form" autocomplete="off">
+      <input type="hidden" name="tab" value="{{ active_catalog_tab }}">
       <!-- Search Input -->
       <div class="c-filter-bar__search">
         <i class='bx bx-search c-filter-bar__search-icon'></i>
@@ -1049,15 +1050,19 @@ Catalog{% endblock %} {% block content %}
       tab === "products" ? "block" : "none";
     document.getElementById("catReservationsSection").style.display =
       tab === "reservations" ? "block" : "none";
-    document
-      .getElementById("catTabProducts")
+    document.querySelector('[data-tab="products"]')
       .classList.toggle("active", tab === "products");
-    document
-      .getElementById("catTabReservations")
+    document.querySelector('[data-tab="reservations"]')
       .classList.toggle("active", tab === "reservations");
+    const tabField = document.querySelector('.c-filter-bar__form input[name="tab"]');
+    if (tabField) tabField.value = tab;
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState({}, "", url);
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    switchCatalogTab("{{ active_catalog_tab|escapejs }}");
     const countdowns = document.querySelectorAll(".my-rsv-countdown");
 
     function updateTimers() {

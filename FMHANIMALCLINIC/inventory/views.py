@@ -108,6 +108,9 @@ def _can_mark_transfer_received(user, transfer):
 def catalog_view(request):
     """Digital Catalog displaying products available."""
     auto_cancel_expired_reservations()
+    active_catalog_tab = request.GET.get('tab', 'products')
+    if active_catalog_tab not in {'products', 'reservations'}:
+        active_catalog_tab = 'products'
 
     branches = Branch.objects.filter(is_active=True).order_by('name')
     user_branch = request.user.branch
@@ -175,6 +178,7 @@ def catalog_view(request):
         'catalog_branch_assignment_required': (staff_branch_restricted and not user_branch) or is_pet_owner_without_branch,
         'user_reservations': user_reservations,
         'reservation_success': reservation_success,
+        'active_catalog_tab': active_catalog_tab,
     })
 
 
@@ -199,6 +203,9 @@ def inventory_management_view(request):
     selected_uom = request.GET.get('uom', '')
     selected_sale_type = request.GET.get('sale_type', '')
     search_query = request.GET.get('q', '').strip()
+    active_inventory_tab = request.GET.get('tab', 'items')
+    if active_inventory_tab not in {'items', 'movements', 'reservations'}:
+        active_inventory_tab = 'items'
     products = Product.objects.all().select_related('branch').annotate(
         pending_reservation_count=Count(
             'reservations',
@@ -407,6 +414,8 @@ def inventory_management_view(request):
             or request.user.has_module_permission('reservations', 'DELETE')
         )
     )
+    if active_inventory_tab == 'reservations' and not can_view_reservations:
+        active_inventory_tab = 'items'
 
     # Each inventory section keeps its own pagination position.
     paginator_products = Paginator(products, 20)
@@ -434,6 +443,10 @@ def inventory_management_view(request):
         'selected_uom': selected_uom,
         'selected_sale_type': selected_sale_type,
         'search_value': search_query,
+        'active_inventory_tab': active_inventory_tab,
+        'filter_hidden_fields': [
+            {'name': 'tab', 'value': active_inventory_tab},
+        ],
         'status_filters': status_filters,
         'show_clear': show_clear,
         'total_value': total_value,
@@ -947,7 +960,7 @@ def cancel_reservation_view(request, pk):
 
     messages.success(
         request, "Reservation cancelled. Stock has been restored.")
-    return redirect('inventory:management')
+    return redirect(f"{reverse('inventory:management')}?tab=items")
 
 
 @login_required

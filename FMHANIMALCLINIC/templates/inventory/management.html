@@ -56,7 +56,7 @@
 </div>
 
 <!-- Filter Bar -->
-{% include "components/filter_bar.html" with form_action="/inventory/management/" form_id="inventoryFilterForm" search_name="q" search_value=search_value search_placeholder="Search by name, SKU, or description..." search_id="inventorySearch" filters=status_filters clear_url="/inventory/management/" show_clear=show_clear %}
+{% include "components/filter_bar.html" with form_action="/inventory/management/" form_id="inventoryFilterForm" search_name="q" search_value=search_value search_placeholder="Search by name, SKU, or description..." search_id="inventorySearch" filters=status_filters clear_url="/inventory/management/" show_clear=show_clear hidden_fields=filter_hidden_fields %}
 
 <!-- Items Section -->
 <div id="inv-items-section" class="inv-section active">
@@ -335,6 +335,8 @@ function switchInvMode(mode) {
 
     const activeBtn = document.querySelector(`.c-tab-btn[data-tab="${mode}"]`);
     const indicator = document.getElementById('invTabs-indicator');
+    const tabField = document.querySelector('#inventoryFilterForm input[name="tab"]');
+    if (tabField) tabField.value = mode;
     if (activeBtn && indicator) {
         indicator.style.width = activeBtn.offsetWidth + 'px';
         indicator.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
@@ -349,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
         '#inv-reservations-section': 'reservations',
         '#inv-reservations-pagination': 'reservations',
     };
-    const activeMode = sectionByHash[window.location.hash];
+    const activeMode = sectionByHash[window.location.hash] || '{{ active_inventory_tab|escapejs }}';
     if (activeMode) switchInvMode(activeMode);
 
     // Make sure indicator moves immediately on load
