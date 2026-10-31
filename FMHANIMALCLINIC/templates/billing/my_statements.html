@@ -124,8 +124,10 @@
 
     .soa-account-row {
       display: flex;
-      justify-content: space-between;
-      gap: 10px;
+      align-items: baseline;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 4px 10px;
       font-size: .82rem;
     }
 
@@ -135,9 +137,11 @@
     }
 
     .soa-account-row .value {
+      min-width: 0;
       color: var(--text-1);
       font-weight: 700;
-      text-align: right;
+      overflow-wrap: anywhere;
+      text-align: left;
     }
 
     /* Item Breakdown Section */
@@ -233,9 +237,10 @@
     .soa-finance-chip {
       min-width: 0;
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 4px 12px;
       padding: 9px 0;
       background: transparent;
       border: 0;
@@ -254,6 +259,7 @@
 
     .soa-finance-chip .value {
       display: block;
+      min-width: 0;
       overflow-wrap: anywhere;
       font-size: 0.88rem;
       font-weight: 700;
