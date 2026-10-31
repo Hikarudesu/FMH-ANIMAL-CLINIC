@@ -409,12 +409,21 @@ function updateStatus(status) {
 .control-group textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid #cbd5e1;
   border-radius: 10px;
   background: var(--bg);
   color: var(--text-primary);
   font-size: 0.95rem;
   transition: all 0.2s;
+}
+
+.control-group select {
+  cursor: pointer;
+}
+
+.control-group select:hover,
+.control-group textarea:hover {
+  border-color: var(--primary);
 }
 
 .control-group select:focus,
