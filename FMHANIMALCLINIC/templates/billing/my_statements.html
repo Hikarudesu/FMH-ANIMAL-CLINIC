@@ -21,7 +21,7 @@
 
     .soa-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
       gap: 18px;
     }
 
@@ -110,7 +110,7 @@
       padding: 18px 26px 20px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
       flex-grow: 1;
     }
 
@@ -140,98 +140,94 @@
       text-align: right;
     }
 
-    .soa-particulars {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: .82rem;
-    }
-
-    .soa-particulars th {
-      padding: 8px 0;
-      border-bottom: 2px solid #374151;
-      color: var(--text-1);
-      font-size: .7rem;
-      letter-spacing: .04em;
-      text-align: left;
-      text-transform: uppercase;
-    }
-
-    .soa-particulars th:last-child,
-    .soa-particulars td:last-child {
-      text-align: right;
-    }
-
-    .soa-particulars td {
-      padding: 7px 0;
-      border-bottom: 1px solid var(--border);
-      color: var(--text-1);
-    }
-
-    .soa-particulars .category td {
-      font-weight: 700;
-    }
-
-    .soa-totals {
-      width: 280px;
-      margin: 18px 0 0 auto;
-      padding-top: 6px;
-      border-collapse: collapse;
-      font-size: .82rem;
-    }
-
-    .soa-totals td {
-      padding: 6px 0 6px 14px;
-      text-align: right;
-    }
-
-    .soa-totals tr:last-child {
-      border-top: 2px solid #1f2937;
-      font-size: 1rem;
-      font-weight: 800;
-    }
-
-    .soa-totals tr:last-child td:last-child {
-      color: #047857;
-      font-size: 1.2rem;
-    }
-
-    .soa-totals tr:last-child td:first-child {
-      color: #1f2937;
-      letter-spacing: .03em;
-    }
-
-    .soa-meta-item {
-      min-width: 0;
+    /* Item Breakdown Section */
+    .soa-breakdown-section {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      gap: 10px;
+      padding: 11px 14px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .soa-item-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .soa-group-label {
+      display: flex;
       align-items: center;
-      gap: 14px;
-    }
-
-    .soa-meta-item .label {
-      color: var(--text-2);
+      gap: 6px;
+      font-size: 0.72rem;
       font-weight: 700;
-      font-size: 0.7rem;
-      letter-spacing: 0.05em;
+      color: #475569;
       text-transform: uppercase;
-      flex: 0 0 auto;
+      letter-spacing: 0.04em;
     }
 
-    .soa-meta-item .value {
-      min-width: 0;
-      overflow: hidden;
-      font-weight: 700;
-      color: var(--text-1);
-      font-size: 0.9rem;
-      line-height: 1.25;
-      text-align: right;
-      text-overflow: ellipsis;
+    .soa-group-label i {
+      font-size: 0.95rem;
+    }
+
+    .soa-group-label.service-label i {
+      color: #0284c7;
+    }
+
+    .soa-group-label.product-label i {
+      color: #7c3aed;
+    }
+
+    .soa-item-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .soa-item-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      max-width: 100%;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
+    .soa-item-pill.service-pill {
+      background: #f0f9ff;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+
+    .soa-item-pill.product-pill {
+      background: #f5f3ff;
+      color: #6d28d9;
+      border: 1px solid #ddd6fe;
+    }
+
+    .soa-item-pill.general-pill {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+
+    .soa-item-pill.more-pill {
+      background: #e2e8f0;
+      color: #334155;
+      font-weight: 700;
+    }
+
+    /* Finance Strip */
     .soa-finance-strip {
       display: grid;
-      gap: 8px;
+      gap: 0;
     }
 
     .soa-finance-chip {
@@ -240,8 +236,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      border-radius: 8px;
-      padding: 10px 12px;
+      padding: 9px 0;
       background: transparent;
       border: 0;
       border-bottom: 1px solid var(--border);
@@ -249,7 +244,7 @@
 
     .soa-finance-chip .label {
       display: block;
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       font-weight: 700;
       color: var(--text-2);
       text-transform: uppercase;
@@ -260,15 +255,15 @@
     .soa-finance-chip .value {
       display: block;
       overflow-wrap: anywhere;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 700;
       color: var(--text-1);
     }
 
     .soa-finance-chip.balance {
       display: block;
-      margin-top: 6px;
-      padding: 16px;
+      margin-top: 8px;
+      padding: 14px 16px;
       background: #ecfdf5;
       border: 1px solid #a7f3d0;
       border-left: 4px solid #059669;
@@ -277,14 +272,15 @@
 
     .soa-finance-chip.balance .label {
       color: #047857;
-      font-size: 0.74rem;
+      font-size: 0.72rem;
     }
 
     .soa-finance-chip.balance .value {
       display: block;
-      margin-top: 5px;
+      margin-top: 4px;
       color: #047857;
-      font-size: 1.45rem;
+      font-size: 1.35rem;
+      font-weight: 800;
       letter-spacing: -0.02em;
     }
 
@@ -364,22 +360,11 @@
       .soa-account-header {
         grid-template-columns: 1fr;
       }
-      .soa-totals {
-        width: 100%;
-      }
       .soa-actions {
         padding: 12px 16px 16px;
       }
-      .soa-icon {
-        width: 38px;
-        height: 38px;
-        flex-basis: 38px;
-      }
-      .soa-finance-chip {
-        padding: 11px;
-      }
       .soa-finance-chip.balance {
-        padding: 14px;
+        padding: 12px 14px;
       }
     }
   </style>
@@ -408,68 +393,87 @@
           </div>
 
           <div class="soa-summary">
+            <!-- Account Info: Patient / Purchase Type + Account Date -->
             <div class="soa-account-header">
+              {% if statement.is_general %}
+              <div class="soa-account-row">
+                <span class="label">Purchase Type</span>
+                <span class="value"><i class='bx bx-shopping-bag' style="color: #6d28d9;"></i> Retail / OTC</span>
+              </div>
+              {% else %}
               <div class="soa-account-row">
                 <span class="label">Patient</span>
-                <span class="value">{{ statement.patient_name|default:"-" }}</span>
+                <span class="value"><i class='bx bxs-dog' style="color: var(--primary);"></i> {{ statement.patient_name|default:"-" }}</span>
               </div>
+              {% endif %}
               <div class="soa-account-row">
                 <span class="label">Account Date</span>
                 <span class="value">{{ statement.date|date:"M d, Y" }}</span>
               </div>
-              <div class="soa-account-row">
+              <div class="soa-account-row" style="grid-column: 1 / -1;">
                 <span class="label">Account Holder</span>
                 <span class="value">{{ statement.owner_name|default:"-" }}</span>
               </div>
-              <div class="soa-account-row">
-                <span class="label">Statement No.</span>
-                <span class="value">{{ statement.statement_number }}</span>
-              </div>
             </div>
 
-            <table class="soa-particulars">
-              <thead>
-                <tr>
-                  <th>Particulars</th>
-                  <th>Charge</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% if statement.consultation_fee %}
-                <tr class="category"><td>{{ statement.consultation_description|default:"Professional / Consultation Fee" }}</td><td>₱{{ statement.consultation_fee|floatformat:2 }}</td></tr>
+            <!-- Content Breakdown: What was availed / purchased -->
+            {% if statement.service_names or statement.product_names %}
+              <div class="soa-breakdown-section">
+                {% if statement.service_names %}
+                <div class="soa-item-group">
+                  <div class="soa-group-label service-label">
+                    <i class='bx bx-briefcase-alt'></i> Services ({{ statement.service_count }})
+                  </div>
+                  <div class="soa-item-pills">
+                    {% for s_name in statement.service_names|slice:":3" %}
+                    <span class="soa-item-pill service-pill" title="{{ s_name }}"><i class='bx bx-check'></i> {{ s_name }}</span>
+                    {% endfor %}
+                    {% if statement.service_names|length > 3 %}
+                    <span class="soa-item-pill more-pill">+{{ statement.service_names|length|add:"-3" }} more</span>
+                    {% endif %}
+                  </div>
+                </div>
                 {% endif %}
-                {% if statement.treatment %}
-                <tr class="category"><td>{{ statement.treatment_description|default:"Treatment" }}</td><td>₱{{ statement.treatment|floatformat:2 }}</td></tr>
-                {% endif %}
-                {% if statement.boarding %}
-                <tr class="category"><td>{{ statement.boarding_description|default:"Boarding / Confinement" }}</td><td>₱{{ statement.boarding|floatformat:2 }}</td></tr>
-                {% endif %}
-                {% if statement.vaccination %}
-                <tr class="category"><td>{{ statement.vaccination_description|default:"Vaccination" }}</td><td>₱{{ statement.vaccination|floatformat:2 }}</td></tr>
-                {% endif %}
-                {% if statement.surgery %}
-                <tr class="category"><td>{{ statement.surgery_description|default:"Surgery" }}</td><td>₱{{ statement.surgery|floatformat:2 }}</td></tr>
-                {% endif %}
-                {% if statement.laboratory %}
-                <tr class="category"><td>{{ statement.laboratory_description|default:"Laboratory Exam" }}</td><td>₱{{ statement.laboratory|floatformat:2 }}</td></tr>
-                {% endif %}
-                {% if statement.grooming %}
-                <tr class="category"><td>{{ statement.grooming_description|default:"Grooming" }}</td><td>₱{{ statement.grooming|floatformat:2 }}</td></tr>
-                {% endif %}
-                {% if statement.others %}
-                <tr class="category"><td>{{ statement.others_description|default:"Other Services" }}</td><td>₱{{ statement.others|floatformat:2 }}</td></tr>
-                {% endif %}
-                {% if not statement.consultation_fee and not statement.treatment and not statement.boarding and not statement.vaccination and not statement.surgery and not statement.laboratory and not statement.grooming and not statement.others %}
-                <tr><td>Clinic services and charges</td><td>₱{{ statement.total_amount|floatformat:2 }}</td></tr>
-                {% endif %}
-              </tbody>
-            </table>
 
-            <table class="soa-totals">
-              <tr><td>Total Charges</td><td>₱{{ statement.total_amount|floatformat:2 }}</td></tr>
-              <tr><td>Payments Applied</td><td>₱{{ statement.deposit|floatformat:2 }}</td></tr>
-              <tr><td>Balance Due</td><td>₱{{ statement.balance|floatformat:2 }}</td></tr>
-            </table>
+                {% if statement.product_names %}
+                <div class="soa-item-group">
+                  <div class="soa-group-label product-label">
+                    <i class='bx bx-package'></i> Products ({{ statement.product_count }} kind{{ statement.product_count|pluralize }}, {{ statement.product_total_qty }} item{{ statement.product_total_qty|pluralize }})
+                  </div>
+                  <div class="soa-item-pills">
+                    {% for p_name in statement.product_names|slice:":3" %}
+                    <span class="soa-item-pill product-pill" title="{{ p_name }}"><i class='bx bx-package'></i> {{ p_name }}</span>
+                    {% endfor %}
+                    {% if statement.product_names|length > 3 %}
+                    <span class="soa-item-pill more-pill">+{{ statement.product_names|length|add:"-3" }} more</span>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            {% else %}
+              <div class="soa-breakdown-section">
+                <div class="soa-item-pills">
+                  <span class="soa-item-pill general-pill"><i class='bx bx-receipt'></i> General Clinic Charges</span>
+                </div>
+              </div>
+            {% endif %}
+
+            <!-- Finance Summary -->
+            <div class="soa-finance-strip">
+              <div class="soa-finance-chip">
+                <span class="label">Total Charges</span>
+                <span class="value">₱{{ statement.total_amount|floatformat:2 }}</span>
+              </div>
+              <div class="soa-finance-chip">
+                <span class="label">Payment Applied</span>
+                <span class="value">₱{{ statement.deposit|floatformat:2 }}</span>
+              </div>
+              <div class="soa-finance-chip balance">
+                <span class="label">Balance Due</span>
+                <span class="value">₱{{ statement.balance|floatformat:2 }}</span>
+              </div>
+            </div>
           </div>
 
           <div class="soa-actions">
