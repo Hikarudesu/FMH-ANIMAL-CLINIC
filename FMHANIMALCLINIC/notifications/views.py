@@ -132,6 +132,9 @@ def get_allowed_notification_types_for_user(user):
             Notification.NotificationType.FOLLOW_UP,
             Notification.NotificationType.MEDICAL_RECORD_UPDATE,
             Notification.NotificationType.PRODUCT_RESERVATION,
+            Notification.NotificationType.RESERVATION_APPROVED,
+            Notification.NotificationType.RESERVATION_REJECTED,
+            Notification.NotificationType.RESERVATION_READY,
             Notification.NotificationType.STATEMENT_RELEASED,
             Notification.NotificationType.GENERAL,
         ]
@@ -144,6 +147,19 @@ def get_allowed_notification_types_for_user(user):
     if user.assigned_role:
         accessible_module_codes = Notification.visible_module_contexts_for_user(user)
         allowed_types = _get_allowed_notification_types_from_modules(accessible_module_codes)
+        restricted_types_by_context = Notification.notification_type_restrictions_for_user(user)
+        if restricted_types_by_context:
+            type_to_module = get_notification_type_to_module_mapping()
+            allowed_types = [
+                choice for choice in allowed_types
+                if (
+                    type_to_module.get(choice[0], Notification.ModuleContext.GENERAL)
+                    not in restricted_types_by_context
+                    or choice[0] in restricted_types_by_context[
+                        type_to_module.get(choice[0], Notification.ModuleContext.GENERAL)
+                    ]
+                )
+            ]
 
         # SOA notifications should only be visible to receptionists and branch admins.
         if getattr(user.assigned_role, 'code', None) not in ('cashier', 'executive_officer'):

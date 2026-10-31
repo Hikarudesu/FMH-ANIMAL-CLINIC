@@ -2,6 +2,75 @@ from django.db import models
 from django.conf import settings
 
 
+MODULE_NOTIFICATION_CONTEXT_ALIASES = {
+    'reservations': {'inventory'},
+    'stock_monitor': {'inventory'},
+    'stock_transfers': {'inventory'},
+}
+
+SPECIAL_PERMISSION_NOTIFICATION_CONTEXTS = {
+    'can_access_stock_monitor': {'inventory'},
+    'can_request_stock_transfer': {'inventory'},
+    'can_view_own_payslips': {'payroll'},
+    'can_access_pos': {'soa'},
+}
+
+SPECIAL_PERMISSION_MODULE_ACCESS = {
+    'inventory': ('can_access_stock_monitor', 'can_request_stock_transfer'),
+    'stock_monitor': ('can_access_stock_monitor',),
+    'stock_transfers': ('can_request_stock_transfer',),
+    'soa': ('can_access_pos',),
+}
+
+BRANCH_SCOPED_SPECIAL_PERMISSION_MODULE_ACCESS = {
+    'inventory': ('can_access_stock_monitor', 'can_request_stock_transfer'),
+    'stock_monitor': ('can_access_stock_monitor',),
+    'stock_transfers': ('can_request_stock_transfer',),
+    'soa': ('can_access_pos',),
+}
+
+NOTIFICATION_CONTEXT_MODULES = {
+    'appointments': 'appointments',
+    'patients': 'patients',
+    'medical_records': 'medical_records',
+    'ai_diagnostics': 'ai_diagnostics',
+    'inventory': 'inventory',
+    'soa': 'soa',
+    'inquiries': 'inquiries',
+    'payroll': 'payroll',
+}
+
+MODULE_ALIAS_NOTIFICATION_TYPES = {
+    'reservations': {
+        'GENERAL',
+        'PRODUCT_RESERVATION',
+        'RESERVATION_APPROVED',
+        'RESERVATION_REJECTED',
+        'RESERVATION_READY',
+    },
+    'stock_monitor': {
+        'GENERAL',
+        'LOW_INVENTORY',
+        'LOW_STOCK_ALERT',
+        'INVENTORY_EXPIRY_ALERT',
+    },
+    'stock_transfers': {
+        'GENERAL',
+        'STOCK_TRANSFER_REQUESTED',
+        'STOCK_TRANSFER_APPROVED',
+        'STOCK_TRANSFER_REJECTED',
+        'STOCK_TRANSFER_COMPLETED',
+    },
+}
+
+SPECIAL_PERMISSION_NOTIFICATION_TYPES = {
+    'can_access_stock_monitor': MODULE_ALIAS_NOTIFICATION_TYPES['stock_monitor'],
+    'can_request_stock_transfer': MODULE_ALIAS_NOTIFICATION_TYPES['stock_transfers'],
+    'can_view_own_payslips': {'GENERAL', 'PAYROLL_RELEASED'},
+    'can_access_pos': {'GENERAL', 'STATEMENT_RELEASED'},
+}
+
+
 class FollowUp(models.Model):
     """Represents a recommended return visit, separate from its booking."""
 
@@ -156,18 +225,24 @@ class Notification(models.Model):
     @classmethod
     def visible_module_contexts_for_user(cls, user):
         """Return module contexts that should be visible to the given user."""
-        from accounts.models import OVERSEER_HIDDEN_NAV_MODULES
         from accounts.rbac_models import Module
+        from accounts.rbac_constants import HierarchyLevels
+
+        def notification_contexts(module_codes):
+            contexts = set(module_codes)
+            for module_code in module_codes:
+                contexts.update(
+                    MODULE_NOTIFICATION_CONTEXT_ALIASES.get(module_code, ())
+                )
+            return contexts
 
         if user.is_superuser:
-            # Sidebar modules hidden from superadmins are still valid system
-            # event scopes. Notification visibility must cover the whole
-            # system, not only the navigation modules shown in the portal.
-            visible_module_codes = set(
+            accessible_modules = set(
                 Module.objects.filter(is_active=True).values_list('code', flat=True)
             )
-            visible_module_codes.update(['notifications', cls.ModuleContext.GENERAL])
-            return visible_module_codes
+            visible_contexts = notification_contexts(accessible_modules)
+            visible_contexts.update(['notifications', cls.ModuleContext.GENERAL])
+            return visible_contexts
 
         if user.is_pet_owner():
             return {
@@ -181,17 +256,32 @@ class Notification(models.Model):
             }
 
         if user.assigned_role:
-            visible_module_codes = set(
-                user.assigned_role.module_permissions.values_list('module__code', flat=True)
+            from accounts.rbac_constants import HierarchyLevels
+
+            if user.assigned_role.hierarchy_level >= HierarchyLevels.ADMIN:
+                accessible_modules = set(
+                    Module.objects.filter(is_active=True).values_list('code', flat=True)
+                )
+            else:
+                accessible_modules = set(
+                    user.assigned_role.module_permissions.filter(
+                        module__is_active=True,
+                    ).values_list('module__code', flat=True)
+                )
+            visible_contexts = notification_contexts(accessible_modules)
+            special_permission_codes = user.assigned_role.special_permissions.values_list(
+                'permission__code', flat=True,
             )
-            if user.has_special_permission('can_request_stock_transfer'):
-                visible_module_codes.add(cls.ModuleContext.INVENTORY)
+            for permission_code in special_permission_codes:
+                visible_contexts.update(
+                    SPECIAL_PERMISSION_NOTIFICATION_CONTEXTS.get(permission_code, ())
+                )
             # Cashiers handle appointment intake and must see appointment
             # notifications even for databases with older role permissions.
             if user.assigned_role.code in ('cashier', 'receptionist'):
-                visible_module_codes.add(cls.ModuleContext.APPOINTMENTS)
-            visible_module_codes.update(['notifications', cls.ModuleContext.GENERAL])
-            return visible_module_codes
+                visible_contexts.add(cls.ModuleContext.APPOINTMENTS)
+            visible_contexts.update(['notifications', cls.ModuleContext.GENERAL])
+            return visible_contexts
 
         return set()
 
@@ -202,4 +292,67 @@ class Notification(models.Model):
         visible_module_contexts = cls.visible_module_contexts_for_user(user)
         if not visible_module_contexts:
             return queryset.none()
-        return queryset.filter(module_context__in=visible_module_contexts)
+        queryset = queryset.filter(module_context__in=visible_module_contexts)
+        type_restrictions = cls.notification_type_restrictions_for_user(user)
+        if type_restrictions:
+            allowed_alias_notifications = models.Q(pk__in=[])
+            for module_context, notification_types in type_restrictions.items():
+                allowed_alias_notifications |= models.Q(
+                    module_context=module_context,
+                    notification_type__in=notification_types,
+                )
+            queryset = queryset.filter(
+                ~models.Q(module_context__in=type_restrictions)
+                | allowed_alias_notifications
+            )
+        return queryset
+
+    @classmethod
+    def notification_type_restrictions_for_user(cls, user):
+        """Limit aliased contexts to the event types belonging to each access path."""
+        if user.is_superuser:
+            return {}
+
+        if user.is_pet_owner():
+            return {
+                cls.ModuleContext.INVENTORY: MODULE_ALIAS_NOTIFICATION_TYPES['reservations'],
+            }
+
+        role = user.assigned_role
+        if not role:
+            return {}
+
+        from accounts.rbac_constants import HierarchyLevels
+
+        if role.hierarchy_level >= HierarchyLevels.ADMIN:
+            return {}
+
+        module_codes = set(
+            role.module_permissions.filter(
+                module__is_active=True,
+            ).values_list('module__code', flat=True)
+        )
+        special_codes = set(
+            role.special_permissions.values_list('permission__code', flat=True)
+        )
+        restrictions = {}
+
+        if 'inventory' not in module_codes:
+            inventory_types = set()
+            for module_code, notification_types in MODULE_ALIAS_NOTIFICATION_TYPES.items():
+                if module_code in module_codes:
+                    inventory_types.update(notification_types)
+            for permission_code in special_codes:
+                inventory_types.update(
+                    SPECIAL_PERMISSION_NOTIFICATION_TYPES.get(permission_code, ())
+                )
+            if inventory_types:
+                restrictions[cls.ModuleContext.INVENTORY] = inventory_types
+
+        if 'payroll' not in module_codes and 'can_view_own_payslips' in special_codes:
+            restrictions[cls.ModuleContext.PAYROLL] = {'PAYROLL_RELEASED'}
+
+        if 'soa' not in module_codes and 'can_access_pos' in special_codes:
+            restrictions[cls.ModuleContext.SOA] = {'STATEMENT_RELEASED'}
+
+        return restrictions

@@ -7,9 +7,39 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
-from notifications.models import Notification
+from notifications.models import (
+    BRANCH_SCOPED_SPECIAL_PERMISSION_MODULE_ACCESS,
+    NOTIFICATION_CONTEXT_MODULES,
+    SPECIAL_PERMISSION_MODULE_ACCESS,
+    Notification,
+)
 from notifications.delivery import send_notification_email
 from notifications.email_utils import send_appointment_cancellation_email
+
+
+SPECIAL_PERMISSION_NOTIFICATION_ACCESS = {
+    'can_access_stock_monitor': {
+        Notification.NotificationType.GENERAL,
+        Notification.NotificationType.LOW_INVENTORY,
+        Notification.NotificationType.LOW_STOCK_ALERT,
+        Notification.NotificationType.INVENTORY_EXPIRY_ALERT,
+    },
+    'can_request_stock_transfer': {
+        Notification.NotificationType.GENERAL,
+        Notification.NotificationType.STOCK_TRANSFER_REQUESTED,
+        Notification.NotificationType.STOCK_TRANSFER_APPROVED,
+        Notification.NotificationType.STOCK_TRANSFER_REJECTED,
+        Notification.NotificationType.STOCK_TRANSFER_COMPLETED,
+    },
+    'can_view_own_payslips': {
+        Notification.NotificationType.GENERAL,
+        Notification.NotificationType.PAYROLL_RELEASED,
+    },
+    'can_access_pos': {
+        Notification.NotificationType.GENERAL,
+        Notification.NotificationType.STATEMENT_RELEASED,
+    },
+}
 
 
 def mark_module_notifications_read(user, module_context):
@@ -24,6 +54,7 @@ def _notify_superadmins(title, message, notification_type, module_context, relat
     from accounts.models import User
 
     superadmins = User.objects.filter(is_superuser=True)
+    superadmin_ids = set(superadmins.values_list('pk', flat=True))
     superadmin_emails = []
 
     for admin in superadmins:
@@ -53,6 +84,7 @@ def _notify_superadmins(title, message, notification_type, module_context, relat
             superuser_only=True,
             fail_silently=True,
         )
+    return superadmin_ids
 
 def create_notification(
     *,
@@ -145,7 +177,15 @@ def notify_role_users(
         is_active=True,
         assigned_role__code__in=role_codes,
     )
-    if branch is not None:
+    module_code = NOTIFICATION_CONTEXT_MODULES.get(str(module_context))
+    if module_code:
+        module_users = users_with_module_access(
+            module_code,
+            branch,
+            notification_type,
+        )
+        users = users.filter(pk__in=module_users.values('pk'))
+    elif branch is not None:
         users = users.filter(branch=branch)
 
     for target in users:
@@ -159,32 +199,70 @@ def notify_role_users(
         )
 
 
-def users_with_module_access(module_code, branch=None):
+def users_with_module_access(module_code, branch=None, notification_type=None):
     """Return active staff users allowed to receive a module event."""
     from accounts.models import User
-    from django.db.models import Q
+    from accounts.rbac_constants import HierarchyLevels
+    from accounts.rbac_models import Role
 
-    if module_code == 'reservations':
-        users = User.objects.filter(
-            is_active=True,
-            assigned_role__module_permissions__module__code=module_code,
+    special_permission_codes = SPECIAL_PERMISSION_MODULE_ACCESS.get(module_code, ())
+    if notification_type is not None:
+        special_permission_codes = tuple(
+            code for code in special_permission_codes
+            if notification_type in SPECIAL_PERMISSION_NOTIFICATION_ACCESS.get(code, ())
+        )
+    access_filter = (
+        Q(is_superuser=True)
+        | Q(assigned_role__hierarchy_level__gte=HierarchyLevels.ADMIN)
+        | Q(assigned_role__module_permissions__module__code=module_code)
+    )
+    if special_permission_codes:
+        access_filter |= Q(
+            assigned_role__special_permissions__permission__code__in=special_permission_codes
+        )
+
+    users = User.objects.filter(is_active=True).filter(access_filter)
+    branch_scoped_special_codes = (
+        BRANCH_SCOPED_SPECIAL_PERMISSION_MODULE_ACCESS.get(module_code, ())
+    )
+    restricted_role_filter = Q(
+        module_permissions__module__code=module_code,
+        module_permissions__restrict_to_branch=True,
+    )
+    if branch_scoped_special_codes:
+        restricted_role_filter |= Q(
+            special_permissions__permission__code__in=branch_scoped_special_codes
+        )
+    restricted_role_ids = Role.objects.filter(
+        restricted_role_filter,
+    ).values('pk')
+    if branch is not None:
+        branch_restricted_roles = Q(
+            assigned_role_id__in=restricted_role_ids,
+            branch=branch,
         )
     else:
-        users = User.objects.filter(is_active=True).filter(
-            Q(is_superuser=True)
-            | Q(assigned_role__module_permissions__module__code=module_code)
-        )
-    if branch is not None:
-        users = users.filter(Q(is_superuser=True) | Q(branch=branch))
+        branch_restricted_roles = Q(pk__in=[])
+
+    users = users.filter(
+        Q(is_superuser=True)
+        | Q(assigned_role__hierarchy_level__gte=HierarchyLevels.ADMIN)
+        | branch_restricted_roles
+        | ~Q(assigned_role_id__in=restricted_role_ids)
+    )
     return users.distinct()
 
 
 def notify_module_users(
     *, module_code, branch, title, message, notification_type,
     module_context, related_object_id=None, dedupe_window_minutes=15,
+    exclude_user_ids=(),
 ):
     """Notify every active user with access to a module in the branch scope."""
-    targets = list(users_with_module_access(module_code, branch))
+    target_users = users_with_module_access(module_code, branch, notification_type)
+    if exclude_user_ids:
+        target_users = target_users.exclude(pk__in=exclude_user_ids)
+    targets = list(target_users)
     for target in targets:
         create_notification(
             user=target,
@@ -207,7 +285,7 @@ def notify_inquiry_received(inquiry):
     )
     
     # Notify superadmins
-    _notify_superadmins(
+    superadmin_ids = _notify_superadmins(
         title='New Inquiry Received',
         message=message,
         notification_type=Notification.NotificationType.INQUIRY_NEW,
@@ -215,18 +293,16 @@ def notify_inquiry_received(inquiry):
         related_object_id=inquiry.id,
     )
     
-    # Notify branch cashiers/receptionists. If no branch was selected, notify
-    # all active cashiers so the inquiry is not left unowned.
-    for role_code in ('cashier', 'executive_officer'):
-        notify_role_users(
-            role_code=role_code,
-            branch=inquiry.branch,
-            title='New Inquiry Received',
-            message=message,
-            notification_type=Notification.NotificationType.INQUIRY_NEW,
-            module_context=Notification.ModuleContext.INQUIRIES,
-            related_object_id=inquiry.id,
-        )
+    notify_module_users(
+        module_code='inquiries',
+        branch=inquiry.branch,
+        title='New Inquiry Received',
+        message=message,
+        notification_type=Notification.NotificationType.INQUIRY_NEW,
+        module_context=Notification.ModuleContext.INQUIRIES,
+        related_object_id=inquiry.id,
+        exclude_user_ids=superadmin_ids,
+    )
 
 
 def notify_inquiry_responded(inquiry, responder=None):
@@ -235,7 +311,7 @@ def notify_inquiry_responded(inquiry, responder=None):
     message = f'Inquiry from {inquiry.full_name} was marked responded by {responder_name}.'
     
     # Notify superadmins
-    _notify_superadmins(
+    superadmin_ids = _notify_superadmins(
         title='Inquiry Responded',
         message=message,
         notification_type=Notification.NotificationType.INQUIRY_RESPONDED,
@@ -243,16 +319,16 @@ def notify_inquiry_responded(inquiry, responder=None):
         related_object_id=inquiry.id,
     )
     
-    for role_code in ('cashier', 'executive_officer'):
-        notify_role_users(
-            role_code=role_code,
-            branch=inquiry.branch,
-            title='Inquiry Responded',
-            message=message,
-            notification_type=Notification.NotificationType.INQUIRY_RESPONDED,
-            module_context=Notification.ModuleContext.INQUIRIES,
-            related_object_id=inquiry.id,
-        )
+    notify_module_users(
+        module_code='inquiries',
+        branch=inquiry.branch,
+        title='Inquiry Responded',
+        message=message,
+        notification_type=Notification.NotificationType.INQUIRY_RESPONDED,
+        module_context=Notification.ModuleContext.INQUIRIES,
+        related_object_id=inquiry.id,
+        exclude_user_ids=superadmin_ids,
+    )
 
 
 def notify_inquiry_archived(inquiry, actor=None):
@@ -261,7 +337,7 @@ def notify_inquiry_archived(inquiry, actor=None):
     message = f'Inquiry from {inquiry.full_name} was archived by {actor_name}.'
     
     # Notify superadmins
-    _notify_superadmins(
+    superadmin_ids = _notify_superadmins(
         title='Inquiry Archived',
         message=message,
         notification_type=Notification.NotificationType.INQUIRY_ARCHIVED,
@@ -269,30 +345,49 @@ def notify_inquiry_archived(inquiry, actor=None):
         related_object_id=inquiry.id,
     )
     
-    for role_code in ('cashier', 'executive_officer'):
-        notify_role_users(
-            role_code=role_code,
-            branch=inquiry.branch,
-            title='Inquiry Archived',
-            message=message,
-            notification_type=Notification.NotificationType.INQUIRY_ARCHIVED,
-            module_context=Notification.ModuleContext.INQUIRIES,
-            related_object_id=inquiry.id,
-        )
+    notify_module_users(
+        module_code='inquiries',
+        branch=inquiry.branch,
+        title='Inquiry Archived',
+        message=message,
+        notification_type=Notification.NotificationType.INQUIRY_ARCHIVED,
+        module_context=Notification.ModuleContext.INQUIRIES,
+        related_object_id=inquiry.id,
+        exclude_user_ids=superadmin_ids,
+    )
+
+
+def _stock_transfer_requester_id(transfer):
+    requester_id = getattr(transfer, 'requested_by_id', None)
+    if requester_id is not None:
+        return requester_id
+    return getattr(getattr(transfer, 'requested_by', None), 'pk', None)
 
 
 def notify_stock_transfer_requested(transfer):
     """Create a notification when a new stock transfer is requested."""
-    _notify_superadmins(
-        title='Stock Transfer Requested',
-        message=(
-            f"{transfer.requested_by.get_full_name() or transfer.requested_by.username} requested "
-            f"{transfer.quantity}x {transfer.source_product.name} from {transfer.source_product.branch.name} "
-            f"to {transfer.destination_branch.name}."
-        ),
+    title = 'Stock Transfer Requested'
+    message = (
+        f"{transfer.requested_by.get_full_name() or transfer.requested_by.username} requested "
+        f"{transfer.quantity}x {transfer.source_product.name} from {transfer.source_product.branch.name} "
+        f"to {transfer.destination_branch.name}."
+    )
+    excluded_user_ids = _notify_superadmins(
+        title=title,
+        message=message,
         notification_type=Notification.NotificationType.STOCK_TRANSFER_REQUESTED,
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=transfer.id,
+    )
+    requester_id = _stock_transfer_requester_id(transfer)
+    if requester_id is not None:
+        excluded_user_ids.add(requester_id)
+    _notify_stock_transfer_module_users(
+        transfer,
+        title=title,
+        message=message,
+        notification_type=Notification.NotificationType.STOCK_TRANSFER_REQUESTED,
+        exclude_user_ids=excluded_user_ids,
     )
 
 
@@ -310,6 +405,35 @@ def _notify_stock_transfer_requester(transfer, *, title, message, notification_t
     )
 
 
+def _notify_stock_transfer_module_users(
+    transfer, *, title, message, notification_type, exclude_user_ids=(),
+):
+    notified_ids = set(exclude_user_ids)
+    targets = []
+    branches = (
+        transfer.source_product.branch,
+        transfer.destination_branch,
+    )
+    seen_branch_ids = set()
+    for branch in branches:
+        if branch.pk in seen_branch_ids:
+            continue
+        seen_branch_ids.add(branch.pk)
+        branch_targets = notify_module_users(
+            module_code='stock_transfers',
+            branch=branch,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.INVENTORY,
+            related_object_id=transfer.id,
+            exclude_user_ids=notified_ids,
+        )
+        targets.extend(branch_targets)
+        notified_ids.update(target.pk for target in branch_targets)
+    return targets
+
+
 def notify_stock_transfer_approved(transfer, actor=None):
     """Create a notification when a stock transfer is approved."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
@@ -319,12 +443,22 @@ def notify_stock_transfer_approved(transfer, actor=None):
         f"was approved by {actor_name}."
     )
     notification_type = Notification.NotificationType.STOCK_TRANSFER_APPROVED
-    _notify_superadmins(
+    excluded_user_ids = _notify_superadmins(
         title=title,
         message=message,
         notification_type=notification_type,
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=transfer.id,
+    )
+    requester_id = _stock_transfer_requester_id(transfer)
+    if requester_id is not None:
+        excluded_user_ids.add(requester_id)
+    _notify_stock_transfer_module_users(
+        transfer,
+        title=title,
+        message=message,
+        notification_type=notification_type,
+        exclude_user_ids=excluded_user_ids,
     )
     _notify_stock_transfer_requester(
         transfer,
@@ -343,12 +477,22 @@ def notify_stock_transfer_rejected(transfer, actor=None):
         f"was rejected by {actor_name}."
     )
     notification_type = Notification.NotificationType.STOCK_TRANSFER_REJECTED
-    _notify_superadmins(
+    excluded_user_ids = _notify_superadmins(
         title=title,
         message=message,
         notification_type=notification_type,
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=transfer.id,
+    )
+    requester_id = _stock_transfer_requester_id(transfer)
+    if requester_id is not None:
+        excluded_user_ids.add(requester_id)
+    _notify_stock_transfer_module_users(
+        transfer,
+        title=title,
+        message=message,
+        notification_type=notification_type,
+        exclude_user_ids=excluded_user_ids,
     )
     _notify_stock_transfer_requester(
         transfer,
@@ -367,12 +511,22 @@ def notify_stock_transfer_completed(transfer, actor=None):
         f"was completed by {actor_name}."
     )
     notification_type = Notification.NotificationType.STOCK_TRANSFER_COMPLETED
-    _notify_superadmins(
+    excluded_user_ids = _notify_superadmins(
         title=title,
         message=message,
         notification_type=notification_type,
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=transfer.id,
+    )
+    requester_id = _stock_transfer_requester_id(transfer)
+    if requester_id is not None:
+        excluded_user_ids.add(requester_id)
+    _notify_stock_transfer_module_users(
+        transfer,
+        title=title,
+        message=message,
+        notification_type=notification_type,
+        exclude_user_ids=excluded_user_ids,
     )
     _notify_stock_transfer_requester(
         transfer,
@@ -385,32 +539,55 @@ def notify_stock_transfer_completed(transfer, actor=None):
 def notify_payroll_generated(period, actor=None, created_count=0, updated_count=0, total_employees=0):
     """Create a notification when payroll is generated."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
-    _notify_superadmins(
-        title='Payroll Generated',
-        message=(
-            f"Payroll for {period.period_display} was generated by {actor_name}. "
-            f"{created_count} new, {updated_count} updated, {total_employees} employees processed."
-        ),
+    title = 'Payroll Generated'
+    message = (
+        f"Payroll for {period.period_display} was generated by {actor_name}. "
+        f"{created_count} new, {updated_count} updated, {total_employees} employees processed."
+    )
+    excluded_user_ids = _notify_superadmins(
+        title=title,
+        message=message,
         notification_type=Notification.NotificationType.PAYROLL_GENERATED,
         module_context=Notification.ModuleContext.PAYROLL,
         related_object_id=period.id,
+    )
+    notify_module_users(
+        module_code='payroll',
+        branch=period.branch,
+        title=title,
+        message=message,
+        notification_type=Notification.NotificationType.PAYROLL_GENERATED,
+        module_context=Notification.ModuleContext.PAYROLL,
+        related_object_id=period.id,
+        exclude_user_ids=excluded_user_ids,
     )
 
 
 def notify_payroll_released(period, actor=None, payslip_count=0, emails_sent=0):
     """Notify superadmins and staff when payroll is released."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'a staff member')
-    _notify_superadmins(
-        title='Payroll Released',
-        message=(
-            f"Payroll for {period.period_display} was released by {actor_name}. "
-            f"{payslip_count} payslips processed, {emails_sent} emails sent."
-        ),
+    title = 'Payroll Released'
+    message = (
+        f"Payroll for {period.period_display} was released by {actor_name}. "
+        f"{payslip_count} payslips processed, {emails_sent} emails sent."
+    )
+    excluded_user_ids = _notify_superadmins(
+        title=title,
+        message=message,
         notification_type=Notification.NotificationType.PAYROLL_RELEASED,
         module_context=Notification.ModuleContext.PAYROLL,
         related_object_id=period.id,
     )
-
+    notify_module_users(
+        module_code='payroll',
+        branch=period.branch,
+        title=title,
+        message=message,
+        notification_type=Notification.NotificationType.PAYROLL_RELEASED,
+        module_context=Notification.ModuleContext.PAYROLL,
+        related_object_id=period.id,
+        exclude_user_ids=excluded_user_ids,
+    )
     for payslip in period.payslips.select_related('employee__user'):
         staff_user = payslip.employee.user if payslip.employee.user_id else None
         if not staff_user:
@@ -429,9 +606,8 @@ def notify_payroll_released(period, actor=None, payslip_count=0, emails_sent=0):
 
 
 def notify_statement_released(statement):
-    """Create notification when statement is released to both customer and receptionists."""
+    """Notify the statement owner and staff with SOA/POS access when released."""
     if statement.customer:
-        # Notify the customer
         create_notification(
             user=statement.customer,
             title="Statement Available",
@@ -440,26 +616,23 @@ def notify_statement_released(statement):
             module_context=Notification.ModuleContext.SOA,
             related_object_id=statement.id
         )
-        
-        # Notify receptionists in the branch (for customer follow-up and collection tracking)
-        if hasattr(statement, 'branch') and statement.branch:
-            branch = statement.branch
-        elif hasattr(statement.customer, 'branch'):
-            branch = statement.customer.branch
-        else:
-            branch = None
-        
-        if branch:
-            customer_name = statement.customer.get_full_name() or statement.customer.username
-            notify_role_users(
-                role_code='cashier',
-                branch=branch,
-                title='Customer Statement Released',
-                message=f"Statement released for {customer_name}. Amount due: ₱{statement.total_amount}",
-                notification_type=Notification.NotificationType.STATEMENT_RELEASED,
-                module_context=Notification.ModuleContext.SOA,
-                related_object_id=statement.id,
-            )
+
+    branch = getattr(statement, 'branch', None)
+    if branch is None and statement.customer:
+        branch = getattr(statement.customer, 'branch', None)
+    customer_name = (
+        (statement.customer.get_full_name() or statement.customer.username)
+        if statement.customer else statement.owner_name
+    )
+    notify_module_users(
+        module_code='soa',
+        branch=branch,
+        title='Customer Statement Released',
+        message=f"Statement released for {customer_name}. Amount due: ₱{statement.total_amount}",
+        notification_type=Notification.NotificationType.STATEMENT_RELEASED,
+        module_context=Notification.ModuleContext.SOA,
+        related_object_id=statement.id,
+    )
 
 
 def notify_appointment_status_change(appointment, status, actor=None, actor_label=None):
@@ -519,10 +692,8 @@ def notify_appointment_status_change(appointment, status, actor=None, actor_labe
 def notify_staff_appointment_status_change(appointment, status, actor=None):
     """
     Create staff notifications for appointment status changes.
-    Notifies receptionists, vet assistants, and veterinarians who have appointments module access.
+    Notify every user with appointment-module access in the event's branch scope.
     """
-    from accounts.models import User
-    
     actor_label = 'clinic staff'
     if actor is not None:
         actor_label = actor.get_full_name() or actor.username
@@ -565,63 +736,15 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
     else:
         return
 
-    # Track users already notified
-    notified_user_ids = set()
-
-    # Notify cashiers in the same branch. Include the legacy receptionist
-    # role code for accounts created before the role rename.
-    receptionists = User.objects.filter(
-        is_active=True,
-        assigned_role__code__in=('cashier', 'receptionist'),
+    notify_module_users(
+        module_code='appointments',
         branch=appointment.branch,
+        title=title,
+        message=message,
+        notification_type=Notification.NotificationType.APPOINTMENT,
+        module_context=Notification.ModuleContext.APPOINTMENTS,
+        related_object_id=appointment.id,
     )
-    
-    for receptionist in receptionists:
-        create_notification(
-            user=receptionist,
-            title=title,
-            message=message,
-            notification_type=Notification.NotificationType.APPOINTMENT,
-            module_context=Notification.ModuleContext.APPOINTMENTS,
-            related_object_id=appointment.id,
-        )
-        notified_user_ids.add(receptionist.id)
-
-    # Notify vet assistants in the same branch
-    vet_assistants = User.objects.filter(
-        is_active=True,
-        assigned_role__code='assistant_veterinarian',
-        branch=appointment.branch,
-    ).exclude(id__in=notified_user_ids)
-    
-    for vet_assistant in vet_assistants:
-        create_notification(
-            user=vet_assistant,
-            title=title,
-            message=message,
-            notification_type=Notification.NotificationType.APPOINTMENT,
-            module_context=Notification.ModuleContext.APPOINTMENTS,
-            related_object_id=appointment.id,
-        )
-        notified_user_ids.add(vet_assistant.id)
-
-    # Notify veterinarians in the same branch
-    veterinarians = User.objects.filter(
-        is_active=True,
-        assigned_role__code='veterinarian',
-        branch=appointment.branch,
-    ).exclude(id__in=notified_user_ids)
-
-    for veterinarian in veterinarians:
-        create_notification(
-            user=veterinarian,
-            title=title,
-            message=message,
-            notification_type=Notification.NotificationType.APPOINTMENT,
-            module_context=Notification.ModuleContext.APPOINTMENTS,
-            related_object_id=appointment.id,
-        )
-        notified_user_ids.add(veterinarian.id)
 
 
 def notify_veterinarian_consultation_started(appointment):
@@ -1131,9 +1254,8 @@ def notify_reservation_approved(reservation, actor=None):
     customer_name = reservation.user.get_full_name() or reservation.user.username
     message = f"Product reservation for {customer_name} ({reservation.product.name} x{reservation.quantity}) has been approved."
     
-    # Notify receptionists in the product's branch
-    notify_role_users(
-        role_code='cashier',
+    notify_module_users(
+        module_code='reservations',
         branch=reservation.product.branch,
         title='Reservation Approved',
         message=message,
@@ -1184,9 +1306,8 @@ def notify_reservation_ready(reservation, actor=None):
         related_object_id=reservation.id,
     )
     
-    # Notify receptionists in the product's branch (to handle pickup)
-    notify_role_users(
-        role_code='cashier',
+    notify_module_users(
+        module_code='reservations',
         branch=reservation.product.branch,
         title='Reservation Ready for Pickup',
         message=f"Reservation ready for {customer_name}: {reservation.product.name} (x{reservation.quantity})",
@@ -1212,9 +1333,8 @@ def notify_reservation_rejected(reservation, actor=None):
         related_object_id=reservation.id,
     )
     
-    # Notify receptionists in the product's branch
-    notify_role_users(
-        role_code='cashier',
+    notify_module_users(
+        module_code='reservations',
         branch=reservation.product.branch,
         title='Reservation Rejected',
         message=f"Reservation rejected for {customer_name}: {reservation.product.name} (x{reservation.quantity})",

@@ -13,6 +13,7 @@ from accounts.activity_context import reset_current_actor, set_current_actor
 from accounts.models import ActivityLog, User
 from accounts.rbac_models import Module, ModulePermission, Role, SpecialPermission
 from appointments.models import Appointment
+from billing.models import CustomerStatement
 from branches.models import Branch
 from employees.models import StaffMember
 from inquiries.models import Inquiry
@@ -36,6 +37,10 @@ from notifications.utils import (
     notify_medical_record_follow_up,
     notify_follow_up_scheduled,
     notify_inquiry_received,
+    notify_module_users,
+    notify_payroll_generated,
+    notify_staff_appointment_status_change,
+    notify_statement_released,
     notify_stock_transfer_approved,
     sync_appointment_follow_up_to_medical_record,
 )
@@ -616,6 +621,391 @@ class NotificationRoutingTests(TestCase):
 
         self.assertIsNone(notification)
 
+    def test_module_notifications_respect_permissions_and_branch_scope(self):
+        other_branch = Branch.objects.create(name='Other Module Notification Branch')
+        inventory_module, _ = Module.objects.get_or_create(
+            code='inventory',
+            defaults={'name': 'Inventory'},
+        )
+
+        restricted_role = Role.objects.create(
+            name='Restricted Inventory View',
+            code='restricted-inventory-view',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=restricted_role,
+            module=inventory_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+            restrict_to_branch=True,
+        )
+        unrestricted_role = Role.objects.create(
+            name='Global Inventory View',
+            code='global-inventory-view',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=unrestricted_role,
+            module=inventory_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+            restrict_to_branch=False,
+        )
+        stock_monitor_role = Role.objects.create(
+            name='Special Stock Monitor',
+            code='special-stock-monitor',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        stock_monitor_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_stock_monitor',
+            defaults={
+                'name': 'Access Stock Monitor',
+                'description': 'View branch stock status.',
+            },
+        )
+        stock_monitor_role.special_permissions.get_or_create(
+            permission=stock_monitor_permission,
+        )
+
+        restricted_here = User.objects.create_user(
+            username='restricted-inventory-here',
+            assigned_role=restricted_role,
+            branch=self.branch,
+        )
+        restricted_elsewhere = User.objects.create_user(
+            username='restricted-inventory-elsewhere',
+            assigned_role=restricted_role,
+            branch=other_branch,
+        )
+        unrestricted_elsewhere = User.objects.create_user(
+            username='unrestricted-inventory-elsewhere',
+            assigned_role=unrestricted_role,
+            branch=other_branch,
+        )
+        stock_monitor_user = User.objects.create_user(
+            username='special-stock-monitor-user',
+            assigned_role=stock_monitor_role,
+            branch=self.branch,
+        )
+        superadmin = User.objects.create_superuser(
+            username='module-notification-superadmin',
+            email='module-notification-superadmin@example.com',
+            password='A-secure-test-password-923!',
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            recipients = notify_module_users(
+                module_code='inventory',
+                branch=self.branch,
+                title='Branch inventory update',
+                message='Inventory changed.',
+                notification_type=Notification.NotificationType.INVENTORY_RESTOCK,
+                module_context=Notification.ModuleContext.INVENTORY,
+            )
+
+        recipient_ids = {recipient.pk for recipient in recipients}
+        self.assertIn(restricted_here.pk, recipient_ids)
+        self.assertNotIn(restricted_elsewhere.pk, recipient_ids)
+        self.assertIn(unrestricted_elsewhere.pk, recipient_ids)
+        self.assertNotIn(stock_monitor_user.pk, recipient_ids)
+        self.assertIn(superadmin.pk, recipient_ids)
+        with self.captureOnCommitCallbacks(execute=True):
+            low_stock_recipients = notify_module_users(
+                module_code='inventory',
+                branch=self.branch,
+                title='Low inventory alert',
+                message='Stock is low.',
+                notification_type=Notification.NotificationType.LOW_INVENTORY,
+                module_context=Notification.ModuleContext.INVENTORY,
+            )
+        self.assertIn(stock_monitor_user.pk, {user.pk for user in low_stock_recipients})
+        self.assertTrue(Notification.scoped_for_user(stock_monitor_user).filter(
+            notification_type=Notification.NotificationType.LOW_INVENTORY,
+        ).exists())
+        unrelated_restock = Notification.objects.create(
+            user=stock_monitor_user,
+            title='Inventory restock',
+            message='A product was restocked.',
+            notification_type=Notification.NotificationType.INVENTORY_RESTOCK,
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+        self.assertFalse(Notification.scoped_for_user(stock_monitor_user).filter(
+            pk=unrelated_restock.pk,
+        ).exists())
+
+        with self.captureOnCommitCallbacks(execute=True):
+            unscoped_recipients = notify_module_users(
+                module_code='inventory',
+                branch=None,
+                title='Unassigned inventory update',
+                message='An unassigned inventory event occurred.',
+                notification_type=Notification.NotificationType.INVENTORY_RESTOCK,
+                module_context=Notification.ModuleContext.INVENTORY,
+            )
+
+        unscoped_recipient_ids = {recipient.pk for recipient in unscoped_recipients}
+        self.assertIn(unrestricted_elsewhere.pk, unscoped_recipient_ids)
+        self.assertIn(superadmin.pk, unscoped_recipient_ids)
+        self.assertNotIn(restricted_here.pk, unscoped_recipient_ids)
+        self.assertNotIn(restricted_elsewhere.pk, unscoped_recipient_ids)
+        self.assertNotIn(stock_monitor_user.pk, unscoped_recipient_ids)
+
+    def test_reservations_and_own_payslip_special_access_show_notifications(self):
+        reservations_module, _ = Module.objects.get_or_create(
+            code='reservations',
+            defaults={'name': 'Reservations'},
+        )
+        reservations_role = Role.objects.create(
+            name='Reservations Viewer',
+            code='reservations-notification-viewer',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=reservations_role,
+            module=reservations_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+        )
+        reservations_user = User.objects.create_user(
+            username='reservations-notification-viewer',
+            assigned_role=reservations_role,
+            branch=self.branch,
+        )
+        payroll_role = Role.objects.create(
+            name='Own Payslip Viewer',
+            code='own-payslip-notification-viewer',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        payslip_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_view_own_payslips',
+            defaults={
+                'name': 'View Own Payslips',
+                'description': 'View personal payslips.',
+            },
+        )
+        payroll_role.special_permissions.get_or_create(permission=payslip_permission)
+        payroll_user = User.objects.create_user(
+            username='own-payslip-notification-viewer',
+            assigned_role=payroll_role,
+            branch=self.branch,
+        )
+        reservation_notification = Notification.objects.create(
+            user=reservations_user,
+            title='Reservation ready',
+            message='A reservation is ready for pickup.',
+            notification_type=Notification.NotificationType.RESERVATION_READY,
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+        payroll_notification = Notification.objects.create(
+            user=payroll_user,
+            title='Payslip released',
+            message='Your payslip is ready.',
+            notification_type=Notification.NotificationType.PAYROLL_RELEASED,
+            module_context=Notification.ModuleContext.PAYROLL,
+        )
+        payroll_generated_notification = Notification.objects.create(
+            user=payroll_user,
+            title='Payroll generated',
+            message='A payroll period was generated.',
+            notification_type=Notification.NotificationType.PAYROLL_GENERATED,
+            module_context=Notification.ModuleContext.PAYROLL,
+        )
+        unrelated_reservation_inventory_notification = Notification.objects.create(
+            user=reservations_user,
+            title='Low inventory',
+            message='A product is low in stock.',
+            notification_type=Notification.NotificationType.LOW_INVENTORY,
+            module_context=Notification.ModuleContext.INVENTORY,
+        )
+
+        self.assertTrue(
+            Notification.scoped_for_user(reservations_user).filter(
+                pk=reservation_notification.pk,
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.scoped_for_user(payroll_user).filter(
+                pk=payroll_notification.pk,
+            ).exists()
+        )
+        self.assertFalse(Notification.scoped_for_user(payroll_user).filter(
+            pk=payroll_generated_notification.pk,
+        ).exists())
+        self.assertFalse(Notification.scoped_for_user(reservations_user).filter(
+            pk=unrelated_reservation_inventory_notification.pk,
+        ).exists())
+        allowed_payroll_types = {
+            code for code, _label in get_allowed_notification_types_for_user(payroll_user)
+        }
+        self.assertIn(Notification.NotificationType.PAYROLL_RELEASED, allowed_payroll_types)
+
+    def test_appointment_module_notifications_respect_branch_restriction(self):
+        other_branch = Branch.objects.create(
+            name='Other Appointment Notification Branch',
+        )
+        appointments_module, _ = Module.objects.get_or_create(
+            code='appointments',
+            defaults={'name': 'Appointments'},
+        )
+        restricted_role = Role.objects.create(
+            name='Restricted Appointment Viewer',
+            code='restricted-appointment-viewer',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=restricted_role,
+            module=appointments_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+            restrict_to_branch=True,
+        )
+        branch_user = User.objects.create_user(
+            username='appointment-notification-branch-user',
+            assigned_role=restricted_role,
+            branch=self.branch,
+        )
+        other_branch_user = User.objects.create_user(
+            username='appointment-notification-other-branch-user',
+            assigned_role=restricted_role,
+            branch=other_branch,
+        )
+        appointment = SimpleNamespace(
+            id=987,
+            pet_name='Milo',
+            appointment_date=date.today(),
+            appointment_time=time(10),
+            branch=self.branch,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_staff_appointment_status_change(appointment, 'PENDING')
+
+        self.assertTrue(Notification.scoped_for_user(branch_user).filter(
+            related_object_id=appointment.id,
+        ).exists())
+        self.assertFalse(Notification.objects.filter(
+            user=other_branch_user,
+            related_object_id=appointment.id,
+        ).exists())
+
+    def test_payroll_module_notification_reaches_only_authorized_branch_users(self):
+        other_branch = Branch.objects.create(name='Other Payroll Notification Branch')
+        payroll_module, _ = Module.objects.get_or_create(
+            code='payroll',
+            defaults={'name': 'Payroll'},
+        )
+        payroll_role = Role.objects.create(
+            name='Branch Payroll Viewer',
+            code='branch-payroll-viewer',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        ModulePermission.objects.create(
+            role=payroll_role,
+            module=payroll_module,
+            permission_type=ModulePermission.PermissionType.VIEW,
+            restrict_to_branch=True,
+        )
+        branch_user = User.objects.create_user(
+            username='payroll-branch-user',
+            assigned_role=payroll_role,
+            branch=self.branch,
+        )
+        other_branch_user = User.objects.create_user(
+            username='payroll-other-branch-user',
+            assigned_role=payroll_role,
+            branch=other_branch,
+        )
+        period = SimpleNamespace(
+            id=423,
+            period_display='October 2026 - First Half',
+            branch=self.branch,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_payroll_generated(
+                period,
+                created_count=2,
+                updated_count=1,
+                total_employees=3,
+            )
+
+        self.assertTrue(Notification.scoped_for_user(branch_user).filter(
+            related_object_id=period.id,
+            notification_type=Notification.NotificationType.PAYROLL_GENERATED,
+        ).exists())
+        self.assertFalse(Notification.objects.filter(
+            user=other_branch_user,
+            related_object_id=period.id,
+        ).exists())
+
+    def test_statement_notification_reaches_pos_special_permission_in_branch(self):
+        other_branch = Branch.objects.create(name='Other POS Notification Branch')
+        pos_role = Role.objects.create(
+            name='POS Special Permission Role',
+            code='pos-notification-role',
+            hierarchy_level=2,
+            is_staff_role=True,
+        )
+        pos_permission, _ = SpecialPermission.objects.get_or_create(
+            code='can_access_pos',
+            defaults={
+                'name': 'Access Point of Sale',
+                'description': 'Access POS operations.',
+            },
+        )
+        pos_role.special_permissions.get_or_create(permission=pos_permission)
+        branch_pos_user = User.objects.create_user(
+            username='pos-notification-branch-user',
+            assigned_role=pos_role,
+            branch=self.branch,
+        )
+        other_branch_pos_user = User.objects.create_user(
+            username='pos-notification-other-branch-user',
+            assigned_role=pos_role,
+            branch=other_branch,
+        )
+        statement = CustomerStatement.objects.create(
+            patient_name='Milo',
+            owner_name='Pet Owner',
+            customer=self.pet_owner,
+            branch=self.branch,
+            date=date(2026, 10, 31),
+            total_amount=Decimal('500'),
+            deposit=Decimal('0'),
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_statement_released(statement)
+
+        self.assertTrue(Notification.scoped_for_user(branch_pos_user).filter(
+            related_object_id=statement.pk,
+            notification_type=Notification.NotificationType.STATEMENT_RELEASED,
+        ).exists())
+        self.assertFalse(Notification.objects.filter(
+            user=other_branch_pos_user,
+            related_object_id=statement.pk,
+        ).exists())
+
+        walk_in_statement = CustomerStatement.objects.create(
+            patient_name='Guest Pet',
+            owner_name='Walk-in Client',
+            branch=self.branch,
+            date=date(2026, 10, 31),
+            total_amount=Decimal('300'),
+            deposit=Decimal('0'),
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_statement_released(walk_in_statement)
+
+        self.assertTrue(Notification.scoped_for_user(branch_pos_user).filter(
+            related_object_id=walk_in_statement.pk,
+            notification_type=Notification.NotificationType.STATEMENT_RELEASED,
+        ).exists())
+
     def test_mark_read_endpoint_marks_only_the_current_users_notification(self):
         notification = Notification.objects.create(
             user=self.pet_owner,
@@ -1151,6 +1541,21 @@ class NotificationRoutingTests(TestCase):
 
     @patch('notifications.signals.notify_inquiry_received')
     def test_inquiry_reaches_branch_admin_and_receptionist_alias(self, signal_notifier):
+        inquiries_module, _ = Module.objects.get_or_create(
+            code='inquiries',
+            defaults={'name': 'Inquiries'},
+        )
+        for role in (
+            self.cashier_role,
+            self.receptionist_role,
+            self.executive_role,
+        ):
+            ModulePermission.objects.get_or_create(
+                role=role,
+                module=inquiries_module,
+                permission_type=ModulePermission.PermissionType.VIEW,
+                defaults={'restrict_to_branch': True},
+            )
         cashier = User.objects.create_user(
             username='cashier', assigned_role=self.cashier_role, branch=self.branch,
         )
@@ -1245,6 +1650,7 @@ class NotificationRoutingTests(TestCase):
             source_product=SimpleNamespace(
                 name='Pet Medication', branch=self.branch,
             ),
+            destination_branch=self.branch,
             requested_by=requester,
         )
 
