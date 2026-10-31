@@ -960,7 +960,7 @@ def cancel_reservation_view(request, pk):
 
     messages.success(
         request, "Reservation cancelled. Stock has been restored.")
-    return redirect(f"{reverse('inventory:management')}?tab=items")
+    return redirect(f"{reverse('inventory:management')}?tab=reservations")
 
 
 @login_required

@@ -36,16 +36,16 @@
   <div class="c-tab-bar__glow"></div>
   <div class="c-tab-bar__indicator" id="invTabs-indicator"></div>
 
-  <button class="c-tab-btn active" data-tab="items" type="button" onclick="switchInvMode('items')">
+  <button class="c-tab-btn{% if active_inventory_tab == 'items' %} active{% endif %}" data-tab="items" type="button" onclick="switchInvMode('items')">
     <i class='bx bx-package c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Stock Items</span>
   </button>
-  <button class="c-tab-btn" data-tab="movements" type="button" onclick="switchInvMode('movements')">
+  <button class="c-tab-btn{% if active_inventory_tab == 'movements' %} active{% endif %}" data-tab="movements" type="button" onclick="switchInvMode('movements')">
     <i class='bx bx-history c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Stock Movements</span>
   </button>
   {% if can_view_reservations %}
-  <button class="c-tab-btn" data-tab="reservations" type="button" onclick="switchInvMode('reservations')">
+  <button class="c-tab-btn{% if active_inventory_tab == 'reservations' %} active{% endif %}" data-tab="reservations" type="button" onclick="switchInvMode('reservations')">
     <i class='bx bx-cart c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Reservations</span>
     {% if pending_reservation_count %}
@@ -59,7 +59,7 @@
 {% include "components/filter_bar.html" with form_action="/inventory/management/" form_id="inventoryFilterForm" search_name="q" search_value=search_value search_placeholder="Search by name, SKU, or description..." search_id="inventorySearch" filters=status_filters clear_url="/inventory/management/" show_clear=show_clear hidden_fields=filter_hidden_fields %}
 
 <!-- Items Section -->
-<div id="inv-items-section" class="inv-section active">
+<div id="inv-items-section" class="inv-section{% if active_inventory_tab == 'items' %} active{% endif %}" style="{% if active_inventory_tab != 'items' %}display: none;{% endif %}">
     <div class="dashboard-grid" style="grid-template-columns: 1fr;">
 <div class="admin-table-card">
         <div class="table-responsive">
@@ -154,7 +154,7 @@
 </div>
 
 <!-- Movements Section (Hidden by default) -->
-<div id="inv-movements-section" class="inv-section" style="display: none;">
+<div id="inv-movements-section" class="inv-section{% if active_inventory_tab == 'movements' %} active{% endif %}" style="{% if active_inventory_tab != 'movements' %}display: none;{% endif %}">
     <div class="dashboard-grid" style="grid-template-columns: 1fr;">
 <div class="admin-table-card">
         <div class="table-responsive">
@@ -222,7 +222,7 @@
 
 <!-- Reservations Section (Hidden by default) -->
 {% if can_view_reservations %}
-<div id="inv-reservations-section" class="inv-section" style="display: none;">
+<div id="inv-reservations-section" class="inv-section{% if active_inventory_tab == 'reservations' %} active{% endif %}" style="{% if active_inventory_tab != 'reservations' %}display: none;{% endif %}">
     <div class="dashboard-grid" style="grid-template-columns: 1fr;">
 <div class="admin-table-card">
         <div class="table-responsive">

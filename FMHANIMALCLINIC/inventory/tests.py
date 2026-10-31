@@ -699,7 +699,7 @@ class InventoryWorkflowTests(TestCase):
         reservation.refresh_from_db()
         self.assertEqual(reservation.status, Reservation.Status.PENDING)
 
-    def test_cancelling_reservation_returns_to_stock_items(self):
+    def test_cancelling_reservation_returns_to_reservations_tab(self):
         product = Product.objects.create(
             branch=self.branch,
             item_type='Product',
@@ -721,7 +721,7 @@ class InventoryWorkflowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, f"{reverse('inventory:management')}?tab=items")
+        self.assertEqual(response.url, f"{reverse('inventory:management')}?tab=reservations")
         reservation.refresh_from_db()
         self.assertEqual(reservation.status, Reservation.Status.CANCELLED)
 
@@ -1043,6 +1043,24 @@ class InventoryWorkflowTests(TestCase):
             '<input type="hidden" name="tab" value="movements">',
         )
         self.assertContains(response, "|| 'movements'")
+
+    def test_inventory_tabs_render_active_section_after_refresh(self):
+        self.client.force_login(self.admin)
+
+        movements_response = self.client.get(
+            reverse('inventory:management'),
+            {'tab': 'movements'},
+        )
+        self.assertContains(
+            movements_response,
+            '<div id="inv-movements-section" class="inv-section active" style="">',
+            html=False,
+        )
+        self.assertContains(
+            movements_response,
+            '<div id="inv-items-section" class="inv-section" style="display: none;">',
+            html=False,
+        )
 
     def test_superadmin_cannot_create_a_stock_transfer_request(self):
         self.admin.branch = self.branch
