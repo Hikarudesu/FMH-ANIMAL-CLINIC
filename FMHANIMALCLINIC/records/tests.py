@@ -23,6 +23,7 @@ from patients.models import Pet
 from settings.models import ClinicalStatus
 from .models import MedicalFile, MedicalRecord, RecordEntry
 from .models import validate_laboratory_image, validate_medical_file
+from .forms import MedicalRecordForm, RecordEntryForm
 from .views import (
     _get_pdf_styles,
     _pdf_link_callback,
@@ -58,6 +59,72 @@ class MedicalRecordOwnerEmailDisplayTests(TestCase):
         )
 
         self.assertEqual(pet.owner_display_email, 'walkin-owner@example.com')
+
+
+class ClinicalStatusSyncTests(TestCase):
+    def setUp(self):
+        self.healthy = ClinicalStatus.get_default()
+        self.treatment = ClinicalStatus.objects.create(
+            name='In Treatment',
+            code='TEST_TREATMENT',
+            description='Test treatment status',
+            order=1,
+        )
+        self.pet = Pet.objects.create(
+            name='Status Sync Patient',
+            species='Dog',
+            sex=Pet.Sex.FEMALE,
+        )
+        self.record = MedicalRecord.objects.create(
+            pet=self.pet,
+            date_recorded='2026-10-13',
+        )
+        self.entries = [
+            RecordEntry.objects.create(
+                record=self.record,
+                date_recorded='2026-10-13',
+                action_required=self.healthy,
+            ),
+            RecordEntry.objects.create(
+                record=self.record,
+                date_recorded='2026-10-14',
+                action_required=self.healthy,
+            ),
+        ]
+
+    def test_patient_status_update_syncs_all_record_entries(self):
+        self.pet.clinical_status = self.treatment
+        self.pet.save(update_fields=['clinical_status'])
+
+        self.assertTrue(
+            all(
+                entry.action_required_id == self.treatment.pk
+                for entry in RecordEntry.objects.filter(record=self.record)
+            )
+        )
+
+    def test_record_entry_status_update_syncs_pet_and_other_entries(self):
+        self.entries[0].action_required = self.treatment
+        self.entries[0].save(update_fields=['action_required'])
+
+        self.pet.refresh_from_db()
+        self.assertEqual(self.pet.clinical_status_id, self.treatment.pk)
+        self.assertTrue(
+            all(
+                entry.action_required_id == self.treatment.pk
+                for entry in RecordEntry.objects.filter(record=self.record)
+            )
+        )
+
+    def test_record_forms_use_the_pet_status(self):
+        self.pet.clinical_status = self.treatment
+        self.pet.save(update_fields=['clinical_status'])
+
+        record_form = MedicalRecordForm(instance=self.record)
+        entry_form = RecordEntryForm(instance=self.entries[0])
+
+        self.assertEqual(record_form['action_required'].value(), self.treatment.pk)
+        self.assertEqual(entry_form['action_required'].value(), self.treatment.pk)
 
 
 class ArchiveSoftDeleteTests(TestCase):
