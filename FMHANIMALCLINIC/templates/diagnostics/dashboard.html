@@ -23,8 +23,8 @@
   }
 
   .diag-section {
-    background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,1) 100%);
-    border: 1px solid rgba(30, 41, 59, 0.08);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 18px;
     overflow: hidden;
     box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
@@ -34,7 +34,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 14px 16px;
-    background: linear-gradient(180deg, #fafafa 0%, #f4f4f6 100%);
+    background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
   .diag-section-title {
@@ -43,7 +43,7 @@
     gap: 9px;
     font-size: 1.02rem;
     font-weight: 800;
-    color: var(--text-primary);
+    color: var(--text-1);
   }
   .diag-section-title i {
     font-size: 1.2rem;
@@ -69,7 +69,7 @@
     border: 1.5px solid var(--border);
     border-radius: 12px;
     font-size: 0.92rem;
-    background: #fff;
+    background: var(--surface);
     transition: all 0.2s ease;
   }
   .diag-search-input:focus {
@@ -82,7 +82,7 @@
     left: 13px;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--text-secondary);
+    color: var(--text-2);
     font-size: 18px;
   }
 
@@ -91,7 +91,7 @@
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
     margin-bottom: 9px;
@@ -123,13 +123,13 @@
   }
   .pet-card-name {
     font-weight: 800;
-    color: var(--text-primary);
+    color: var(--text-1);
     font-size: 1.03rem;
     line-height: 1.2;
   }
   .pet-card-meta {
     font-size: 0.82rem;
-    color: var(--text-secondary);
+    color: var(--text-2);
     margin-top: 3px;
     line-height: 1.35;
   }
@@ -151,7 +151,7 @@
     align-items: flex-start;
     gap: 11px;
     padding: 11px;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
     margin-bottom: 9px;
@@ -182,7 +182,7 @@
   }
   .diag-item-title {
     font-weight: 800;
-    color: var(--text-primary);
+    color: var(--text-1);
     font-size: 1.02rem;
     display: flex;
     align-items: center;
@@ -191,7 +191,7 @@
   }
   .diag-item-pet {
     font-size: 0.88rem;
-    color: var(--text-primary);
+    color: var(--text-1);
     margin-top: 3px;
   }
   .diag-item-meta {
@@ -200,7 +200,7 @@
     gap: 12px;
     flex-wrap: wrap;
     font-size: 0.8rem;
-    color: var(--text-secondary);
+    color: var(--text-2);
     margin-top: 5px;
   }
   .reviewed-badge {
@@ -213,10 +213,10 @@
   }
 
   .diag-delete-btn {
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
-    color: var(--text-secondary);
+    color: var(--text-2);
     width: 38px;
     height: 38px;
     cursor: pointer;
@@ -277,8 +277,8 @@
   }
 
   .diag-disclaimer {
-    background: #fffbeb;
-    border: 1px solid #fde68a;
+    background: color-mix(in srgb, #fef3c7 88%, var(--surface));
+    border: 1px solid #f59e0b;
     border-radius: 14px;
     padding: 12px 14px;
     margin-top: 16px;
@@ -304,7 +304,7 @@
   .diag-empty {
     text-align: center;
     padding: 30px 16px;
-    color: var(--text-secondary);
+    color: var(--text-2);
   }
   .diag-empty i {
     font-size: 40px;
@@ -313,6 +313,17 @@
   }
   .diag-empty p {
     font-size: 0.9rem;
+  }
+
+  [data-theme="dark"] .diag-disclaimer {
+    background: #332b16;
+    border-color: #a16207;
+  }
+  [data-theme="dark"] .diag-disclaimer-text {
+    color: #fde68a;
+  }
+  [data-theme="dark"] .diag-disclaimer-text strong {
+    color: #fef3c7;
   }
 </style>
 
@@ -452,7 +463,7 @@
       <div class="modal-body" style="text-align: center; padding-top: 16px;">
         <i class='bx bx-info-circle' style="font-size: 3.5rem; color: var(--accent); margin-bottom: 16px;"></i>
         <h4 style="margin-bottom: 10px; font-size: 1.15rem;">Delete <span id="deleteDiagnosisName"></span>?</h4>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5;">
+        <p style="color: var(--text-2); font-size: 0.95rem; line-height: 1.5;">
           Are you sure you want to delete this AI diagnosis? This action cannot be undone.
         </p>
       </div>
