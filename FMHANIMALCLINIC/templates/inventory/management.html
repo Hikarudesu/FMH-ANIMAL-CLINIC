@@ -36,30 +36,30 @@
   <div class="c-tab-bar__glow"></div>
   <div class="c-tab-bar__indicator" id="invTabs-indicator"></div>
 
-  <button class="c-tab-btn active" data-tab="items" type="button" onclick="switchInvMode('items')">
+  <button class="c-tab-btn{% if active_inventory_tab == 'items' %} active{% endif %}" data-tab="items" type="button" onclick="switchInvMode('items')">
     <i class='bx bx-package c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Stock Items</span>
   </button>
-  <button class="c-tab-btn" data-tab="movements" type="button" onclick="switchInvMode('movements')">
+  <button class="c-tab-btn{% if active_inventory_tab == 'movements' %} active{% endif %}" data-tab="movements" type="button" onclick="switchInvMode('movements')">
     <i class='bx bx-history c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Stock Movements</span>
   </button>
   {% if can_view_reservations %}
-  <button class="c-tab-btn" data-tab="reservations" type="button" onclick="switchInvMode('reservations')">
+  <button class="c-tab-btn{% if active_inventory_tab == 'reservations' %} active{% endif %}" data-tab="reservations" type="button" onclick="switchInvMode('reservations')">
     <i class='bx bx-cart c-tab-btn__icon'></i>
     <span class="c-tab-btn__label">Reservations</span>
-    {% if pending_reservations %}
-    <span class="c-tab-btn__badge">{{ pending_reservations|length }}</span>
+    {% if pending_reservation_count %}
+    <span class="c-tab-btn__badge">{{ pending_reservation_count }}</span>
     {% endif %}
   </button>
   {% endif %}
 </div>
 
 <!-- Filter Bar -->
-{% include "components/filter_bar.html" with form_action="/inventory/management/" form_id="inventoryFilterForm" search_name="q" search_value=search_value search_placeholder="Search by name, SKU, or description..." search_id="inventorySearch" filters=status_filters clear_url="/inventory/management/" show_clear=show_clear %}
+{% include "components/filter_bar.html" with form_action="/inventory/management/" form_id="inventoryFilterForm" search_name="q" search_value=search_value search_placeholder="Search by name, SKU, or description..." search_id="inventorySearch" filters=status_filters clear_url="/inventory/management/" show_clear=show_clear hidden_fields=filter_hidden_fields %}
 
 <!-- Items Section -->
-<div id="inv-items-section" class="inv-section active">
+<div id="inv-items-section" class="inv-section{% if active_inventory_tab == 'items' %} active{% endif %}" style="{% if active_inventory_tab != 'items' %}display: none;{% endif %}">
     <div class="dashboard-grid" style="grid-template-columns: 1fr;">
 <div class="admin-table-card">
         <div class="table-responsive">
@@ -154,7 +154,7 @@
 </div>
 
 <!-- Movements Section (Hidden by default) -->
-<div id="inv-movements-section" class="inv-section" style="display: none;">
+<div id="inv-movements-section" class="inv-section{% if active_inventory_tab == 'movements' %} active{% endif %}" style="{% if active_inventory_tab != 'movements' %}display: none;{% endif %}">
     <div class="dashboard-grid" style="grid-template-columns: 1fr;">
 <div class="admin-table-card">
         <div class="table-responsive">
@@ -213,7 +213,7 @@
         
         {% if adjustments %}
         <div id="inv-movements-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
-          {% include "components/modern_pagination.html" with page_obj=adjustments page_param="movements_page" url_fragment="inv-movements-section" %}
+          {% include "components/modern_pagination.html" with page_obj=adjustments page_param="movements_page" url_fragment="inv-movements-pagination" %}
         </div>
         {% endif %}
       </div>
@@ -222,7 +222,7 @@
 
 <!-- Reservations Section (Hidden by default) -->
 {% if can_view_reservations %}
-<div id="inv-reservations-section" class="inv-section" style="display: none;">
+<div id="inv-reservations-section" class="inv-section{% if active_inventory_tab == 'reservations' %} active{% endif %}" style="{% if active_inventory_tab != 'reservations' %}display: none;{% endif %}">
     <div class="dashboard-grid" style="grid-template-columns: 1fr;">
 <div class="admin-table-card">
         <div class="table-responsive">
@@ -233,7 +233,7 @@
                 <th style="text-align: center;">Customer</th>
                 <th style="text-align: center;">Product</th>
                 <th style="text-align: center;">Qty</th>
-                <th style="text-align: center;">Date</th>
+                <th style="text-align: center;">Pickup Date</th>
                 <th style="text-align: center;">Notes</th>
                 <th style="text-align: center;">Status</th>
                 {% if can_manage_reservations %}
@@ -251,7 +251,13 @@
                 </td>
                 <td style="text-align: center;">{{ rsv.product.name }}</td>
                 <td style="text-align: center; font-weight: 700;">{{ rsv.quantity }}</td>
-                <td style="text-align: center; white-space: nowrap;" class="cell-secondary">{{ rsv.created_at|date:"M j, Y g:i A" }}</td>
+                <td style="text-align: center; white-space: nowrap;" class="cell-secondary">
+                  {% if rsv.pickup_date %}
+                    {{ rsv.pickup_date|date:"M j, Y" }}
+                  {% else %}
+                    To be arranged
+                  {% endif %}
+                </td>
                 <td style="text-align: center; font-size: 0.85rem; color: var(--text-2); max-width: 200px;">{{ rsv.notes|default:"-" }}</td>
                 <td style="text-align: center;">
                     <span style="
@@ -265,11 +271,19 @@
                 {% if can_manage_reservations %}
                 <td style="text-align: center;">
                   {% if rsv.status == 'Pending' %}
-                    <button type="button"
-                       class="btn-action primary" style="padding: 5px 14px; font-size: 0.78rem;"
-                       onclick="openReleaseReservationModal('{% url 'inventory:confirm_reservation' rsv.pk %}', 'RSV-{{ rsv.pk }}', '{{ rsv.product.name|escapejs }}')">
-                      <i class='bx bx-check'></i> Released
-                    </button>
+                    {% if not rsv.pickup_date or rsv.pickup_date <= today %}
+                      <button type="button"
+                         class="btn-action primary" style="padding: 5px 14px; font-size: 0.78rem;"
+                         onclick="openReleaseReservationModal('{% url 'inventory:confirm_reservation' rsv.pk %}', 'RSV-{{ rsv.pk }}', '{{ rsv.product.name|escapejs }}')">
+                        <i class='bx bx-check'></i> Released
+                      </button>
+                    {% else %}
+                      <button type="button"
+                         class="btn-action outline" style="padding: 5px 14px; font-size: 0.78rem; opacity: .6; cursor: not-allowed;"
+                         title="Can be released on {{ rsv.pickup_date|date:'M j, Y' }}" disabled>
+                        <i class='bx bx-time-five'></i> Release on {{ rsv.pickup_date|date:"M j" }}
+                      </button>
+                    {% endif %}
                     <button type="button"
                        class="btn-action outline"
                        style="padding: 5px 14px; font-size: 0.78rem; color: var(--danger);"
@@ -296,7 +310,7 @@
 
         {% if pending_reservations %}
         <div id="inv-reservations-pagination" style="margin-top: 16px; padding: 0 16px 16px 16px;">
-          {% include "components/modern_pagination.html" with page_obj=pending_reservations page_param="reservations_page" url_fragment="inv-reservations-section" %}
+          {% include "components/modern_pagination.html" with page_obj=pending_reservations page_param="reservations_page" url_fragment="inv-reservations-pagination" %}
         </div>
         {% endif %}
       </div>
@@ -321,6 +335,8 @@ function switchInvMode(mode) {
 
     const activeBtn = document.querySelector(`.c-tab-btn[data-tab="${mode}"]`);
     const indicator = document.getElementById('invTabs-indicator');
+    const tabField = document.querySelector('#inventoryFilterForm input[name="tab"]');
+    if (tabField) tabField.value = mode;
     if (activeBtn && indicator) {
         indicator.style.width = activeBtn.offsetWidth + 'px';
         indicator.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
@@ -328,6 +344,16 @@ function switchInvMode(mode) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    const sectionByHash = {
+        '#inv-items-section': 'items',
+        '#inv-movements-section': 'movements',
+        '#inv-movements-pagination': 'movements',
+        '#inv-reservations-section': 'reservations',
+        '#inv-reservations-pagination': 'reservations',
+    };
+    const activeMode = sectionByHash[window.location.hash] || '{{ active_inventory_tab|escapejs }}';
+    if (activeMode) switchInvMode(activeMode);
+
     // Make sure indicator moves immediately on load
     setTimeout(() => {
         const activeBtn = document.querySelector('.c-tab-btn.active');
@@ -408,10 +434,18 @@ window.closeCancelReservationModal = function() {
 }
 
 window.openReleaseReservationModal = function(url, reservationId, productName) {
-  document.getElementById('releaseReservationId').textContent = reservationId;
-  document.getElementById('releaseReservationProduct').textContent = productName;
-  document.getElementById('releaseReservationForm').action = url;
-  document.getElementById('releaseReservationModal').classList.add('active');
+  const reservationIdElement = document.getElementById('releaseReservationId');
+  const productElement = document.getElementById('releaseReservationProduct');
+  const formElement = document.getElementById('releaseReservationForm');
+  const modalElement = document.getElementById('releaseReservationModal');
+  if (!reservationIdElement || !productElement || !formElement || !modalElement) {
+    console.error('Release reservation modal is missing required elements.');
+    return;
+  }
+  reservationIdElement.textContent = reservationId;
+  productElement.textContent = productName;
+  formElement.action = url;
+  modalElement.classList.add('active');
 }
 
 window.closeReleaseReservationModal = function() {
@@ -491,21 +525,24 @@ window.closeReleaseReservationModal = function() {
 <div class="modal-overlay" id="releaseReservationModal">
   <div class="modal-content" style="max-width: 480px;">
     <div class="modal-header">
-      <h3 style="color: #059669;"><i class='bx bx-info-circle'></i> Release Reservation</h3>
+      <h3 style="color: #059669;"><i class='bx bx-wallet'></i> Proceed to Payment</h3>
       <button type="button" class="modal-close" onclick="closeReleaseReservationModal()">&times;</button>
     </div>
     <form id="releaseReservationForm" method="post" action="">
       {% csrf_token %}
       <div class="modal-body" style="text-align: center; padding-top: 30px;">
         <i class='bx bx-check-circle' style="font-size: 4rem; color: #059669; margin-bottom: 16px;"></i>
-        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Release <span id="releaseReservationId"></span>?</h4>
+        <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Proceed with <span id="releaseReservationId"></span>?</h4>
+        <div style="font-weight: 600; color: var(--text-1); margin-bottom: 10px;">
+          Product: <span id="releaseReservationProduct"></span>
+        </div>
         <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
-          Are you completely sure you want to mark the reservation for <strong id="releaseReservationProduct"></strong> as released? This action cannot be undone.
+        This will open the reservation in the Point of Sale with the customer, product, quantity, and reservation details filled in automatically. The reservation will only be released after payment is successfully recorded.
         </p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-cancel" onclick="closeReleaseReservationModal()">Cancel</button>
-        <button type="submit" class="btn-submit" style="background:#059669; border-color:#059669; color:white;">Yes, Release Reservation</button>
+        <button type="submit" class="btn-submit" style="background:#059669; border-color:#059669; color:white;">Proceed to POS Payment</button>
       </div>
     </form>
   </div>
@@ -600,4 +637,3 @@ window.closeReleaseReservationModal = function() {
 /* Removed old tab-bar styles */
 </style>
 {% endblock %}
-

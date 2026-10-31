@@ -1058,10 +1058,9 @@ def admin_workflow_action(request, pk, action):
             is_completed=False,
             is_expired=False,
         ).update(is_completed=True)
-    if appointment.user:
-        notify_appointment_status_change(
-            appointment, appointment.status, actor=request.user,
-        )
+    notify_appointment_status_change(
+        appointment, appointment.status, actor=request.user,
+    )
     notify_staff_appointment_status_change(
         appointment, appointment.status, actor=request.user,
     )
@@ -1954,9 +1953,12 @@ def admin_quick_create(request):
             # Send email confirmation
             send_appointment_confirmation(appointment)
 
-            # Notify user if appointment is confirmed and has a linked user
-            if appointment.status == 'CONFIRMED' and appointment.user:
-                notify_appointment_status_change(appointment, 'CONFIRMED', actor=request.user)
+            # Notify a registered owner about the initial appointment status.
+            notify_appointment_status_change(
+                appointment,
+                appointment.status,
+                actor=request.user,
+            )
             
             # Also notify vet assistants about the appointment status
             notify_staff_appointment_status_change(appointment, appointment.status, actor=request.user)
@@ -2019,6 +2021,9 @@ def admin_edit(request, pk):
                 )
                 return redirect('appointments:admin_detail', pk=pk)
             original_status = appointment.status
+            original_date = appointment.appointment_date
+            original_time = appointment.appointment_time
+            original_branch_id = appointment.branch_id
             AppointmentService.lock_booking_schedule(
                 request.POST.get('branch'),
                 request.POST.get('appointment_date'),
@@ -2032,26 +2037,47 @@ def admin_edit(request, pk):
             from appointments.utils import sync_pet_from_appointment
             sync_pet_from_appointment(updated_appointment)
 
-            # Check if status changed and notify user
+            rescheduled = (
+                updated_appointment.appointment_date != original_date
+                or updated_appointment.appointment_time != original_time
+                or updated_appointment.branch_id != original_branch_id
+            )
+
+            # Check if status or appointment time changed and notify the owner.
             if updated_appointment.status != original_status and updated_appointment.user:
                 notify_appointment_status_change(
                     updated_appointment,
                     updated_appointment.status,
                     actor=request.user,
                 )
+            elif rescheduled and updated_appointment.user:
+                notify_appointment_status_change(
+                    updated_appointment,
+                    'RESCHEDULED',
+                    actor=request.user,
+                )
             
-            # Also notify vet assistants about the appointment status change
+            # Notify appointment staff about status changes and rescheduling.
             if updated_appointment.status != original_status:
                 notify_staff_appointment_status_change(
                     updated_appointment,
                     updated_appointment.status,
                     actor=request.user,
                 )
-                if updated_appointment.status == Appointment.Status.COMPLETED:
-                    notify_veterinarian_medical_record_required(
-                        updated_appointment,
-                        actor=request.user,
-                    )
+            elif rescheduled:
+                notify_staff_appointment_status_change(
+                    updated_appointment,
+                    'RESCHEDULED',
+                    actor=request.user,
+                )
+            if (
+                updated_appointment.status == Appointment.Status.COMPLETED
+                and updated_appointment.status != original_status
+            ):
+                notify_veterinarian_medical_record_required(
+                    updated_appointment,
+                    actor=request.user,
+                )
 
             # Handle follow-up creation
             if updated_appointment.status == Appointment.Status.CANCELLED:

@@ -211,7 +211,7 @@
           <!-- First Page Button -->
           {% if refunds.has_previous %}
             <li>
-              <a href="?page=1&{{ request.GET.urlencode }}"
+              <a href="?page=1{% if pagination_query %}&{{ pagination_query }}{% endif %}"
                  class="pagination-btn nav-btn" title="First Page">
                 <i class='bx bx-chevrons-left'></i>
               </a>
@@ -221,7 +221,7 @@
           <!-- Previous Button -->
           {% if refunds.has_previous %}
             <li>
-              <a href="?page={{ refunds.previous_page_number }}&{{ request.GET.urlencode }}"
+              <a href="?page={{ refunds.previous_page_number }}{% if pagination_query %}&{{ pagination_query }}{% endif %}"
                  class="pagination-btn nav-btn" title="Previous">
                 <i class='bx bx-chevron-left'></i>
               </a>
@@ -244,14 +244,14 @@
               </li>
             {% elif num > refunds.number|add:'-3' and num < refunds.number|add:'3' %}
               <li>
-                <a href="?page={{ num }}&{{ request.GET.urlencode }}"
+                <a href="?page={{ num }}{% if pagination_query %}&{{ pagination_query }}{% endif %}"
                    class="pagination-btn">
                   {{ num }}
                 </a>
               </li>
             {% elif num == 1 or num == refunds.paginator.num_pages %}
               <li>
-                <a href="?page={{ num }}&{{ request.GET.urlencode }}"
+                <a href="?page={{ num }}{% if pagination_query %}&{{ pagination_query }}{% endif %}"
                    class="pagination-btn">
                   {{ num }}
                 </a>
@@ -266,7 +266,7 @@
           <!-- Next Button -->
           {% if refunds.has_next %}
             <li>
-              <a href="?page={{ refunds.next_page_number }}&{{ request.GET.urlencode }}"
+              <a href="?page={{ refunds.next_page_number }}{% if pagination_query %}&{{ pagination_query }}{% endif %}"
                  class="pagination-btn nav-btn" title="Next">
                 <i class='bx bx-chevron-right'></i>
               </a>
@@ -282,7 +282,7 @@
           <!-- Last Page Button -->
           {% if refunds.has_next %}
             <li>
-              <a href="?page={{ refunds.paginator.num_pages }}&{{ request.GET.urlencode }}"
+              <a href="?page={{ refunds.paginator.num_pages }}{% if pagination_query %}&{{ pagination_query }}{% endif %}"
                  class="pagination-btn nav-btn" title="Last Page">
                 <i class='bx bx-chevrons-right'></i>
               </a>

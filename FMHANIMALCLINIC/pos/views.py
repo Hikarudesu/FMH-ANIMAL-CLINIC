@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -22,7 +23,7 @@ from accounts.decorators import module_permission_required, special_permission_r
 from accounts.models import User
 from billing.models import Service
 from branches.models import Branch
-from inventory.models import Product
+from inventory.models import Product, Reservation
 from patients.models import Pet
 from appointments.models import Appointment
 from settings.utils import get_inventory_item_type_options
@@ -54,6 +55,7 @@ def checkout(request):
         messages.warning(request, 'Assign a branch before using the Point of Sale.')
         return redirect('accounts:select_branch')
     appointment_id = request.GET.get('appointment', '').strip()
+    reservation_id = request.GET.get('reservation', '').strip()
 
     # Discard abandoned carts, then restore only this cashier's active sale.
     Sale.objects.filter(
@@ -65,6 +67,7 @@ def checkout(request):
 
     with transaction.atomic():
         appointment = None
+        reservation = None
         if appointment_id:
             appointment = get_object_or_404(
                 Appointment.objects.select_for_update(),
@@ -78,6 +81,50 @@ def checkout(request):
                 raise PermissionDenied
             branch = appointment.branch
 
+        elif reservation_id:
+            reservation = get_object_or_404(
+                Reservation.objects.select_for_update().select_related(
+                    'product', 'product__branch', 'user'
+                ),
+                pk=reservation_id,
+                status=Reservation.Status.PENDING,
+            )
+            if reservation.product.branch_id != branch.pk:
+                raise PermissionDenied
+            if reservation.sale_id:
+                if (
+                    reservation.sale.status != Sale.Status.PENDING
+                    or reservation.sale.cashier_id != request.user.pk
+                    or reservation.sale.branch_id != branch.pk
+                ):
+                    messages.error(request, 'This reservation is already assigned to another cashier or has been paid.')
+                    return redirect('inventory:management')
+                pending_sale = reservation.sale
+            else:
+                pending_sale = Sale.objects.create(
+                    branch=branch,
+                    cashier=request.user,
+                    customer_type=Sale.CustomerType.REGISTERED,
+                    customer=reservation.user,
+                    guest_name=reservation.user.get_full_name() or reservation.user.username,
+                    guest_phone=getattr(reservation.user, 'phone_number', '') or '',
+                    guest_email=reservation.user.email or '',
+                    notes=f'Reservation RSV-{reservation.pk}',
+                )
+                SaleItem.objects.create(
+                    sale=pending_sale,
+                    item_type=(
+                        SaleItem.ItemType.MEDICATION
+                        if reservation.product.item_type.casefold() == 'medication'
+                        else SaleItem.ItemType.PRODUCT
+                    ),
+                    product=reservation.product,
+                    name=reservation.product.name,
+                    unit_price=reservation.product.price,
+                    quantity=reservation.quantity,
+                )
+                reservation.sale = pending_sale
+                reservation.save(update_fields=['sale', 'updated_at'])
         if appointment and appointment.sale_id:
             if (
                 appointment.sale.status != Sale.Status.PENDING
@@ -94,7 +141,7 @@ def checkout(request):
             )
             appointment.sale = pending_sale
             appointment.save(update_fields=['sale', 'updated_at'])
-        else:
+        elif not reservation:
             pending_sale = Sale.objects.filter(
                 branch=branch,
                 cashier=request.user,
@@ -134,6 +181,11 @@ def checkout(request):
     context = {
         'sale': pending_sale,
         'appointment': appointment,
+        'reservation': reservation,
+        'reservation_return_url': (
+            f"{reverse('inventory:management')}?tab=reservations"
+            if reservation else ''
+        ),
         'items': pending_sale.items.all(),
         'services': services,
         'inventory_item_types': get_inventory_item_type_options(),
@@ -170,6 +222,12 @@ def add_item(request):
         )
     except Sale.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
+
+    if Reservation.objects.filter(sale=sale).exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Reservation items are locked until payment is completed.',
+        }, status=400)
 
     with transaction.atomic():
         # Get the item based on type
@@ -253,6 +311,11 @@ def remove_item(request):
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     try:
+        if Reservation.objects.filter(sale__items__id=item_id).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Reservation items are locked until payment is completed.',
+            }, status=400)
         item = SaleItem.objects.get(
             pk=item_id,
             sale__cashier=request.user,
@@ -292,6 +355,11 @@ def update_item_quantity(request):
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     try:
+        if Reservation.objects.filter(sale__items__id=item_id).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Reservation quantity is locked until payment is completed.',
+            }, status=400)
         item = SaleItem.objects.get(
             pk=item_id,
             sale__cashier=request.user,
@@ -364,6 +432,12 @@ def update_sale_info(request):
         )
     except Sale.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
+
+    if Reservation.objects.filter(sale=sale).exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Reservation customer and product details are locked until payment is completed.',
+        }, status=400)
 
     # Track which fields to save
     update_fields = ['customer_type', 'guest_name', 'guest_phone', 'guest_email', 'guest_pet_name', 'notes']
@@ -488,7 +562,22 @@ def _process_payment(request):
             return JsonResponse({'success': False, 'error': 'Sale not found'}, status=404)
 
         appointment = sale.appointments.select_for_update().first()
-        if appointment:
+        reservation = Reservation.objects.select_for_update().filter(sale=sale).first()
+        if reservation:
+            if reservation.status != Reservation.Status.PENDING:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'This reservation is no longer awaiting payment.',
+                }, status=409)
+            customer_type = Sale.CustomerType.REGISTERED
+            sale.customer = reservation.user
+            sale.customer_type = customer_type
+            sale.pet = None
+            sale.guest_name = reservation.user.get_full_name() or reservation.user.username
+            sale.guest_phone = getattr(reservation.user, 'phone_number', '') or ''
+            sale.guest_email = reservation.user.email or ''
+            sale.guest_pet_name = ''
+        elif appointment:
             if (
                 appointment.status != Appointment.Status.AWAITING_PAYMENT
                 or appointment.branch_id != sale.branch_id
@@ -515,7 +604,9 @@ def _process_payment(request):
                 'total': str(sale.total),
             }, status=400)
 
-        if appointment and appointment.user_id:
+        if reservation:
+            pass
+        elif appointment and appointment.user_id:
             sale.customer_type = Sale.CustomerType.REGISTERED
             sale.customer = appointment.user
             sale.pet = appointment.pet
@@ -589,6 +680,9 @@ def _process_payment(request):
                     status=409,
                 )
             completed = True
+            if reservation:
+                reservation.status = Reservation.Status.RELEASED
+                reservation.save(update_fields=['status', 'updated_at'])
         else:
             completed = False
 
@@ -656,11 +750,14 @@ def cancel_sale(request, sale_id):
             branch=request.user.branch,
             status=Sale.Status.PENDING,
         )
+        reservation_sale = Reservation.objects.filter(sale=sale).exists()
         sale.delete()
         messages.info(request, 'Sale cancelled.')
     except Sale.DoesNotExist:
         messages.error(request, 'Sale not found or already completed.')
 
+    if reservation_sale:
+        return redirect(f"{reverse('inventory:management')}?tab=reservations")
     return redirect('pos:checkout')
 
 
@@ -725,9 +822,12 @@ def sales_list(request):
     paginator = Paginator(sales.order_by('-created_at'), 10)
     page = request.GET.get('page', 1)
     sales = paginator.get_page(page)
+    pagination_query = request.GET.copy()
+    pagination_query.pop('page', None)
 
     context = {
         'sales': sales,
+        'pagination_query': pagination_query.urlencode(),
         'totals': totals,
         'status_choices': Sale.Status.choices,
         'customer_type_choices': Sale.CustomerType.choices,
@@ -1108,9 +1208,12 @@ def refund_list(request):
     paginator = Paginator(refunds, 10)
     page = request.GET.get('page', 1)
     refunds = paginator.get_page(page)
+    pagination_query = request.GET.copy()
+    pagination_query.pop('page', None)
 
     context = {
         'refunds': refunds,
+        'pagination_query': pagination_query.urlencode(),
         'status_choices': Refund.Status.choices,
         'refund_type_choices': Refund.RefundType.choices,
         'can_approve_refunds': request.user.has_special_permission(

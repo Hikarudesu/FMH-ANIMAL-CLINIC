@@ -250,6 +250,92 @@ class InventoryWorkflowTests(TestCase):
         )
         self.assertNotContains(response, 'Other Branch Catalog Item')
 
+    def test_catalog_keeps_my_reservations_tab_after_refresh(self):
+        reservation_product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Catalog Reservation Item',
+            price=20,
+            stock_quantity=5,
+        )
+        Reservation.objects.create(
+            user=self.admin,
+            product=reservation_product,
+            quantity=1,
+            status=Reservation.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('inventory:catalog'),
+            {'tab': 'reservations'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['active_catalog_tab'], 'reservations')
+        self.assertContains(
+            response,
+            'switchCatalogTab("reservations")',
+        )
+
+    def test_catalog_uses_modern_pagination_after_ten_products(self):
+        for index in range(11):
+            Product.objects.create(
+                branch=self.branch,
+                item_type='Product',
+                name=f'Catalog Page Item {index}',
+                price=20,
+            )
+        self.client.force_login(self.admin)
+
+        first_page = self.client.get(
+            reverse('inventory:catalog'),
+            {'branch': str(self.branch.pk), 'tab': 'products'},
+        )
+        second_page = self.client.get(
+            reverse('inventory:catalog'),
+            {'branch': str(self.branch.pk), 'tab': 'products', 'page': 2},
+        )
+
+        self.assertEqual(first_page.status_code, 200)
+        self.assertEqual(first_page.context['page_obj'].paginator.per_page, 10)
+        self.assertEqual(len(first_page.context['page_obj']), 10)
+        self.assertContains(first_page, '?page=2&branch=' + str(self.branch.pk) + '&tab=products')
+        self.assertEqual(second_page.context['page_obj'].number, 2)
+        self.assertEqual(len(second_page.context['page_obj']), 1)
+
+    def test_catalog_my_reservations_uses_modern_pagination_after_ten_reservations(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Paginated Reservation Item',
+            price=20,
+            stock_quantity=10,
+        )
+        for index in range(11):
+            Reservation.objects.create(
+                user=self.admin,
+                product=product,
+                quantity=1,
+                status=Reservation.Status.PENDING,
+            )
+        self.client.force_login(self.admin)
+
+        first_page = self.client.get(
+            reverse('inventory:catalog'),
+            {'tab': 'reservations'},
+        )
+        second_page = self.client.get(
+            reverse('inventory:catalog'),
+            {'tab': 'reservations', 'reservation_page': 2},
+        )
+
+        self.assertEqual(first_page.context['user_reservations'].paginator.per_page, 10)
+        self.assertEqual(len(first_page.context['user_reservations']), 10)
+        self.assertContains(first_page, '?reservation_page=2&tab=reservations')
+        self.assertEqual(second_page.context['user_reservations'].number, 2)
+        self.assertEqual(len(second_page.context['user_reservations']), 1)
+
     @patch('inventory.views.get_inventory_low_stock_threshold', return_value=10)
     @patch('inventory.models.get_inventory_low_stock_threshold', return_value=10)
     def test_stock_monitor_uses_global_threshold_and_reports_shortfall(self, _model_threshold, _view_threshold):
@@ -671,6 +757,104 @@ class InventoryWorkflowTests(TestCase):
         reservation.refresh_from_db()
         self.assertEqual(reservation.status, Reservation.Status.PENDING)
 
+    def test_cancelling_reservation_returns_to_reservations_tab(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Cancelled Reservation Item',
+            price=20,
+            stock_quantity=5,
+        )
+        reservation = Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            quantity=2,
+            status=Reservation.Status.PENDING,
+        )
+        staff = self.create_reservation_manager(self.branch)
+        self.client.force_login(staff)
+
+        response = self.client.post(
+            reverse('inventory:cancel_reservation', args=[reservation.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, f"{reverse('inventory:management')}?tab=reservations")
+        reservation.refresh_from_db()
+        self.assertEqual(reservation.status, Reservation.Status.CANCELLED)
+
+    def test_confirming_reservation_uses_explicit_pos_checkout_route(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='POS Redirect Item',
+            price=20,
+            stock_quantity=5,
+        )
+        reservation = Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            quantity=1,
+            status=Reservation.Status.PENDING,
+        )
+        manager = self.create_reservation_manager(self.branch)
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            reverse('inventory:confirm_reservation', args=[reservation.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            f"{reverse('pos:checkout_alt')}?reservation={reservation.pk}",
+        )
+
+    def test_pending_reservation_quantity_syncs_inventory(self):
+        product = Product.objects.create(
+            branch=self.branch,
+            item_type='Product',
+            name='Adjustable Reserved Item',
+            price=20,
+            stock_quantity=8,
+        )
+        reservation = Reservation.objects.create(
+            user=self.admin,
+            product=product,
+            quantity=2,
+            status=Reservation.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+
+        increase_response = self.client.post(
+            reverse('inventory:update_reservation_quantity', args=[reservation.pk]),
+            {'quantity': 3},
+        )
+
+        self.assertEqual(increase_response.status_code, 200)
+        reservation.refresh_from_db()
+        product.refresh_from_db()
+        self.assertEqual(reservation.quantity, 3)
+        self.assertEqual(product.stock_quantity, 7)
+        self.assertEqual(
+            StockAdjustment.objects.filter(
+                reference=f'RSV-{reservation.pk}-QTY',
+                adjustment_type='REMOVE',
+            ).count(),
+            1,
+        )
+
+        decrease_response = self.client.post(
+            reverse('inventory:update_reservation_quantity', args=[reservation.pk]),
+            {'quantity': 1},
+        )
+
+        self.assertEqual(decrease_response.status_code, 200)
+        reservation.refresh_from_db()
+        product.refresh_from_db()
+        self.assertEqual(reservation.quantity, 1)
+        self.assertEqual(product.stock_quantity, 9)
+
     def test_stock_adjustment_reaching_zero_marks_item_unavailable(self):
         product = Product.objects.create(
             branch=self.branch,
@@ -928,6 +1112,40 @@ class InventoryWorkflowTests(TestCase):
         self.assertEqual(movements_page_response.context['products'].number, 1)
         self.assertEqual(movements_page_response.context['adjustments'].number, 2)
         self.assertContains(movements_page_response, '?items_page=2&movements_page=2')
+
+    def test_inventory_movement_filter_keeps_movements_tab_active(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('inventory:management'),
+            {'tab': 'movements', 'type': 'Product'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['active_inventory_tab'], 'movements')
+        self.assertContains(
+            response,
+            '<input type="hidden" name="tab" value="movements">',
+        )
+        self.assertContains(response, "|| 'movements'")
+
+    def test_inventory_tabs_render_active_section_after_refresh(self):
+        self.client.force_login(self.admin)
+
+        movements_response = self.client.get(
+            reverse('inventory:management'),
+            {'tab': 'movements'},
+        )
+        self.assertContains(
+            movements_response,
+            '<div id="inv-movements-section" class="inv-section active" style="">',
+            html=False,
+        )
+        self.assertContains(
+            movements_response,
+            '<div id="inv-items-section" class="inv-section" style="display: none;">',
+            html=False,
+        )
 
     def test_superadmin_cannot_create_a_stock_transfer_request(self):
         self.admin.branch = self.branch

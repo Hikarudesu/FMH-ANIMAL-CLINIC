@@ -293,6 +293,7 @@ def notify_inquiry_received(inquiry):
         related_object_id=inquiry.id,
     )
     
+<<<<<<< HEAD
     notify_module_users(
         module_code='inquiries',
         branch=inquiry.branch,
@@ -303,13 +304,38 @@ def notify_inquiry_received(inquiry):
         related_object_id=inquiry.id,
         exclude_user_ids=superadmin_ids,
     )
+=======
+    # Notify branch cashiers/receptionists. If no branch was selected, notify
+    # all active cashiers so the inquiry is not left unowned.
+    for role_code in (('cashier', 'receptionist'), 'executive_officer'):
+        notify_role_users(
+            role_code=role_code,
+            branch=inquiry.branch,
+            title='New Inquiry Received',
+            message=message,
+            notification_type=Notification.NotificationType.INQUIRY_NEW,
+            module_context=Notification.ModuleContext.INQUIRIES,
+            related_object_id=inquiry.id,
+        )
+>>>>>>> f5ce28ea1168901cb70e0cde2cbe6cc33794e49f
 
 
 def notify_inquiry_responded(inquiry, responder=None):
-    """Create a notification when an inquiry is responded to."""
+    """Create a notification and deliver the client response email."""
     responder_name = ((responder.get_full_name() or responder.username) if responder else 'a staff member')
     message = f'Inquiry from {inquiry.full_name} was marked responded by {responder_name}.'
-    
+
+    response_tracking_updates = []
+    if responder is not None and inquiry.responded_by_id != responder.pk:
+        inquiry.responded_by = responder
+        response_tracking_updates.append('responded_by')
+    if inquiry.response and inquiry.response_date is None:
+        inquiry.response_date = timezone.now()
+        response_tracking_updates.append('response_date')
+    if response_tracking_updates:
+        response_tracking_updates.append('updated_at')
+        inquiry.save(update_fields=response_tracking_updates)
+
     # Notify superadmins
     superadmin_ids = _notify_superadmins(
         title='Inquiry Responded',
@@ -318,7 +344,14 @@ def notify_inquiry_responded(inquiry, responder=None):
         module_context=Notification.ModuleContext.INQUIRIES,
         related_object_id=inquiry.id,
     )
+
+    email_sent = False
+    if inquiry.response and inquiry.email:
+        from inquiries.email_service import send_inquiry_response_email
+
+        email_sent = send_inquiry_response_email(inquiry)
     
+<<<<<<< HEAD
     notify_module_users(
         module_code='inquiries',
         branch=inquiry.branch,
@@ -329,6 +362,19 @@ def notify_inquiry_responded(inquiry, responder=None):
         related_object_id=inquiry.id,
         exclude_user_ids=superadmin_ids,
     )
+=======
+    for role_code in (('cashier', 'receptionist'), 'executive_officer'):
+        notify_role_users(
+            role_code=role_code,
+            branch=inquiry.branch,
+            title='Inquiry Responded',
+            message=message,
+            notification_type=Notification.NotificationType.INQUIRY_RESPONDED,
+            module_context=Notification.ModuleContext.INQUIRIES,
+            related_object_id=inquiry.id,
+        )
+    return email_sent
+>>>>>>> f5ce28ea1168901cb70e0cde2cbe6cc33794e49f
 
 
 def notify_inquiry_archived(inquiry, actor=None):
@@ -345,6 +391,7 @@ def notify_inquiry_archived(inquiry, actor=None):
         related_object_id=inquiry.id,
     )
     
+<<<<<<< HEAD
     notify_module_users(
         module_code='inquiries',
         branch=inquiry.branch,
@@ -362,6 +409,18 @@ def _stock_transfer_requester_id(transfer):
     if requester_id is not None:
         return requester_id
     return getattr(getattr(transfer, 'requested_by', None), 'pk', None)
+=======
+    for role_code in (('cashier', 'receptionist'), 'executive_officer'):
+        notify_role_users(
+            role_code=role_code,
+            branch=inquiry.branch,
+            title='Inquiry Archived',
+            message=message,
+            notification_type=Notification.NotificationType.INQUIRY_ARCHIVED,
+            module_context=Notification.ModuleContext.INQUIRIES,
+            related_object_id=inquiry.id,
+        )
+>>>>>>> f5ce28ea1168901cb70e0cde2cbe6cc33794e49f
 
 
 def notify_stock_transfer_requested(transfer):
@@ -616,6 +675,7 @@ def notify_statement_released(statement):
             module_context=Notification.ModuleContext.SOA,
             related_object_id=statement.id
         )
+<<<<<<< HEAD
 
     branch = getattr(statement, 'branch', None)
     if branch is None and statement.customer:
@@ -633,6 +693,92 @@ def notify_statement_released(statement):
         module_context=Notification.ModuleContext.SOA,
         related_object_id=statement.id,
     )
+=======
+        
+        # Notify receptionists in the branch (for customer follow-up and collection tracking)
+        if hasattr(statement, 'branch') and statement.branch:
+            branch = statement.branch
+        elif hasattr(statement.customer, 'branch'):
+            branch = statement.customer.branch
+        else:
+            branch = None
+        
+        if branch:
+            customer_name = statement.customer.get_full_name() or statement.customer.username
+            notify_role_users(
+                role_code=(
+                    'cashier',
+                    'receptionist',
+                    'assistant_veterinarian',
+                    'veterinarian',
+                ),
+                branch=branch,
+                title='Customer Statement Released',
+                message=f"Statement released for {customer_name}. Amount due: ₱{statement.total_amount}",
+                notification_type=Notification.NotificationType.STATEMENT_RELEASED,
+                module_context=Notification.ModuleContext.SOA,
+                related_object_id=statement.id,
+            )
+>>>>>>> f5ce28ea1168901cb70e0cde2cbe6cc33794e49f
+
+
+def notify_pet_owner_profile_change(pet, *, event, previous_owner=None, actor=None):
+    """Notify owners and branch clinic staff about a pet profile event."""
+    from notifications.models import Notification
+
+    owner = pet.owner
+    owners = [owner] if owner else []
+    if previous_owner and previous_owner != owner:
+        owners.append(previous_owner)
+    if not owners:
+        return
+
+    actor_name = (
+        actor.get_full_name() or actor.username
+        if actor else 'clinic staff'
+    )
+    if event == 'archived':
+        title = f'Pet Profile Archived: {pet.name}'
+        message = (
+            f'{pet.name} was moved to the clinic archive by {actor_name}. '
+            'Its medical history is retained in the archive.'
+        )
+        notification_type = Notification.NotificationType.PATIENT_ARCHIVED
+    elif event == 'created':
+        title = f'Pet Profile Added: {pet.name}'
+        message = (
+            f'A pet profile for {pet.name} was added by '
+            f'{actor_name}. Sign in to review the latest pet information.'
+        )
+        notification_type = Notification.NotificationType.PATIENT_CREATED
+    else:
+        title = f'Pet Profile Updated: {pet.name}'
+        message = (
+            f'The profile for {pet.name} was updated by {actor_name}. '
+            'Sign in to review the latest pet information.'
+        )
+        notification_type = Notification.NotificationType.PATIENT_UPDATED
+
+    for recipient in owners:
+        create_notification(
+            user=recipient,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.PATIENTS,
+            related_object_id=pet.id,
+        )
+
+    if pet.branch:
+        notify_module_users(
+            module_code='patients',
+            branch=pet.branch,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.PATIENTS,
+            related_object_id=pet.id,
+        )
 
 
 def notify_appointment_status_change(appointment, status, actor=None, actor_label=None):
@@ -642,10 +788,24 @@ def notify_appointment_status_change(appointment, status, actor=None, actor_labe
         if actor is not None:
             actor_label = actor.get_full_name() or actor.username
 
-    if status == 'CONFIRMED':
+    if status == 'PENDING':
+        title = f'Appointment Request Received for {appointment.pet_name}'
+        message = (
+            f'Your appointment request for {appointment.pet_name} is pending review '
+            f'for {appointment.appointment_date.strftime("%B %d, %Y")} at '
+            f'{appointment.appointment_time.strftime("%I:%M %p")}.'
+        )
+    elif status == 'CONFIRMED':
         title = f'Appointment Confirmed for {appointment.pet_name}'
         message = (
             f'Your appointment for {appointment.pet_name} has been confirmed for '
+            f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
+            f"{appointment.appointment_time.strftime('%I:%M %p')} at {appointment.branch.name}."
+        )
+    elif status == 'RESCHEDULED':
+        title = f'Appointment Rescheduled for {appointment.pet_name}'
+        message = (
+            f'Your appointment for {appointment.pet_name} is now scheduled for '
             f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
             f"{appointment.appointment_time.strftime('%I:%M %p')} at {appointment.branch.name}."
         )
@@ -671,12 +831,17 @@ def notify_appointment_status_change(appointment, status, actor=None, actor_labe
     else:
         return
 
-    if appointment.user:
+    notification_user = appointment.user or (
+        appointment.pet.owner
+        if appointment.pet_id and appointment.pet and appointment.pet.owner_id
+        else None
+    )
+    if notification_user:
         create_notification(
-            user=appointment.user,
+            user=notification_user,
             title=title,
             message=message,
-            notification_type=Notification.NotificationType.APPOINTMENT,
+            notification_type=_appointment_notification_type(status),
             module_context=Notification.ModuleContext.APPOINTMENTS,
             related_object_id=appointment.id,
         )
@@ -712,6 +877,13 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
             f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
             f"{appointment.appointment_time.strftime('%I:%M %p')}."
         )
+    elif status == 'RESCHEDULED':
+        title = f'Appointment Rescheduled: {appointment.pet_name}'
+        message = (
+            f'Appointment for {appointment.pet_name} was rescheduled to '
+            f"{appointment.appointment_date.strftime('%B %d, %Y')} at "
+            f"{appointment.appointment_time.strftime('%I:%M %p')} by {actor_label}."
+        )
     elif status == 'COMPLETED':
         title = f'Appointment Completed: {appointment.pet_name}'
         message = (
@@ -736,8 +908,21 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
     else:
         return
 
+<<<<<<< HEAD
     notify_module_users(
         module_code='appointments',
+=======
+    notification_type = _appointment_notification_type(status)
+
+    # Track users already notified
+    notified_user_ids = set()
+
+    # Notify cashiers in the same branch. Include the legacy receptionist
+    # role code for accounts created before the role rename.
+    receptionists = User.objects.filter(
+        is_active=True,
+        assigned_role__code__in=('cashier', 'receptionist'),
+>>>>>>> f5ce28ea1168901cb70e0cde2cbe6cc33794e49f
         branch=appointment.branch,
         title=title,
         message=message,
@@ -745,6 +930,103 @@ def notify_staff_appointment_status_change(appointment, status, actor=None):
         module_context=Notification.ModuleContext.APPOINTMENTS,
         related_object_id=appointment.id,
     )
+<<<<<<< HEAD
+=======
+    
+    for receptionist in receptionists:
+        create_notification(
+            user=receptionist,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            related_object_id=appointment.id,
+        )
+        notified_user_ids.add(receptionist.id)
+
+    # Notify vet assistants in the same branch
+    vet_assistants = User.objects.filter(
+        is_active=True,
+        assigned_role__code='assistant_veterinarian',
+        branch=appointment.branch,
+    ).exclude(id__in=notified_user_ids)
+    
+    for vet_assistant in vet_assistants:
+        create_notification(
+            user=vet_assistant,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            related_object_id=appointment.id,
+        )
+        notified_user_ids.add(vet_assistant.id)
+
+    # Notify veterinarians in the same branch
+    veterinarians = User.objects.filter(
+        is_active=True,
+        assigned_role__code='veterinarian',
+        branch=appointment.branch,
+    ).exclude(id__in=notified_user_ids)
+
+    for veterinarian in veterinarians:
+        create_notification(
+            user=veterinarian,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            related_object_id=appointment.id,
+        )
+        notified_user_ids.add(veterinarian.id)
+>>>>>>> f5ce28ea1168901cb70e0cde2cbe6cc33794e49f
+
+
+def _appointment_notification_type(status):
+    """Return the specific notification type for an appointment workflow status."""
+    return {
+        'CONFIRMED': Notification.NotificationType.APPOINTMENT_CONFIRMED,
+        'CANCELLED': Notification.NotificationType.APPOINTMENT_CANCELLED,
+        'RESCHEDULED': Notification.NotificationType.APPOINTMENT_RESCHEDULED,
+    }.get(status, Notification.NotificationType.APPOINTMENT)
+
+
+def notify_staff_follow_up(appointment, followup, event='scheduled'):
+    """Notify branch appointment staff when a follow-up recommendation changes."""
+    from accounts.models import User
+
+    if not appointment or not appointment.branch or not followup:
+        return
+
+    action = 'updated' if event == 'updated' else 'recommended'
+    follow_up_date = followup.follow_up_date
+    if isinstance(follow_up_date, str):
+        follow_up_date = parse_date(follow_up_date)
+    date_text = (
+        follow_up_date.strftime('%B %d, %Y')
+        if follow_up_date
+        else 'an upcoming date'
+    )
+    message = (
+        f'A follow-up was {action} for {appointment.pet_name} on {date_text}. '
+        f'Reason: {followup.reason or "Routine follow-up"}. '
+        'This is a recommendation, not a confirmed appointment.'
+    )
+    staff = User.objects.filter(
+        is_active=True,
+        assigned_role__code__in=('cashier', 'receptionist', 'assistant_veterinarian', 'veterinarian'),
+        branch=appointment.branch,
+    )
+    for user in staff:
+        create_notification(
+            user=user,
+            title=f'Follow-up {action.title()}: {appointment.pet_name}',
+            message=message,
+            notification_type=Notification.NotificationType.FOLLOW_UP,
+            module_context=Notification.ModuleContext.APPOINTMENTS,
+            related_object_id=appointment.id,
+            related_follow_up=followup,
+        )
 
 
 def notify_veterinarian_consultation_started(appointment):
@@ -847,6 +1129,8 @@ def notify_follow_up_scheduled(
             related_object_id=appointment.id,
             related_follow_up=followup,
         )
+
+    notify_staff_follow_up(appointment, followup, event=event)
 
     from notifications.followup_email_service import send_follow_up_email
 
@@ -969,6 +1253,13 @@ def notify_medical_record_follow_up(record, actor=None):
             module_context=Notification.ModuleContext.MEDICAL_RECORDS,
             related_object_id=record.id,
             related_follow_up=followup,
+        )
+
+    if appointment:
+        notify_staff_follow_up(
+            appointment,
+            followup,
+            event='updated' if date_changed or reason_changed else 'scheduled',
         )
 
     event = 'updated' if date_changed or reason_changed else 'scheduled'
@@ -1252,13 +1543,27 @@ def notify_reservation_approved(reservation, actor=None):
     """Create a notification when a product reservation is approved."""
     actor_name = ((actor.get_full_name() or actor.username) if actor else 'staff')
     customer_name = reservation.user.get_full_name() or reservation.user.username
-    message = f"Product reservation for {customer_name} ({reservation.product.name} x{reservation.quantity}) has been approved."
+    owner_message = (
+        f"Your reservation for {reservation.product.name} (x{reservation.quantity}) "
+        f"has been approved by {actor_name}."
+    )
+    create_notification(
+        user=reservation.user,
+        title='Reservation Approved',
+        message=owner_message,
+        notification_type=Notification.NotificationType.RESERVATION_APPROVED,
+        module_context=Notification.ModuleContext.INVENTORY,
+        related_object_id=reservation.id,
+    )
     
     notify_module_users(
         module_code='reservations',
         branch=reservation.product.branch,
         title='Reservation Approved',
-        message=message,
+        message=(
+            f"Product reservation for {customer_name} ({reservation.product.name} "
+            f"x{reservation.quantity}) has been approved."
+        ),
         notification_type=Notification.NotificationType.RESERVATION_APPROVED,
         module_context=Notification.ModuleContext.INVENTORY,
         related_object_id=reservation.id,

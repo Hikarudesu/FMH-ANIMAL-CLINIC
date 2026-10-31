@@ -106,6 +106,7 @@ class MedicalRecord(SoftDeleteModel):
                 deleted_at=deleted_at,
             ).update(is_deleted=False, deleted_at=None)
 
+
     @property
     def latest_entry(self):
         """Return the most recent RecordEntry for this record."""
@@ -115,6 +116,32 @@ class MedicalRecord(SoftDeleteModel):
     def first_entry(self):
         """Return the first chronological RecordEntry for this record."""
         return self.entries.order_by('date_recorded', 'created_at').first()
+
+
+@receiver(post_save, sender=MedicalRecord)
+def notify_medical_record_saved(sender, instance, created, **kwargs):
+    """Notify a registered pet owner when a medical record is created or updated."""
+    owner = getattr(instance.pet, 'owner', None)
+    if not owner:
+        return
+
+    from notifications.models import Notification
+    from notifications.utils import create_notification
+
+    action = 'created' if created else 'updated'
+    create_notification(
+        user=owner,
+        title=f'Medical Record {action.title()}: {instance.pet.name}',
+        message=(
+            f'A medical record for {instance.pet.name} dated '
+            f'{instance.date_recorded.strftime("%B %d, %Y")} was {action}. '
+            'Sign in to review the latest visit information.'
+        ),
+        notification_type=Notification.NotificationType.MEDICAL_RECORD_UPDATE,
+        module_context=Notification.ModuleContext.MEDICAL_RECORDS,
+        related_object_id=instance.id,
+        dedupe_window_minutes=5,
+    )
 
 
 class RecordEntry(SoftDeleteModel):

@@ -101,6 +101,27 @@ function getLocalYMD(d) {
     CHECKUP: "#f57c00",
   };
 
+  window.openScheduleEditConflictModal = function(staffName, dateValue) {
+    const modal = document.getElementById('scheduleEditConflictModal');
+    const nameEl = document.getElementById('scheduleEditConflictName');
+    const dateEl = document.getElementById('scheduleEditConflictDate');
+    if (!modal || !nameEl || !dateEl) return;
+    const dateObj = new Date(`${dateValue}T00:00:00`);
+    nameEl.textContent = staffName;
+    dateEl.textContent = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    modal.classList.add('active');
+  };
+
+  window.closeScheduleEditConflictModal = function() {
+    const modal = document.getElementById('scheduleEditConflictModal');
+    if (modal) modal.classList.remove('active');
+  };
+
   // Vet color palette for distinguishing multiple vets
   const VET_COLORS = [
     "#009688",
@@ -378,7 +399,7 @@ function getLocalYMD(d) {
             <button type="button" class="pet-action-btn outline btn-edit-schedule" title="Edit schedule" data-events='${JSON.stringify(e).replace(/'/g, "&#39;")}'>
               <i class='bx bx-pencil'></i>
             </button>
-            <button type="button" class="pet-action-btn danger" title="Delete schedule" onclick="openDeleteModal('/employees/schedule/${e.id}/delete/', '${e.staffName.replace(/'/g, "\\'")}', 'This permanently removes only this individual schedule entry.')">
+            <button type="button" class="pet-action-btn danger" title="Delete schedule" onclick="${e.hasAppointment ? `openScheduleConflictModal('${e.staffName.replace(/'/g, "\\'")}', '${e.date}')` : `openDeleteModal('/employees/schedule/${e.id}/delete/', '${e.staffName.replace(/'/g, "\\'")}', 'This permanently removes only this individual schedule entry.')`}">
               <i class='bx bx-trash-alt'></i>
             </button>
           </div>
@@ -409,6 +430,11 @@ function getLocalYMD(d) {
         editEndTime.value = ev.endTime;
         editIsAvailable.checked = ev.isAvailable;
         editNotes.value = ev.notes || "";
+        editScheduleForm.dataset.hasAppointment = ev.hasAppointment ? "1" : "0";
+        editScheduleForm.dataset.staffName = ev.staffName;
+        editScheduleForm.dataset.scheduleDate = ev.date;
+        editScheduleForm.dataset.originalStartTime = ev.startTime;
+        editScheduleForm.dataset.originalEndTime = ev.endTime;
 
         editScheduleForm.action = `/employees/schedule/${ev.id}/edit/`;
         openModal(editModal);
@@ -474,9 +500,45 @@ function getLocalYMD(d) {
     if (modal) modal.classList.remove('active');
   };
 
+  window.openScheduleConflictModal = function(staffName, dateValue) {
+    const modal = document.getElementById('scheduleConflictModal');
+    const nameEl = document.getElementById('scheduleConflictName');
+    const dateEl = document.getElementById('scheduleConflictDate');
+    if (!modal || !nameEl || !dateEl) return;
+    const dateObj = new Date(`${dateValue}T00:00:00`);
+    nameEl.textContent = staffName;
+    dateEl.textContent = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    modal.classList.add('active');
+  };
+
+  window.closeScheduleConflictModal = function() {
+    const modal = document.getElementById('scheduleConflictModal');
+    if (modal) modal.classList.remove('active');
+  };
+
   const closeDeleteScheduleModalBtn = document.getElementById('closeDeleteScheduleModal');
   const cancelDeleteScheduleModalBtn = document.getElementById('cancelDeleteScheduleModal');
   const deleteScheduleForm = document.getElementById('deleteScheduleForm');
+  if (editScheduleForm) {
+    editScheduleForm.addEventListener('submit', (event) => {
+      const timeChanged = (
+        editStartTime.value !== editScheduleForm.dataset.originalStartTime
+        || editEndTime.value !== editScheduleForm.dataset.originalEndTime
+      );
+      if (editScheduleForm.dataset.hasAppointment === '1' && timeChanged) {
+        event.preventDefault();
+        openScheduleEditConflictModal(
+          editScheduleForm.dataset.staffName,
+          editScheduleForm.dataset.scheduleDate,
+        );
+      }
+    });
+  }
   const finalRecurringDeleteModal = document.getElementById('finalRecurringDeleteModal');
   const closeFinalRecurringDeleteModalBtn = document.getElementById('closeFinalRecurringDeleteModal');
   const cancelFinalRecurringDeleteModalBtn = document.getElementById('cancelFinalRecurringDeleteModal');

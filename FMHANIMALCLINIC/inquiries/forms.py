@@ -52,6 +52,17 @@ class InquiryResponseForm(forms.ModelForm):
     class Meta:
         model = Inquiry
         fields = ['status', 'priority', 'response', 'internal_notes']
+        labels = {
+            'response': 'Your Response to the Client',
+            'internal_notes': 'Additional Information for the Client',
+        }
+        help_texts = {
+            'response': 'Write the main message you want the client to receive.',
+            'internal_notes': (
+                'Optional: add helpful details, instructions, or next steps. '
+                'This will also be included in the email to the client.'
+            ),
+        }
         widgets = {
             'status': forms.Select(attrs={
                 'class': 'form-control'
@@ -67,6 +78,6 @@ class InquiryResponseForm(forms.ModelForm):
             'internal_notes': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 4,
-                'placeholder': 'Internal notes (not visible to customer)'
+                'placeholder': 'Add helpful details or next steps for the client...'
             }),
         }

@@ -252,6 +252,7 @@
             let checkTimer = null;
             let requestNumber = 0;
             let submissionPending = false;
+            let conflictCheckPassed = false;
 
             function renderNote(note, messages) {
                 note.replaceChildren();
@@ -355,9 +356,18 @@
                 }, 250);
             }
 
-            nameField.addEventListener('input', checkOwnerConflicts);
-            emailField.addEventListener('input', checkOwnerConflicts);
+            nameField.addEventListener('input', function () {
+                conflictCheckPassed = false;
+                checkOwnerConflicts();
+            });
+            emailField.addEventListener('input', function () {
+                conflictCheckPassed = false;
+                checkOwnerConflicts();
+            });
             editForm.addEventListener('submit', function (event) {
+                if (conflictCheckPassed) {
+                    return;
+                }
                 if (submissionPending) {
                     event.preventDefault();
                     return;
@@ -371,10 +381,12 @@
                             emailField.focus();
                             return;
                         }
-                        HTMLFormElement.prototype.submit.call(editForm);
+                        conflictCheckPassed = true;
+                        editForm.requestSubmit(event.submitter);
                     })
                     .catch(function () {
-                        HTMLFormElement.prototype.submit.call(editForm);
+                        conflictCheckPassed = true;
+                        editForm.requestSubmit(event.submitter);
                     })
                     .finally(function () {
                         submissionPending = false;

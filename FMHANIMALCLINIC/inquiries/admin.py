@@ -23,13 +23,13 @@ class InquiryAdmin(admin.ModelAdmin):
         ('Inquiry Details', {
             'fields': ('message', 'status', 'priority')
         }),
-        ('Response', {
+        ('Client Communication', {
             'fields': ('response', 'responded_by', 'response_date'),
-            'classes': ('collapse',)
+            'description': 'The main response sent to the client by email.',
         }),
-        ('Internal', {
+        ('Additional Client Information', {
             'fields': ('internal_notes', 'created_at', 'updated_at'),
-            'classes': ('collapse',)
+            'description': 'Optional details, instructions, or next steps also included in the client email.',
         }),
     )
     

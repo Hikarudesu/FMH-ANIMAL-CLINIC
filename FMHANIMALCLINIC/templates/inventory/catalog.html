@@ -24,8 +24,8 @@ Catalog{% endblock %} {% block content %}
   <button class="c-tab-btn" data-tab="reservations" type="button" onclick="switchCatalogTab('reservations')">
     <i class="bx bx-receipt c-tab-btn__icon"></i>
     <span class="c-tab-btn__label">My Reservations</span>
-    {% if user_reservations %}
-    <span class="c-tab-btn__badge">{{ user_reservations|length }}</span>
+    {% if user_reservation_count %}
+    <span class="c-tab-btn__badge">{{ user_reservation_count }}</span>
     {% endif %}
   </button>
 </div>
@@ -35,6 +35,7 @@ Catalog{% endblock %} {% block content %}
   <div class="c-filter-bar" style="margin-bottom: 22px;">
     <div class="c-filter-bar__glow"></div>
     <form method="GET" action="{% url 'inventory:catalog' %}" class="c-filter-bar__form" autocomplete="off">
+      <input type="hidden" name="tab" value="{{ active_catalog_tab }}">
       <!-- Search Input -->
       <div class="c-filter-bar__search">
         <i class='bx bx-search c-filter-bar__search-icon'></i>
@@ -54,12 +55,15 @@ Catalog{% endblock %} {% block content %}
       <!-- Filter Dropdowns Row -->
       <div class="c-filter-bar__filters">
         {% if can_select_catalog_branch %}
-        <select name="branch" class="c-filter-dropdown__select sd-convert" aria-label="Filter products by branch" onchange="this.form.submit()">
-          <option value="">All active branches</option>
-          {% for branch in branches %}
-          <option value="{{ branch.pk }}" {% if selected_catalog_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
-          {% endfor %}
-        </select>
+        <div class="catalog-branch-selector">
+          <label for="catalogBranchSelect"><i class="bx bx-building-house"></i> Reserve from branch</label>
+          <select id="catalogBranchSelect" name="branch" class="c-filter-dropdown__select sd-convert" aria-label="Choose the branch where you want to reserve" onchange="this.form.submit()">
+            <option value="">All active branches</option>
+            {% for branch in branches %}
+            <option value="{{ branch.pk }}" {% if selected_catalog_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
         {% endif %}
       </div>
     </form>
@@ -484,6 +488,48 @@ Catalog{% endblock %} {% block content %}
   </script>
 
   <style>
+    .catalog-branch-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: min(100%, 340px);
+      padding: 10px 12px;
+      border: 2px solid var(--primary);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: 0 4px 14px rgba(var(--primary-rgb), .14);
+    }
+    .catalog-branch-selector label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex: 0 0 auto;
+      color: var(--primary);
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+    .catalog-branch-selector .c-filter-dropdown__select {
+      position: static;
+      width: auto;
+      min-width: 180px;
+      min-height: 38px;
+      border: 0;
+      background: transparent;
+      color: var(--text-1);
+      font-size: .92rem;
+      font-weight: 700;
+    }
+    @media (max-width: 640px) {
+      .catalog-branch-selector {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .catalog-branch-selector .c-filter-dropdown__select {
+        width: 100%;
+      }
+    }
     /* Reserve button on catalog cards */
     .cat-reserve-btn {
       display: flex;
@@ -1023,6 +1069,11 @@ Catalog{% endblock %} {% block content %}
     </div>
     {% endfor %}
   </div>
+  {% if user_reservations %}
+    <div style="margin-top: 32px;">
+      {% include "components/modern_pagination.html" with page_obj=user_reservations page_param="reservation_page" url_fragment="catReservationsSection" %}
+    </div>
+  {% endif %}
   {% else %}
   <div style="text-align: center; padding: 60px 20px; color: var(--text-3)">
     <i
@@ -1049,15 +1100,19 @@ Catalog{% endblock %} {% block content %}
       tab === "products" ? "block" : "none";
     document.getElementById("catReservationsSection").style.display =
       tab === "reservations" ? "block" : "none";
-    document
-      .getElementById("catTabProducts")
+    document.querySelector('[data-tab="products"]')
       .classList.toggle("active", tab === "products");
-    document
-      .getElementById("catTabReservations")
+    document.querySelector('[data-tab="reservations"]')
       .classList.toggle("active", tab === "reservations");
+    const tabField = document.querySelector('.c-filter-bar__form input[name="tab"]');
+    if (tabField) tabField.value = tab;
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState({}, "", url);
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    switchCatalogTab("{{ active_catalog_tab|escapejs }}");
     const countdowns = document.querySelectorAll(".my-rsv-countdown");
 
     function updateTimers() {

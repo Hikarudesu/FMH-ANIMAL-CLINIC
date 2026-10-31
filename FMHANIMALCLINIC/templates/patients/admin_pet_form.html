@@ -1,4 +1,4 @@
-{% extends 'base/portal_admin.html' %}
+ {% extends 'base/portal_admin.html' %}
 {% load static %}
 
 {% block title %}{{ action }} Patient{% endblock %}
@@ -1386,19 +1386,54 @@
   (function initConfirmModal() {
     const linkSelect = document.getElementById('id_link_to_account');
     const createFlag = document.getElementById('id_create_new_account');
+    const ownerPicker = document.getElementById('ownerPicker');
+    const ownerField = document.getElementById('id_owner');
     const form = document.getElementById('apfForm');
     if (!form) return;
 
     let confirmed = false;
+    const initialFormState = getFormState();
+
+    function getFormState() {
+      return Array.from(form.elements)
+        .filter(field => field.name && field.type !== 'submit' && field.name !== 'csrfmiddlewaretoken')
+        .map(field => {
+          if (field.type === 'checkbox' || field.type === 'radio') {
+            return `${field.name}:${field.checked ? field.value : ''}`;
+          }
+          if (field.type === 'file') {
+            return `${field.name}:${Array.from(field.files || []).map(file => file.name).join(',')}`;
+          }
+          if (field instanceof HTMLSelectElement && field.multiple) {
+            return `${field.name}:${Array.from(field.selectedOptions).map(option => option.value).join(',')}`;
+          }
+          return `${field.name}:${field.value}`;
+        })
+        .join('|');
+    }
 
     form.addEventListener('submit', function(e) {
       if (confirmed) return;
 
+      const ownerCorrectionPending = ownerPicker
+        && ownerField
+        && ownerPicker.dataset.confirmOwnerChange === 'true'
+        && ownerPicker.dataset.ownerChangeConfirmed !== 'true'
+        && ownerField.value
+        && String(ownerField.value) !== (ownerPicker.dataset.originalOwnerId || '');
+      if (ownerCorrectionPending) return;
+
       const isCreateMode = createFlag && createFlag.value === 'True';
       const isLinkMode = linkSelect && linkSelect.value;
       const isEditMode = '{{ action|escapejs }}' === 'Update';
+      const hasEditChanges = !isEditMode || getFormState() !== initialFormState;
 
-      if (!isCreateMode && !isLinkMode && !isEditMode) return;
+      if ((!isCreateMode && !isLinkMode && !isEditMode) || (isEditMode && !hasEditChanges)) return;
+
+      if (document.getElementById('apfConfirmModal')) {
+        e.preventDefault();
+        return;
+      }
 
       e.preventDefault();
 
@@ -1470,7 +1505,8 @@
         // Safety: force-clear dropdown when in create mode to prevent stale values
         if (isCreateMode && linkSelect) clearLinkAccountSelection();
         overlay.remove();
-        form.submit();
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
       });
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeConfirmModal();
@@ -1616,6 +1652,7 @@
       searchInput.value = owner.name;
       searchInput.setCustomValidity('');
       ownerChangeConfirmed = false;
+      picker.dataset.ownerChangeConfirmed = 'false';
       renderOwnerDetails(owner);
       closeResults();
     }
@@ -1747,6 +1784,7 @@
       });
       confirmOwnerChange.addEventListener('click', () => {
         ownerChangeConfirmed = true;
+        picker.dataset.ownerChangeConfirmed = 'true';
         ownerChangeDialog.hidden = true;
         if (typeof form.requestSubmit === 'function') {
           if (pendingSubmitter) form.requestSubmit(pendingSubmitter);

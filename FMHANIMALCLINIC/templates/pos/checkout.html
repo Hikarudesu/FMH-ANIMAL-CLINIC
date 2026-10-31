@@ -1179,7 +1179,14 @@
       </div>
     </div>
 
-    {% if appointment %}
+    {% if reservation %}
+    <div class="pos-customer-section" style="background:var(--primary-light); padding:12px; border-radius:12px;">
+      <strong><i class='bx bx-package'></i> Reservation payment</strong>
+      <div>RSV-{{ reservation.pk }} · {{ reservation.product.name }} × {{ reservation.quantity }}</div>
+      <div>{{ reservation.user.get_full_name|default:reservation.user.username }}</div>
+      <small>Customer, product, and quantity were filled automatically and are locked until payment is completed.</small>
+    </div>
+    {% elif appointment %}
     <div class="pos-customer-section" style="background:var(--primary-light); padding:12px; border-radius:12px;">
       <strong><i class='bx bx-calendar-check'></i> Appointment payment</strong>
       <div>{{ appointment.pet_name }} · {{ appointment.owner_name }}</div>
@@ -1188,7 +1195,7 @@
     {% endif %}
 
     <!-- Customer Section -->
-    <div class="pos-customer-section" {% if appointment %}style="display:none"{% endif %}>
+    <div class="pos-customer-section" {% if appointment or reservation %}style="display:none"{% endif %}>
       <div class="pos-customer-toggle">
         <button class="pos-customer-btn active" onclick="setCustomerType('WALKIN')">Walk-in</button>
         <button class="pos-customer-btn" onclick="setCustomerType('REGISTERED')">Registered</button>
@@ -1286,7 +1293,11 @@
       <button class="pos-modal-btn secondary" onclick="viewStatement()">
         <i class='bx bx-file'></i> View Statement
       </button>
-      {% if appointment %}
+      {% if reservation %}
+      <button class="pos-modal-btn primary" onclick="returnToReservationList()">
+        <i class='bx bx-left-arrow-alt'></i> Return to reservations
+      </button>
+      {% elif appointment %}
       <button class="pos-modal-btn primary" onclick="returnToAppointment()">
         <i class='bx bx-left-arrow-alt'></i> Return to appointment
       </button>
@@ -1306,6 +1317,20 @@
     <p id="posMessageText"></p>
     <div class="pos-modal-actions">
       <button type="button" class="pos-modal-btn primary" onclick="closePosMessage()">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="pos-modal" id="quantityChangeModal" role="dialog" aria-modal="true" aria-labelledby="quantityChangeTitle">
+  <div class="pos-modal-content">
+    <div class="pos-modal-icon" style="background: #e0f2f1; color: #00796b;">
+      <i class='bx bx-transfer-alt'></i>
+    </div>
+    <div class="pos-modal-title" id="quantityChangeTitle">Update reserved quantity?</div>
+    <p id="quantityChangeText"></p>
+    <div class="pos-modal-actions">
+      <button type="button" class="pos-modal-btn secondary" onclick="closeQuantityChangeModal()">Cancel</button>
+      <button type="button" class="pos-modal-btn primary" onclick="confirmQuantityChange()">Confirm change</button>
     </div>
   </div>
 </div>
@@ -1386,6 +1411,9 @@
 <script>
 
 const saleId = {{ sale.pk }};
+const reservationLinked = {% if reservation %}true{% else %}false{% endif %};
+const reservationQuantityUrl = '{% if reservation %}{% url "inventory:update_reservation_quantity" reservation.pk %}{% endif %}';
+let pendingQuantityChange = null;
 let currentSubtotal = {{ sale.subtotal|default:0 }};
 let currentTotal = {{ sale.total|default:0 }};
 let paymentMethod = 'CASH';
@@ -1398,7 +1426,7 @@ let petSearchController = null;
 let skipCartAbandonment = false;
 
 window.addEventListener('pagehide', function() {
-  if (skipCartAbandonment || !navigator.sendBeacon) return;
+  if (skipCartAbandonment || reservationLinked || !navigator.sendBeacon) return;
   const formData = new FormData();
   formData.append('csrfmiddlewaretoken', getCsrfToken());
   navigator.sendBeacon('{% url "pos:abandon_sale" sale.pk %}', formData);
@@ -1693,8 +1721,21 @@ function updateQty(itemId, delta) {
       console.error('updateQty: Quantity span not found');
       return;
     }
-    let qty = parseInt(qtySpan.textContent) + delta;
-    if (qty < 1) qty = 1;
+    const currentQty = parseInt(qtySpan.textContent);
+    let qty = currentQty + delta;
+    if (qty < 1) {
+      if (reservationLinked) {
+        showPosMessage('Minimum quantity reached', 'A reservation must contain at least one item.');
+      }
+      qty = 1;
+    }
+
+    if (reservationLinked) {
+      if (qty !== currentQty) {
+        showQuantityChangeConfirm(itemId, qty, currentQty);
+      }
+      return;
+    }
 
     fetch('{% url "pos:update_quantity" %}', {
       method: 'POST',
@@ -1717,6 +1758,7 @@ function updateQty(itemId, delta) {
       } else {
         alert(data.error || 'Error updating quantity');
       }
+
     })
     .catch(err => {
       console.error('updateQty error:', err);
@@ -1725,6 +1767,49 @@ function updateQty(itemId, delta) {
   } catch (e) {
     console.error('updateQty exception:', e);
     alert('Exception in updateQty: ' + e.message);
+  }
+}
+
+function showQuantityChangeConfirm(itemId, newQuantity, oldQuantity) {
+  pendingQuantityChange = {itemId, newQuantity};
+  const direction = newQuantity > oldQuantity ? 'deduct' : 'return';
+  document.getElementById('quantityChangeText').textContent =
+    `Change reserved quantity from ${oldQuantity} to ${newQuantity}? ` +
+    `The system will ${direction} the inventory difference automatically.`;
+  document.getElementById('quantityChangeModal').classList.add('active');
+}
+
+function closeQuantityChangeModal() {
+  pendingQuantityChange = null;
+  document.getElementById('quantityChangeModal').classList.remove('active');
+}
+
+async function confirmQuantityChange() {
+  if (!pendingQuantityChange) return;
+  const {itemId, newQuantity} = pendingQuantityChange;
+  const item = document.querySelector(`.pos-cart-item[data-item-id="${itemId}"]`);
+  const button = document.querySelector('#quantityChangeModal .pos-modal-btn.primary');
+  button.disabled = true;
+  try {
+    const response = await fetch(reservationQuantityUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: `quantity=${newQuantity}`
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || 'Quantity update failed.');
+    item.querySelector('.pos-qty-value').textContent = data.quantity;
+    item.querySelector('.pos-cart-item-total').textContent = '₱' + Number(data.line_total).toFixed(2);
+    updateTotals(data.sale);
+    closeQuantityChangeModal();
+  } catch (error) {
+    document.getElementById('quantityChangeText').textContent = error.message;
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -2268,11 +2353,17 @@ function newSale() {
 }
 
 function closeSuccessModal() {
-  {% if appointment %}
+  {% if reservation %}
+  returnToReservationList();
+  {% elif appointment %}
   returnToAppointment();
   {% else %}
   newSale();
   {% endif %}
+}
+
+function returnToReservationList() {
+  window.location.href = "{{ reservation_return_url }}";
 }
 
 function returnToAppointment() {

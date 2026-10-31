@@ -4,7 +4,7 @@
   {% if appt.cancellation_reason %}<span>{{ appt.cancellation_reason }}</span>{% endif %}
 </div>
 {% else %}
-<section class="appointment-workflow" aria-label="Appointment progress">
+<section class="appointment-workflow{% if workflow_card_class %} {{ workflow_card_class }}{% endif %}" aria-label="Appointment progress">
   <div class="appointment-workflow-heading">
     <strong>Visit progress</strong>
     <span>{{ appt.workflow_next_action }}</span>

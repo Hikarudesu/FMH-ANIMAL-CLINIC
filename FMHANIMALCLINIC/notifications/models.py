@@ -165,6 +165,9 @@ class Notification(models.Model):
         PRODUCT_RESERVATION = 'PRODUCT_RESERVATION', 'Product Reservation'
         STATEMENT_RELEASED = 'STATEMENT_RELEASED', 'Statement Released'
         MEDICAL_RECORD_UPDATE = 'MEDICAL_RECORD_UPDATE', 'Medical Record Update'
+        PATIENT_UPDATED = 'PATIENT_UPDATED', 'Pet Profile Updated'
+        PATIENT_ARCHIVED = 'PATIENT_ARCHIVED', 'Pet Profile Archived'
+        PATIENT_CREATED = 'PATIENT_CREATED', 'Pet Profile Added'
         INQUIRY_NEW = 'INQUIRY_NEW', 'New Inquiry'
         INQUIRY_RESPONDED = 'INQUIRY_RESPONDED', 'Inquiry Responded'
         INQUIRY_ARCHIVED = 'INQUIRY_ARCHIVED', 'Inquiry Archived'
@@ -225,6 +228,7 @@ class Notification(models.Model):
     @classmethod
     def visible_module_contexts_for_user(cls, user):
         """Return module contexts that should be visible to the given user."""
+<<<<<<< HEAD
         from accounts.rbac_models import Module
         from accounts.rbac_constants import HierarchyLevels
 
@@ -243,6 +247,15 @@ class Notification(models.Model):
             visible_contexts = notification_contexts(accessible_modules)
             visible_contexts.update(['notifications', cls.ModuleContext.GENERAL])
             return visible_contexts
+=======
+        if user.is_superuser:
+            # Superadmins must see system events even when a module is hidden
+            # from navigation or its RBAC row is not present.
+            return {
+                context.value
+                for context in cls.ModuleContext
+            } | {'notifications'}
+>>>>>>> f5ce28ea1168901cb70e0cde2cbe6cc33794e49f
 
         if user.is_pet_owner():
             return {

@@ -143,12 +143,72 @@ def my_statements(request):
         CustomerStatement.objects
         .filter(customer=request.user, status__in=['RELEASED', 'SENT'])
         .select_related('branch', 'sale')
+        .prefetch_related('sale__items')
         .order_by('-created_at')
     )
 
-    paginator = Paginator(statements_list, 9)
+    paginator = Paginator(statements_list, 8)
     page_number = request.GET.get('page')
     statements = paginator.get_page(page_number)
+
+    # Enrich each statement with detailed breakdown for card preview
+    for stmt in statements:
+        # Check if statement is for a specific patient or general retail
+        patient_str = (stmt.patient_name or '').strip()
+        stmt.is_general = (
+            not patient_str
+            or patient_str.lower() in ['general services', 'n/a', 'none', '-']
+        )
+
+        service_names = []
+        product_names = []
+        product_total_qty = 0
+
+        if stmt.sale_id and stmt.sale:
+            # Extract actual items from the linked POS sale
+            sale_items = list(stmt.sale.items.all())
+            for item in sale_items:
+                itype = (item.item_type or '').upper()
+                if itype == 'SERVICE':
+                    service_names.append(item.name)
+                elif itype in ['PRODUCT', 'MEDICATION']:
+                    qty_str = f" (x{item.quantity})" if item.quantity > 1 else ""
+                    product_names.append(f"{item.name}{qty_str}")
+                    product_total_qty += item.quantity
+                else:
+                    # Fallback check by item name
+                    n_lower = item.name.lower()
+                    if any(w in n_lower for w in ['consult', 'vaccin', 'groom', 'surgery', 'treat', 'board', 'lab', 'exam', 'therapy', 'deworm']):
+                        service_names.append(item.name)
+                    else:
+                        qty_str = f" (x{item.quantity})" if item.quantity > 1 else ""
+                        product_names.append(f"{item.name}{qty_str}")
+                        product_total_qty += item.quantity
+
+        # Fallback to statement fee fields if no services found from sale
+        if not service_names:
+            category_fields = [
+                ('consultation_fee', 'consultation_description', 'Consultation'),
+                ('treatment', 'treatment_description', 'Treatment'),
+                ('boarding', 'boarding_description', 'Boarding'),
+                ('vaccination', 'vaccination_description', 'Vaccination'),
+                ('surgery', 'surgery_description', 'Surgery'),
+                ('laboratory', 'laboratory_description', 'Laboratory'),
+                ('grooming', 'grooming_description', 'Grooming'),
+                ('others', 'others_description', 'Others'),
+            ]
+            for fee_field, desc_field, label in category_fields:
+                if getattr(stmt, fee_field, 0):
+                    desc = getattr(stmt, desc_field, '').strip()
+                    if fee_field == 'others' and 'POS Transaction' in desc and (service_names or product_names):
+                        continue
+                    service_names.append(desc if desc and len(desc) < 35 else label)
+
+        stmt.service_names = service_names
+        stmt.service_count = len(service_names)
+        stmt.product_names = product_names
+        stmt.product_count = len(product_names)
+        stmt.product_total_qty = product_total_qty
 
     return render(request, 'billing/my_statements.html', {
         'statements': statements,

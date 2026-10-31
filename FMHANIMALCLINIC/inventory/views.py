@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -22,6 +23,7 @@ from notifications.models import Notification
 from notifications.utils import (
     notify_module_users,
     notify_reservation_status,
+    notify_reservation_ready,
     notify_stock_transfer_approved,
     notify_stock_transfer_completed,
     notify_stock_transfer_rejected,
@@ -41,6 +43,8 @@ from settings.utils import (
     get_inventory_sale_type_value,
     get_inventory_item_type_options,
 )
+
+CATALOG_PAGE_SIZE = 10
 
 
 def _get_user_branch(user):
@@ -106,6 +110,9 @@ def _can_mark_transfer_received(user, transfer):
 def catalog_view(request):
     """Digital Catalog displaying products available."""
     auto_cancel_expired_reservations()
+    active_catalog_tab = request.GET.get('tab', 'products')
+    if active_catalog_tab not in {'products', 'reservations'}:
+        active_catalog_tab = 'products'
 
     branches = Branch.objects.filter(is_active=True).order_by('name')
     user_branch = request.user.branch
@@ -147,7 +154,12 @@ def catalog_view(request):
     # User's own reservations
     user_reservations = Reservation.objects.filter(  # pylint: disable=no-member
         user=request.user
-    ).select_related('product', 'product__branch')
+    ).select_related('product', 'product__branch').order_by('-created_at', '-pk')
+    user_reservation_count = user_reservations.count()
+    reservations_paginator = Paginator(user_reservations, CATALOG_PAGE_SIZE)
+    user_reservations = reservations_paginator.get_page(
+        request.GET.get('reservation_page', 1)
+    )
 
     reservation_success = None
     reservation_success_id = request.session.pop('reservation_success_id', None)
@@ -159,7 +171,7 @@ def catalog_view(request):
 
     # Pagination for products
     page_number = request.GET.get('page', 1)
-    paginator = Paginator(products, 12)
+    paginator = Paginator(products, CATALOG_PAGE_SIZE)
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'inventory/catalog.html', {
@@ -172,7 +184,9 @@ def catalog_view(request):
         'can_select_catalog_branch': not staff_branch_restricted and not is_pet_owner_without_branch,
         'catalog_branch_assignment_required': (staff_branch_restricted and not user_branch) or is_pet_owner_without_branch,
         'user_reservations': user_reservations,
+        'user_reservation_count': user_reservation_count,
         'reservation_success': reservation_success,
+        'active_catalog_tab': active_catalog_tab,
     })
 
 
@@ -197,6 +211,9 @@ def inventory_management_view(request):
     selected_uom = request.GET.get('uom', '')
     selected_sale_type = request.GET.get('sale_type', '')
     search_query = request.GET.get('q', '').strip()
+    active_inventory_tab = request.GET.get('tab', 'items')
+    if active_inventory_tab not in {'items', 'movements', 'reservations'}:
+        active_inventory_tab = 'items'
     products = Product.objects.all().select_related('branch').annotate(
         pending_reservation_count=Count(
             'reservations',
@@ -280,15 +297,18 @@ def inventory_management_view(request):
     )
 
     # pylint: disable=no-member
-    pending_reservations = Reservation.objects.filter(
-        status=Reservation.Status.PENDING
-    ).select_related('product', 'user')
+    reservations = Reservation.objects.all().select_related('product', 'user')
+    pending_reservations = reservations.filter(status=Reservation.Status.PENDING)
 
     if is_branch_restricted and user_branch:
-        pending_reservations = pending_reservations.filter(
+        reservations = reservations.filter(
             product__branch=user_branch
         )
+        pending_reservations = pending_reservations.filter(product__branch=user_branch)
     elif selected_branch_id:
+        reservations = reservations.filter(
+            product__branch_id=selected_branch_id
+        )
         pending_reservations = pending_reservations.filter(
             product__branch_id=selected_branch_id
         )
@@ -402,6 +422,8 @@ def inventory_management_view(request):
             or request.user.has_module_permission('reservations', 'DELETE')
         )
     )
+    if active_inventory_tab == 'reservations' and not can_view_reservations:
+        active_inventory_tab = 'items'
 
     # Each inventory section keeps its own pagination position.
     paginator_products = Paginator(products, 20)
@@ -414,7 +436,7 @@ def inventory_management_view(request):
         request.GET.get('movements_page', request.GET.get('page', 1))
     )
     
-    paginator_reservations = Paginator(pending_reservations, 20)
+    paginator_reservations = Paginator(reservations, 20)
     page_reservations = paginator_reservations.get_page(
         request.GET.get('reservations_page', request.GET.get('page', 1))
     )
@@ -429,12 +451,18 @@ def inventory_management_view(request):
         'selected_uom': selected_uom,
         'selected_sale_type': selected_sale_type,
         'search_value': search_query,
+        'active_inventory_tab': active_inventory_tab,
+        'filter_hidden_fields': [
+            {'name': 'tab', 'value': active_inventory_tab},
+        ],
         'status_filters': status_filters,
         'show_clear': show_clear,
         'total_value': total_value,
         'low_stock_count': low_stock_count,
         'out_of_stock_count': out_of_stock_count,
         'pending_reservations': page_reservations,
+        'pending_reservation_count': pending_reservations.count(),
+        'today': timezone.localdate(),
         'can_create': can_create,
         'can_edit': can_edit,
         'can_delete': can_delete,
@@ -719,31 +747,170 @@ def confirm_reservation_view(request, pk):
         messages.warning(request, 'You do not have permission to confirm reservations.')
         return redirect('inventory:management')
 
-    reservation = get_object_or_404(_reservations_for_user(request.user), pk=pk)
+    from pos.models import Sale, SaleItem
 
-    if reservation.status != Reservation.Status.PENDING:
-        messages.warning(request, "This reservation is no longer pending.")
-        return redirect('inventory:management')
+    with transaction.atomic():
+        reservation = get_object_or_404(
+            _reservations_for_user(request.user).select_for_update(), pk=pk
+        )
 
-    reservation.status = Reservation.Status.RELEASED
-    reservation.save()
+        if reservation.status != Reservation.Status.PENDING:
+            messages.warning(request, "This reservation is no longer pending.")
+            return redirect('inventory:management')
 
-    notify_reservation_status(
-        reservation,
-        title="Reservation Released",
-        message=(
-            f"Your reservation for {reservation.quantity}x "
-            f"{reservation.product.name} ({reservation.product.sale_type_label}, {reservation.product.unit_display}) has been released. "
-            f"Thank you for your purchase!"
-        ),
-        notification_type=Notification.NotificationType.RESERVATION_READY,
-    )
+        if reservation.pickup_date and reservation.pickup_date > timezone.localdate():
+            messages.warning(
+                request,
+                (
+                    f"This reservation can only be released on its pickup date "
+                    f"({reservation.pickup_date.strftime('%B %d, %Y')})."
+                ),
+            )
+            return redirect('inventory:management')
 
-    messages.success(
+        sale = reservation.sale
+        if sale and sale.status == Sale.Status.COMPLETED:
+            messages.warning(request, "This reservation has already been paid.")
+            return redirect('inventory:management')
+
+        if sale and (
+            sale.cashier_id != request.user.pk
+            or sale.branch_id != reservation.product.branch_id
+        ):
+            messages.warning(request, "This reservation is already being processed by another cashier.")
+            return redirect('inventory:management')
+
+        if sale is None:
+            sale = Sale.objects.create(
+                branch=reservation.product.branch,
+                cashier=request.user,
+                customer_type=Sale.CustomerType.REGISTERED,
+                customer=reservation.user,
+                guest_name=reservation.user.get_full_name() or reservation.user.username,
+                guest_phone=getattr(reservation.user, 'phone_number', '') or '',
+                guest_email=reservation.user.email or '',
+                notes=f"Reservation RSV-{reservation.pk}",
+            )
+            SaleItem.objects.create(
+                sale=sale,
+                item_type=(
+                    SaleItem.ItemType.MEDICATION
+                    if reservation.product.item_type.casefold() == 'medication'
+                    else SaleItem.ItemType.PRODUCT
+                ),
+                product=reservation.product,
+                name=reservation.product.name,
+                unit_price=reservation.product.price,
+                quantity=reservation.quantity,
+            )
+            reservation.sale = sale
+            reservation.save(update_fields=['sale', 'updated_at'])
+
+    messages.info(
         request,
-        f"Reservation RSV-{reservation.pk} released."
+        f"Reservation RSV-{reservation.pk} is ready for payment. Review the prefilled POS sale before accepting payment.",
     )
-    return redirect('inventory:management')
+    return redirect(f"{reverse('pos:checkout_alt')}?reservation={reservation.pk}")
+
+
+@login_required
+@require_POST
+def update_reservation_quantity_view(request, pk):
+    """Adjust a pending reservation and synchronize its reserved stock and sale."""
+    from pos.models import Sale
+
+    try:
+        new_quantity = int(request.POST.get('quantity', ''))
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Enter a valid quantity.'}, status=400)
+
+    if new_quantity < 1:
+        return JsonResponse({'success': False, 'error': 'Quantity must be at least 1.'}, status=400)
+
+    can_manage_reservation = request.user.has_module_permission('reservations', 'EDIT')
+    reservation_queryset = Reservation.objects.select_for_update().select_related(
+        'product', 'product__branch', 'user'
+    )
+    if not can_manage_reservation:
+        reservation_queryset = reservation_queryset.filter(user=request.user)
+
+    with transaction.atomic():
+        reservation = get_object_or_404(reservation_queryset, pk=pk)
+        if reservation.status != Reservation.Status.PENDING:
+            return JsonResponse({
+                'success': False,
+                'error': 'Only pending reservations can be changed.',
+            }, status=409)
+
+        if can_manage_reservation and request.user.is_module_branch_restricted('reservations'):
+            user_branch = _get_user_branch(request.user)
+            if not user_branch or reservation.product.branch_id != user_branch.pk:
+                return JsonResponse({'success': False, 'error': 'Reservation is outside your branch.'}, status=403)
+
+        sale = reservation.sale
+        if sale and not can_manage_reservation and sale.cashier_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'This reservation is already being processed at the clinic.',
+            }, status=409)
+        if sale and sale.status != Sale.Status.PENDING:
+            return JsonResponse({
+                'success': False,
+                'error': 'This reservation can no longer be changed because payment has started or completed.',
+            }, status=409)
+
+        old_quantity = reservation.quantity
+        quantity_delta = new_quantity - old_quantity
+        product = Product.objects.select_for_update().get(pk=reservation.product_id)
+
+        if quantity_delta > 0 and product.stock_quantity < quantity_delta:
+            return JsonResponse({
+                'success': False,
+                'error': f'Only {product.stock_quantity} additional item(s) are available.',
+            }, status=400)
+
+        if quantity_delta:
+            adjustment_type = 'REMOVE' if quantity_delta > 0 else 'ADD'
+            StockAdjustment.objects.create(
+                branch=product.branch,
+                product=product,
+                adjustment_type=adjustment_type,
+                reference=f'RSV-{reservation.pk}-QTY',
+                date=date.today(),
+                quantity=abs(quantity_delta),
+                cost_per_unit=product.unit_cost,
+                reason=(
+                    f'Reservation quantity changed from {old_quantity} to {new_quantity} '
+                    f'by {request.user.get_full_name() or request.user.username}'
+                ),
+            )
+
+        reservation.quantity = new_quantity
+        reservation.save(update_fields=['quantity', 'updated_at'])
+
+        sale_item = None
+        if sale:
+            sale_item = sale.items.filter(product_id=product.pk).first()
+            if sale_item is None:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'The linked POS item could not be found.',
+                }, status=409)
+            sale_item.quantity = new_quantity
+            sale_item.save()
+            sale.refresh_from_db()
+        product.refresh_from_db()
+
+    return JsonResponse({
+        'success': True,
+        'quantity': new_quantity,
+        'stock_quantity': product.stock_quantity,
+        'sale': {
+            'subtotal': str(sale.subtotal),
+            'total': str(sale.total),
+        } if sale else None,
+        'line_total': str(sale_item.line_total) if sale_item else None,
+    })
 
 
 @login_required
@@ -801,7 +968,7 @@ def cancel_reservation_view(request, pk):
 
     messages.success(
         request, "Reservation cancelled. Stock has been restored.")
-    return redirect('inventory:management')
+    return redirect(f"{reverse('inventory:management')}?tab=reservations")
 
 
 @login_required

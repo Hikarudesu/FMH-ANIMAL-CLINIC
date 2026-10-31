@@ -110,7 +110,8 @@ class CustomerStatementPortalTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'soa-identity')
         self.assertContains(response, 'bx-receipt')
-        self.assertContains(response, 'Issued Oct 13, 2026')
+        self.assertContains(response, 'Account Date')
+        self.assertContains(response, 'Oct 13, 2026')
         self.assertContains(response, 'Milo')
         self.assertContains(response, '₱1,500.00')
         self.assertContains(response, '₱1,000.00')
@@ -122,3 +123,31 @@ class CustomerStatementPortalTests(TestCase):
             response,
             f'{reverse("billing:my_statement_detail", args=[statement.pk])}?format=print',
         )
+
+    def test_statement_card_content_breakdown_and_general_services_handling(self):
+        owner = get_user_model().objects.create_user(
+            username='otc-buyer-owner',
+            email='otc-buyer-owner@example.com',
+            password='A-secure-test-password-923!',
+        )
+        # Statement with General Services (retail / walk-in product purchase)
+        otc_statement = CustomerStatement.objects.create(
+            patient_name='General Services',
+            owner_name='OTC Buyer',
+            customer=owner,
+            date=date(2026, 10, 15),
+            total_amount=850,
+            deposit=850,
+            status='RELEASED',
+        )
+
+        self.client.force_login(owner)
+        response = self.client.get(reverse('billing:my_statements'))
+
+        self.assertEqual(response.status_code, 200)
+        # Should display Purchase Type: Retail / OTC
+        self.assertContains(response, 'Purchase Type')
+        self.assertContains(response, 'Retail / OTC')
+        # Should NOT display "Patient" for General Services
+        self.assertNotContains(response, '<span class="label">Patient</span>')
+

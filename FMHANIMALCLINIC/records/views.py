@@ -1329,6 +1329,8 @@ def admin_add_entry(request, pk):
                 initial_data['ff_up'] = appointment_followup.follow_up_date
         if default_vet_id:
             initial_data['vet'] = default_vet_id
+        if record.pet.clinical_status_id:
+            initial_data['action_required'] = record.pet.clinical_status_id
         form = RecordEntryForm(initial=initial_data)
 
     branches = Branch.objects.filter(is_active=True)

@@ -247,6 +247,16 @@ class Pet(SoftDeleteModel):
         """Backward-compatible display helper."""
         return self.status_display
 
+    def sync_clinical_status_to_records(self):
+        """Keep all visit entries aligned with the pet's current status."""
+        from records.models import RecordEntry
+
+        RecordEntry.objects.filter(
+            record__pet_id=self.pk,
+        ).exclude(
+            action_required_id=self.clinical_status_id,
+        ).update(action_required_id=self.clinical_status_id)
+
     # ── Resolved owner helpers ─────────────────────────────────────────────
     @property
     def owner_display_name(self):
@@ -387,3 +397,4 @@ def create_clinical_status_log(sender, instance, created, **kwargs):
             pet=instance,
             status=instance.clinical_status
         )
+        instance.sync_clinical_status_to_records()

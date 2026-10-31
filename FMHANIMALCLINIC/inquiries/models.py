@@ -61,10 +61,13 @@ class Inquiry(models.Model):
     response = models.TextField(blank=True)
     response_date = models.DateTimeField(null=True, blank=True)
     
-    # Internal Notes
+    # Optional client-facing information included with the response.
     internal_notes = models.TextField(
         blank=True, 
-        help_text='Internal notes (not visible to customer)'
+        help_text=(
+            'Optional helpful details, instructions, or next steps included '
+            'with the inquiry response email.'
+        )
     )
     
     # Metadata

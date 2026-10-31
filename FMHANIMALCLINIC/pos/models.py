@@ -151,9 +151,12 @@ class Sale(models.Model):
             raise ValueError("Only pending sales can be completed.")
 
         with transaction.atomic():
+            from inventory.models import Reservation
+
+            reservation_sale = Reservation.objects.filter(sale=self).exists()
             # Deduct inventory for product items
             for item in self.items.filter(item_type__in=['PRODUCT', 'MEDICATION']):
-                if item.product:
+                if item.product and not reservation_sale:
                     StockAdjustment.objects.create(
                         branch=self.branch,
                         product=item.product,
