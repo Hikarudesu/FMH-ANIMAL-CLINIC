@@ -432,10 +432,18 @@ window.closeCancelReservationModal = function() {
 }
 
 window.openReleaseReservationModal = function(url, reservationId, productName) {
-  document.getElementById('releaseReservationId').textContent = reservationId;
-  document.getElementById('releaseReservationProduct').textContent = productName;
-  document.getElementById('releaseReservationForm').action = url;
-  document.getElementById('releaseReservationModal').classList.add('active');
+  const reservationIdElement = document.getElementById('releaseReservationId');
+  const productElement = document.getElementById('releaseReservationProduct');
+  const formElement = document.getElementById('releaseReservationForm');
+  const modalElement = document.getElementById('releaseReservationModal');
+  if (!reservationIdElement || !productElement || !formElement || !modalElement) {
+    console.error('Release reservation modal is missing required elements.');
+    return;
+  }
+  reservationIdElement.textContent = reservationId;
+  productElement.textContent = productName;
+  formElement.action = url;
+  modalElement.classList.add('active');
 }
 
 window.closeReleaseReservationModal = function() {
@@ -523,6 +531,9 @@ window.closeReleaseReservationModal = function() {
       <div class="modal-body" style="text-align: center; padding-top: 30px;">
         <i class='bx bx-check-circle' style="font-size: 4rem; color: #059669; margin-bottom: 16px;"></i>
         <h4 style="margin-bottom: 12px; font-size: 1.25rem;">Proceed with <span id="releaseReservationId"></span>?</h4>
+        <div style="font-weight: 600; color: var(--text-1); margin-bottom: 10px;">
+          Product: <span id="releaseReservationProduct"></span>
+        </div>
         <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 10px;">
         This will open the reservation in the Point of Sale with the customer, product, quantity, and reservation details filled in automatically. The reservation will only be released after payment is successfully recorded.
         </p>
