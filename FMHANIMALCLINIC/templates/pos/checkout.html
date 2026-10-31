@@ -1293,7 +1293,11 @@
       <button class="pos-modal-btn secondary" onclick="viewStatement()">
         <i class='bx bx-file'></i> View Statement
       </button>
-      {% if appointment %}
+      {% if reservation %}
+      <button class="pos-modal-btn primary" onclick="returnToReservationList()">
+        <i class='bx bx-left-arrow-alt'></i> Return to reservations
+      </button>
+      {% elif appointment %}
       <button class="pos-modal-btn primary" onclick="returnToAppointment()">
         <i class='bx bx-left-arrow-alt'></i> Return to appointment
       </button>
@@ -2349,11 +2353,17 @@ function newSale() {
 }
 
 function closeSuccessModal() {
-  {% if appointment %}
+  {% if reservation %}
+  returnToReservationList();
+  {% elif appointment %}
   returnToAppointment();
   {% else %}
   newSale();
   {% endif %}
+}
+
+function returnToReservationList() {
+  window.location.href = "{{ reservation_return_url }}";
 }
 
 function returnToAppointment() {

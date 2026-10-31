@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -181,6 +182,10 @@ def checkout(request):
         'sale': pending_sale,
         'appointment': appointment,
         'reservation': reservation,
+        'reservation_return_url': (
+            f"{reverse('inventory:management')}?tab=reservations"
+            if reservation else ''
+        ),
         'items': pending_sale.items.all(),
         'services': services,
         'inventory_item_types': get_inventory_item_type_options(),
@@ -745,11 +750,14 @@ def cancel_sale(request, sale_id):
             branch=request.user.branch,
             status=Sale.Status.PENDING,
         )
+        reservation_sale = Reservation.objects.filter(sale=sale).exists()
         sale.delete()
         messages.info(request, 'Sale cancelled.')
     except Sale.DoesNotExist:
         messages.error(request, 'Sale not found or already completed.')
 
+    if reservation_sale:
+        return redirect(f"{reverse('inventory:management')}?tab=reservations")
     return redirect('pos:checkout')
 
 
