@@ -154,7 +154,12 @@ def catalog_view(request):
     # User's own reservations
     user_reservations = Reservation.objects.filter(  # pylint: disable=no-member
         user=request.user
-    ).select_related('product', 'product__branch')
+    ).select_related('product', 'product__branch').order_by('-created_at', '-pk')
+    user_reservation_count = user_reservations.count()
+    reservations_paginator = Paginator(user_reservations, CATALOG_PAGE_SIZE)
+    user_reservations = reservations_paginator.get_page(
+        request.GET.get('reservation_page', 1)
+    )
 
     reservation_success = None
     reservation_success_id = request.session.pop('reservation_success_id', None)
@@ -179,6 +184,7 @@ def catalog_view(request):
         'can_select_catalog_branch': not staff_branch_restricted and not is_pet_owner_without_branch,
         'catalog_branch_assignment_required': (staff_branch_restricted and not user_branch) or is_pet_owner_without_branch,
         'user_reservations': user_reservations,
+        'user_reservation_count': user_reservation_count,
         'reservation_success': reservation_success,
         'active_catalog_tab': active_catalog_tab,
     })

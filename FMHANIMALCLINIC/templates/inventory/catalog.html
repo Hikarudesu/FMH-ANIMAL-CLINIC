@@ -24,8 +24,8 @@ Catalog{% endblock %} {% block content %}
   <button class="c-tab-btn" data-tab="reservations" type="button" onclick="switchCatalogTab('reservations')">
     <i class="bx bx-receipt c-tab-btn__icon"></i>
     <span class="c-tab-btn__label">My Reservations</span>
-    {% if user_reservations %}
-    <span class="c-tab-btn__badge">{{ user_reservations|length }}</span>
+    {% if user_reservation_count %}
+    <span class="c-tab-btn__badge">{{ user_reservation_count }}</span>
     {% endif %}
   </button>
 </div>
@@ -1024,6 +1024,11 @@ Catalog{% endblock %} {% block content %}
     </div>
     {% endfor %}
   </div>
+  {% if user_reservations %}
+    <div style="margin-top: 32px;">
+      {% include "components/modern_pagination.html" with page_obj=user_reservations page_param="reservation_page" url_fragment="catReservationsSection" %}
+    </div>
+  {% endif %}
   {% else %}
   <div style="text-align: center; padding: 60px 20px; color: var(--text-3)">
     <i
